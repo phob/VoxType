@@ -4,6 +4,8 @@ export type InsertionMode = (typeof insertionModes)[number];
 
 export type AppSettings = {
   modelDirectory: string;
+  activeModelId: string;
+  whisperExecutablePath: string;
   insertionMode: InsertionMode;
   offlineMode: boolean;
   restoreClipboard: boolean;
@@ -27,6 +29,14 @@ export function sanitizeSettings(
       typeof input.modelDirectory === "string" && input.modelDirectory.trim().length > 0
         ? input.modelDirectory
         : defaults.modelDirectory,
+    activeModelId:
+      typeof input.activeModelId === "string" && input.activeModelId.trim().length > 0
+        ? input.activeModelId
+        : defaults.activeModelId,
+    whisperExecutablePath:
+      typeof input.whisperExecutablePath === "string"
+        ? input.whisperExecutablePath
+        : defaults.whisperExecutablePath,
     insertionMode: isInsertionMode(input.insertionMode)
       ? input.insertionMode
       : defaults.insertionMode,
@@ -51,4 +61,3 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
-

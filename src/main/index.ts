@@ -1,13 +1,21 @@
-import { app, BrowserWindow, Menu, Tray, ipcMain, nativeImage } from "electron";
+import { app, BrowserWindow, Menu, Tray, globalShortcut, ipcMain, nativeImage } from "electron";
 import { join } from "node:path";
 import { type SettingsPatch } from "../shared/settings";
+import { HistoryStore } from "./history-store";
+import { InsertionService } from "./insertion-service";
+import { ModelService } from "./model-service";
 import { SettingsStore } from "./settings-store";
+import { TranscriptionService } from "./transcription-service";
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 
 const isDev = Boolean(process.env.ELECTRON_RENDERER_URL);
 const settingsStore = new SettingsStore();
+const historyStore = new HistoryStore();
+const modelService = new ModelService(settingsStore);
+const transcriptionService = new TranscriptionService(settingsStore, historyStore);
+const insertionService = new InsertionService();
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -56,20 +64,46 @@ function createTray(): void {
   );
 }
 
+function showMainWindow(): void {
+  if (!mainWindow) {
+    createWindow();
+    return;
+  }
+
+  if (mainWindow.isMinimized()) {
+    mainWindow.restore();
+  }
+
+  mainWindow.show();
+  mainWindow.focus();
+}
+
 ipcMain.handle("app:get-version", () => app.getVersion());
 ipcMain.handle("settings:get", () => settingsStore.get());
 ipcMain.handle("settings:update", (_event, patch: SettingsPatch) => settingsStore.update(patch));
 ipcMain.handle("settings:reset", () => settingsStore.reset());
+ipcMain.handle("models:list", () => modelService.list());
+ipcMain.handle("models:download", (_event, modelId: string) => modelService.download(modelId));
+ipcMain.handle("transcription:transcribe-wav", (_event, bytes: Uint8Array) =>
+  transcriptionService.transcribeWav(bytes)
+);
+ipcMain.handle("history:list", () => historyStore.list());
+ipcMain.handle("insertion:copy", (_event, text: string) => insertionService.copyForInsertion(text));
 
 app.whenReady().then(() => {
   createWindow();
   createTray();
+  globalShortcut.register("CommandOrControl+Shift+Space", showMainWindow);
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
     }
   });
+});
+
+app.on("will-quit", () => {
+  globalShortcut.unregisterAll();
 });
 
 app.on("window-all-closed", () => {

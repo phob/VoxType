@@ -18,6 +18,8 @@ export class SettingsStore {
     this.settingsPath = join(userDataPath, "settings.json");
     this.defaults = {
       modelDirectory: join(userDataPath, "models"),
+      activeModelId: "tiny.en",
+      whisperExecutablePath: "",
       insertionMode: "clipboard",
       offlineMode: false,
       restoreClipboard: true,
@@ -63,4 +65,3 @@ export class SettingsStore {
     await writeFile(this.settingsPath, `${JSON.stringify(settings, null, 2)}\n`, "utf8");
   }
 }
-

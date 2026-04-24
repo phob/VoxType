@@ -104,6 +104,11 @@ Current foundation:
 - `src/main/settings-store.ts` stores settings as JSON under Electron's `app.getPath("userData")`.
 - `src/preload/index.ts` exposes settings read/update/reset methods to the renderer through IPC.
 - Initial settings include model directory, insertion mode, offline mode, clipboard restoration, and remote typing delay.
+- `src/shared/models.ts` defines the initial Whisper model catalog.
+- `src/main/model-service.ts` downloads Whisper ggml models from the `ggerganov/whisper.cpp` Hugging Face repository into the configured model directory.
+- `src/main/transcription-service.ts` writes recorded WAV audio to a temp file and invokes a configured `whisper.cpp` executable, defaulting to `whisper-cli`.
+- `src/main/history-store.ts` persists recent transcript history under Electron's `userData` path.
+- `src/main/insertion-service.ts` currently prepares clipboard insertion by copying transcript text to the clipboard. Direct paste/typing into arbitrary Windows apps remains Phase 2 native-helper work.
 
 ## Security And Privacy
 

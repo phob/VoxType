@@ -13,6 +13,7 @@
 - Should the native helper be written in Rust or C++?
 - Which Whisper model should be the default first-run recommendation?
 - Which `whisper.cpp` binary/backend should be packaged first: CPU-only, Vulkan, CUDA, or multiple?
+- How should VoxType bundle or acquire the `whisper.cpp` executable for Windows instead of requiring the user to set `whisperExecutablePath`?
 - Which OCR engine should ship first: Tesseract or PaddleOCR?
 - How should model downloads be hosted and verified?
 - Should inference workers communicate with Electron through stdio, named pipes, local HTTP, or another IPC mechanism?
@@ -26,4 +27,3 @@
 - How should the user choose between paste, direct typing, and remote mode?
 - What should "fix last dictation" look like?
 - How should uncertain words be highlighted without slowing down fast dictation?
-

@@ -176,3 +176,28 @@ Recommended approach:
 2. Tag the initial baseline as `v0.1.0` if a clean starting release marker is desired.
 3. Use Conventional Commits for future release-relevant work.
 4. Let Release Please open release PRs for later versions.
+
+## Troubleshooting
+
+### GitHub Actions cannot create pull requests
+
+Error:
+
+```text
+release-please failed: GitHub Actions is not permitted to create or approve pull requests.
+```
+
+This is a repository setting, not a Release Please config problem.
+
+Fix:
+
+1. Open the GitHub repository settings.
+2. Go to `Settings` -> `Actions` -> `General`.
+3. Under `Workflow permissions`, choose `Read and write permissions`.
+4. Enable `Allow GitHub Actions to create and approve pull requests`.
+5. Save.
+6. Re-run the failed `release-please` workflow.
+
+Alternative:
+
+Use a maintainer-owned personal access token stored as a repository secret and pass it to the Release Please action with `token`. This can also make CI run on Release Please PRs, but it is more credential management than the project needs at the start.

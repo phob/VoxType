@@ -18,12 +18,12 @@ Features:
 - Electron app shell. Initial scaffold created.
 - Tray app. Initial tray context menu created.
 - Settings window. First persistent settings panel and main-process settings store created.
-- Global push-to-talk hotkey.
-- Microphone recording.
-- Whisper transcription through `whisper.cpp`.
-- Basic model download.
-- Clipboard paste insertion.
-- Simple transcript history.
+- Global push-to-talk hotkey. Initial global shortcut brings VoxType forward with `Ctrl+Shift+Space`; true background push-to-talk remains native-helper work.
+- Microphone recording. Initial renderer recorder captures microphone audio and encodes 16 kHz WAV.
+- Whisper transcription through `whisper.cpp`. Initial service invokes configured `whisper-cli` with the selected local model.
+- Basic model download. Initial catalog downloads `tiny.en`, `base.en`, and `small.en` ggml models.
+- Clipboard paste insertion. Initial implementation copies the transcript to the clipboard automatically after transcription when clipboard mode is selected. Automatic paste into the previously focused app remains Phase 2 work.
+- Simple transcript history. Initial local JSON history stores the latest 50 transcripts.
 
 ## Phase 2: Windows Insertion Reliability
 
