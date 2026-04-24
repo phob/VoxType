@@ -90,6 +90,8 @@ Features:
 Implementation notes:
 
 - First slice runs post-recording Silero VAD in the renderer using `@ricky0123/vad-web` and ONNX Runtime Web/WASM. It bundles the Silero ONNX model and ONNX Runtime WASM assets locally with the renderer build.
+- Renderer recording now requests raw microphone audio by disabling browser echo cancellation, noise suppression, and automatic gain control, and batches AudioWorklet samples before transferring them to the renderer.
+- Handy's crackle-free behavior is likely helped by native CPAL recording, native worker-thread buffering, and Rubato resampling. VoxType should move microphone capture to a native helper/worker if crackle persists after the renderer recorder hardening.
 - VAD trimming should currently be conservative edge trimming: find the first and last speech range and keep the continuous original audio between them. It should not cut internal pauses until VoxType has Handy-style frame-level smoothing.
 - VoxType should use a high-quality resampler before Whisper/VAD. The first fix uses Web Audio `OfflineAudioContext` resampling instead of the earlier linear downsampler.
 - Defaults should be conservative, closer to Handy's Silero approach: lower speech threshold, longer pre-roll, and longer hangover/redemption.

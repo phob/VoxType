@@ -13,9 +13,10 @@ export type PcmRecordingResult = {
 export async function startPcmRecorder(): Promise<PcmRecorder> {
   const stream = await navigator.mediaDevices.getUserMedia({
     audio: {
+      autoGainControl: false,
       channelCount: 1,
-      echoCancellation: true,
-      noiseSuppression: true
+      echoCancellation: false,
+      noiseSuppression: false
     }
   });
   const audioContext = new AudioContext();
@@ -33,17 +34,42 @@ export async function startPcmRecorder(): Promise<PcmRecorder> {
   const chunks: Float32Array[] = [];
 
   silentMonitor.gain.value = 0;
-  processor.port.onmessage = (event: MessageEvent<Float32Array>) => {
-    chunks.push(event.data);
+  let flushResolver: (() => void) | null = null;
+  processor.port.onmessage = (event: MessageEvent<Float32Array | { type: "flush-complete" }>) => {
+    if (event.data instanceof Float32Array) {
+      chunks.push(event.data);
+      return;
+    }
+
+    if (event.data.type === "flush-complete") {
+      flushResolver?.();
+      flushResolver = null;
+    }
   };
 
   source.connect(processor);
   processor.connect(silentMonitor);
   silentMonitor.connect(audioContext.destination);
 
+  const flushWorklet = (): Promise<void> =>
+    new Promise((resolve) => {
+      const timeout = window.setTimeout(() => {
+        flushResolver = null;
+        resolve();
+      }, 250);
+
+      flushResolver = () => {
+        window.clearTimeout(timeout);
+        resolve();
+      };
+
+      processor.port.postMessage({ type: "flush" });
+    });
+
   return {
     stop: async (options) => {
       const sampleRate = audioContext.sampleRate;
+      await flushWorklet();
       processor.port.onmessage = null;
       processor.disconnect();
       silentMonitor.disconnect();
@@ -214,16 +240,55 @@ function writeString(view: DataView, offset: number, value: string): void {
 
 const PCM_WORKLET_SOURCE = `
 class VoxTypePcmRecorder extends AudioWorkletProcessor {
+  constructor() {
+    super();
+    this.chunkSize = 4096;
+    this.buffer = new Float32Array(this.chunkSize);
+    this.offset = 0;
+    this.port.onmessage = (event) => {
+      if (event.data && event.data.type === "flush") {
+        this.flush();
+        this.port.postMessage({ type: "flush-complete" });
+      }
+    };
+  }
+
   process(inputs) {
     const input = inputs[0];
     const channel = input && input[0];
 
     if (channel && channel.length > 0) {
-      const copy = new Float32Array(channel);
-      this.port.postMessage(copy, [copy.buffer]);
+      this.append(channel);
     }
 
     return true;
+  }
+
+  append(channel) {
+    let readOffset = 0;
+
+    while (readOffset < channel.length) {
+      const available = this.chunkSize - this.offset;
+      const count = Math.min(available, channel.length - readOffset);
+
+      this.buffer.set(channel.subarray(readOffset, readOffset + count), this.offset);
+      this.offset += count;
+      readOffset += count;
+
+      if (this.offset === this.chunkSize) {
+        this.flush();
+      }
+    }
+  }
+
+  flush() {
+    if (this.offset === 0) {
+      return;
+    }
+
+    const copy = this.buffer.slice(0, this.offset);
+    this.port.postMessage(copy, [copy.buffer]);
+    this.offset = 0;
   }
 }
 
