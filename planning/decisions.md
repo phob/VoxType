@@ -142,12 +142,22 @@ Reason:
 
 Windows does not provide a simple reliable public control for muting only another application's microphone capture while keeping VoxType recording from the same device. Muting the physical input endpoint risks muting VoxType too. App-level hotkey automation is more practical, reversible, user-controlled, and fits VoxType's existing per-app profile direction.
 
-## 2026-04-25: Use Native CPAL Recording As Primary Capture Path
+## 2026-04-25: Use Native CPAL Recording As Only Capture Path
 
 Decision:
 
-VoxType should use the Rust Windows helper as the primary microphone recorder, using CPAL for device capture and Rubato for 16 kHz resampling. The browser `AudioWorkletNode` recorder should remain only as a fallback.
+VoxType should use the Rust Windows helper as the microphone recorder, using CPAL for device capture and Rubato for 16 kHz resampling. The browser `AudioWorkletNode` recorder should not be used as a fallback.
 
 Reason:
 
 Long VoxType recordings started crackling around the 25-30 second mark even when Silero VAD was disabled, which points to the browser/WebAudio capture path rather than VAD trimming. Handy does not show the same problem and uses native CPAL capture plus Rubato resampling, so VoxType should follow that architecture for stable Windows dictation.
+
+## 2026-04-25: Run Silero VAD In The Native Helper
+
+Decision:
+
+VoxType should run Silero VAD in the Rust Windows helper using Handy's approach: `vad-rs`, `silero_vad_v4.onnx`, 30 ms frames, and `SmoothedVad` prefill/hangover/onset smoothing.
+
+Reason:
+
+Keeping capture, resampling, and VAD in the same native pipeline avoids renderer/WebAudio timing issues, removes ONNX Runtime Web from the transcription path, and matches the Handy integration that behaved better during audio-quality testing.

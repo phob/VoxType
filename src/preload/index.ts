@@ -17,6 +17,8 @@ import { type TranscriptEntry, type TranscriptionResult } from "../shared/transc
 import {
   type DictationHotkeyPayload,
   type DictationHotkeyState,
+  type NativeRecordingOptions,
+  type NativeRecordingResult,
   type ActiveWindowInfo,
   type WindowsHelperStatus
 } from "../shared/windows-helper";
@@ -110,10 +112,10 @@ const voxtype = {
       ipcRenderer.invoke("windows-helper:status") as Promise<WindowsHelperStatus>,
     activeWindow: () =>
       ipcRenderer.invoke("windows-helper:active-window") as Promise<ActiveWindowInfo>,
-    startRecording: () =>
-      ipcRenderer.invoke("windows-helper:start-recording") as Promise<void>,
+    startRecording: (options: NativeRecordingOptions) =>
+      ipcRenderer.invoke("windows-helper:start-recording", options) as Promise<void>,
     stopRecording: () =>
-      ipcRenderer.invoke("windows-helper:stop-recording") as Promise<Uint8Array>,
+      ipcRenderer.invoke("windows-helper:stop-recording") as Promise<NativeRecordingResult>,
     setSystemMute: (muted: boolean) =>
       ipcRenderer.invoke("windows-helper:set-system-mute", muted) as Promise<void>
   }

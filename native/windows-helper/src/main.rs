@@ -14,7 +14,7 @@ fn main() {
         "active-window" => active_window_json(),
         "focus-window" => focus_window_from_arg(),
         "set-system-mute" => set_system_mute_from_arg(),
-        "record-wav" => record_wav_from_arg(),
+        "record-wav" => record_wav_from_args(),
         "paste-text" => paste_text_from_stdin(),
         "type-text" => type_text_from_stdin(),
         "help" | "--help" | "-h" => {
@@ -34,16 +34,88 @@ fn main() {
 }
 
 #[cfg(windows)]
-fn record_wav_from_arg() -> Result<(), String> {
+fn record_wav_from_args() -> Result<(), String> {
     let output_path = env::args()
         .nth(2)
         .ok_or_else(|| "record-wav requires an output path.".to_string())?;
-    windows_impl::record_wav_until_stdin_stop(&output_path)
+    windows_impl::record_wav_until_stdin_stop(&output_path, NativeVadConfig::from_args()?)
 }
 
 #[cfg(not(windows))]
-fn record_wav_from_arg() -> Result<(), String> {
+fn record_wav_from_args() -> Result<(), String> {
     Err("record-wav is only supported on Windows.".to_string())
+}
+
+#[derive(Clone)]
+struct NativeVadConfig {
+    enabled: bool,
+    model_path: Option<String>,
+    threshold: f32,
+    prefill_frames: usize,
+    hangover_frames: usize,
+    onset_frames: usize,
+}
+
+impl NativeVadConfig {
+    fn from_args() -> Result<Self, String> {
+        let args = env::args().skip(3).collect::<Vec<_>>();
+        let mut config = Self {
+            enabled: false,
+            model_path: None,
+            threshold: 0.3,
+            prefill_frames: 15,
+            hangover_frames: 15,
+            onset_frames: 2,
+        };
+        let mut index = 0;
+
+        while index < args.len() {
+            match args[index].as_str() {
+                "--vad-model" => {
+                    index += 1;
+                    config.enabled = true;
+                    config.model_path = args.get(index).cloned();
+                }
+                "--vad-threshold" => {
+                    index += 1;
+                    config.threshold = args
+                        .get(index)
+                        .ok_or_else(|| "--vad-threshold requires a value.".to_string())?
+                        .parse::<f32>()
+                        .map_err(|error| format!("Invalid --vad-threshold: {error}"))?;
+                }
+                "--vad-prefill-frames" => {
+                    index += 1;
+                    config.prefill_frames =
+                        parse_usize_arg(&args, index, "--vad-prefill-frames")?;
+                }
+                "--vad-hangover-frames" => {
+                    index += 1;
+                    config.hangover_frames =
+                        parse_usize_arg(&args, index, "--vad-hangover-frames")?;
+                }
+                "--vad-onset-frames" => {
+                    index += 1;
+                    config.onset_frames = parse_usize_arg(&args, index, "--vad-onset-frames")?;
+                }
+                option => return Err(format!("Unknown record-wav option: {option}")),
+            }
+            index += 1;
+        }
+
+        if config.enabled && config.model_path.is_none() {
+            return Err("--vad-model requires a model path.".to_string());
+        }
+
+        Ok(config)
+    }
+}
+
+fn parse_usize_arg(args: &[String], index: usize, name: &str) -> Result<usize, String> {
+    args.get(index)
+        .ok_or_else(|| format!("{name} requires a value."))?
+        .parse::<usize>()
+        .map_err(|error| format!("Invalid {name}: {error}"))
 }
 
 #[cfg(windows)]
@@ -135,6 +207,7 @@ mod windows_impl {
     use cpal::{Sample, SizedSample};
     use rubato::{FftFixedIn, Resampler};
     use serde::Serialize;
+    use std::collections::VecDeque;
     use std::fs::File;
     use std::io::{self, BufRead, BufReader, BufWriter};
     use std::mem::MaybeUninit;
@@ -147,6 +220,7 @@ mod windows_impl {
     };
     use std::thread;
     use std::time::Duration;
+    use vad_rs::Vad;
     use windows::core::PWSTR;
     use windows::Win32::Foundation::{CloseHandle, HANDLE, HWND, MAX_PATH};
     use windows::Win32::Media::Audio::{
@@ -177,6 +251,8 @@ mod windows_impl {
     const CF_UNICODETEXT_FORMAT: u32 = 13;
     const VOXTYPE_SAMPLE_RATE: usize = 16_000;
     const RESAMPLER_CHUNK_SIZE: usize = 1024;
+    const VAD_FRAME_MS: usize = 30;
+    const VAD_FRAME_SAMPLES: usize = VOXTYPE_SAMPLE_RATE * VAD_FRAME_MS / 1000;
 
     #[derive(Serialize)]
     #[serde(rename_all = "camelCase")]
@@ -272,7 +348,10 @@ mod windows_impl {
         Ok(())
     }
 
-    pub fn record_wav_until_stdin_stop(output_path: &str) -> Result<(), String> {
+    pub fn record_wav_until_stdin_stop(
+        output_path: &str,
+        vad_config: super::NativeVadConfig,
+    ) -> Result<(), String> {
         let output_path = Path::new(output_path);
         let host = cpal::default_host();
         let device = host
@@ -314,12 +393,39 @@ mod windows_impl {
         stream.play().map_err(|error| error.to_string())?;
 
         let mut resampler = FrameResampler::new(sample_rate as usize, VOXTYPE_SAMPLE_RATE);
+        let mut frame_emitter = FrameEmitter::new(VAD_FRAME_SAMPLES);
+        let mut vad = if vad_config.enabled {
+            Some(SmoothedVad::new(
+                Box::new(SileroVad::new(
+                    vad_config
+                        .model_path
+                        .as_deref()
+                        .ok_or_else(|| "VAD model path is missing.".to_string())?,
+                    vad_config.threshold,
+                )?),
+                vad_config.prefill_frames,
+                vad_config.hangover_frames,
+                vad_config.onset_frames,
+            ))
+        } else {
+            None
+        };
         let mut samples = Vec::<f32>::new();
+        let mut raw_samples = 0usize;
+        let mut speech_frames = 0usize;
 
         while !stop_flag.load(Ordering::SeqCst) {
             match sample_rx.recv_timeout(Duration::from_millis(100)) {
                 Ok(chunk) => {
-                    resampler.push(&chunk, &mut |frame| samples.extend_from_slice(frame));
+                    process_audio_chunk(
+                        &chunk,
+                        &mut resampler,
+                        &mut frame_emitter,
+                        vad.as_mut(),
+                        &mut samples,
+                        &mut raw_samples,
+                        &mut speech_frames,
+                    );
                 }
                 Err(mpsc::RecvTimeoutError::Timeout) => {}
                 Err(mpsc::RecvTimeoutError::Disconnected) => break,
@@ -329,17 +435,36 @@ mod windows_impl {
         drop(stream);
 
         while let Ok(chunk) = sample_rx.try_recv() {
-            resampler.push(&chunk, &mut |frame| samples.extend_from_slice(frame));
+            process_audio_chunk(
+                &chunk,
+                &mut resampler,
+                &mut frame_emitter,
+                vad.as_mut(),
+                &mut samples,
+                &mut raw_samples,
+                &mut speech_frames,
+            );
         }
 
-        resampler.finish(&mut |frame| samples.extend_from_slice(frame));
+        resampler.finish(&mut |resampled| {
+            raw_samples += resampled.len();
+            frame_emitter.push(resampled, &mut |frame| {
+                process_vad_frame(frame, vad.as_mut(), &mut samples, &mut speech_frames);
+            });
+        });
+        frame_emitter.finish(&mut |frame| {
+            process_vad_frame(frame, vad.as_mut(), &mut samples, &mut speech_frames);
+        });
         write_wav(output_path, &samples)?;
         println!(
             "{}",
             serde_json::to_string(&RecordingResponse {
                 path: output_path.to_string_lossy().to_string(),
                 sample_rate: VOXTYPE_SAMPLE_RATE as u32,
-                samples: samples.len()
+                samples: samples.len(),
+                raw_samples,
+                vad_enabled: vad_config.enabled,
+                speech_frames,
             })
             .map_err(|error| error.to_string())?
         );
@@ -352,6 +477,42 @@ mod windows_impl {
         path: String,
         sample_rate: u32,
         samples: usize,
+        raw_samples: usize,
+        vad_enabled: bool,
+        speech_frames: usize,
+    }
+
+    fn process_audio_chunk(
+        chunk: &[f32],
+        resampler: &mut FrameResampler,
+        frame_emitter: &mut FrameEmitter,
+        mut vad: Option<&mut SmoothedVad>,
+        samples: &mut Vec<f32>,
+        raw_samples: &mut usize,
+        speech_frames: &mut usize,
+    ) {
+        resampler.push(chunk, &mut |resampled| {
+            *raw_samples += resampled.len();
+            frame_emitter.push(resampled, &mut |frame| {
+                process_vad_frame(frame, vad.as_deref_mut(), samples, speech_frames);
+            });
+        });
+    }
+
+    fn process_vad_frame(
+        frame: &[f32],
+        vad: Option<&mut SmoothedVad>,
+        samples: &mut Vec<f32>,
+        speech_frames: &mut usize,
+    ) {
+        if let Some(vad) = vad {
+            if let Ok(Some(speech)) = vad.push_frame(frame) {
+                *speech_frames += speech.len() / VAD_FRAME_SAMPLES;
+                samples.extend_from_slice(&speech);
+            }
+        } else {
+            samples.extend_from_slice(frame);
+        }
     }
 
     fn get_preferred_input_config(
@@ -482,6 +643,160 @@ mod windows_impl {
                         emit(&output[0]);
                     }
                     self.in_buf.clear();
+                }
+            }
+        }
+    }
+
+    struct FrameEmitter {
+        frame_samples: usize,
+        pending: Vec<f32>,
+    }
+
+    impl FrameEmitter {
+        fn new(frame_samples: usize) -> Self {
+            Self {
+                frame_samples,
+                pending: Vec::with_capacity(frame_samples),
+            }
+        }
+
+        fn push(&mut self, mut input: &[f32], emit: &mut impl FnMut(&[f32])) {
+            while !input.is_empty() {
+                let available = self.frame_samples - self.pending.len();
+                let count = available.min(input.len());
+                self.pending.extend_from_slice(&input[..count]);
+                input = &input[count..];
+
+                if self.pending.len() == self.frame_samples {
+                    emit(&self.pending);
+                    self.pending.clear();
+                }
+            }
+        }
+
+        fn finish(&mut self, emit: &mut impl FnMut(&[f32])) {
+            if !self.pending.is_empty() {
+                self.pending.resize(self.frame_samples, 0.0);
+                emit(&self.pending);
+                self.pending.clear();
+            }
+        }
+    }
+
+    trait VoiceActivityDetector {
+        fn is_voice(&mut self, frame: &[f32]) -> Result<bool, String>;
+    }
+
+    struct SileroVad {
+        engine: Vad,
+        threshold: f32,
+    }
+
+    impl SileroVad {
+        fn new(model_path: &str, threshold: f32) -> Result<Self, String> {
+            if !(0.0..=1.0).contains(&threshold) {
+                return Err("VAD threshold must be between 0.0 and 1.0.".to_string());
+            }
+
+            Ok(Self {
+                engine: Vad::new(model_path, VOXTYPE_SAMPLE_RATE)
+                    .map_err(|error| format!("Failed to create Silero VAD: {error}"))?,
+                threshold,
+            })
+        }
+    }
+
+    impl VoiceActivityDetector for SileroVad {
+        fn is_voice(&mut self, frame: &[f32]) -> Result<bool, String> {
+            if frame.len() != VAD_FRAME_SAMPLES {
+                return Err(format!(
+                    "Expected {VAD_FRAME_SAMPLES} VAD samples, got {}.",
+                    frame.len()
+                ));
+            }
+
+            let result = self
+                .engine
+                .compute(frame)
+                .map_err(|error| format!("Silero VAD error: {error}"))?;
+
+            Ok(result.prob > self.threshold)
+        }
+    }
+
+    struct SmoothedVad {
+        inner_vad: Box<dyn VoiceActivityDetector>,
+        prefill_frames: usize,
+        hangover_frames: usize,
+        onset_frames: usize,
+        frame_buffer: VecDeque<Vec<f32>>,
+        hangover_counter: usize,
+        onset_counter: usize,
+        in_speech: bool,
+        temp_out: Vec<f32>,
+    }
+
+    impl SmoothedVad {
+        fn new(
+            inner_vad: Box<dyn VoiceActivityDetector>,
+            prefill_frames: usize,
+            hangover_frames: usize,
+            onset_frames: usize,
+        ) -> Self {
+            Self {
+                inner_vad,
+                prefill_frames,
+                hangover_frames,
+                onset_frames,
+                frame_buffer: VecDeque::new(),
+                hangover_counter: 0,
+                onset_counter: 0,
+                in_speech: false,
+                temp_out: Vec::new(),
+            }
+        }
+
+        fn push_frame(&mut self, frame: &[f32]) -> Result<Option<Vec<f32>>, String> {
+            self.frame_buffer.push_back(frame.to_vec());
+            while self.frame_buffer.len() > self.prefill_frames + 1 {
+                self.frame_buffer.pop_front();
+            }
+
+            let is_voice = self.inner_vad.is_voice(frame)?;
+
+            match (self.in_speech, is_voice) {
+                (false, true) => {
+                    self.onset_counter += 1;
+                    if self.onset_counter >= self.onset_frames {
+                        self.in_speech = true;
+                        self.hangover_counter = self.hangover_frames;
+                        self.onset_counter = 0;
+                        self.temp_out.clear();
+                        for buffered in &self.frame_buffer {
+                            self.temp_out.extend_from_slice(buffered);
+                        }
+                        Ok(Some(self.temp_out.clone()))
+                    } else {
+                        Ok(None)
+                    }
+                }
+                (true, true) => {
+                    self.hangover_counter = self.hangover_frames;
+                    Ok(Some(frame.to_vec()))
+                }
+                (true, false) => {
+                    if self.hangover_counter > 0 {
+                        self.hangover_counter -= 1;
+                        Ok(Some(frame.to_vec()))
+                    } else {
+                        self.in_speech = false;
+                        Ok(None)
+                    }
+                }
+                (false, false) => {
+                    self.onset_counter = 0;
+                    Ok(None)
                 }
             }
         }

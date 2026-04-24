@@ -2,7 +2,11 @@ import { app, BrowserWindow, Menu, Tray, globalShortcut, ipcMain, nativeImage } 
 import { join } from "node:path";
 import { type DictionaryCreateInput, type DictionaryPatch } from "../shared/dictionary";
 import { type AppProfile, type InsertionMode, type SettingsPatch } from "../shared/settings";
-import { type ActiveWindowInfo, type DictationHotkeyState } from "../shared/windows-helper";
+import {
+  type ActiveWindowInfo,
+  type DictationHotkeyState,
+  type NativeRecordingOptions
+} from "../shared/windows-helper";
 import { DictionaryStore } from "./dictionary-store";
 import { HistoryStore } from "./history-store";
 import { InsertionService } from "./insertion-service";
@@ -251,8 +255,8 @@ ipcMain.handle(
 ipcMain.handle("windows-helper:set-system-mute", (_event, muted: boolean) =>
   windowsHelperService.setSystemMute(muted)
 );
-ipcMain.handle("windows-helper:start-recording", () =>
-  windowsHelperService.startRecording()
+ipcMain.handle("windows-helper:start-recording", (_event, options: NativeRecordingOptions) =>
+  windowsHelperService.startRecording(options)
 );
 ipcMain.handle("windows-helper:stop-recording", () =>
   windowsHelperService.stopRecording()

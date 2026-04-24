@@ -5,7 +5,8 @@
 - Added transcript consistency as a planned VoxType layer for stable punctuation, casing, spacing, and app/profile style levels.
 - Clarified that raw ASR output should be preserved separately from the final post-processed inserted text.
 - Clarified the recording-path difference between VoxType and Handy, and captured native microphone capture as the likely next fix if renderer/WebAudio capture still crackles during longer recordings.
-- Promoted native CPAL microphone recording through the Windows helper to the primary capture direction, with the browser recorder retained as fallback.
+- Promoted native CPAL microphone recording through the Windows helper to the capture direction.
+- Removed the browser recording/VAD fallback direction and promoted native Silero VAD through the Windows helper using Handy-style `vad-rs`, Silero v4, 30 ms frames, and smoothing.
 
 ## 2026-04-24
 

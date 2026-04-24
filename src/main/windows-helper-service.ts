@@ -5,6 +5,8 @@ import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import {
   type ActiveWindowInfo,
+  type NativeRecordingOptions,
+  type NativeRecordingResult,
   type WindowsHelperStatus
 } from "../shared/windows-helper";
 
@@ -103,7 +105,7 @@ export class WindowsHelperService {
     });
   }
 
-  async startRecording(): Promise<void> {
+  async startRecording(options: NativeRecordingOptions): Promise<void> {
     if (this.recording) {
       throw new Error("Native recording is already active.");
     }
@@ -119,7 +121,29 @@ export class WindowsHelperService {
     const outputDirectory = join(app.getPath("userData"), "native-recordings");
     await mkdir(outputDirectory, { recursive: true });
     const outputPath = join(outputDirectory, `recording-${Date.now()}.wav`);
-    const child = spawn(helperPath, ["record-wav", outputPath], {
+    const args = ["record-wav", outputPath];
+    const vadModelPath = await this.resolveSileroVadModelPath();
+
+    if (options.vadEnabled) {
+      if (!vadModelPath) {
+        throw new Error("Silero VAD model was not found.");
+      }
+
+      args.push(
+        "--vad-model",
+        vadModelPath,
+        "--vad-threshold",
+        String(options.vadPositiveSpeechThreshold),
+        "--vad-prefill-frames",
+        String(msToVadFrames(options.vadPreSpeechPadMs)),
+        "--vad-hangover-frames",
+        String(msToVadFrames(options.vadRedemptionMs)),
+        "--vad-onset-frames",
+        "2"
+      );
+    }
+
+    const child = spawn(helperPath, args, {
       stdio: ["pipe", "pipe", "pipe"],
       windowsHide: true
     });
@@ -140,9 +164,21 @@ export class WindowsHelperService {
       stdout,
       stderr
     };
+
+    try {
+      await waitForHelperStartup(child, stdout, stderr);
+    } catch (error) {
+      if (this.recording?.child === child) {
+        this.recording = null;
+      }
+
+      child.kill();
+      await rm(outputPath, { force: true });
+      throw error;
+    }
   }
 
-  async stopRecording(): Promise<Uint8Array> {
+  async stopRecording(): Promise<NativeRecordingResult> {
     const recording = this.recording;
 
     if (!recording) {
@@ -170,8 +206,14 @@ export class WindowsHelperService {
     });
 
     const bytes = await readFile(recording.outputPath);
+    const metadata = parseNativeRecordingMetadata(
+      Buffer.concat(recording.stdout).toString("utf8")
+    );
     await rm(recording.outputPath, { force: true });
-    return new Uint8Array(bytes);
+    return {
+      wavBytes: new Uint8Array(bytes),
+      ...metadata
+    };
   }
 
   private async resolveHelperPath(): Promise<string | null> {
@@ -191,6 +233,86 @@ export class WindowsHelperService {
 
     return null;
   }
+
+  private async resolveSileroVadModelPath(): Promise<string | null> {
+    const candidates = [
+      process.env.VOXTYPE_SILERO_VAD_MODEL_PATH,
+      resolve("resources/models/silero_vad_v4.onnx"),
+      join(process.resourcesPath, "models", "silero_vad_v4.onnx"),
+      join(app.getAppPath(), "resources", "models", "silero_vad_v4.onnx")
+    ].filter((candidate): candidate is string => Boolean(candidate));
+
+    for (const candidate of candidates) {
+      if (await fileExists(candidate)) {
+        return candidate;
+      }
+    }
+
+    return null;
+  }
+}
+
+function msToVadFrames(milliseconds: number): number {
+  return Math.max(0, Math.round(milliseconds / 30));
+}
+
+function parseNativeRecordingMetadata(stdout: string): Omit<NativeRecordingResult, "wavBytes"> {
+  const line = stdout
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .at(-1);
+
+  if (!line) {
+    throw new Error("Windows helper did not return recording metadata.");
+  }
+
+  const parsed = JSON.parse(line) as Record<string, unknown>;
+
+  return {
+    sampleRate: typeof parsed.sampleRate === "number" ? parsed.sampleRate : 16000,
+    samples: typeof parsed.samples === "number" ? parsed.samples : 0,
+    rawSamples: typeof parsed.rawSamples === "number" ? parsed.rawSamples : 0,
+    vadEnabled: typeof parsed.vadEnabled === "boolean" ? parsed.vadEnabled : false,
+    speechFrames: typeof parsed.speechFrames === "number" ? parsed.speechFrames : 0
+  };
+}
+
+function waitForHelperStartup(
+  child: ChildProcessWithoutNullStreams,
+  stdout: Buffer[],
+  stderr: Buffer[]
+): Promise<void> {
+  return new Promise((resolvePromise, reject) => {
+    const startupTimeout = setTimeout(() => {
+      cleanup();
+      resolvePromise();
+    }, 250);
+
+    const handleError = (error: Error): void => {
+      cleanup();
+      reject(error);
+    };
+
+    const handleExit = (code: number | null): void => {
+      cleanup();
+      const message =
+        Buffer.concat(stdout).toString("utf8").trim() ||
+        Buffer.concat(stderr).toString("utf8").trim() ||
+        `Windows helper exited before recording started with code ${code}.`;
+
+      reject(new Error(message));
+    };
+
+    const cleanup = (): void => {
+      clearTimeout(startupTimeout);
+      child.off("error", handleError);
+      child.off("exit", handleExit);
+    };
+
+    child.once("error", handleError);
+    child.once("exit", handleExit);
+  });
 }
 
 function runHelperWithStdin(

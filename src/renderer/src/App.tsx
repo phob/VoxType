@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import {
   startNativePcmRecorder,
-  startPcmRecorder,
   type PcmRecorder,
   type PcmRecordingResult
 } from "./audio-recorder";
@@ -218,7 +217,7 @@ export function App(): JSX.Element {
         systemAudioMutedByVoxTypeRef.current = true;
       }
 
-      recorderRef.current = await startNativePcmRecorder().catch(async () => startPcmRecorder());
+      recorderRef.current = await startNativePcmRecorder(state.settings);
       setRecording(true);
     } catch (recordingError) {
       const unmuteError = await unmuteSystemAudio();
@@ -262,7 +261,7 @@ export function App(): JSX.Element {
     setBusyMessage("Transcribing locally...");
 
     try {
-      const recordingResult = await recorderRef.current.stop({ settings: state.settings });
+      const recordingResult = await recorderRef.current.stop();
       recorderRef.current = null;
       const unmuteError = await unmuteSystemAudio();
       setLastRecordingResult(recordingResult);
