@@ -38,3 +38,4 @@
 - Implemented the first Phase 3.5 slice with bundled Silero VAD/ONNX Runtime assets, post-recording silence trimming, VAD settings, no-speech skip behavior, fallback to untrimmed audio if VAD fails, and a trimming summary in the dictation UI.
 - Added Phase 3.6 recording coordination for communication apps, with Discord-style mute/unmute hotkey automation as the preferred first approach instead of trying to globally mute other microphone consumers.
 - Added saved processed-audio playback to transcript history so VAD trimming problems can be debugged by listening to the exact WAV sent to Whisper.
+- Fixed the planned VAD trimming strategy after audio analysis showed hard zero-padding between speech segments. VoxType should now preserve original audio ranges, merge nearby pauses, and crossfade removed-gap joins.

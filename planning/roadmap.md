@@ -90,6 +90,8 @@ Features:
 Implementation notes:
 
 - First slice runs post-recording Silero VAD in the renderer using `@ricky0123/vad-web` and ONNX Runtime Web/WASM. It bundles the Silero ONNX model and ONNX Runtime WASM assets locally with the renderer build.
+- VAD trimming should rebuild audio from original sample ranges and crossfade removed-gap joins. It should not insert artificial zero buffers between speech segments, because that creates audible dropouts and can distort the audio sent to Whisper.
+- Defaults should be conservative, closer to Handy's Silero approach: lower speech threshold, longer pre-roll, longer hangover/redemption, and preserved short pauses.
 - If packaging or performance becomes awkward, move VAD inference into a small native/helper worker using ONNX Runtime.
 - VAD should gate and trim audio, but it must not replace or trigger the user's explicit start/stop hotkey.
 - VAD only detects speech/non-speech; automatic stopping based on pauses or transcript meaning is out of scope for the planned first VAD implementation.

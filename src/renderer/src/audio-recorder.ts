@@ -95,12 +95,12 @@ function formatError(error: unknown): string {
 function settingsToVadOptions(settings?: AppSettings | null) {
   return {
     vadEnabled: settings?.vadEnabled ?? true,
-    vadPositiveSpeechThreshold: settings?.vadPositiveSpeechThreshold ?? 0.5,
-    vadNegativeSpeechThreshold: settings?.vadNegativeSpeechThreshold ?? 0.35,
+    vadPositiveSpeechThreshold: settings?.vadPositiveSpeechThreshold ?? 0.3,
+    vadNegativeSpeechThreshold: settings?.vadNegativeSpeechThreshold ?? 0.15,
     vadMinSpeechMs: settings?.vadMinSpeechMs ?? 250,
-    vadPreSpeechPadMs: settings?.vadPreSpeechPadMs ?? 120,
-    vadRedemptionMs: settings?.vadRedemptionMs ?? 650,
-    vadPreservedPauseMs: settings?.vadPreservedPauseMs ?? 160
+    vadPreSpeechPadMs: settings?.vadPreSpeechPadMs ?? 450,
+    vadRedemptionMs: settings?.vadRedemptionMs ?? 450,
+    vadPreservedPauseMs: settings?.vadPreservedPauseMs ?? 500
   };
 }
 

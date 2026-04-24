@@ -32,6 +32,13 @@ type SpeechSegment = {
   end: number;
 };
 
+type SampleRange = {
+  start: number;
+  end: number;
+};
+
+const JOIN_CROSSFADE_MS = 12;
+
 export async function trimSilenceWithVad(
   samples: Float32Array,
   sampleRate: number,
@@ -100,7 +107,12 @@ export async function trimSilenceWithVad(
     };
   }
 
-  const trimmed = joinSpeechSegments(segments, sampleRate, options.vadPreservedPauseMs);
+  const ranges = mergeNearbyRanges(
+    segments.map((segment) => segmentToRange(segment, sampleRate, samples.length)),
+    sampleRate,
+    options.vadPreservedPauseMs
+  );
+  const trimmed = concatenateRanges(samples, ranges, sampleRate);
   const trimmedDurationMs = samplesToMs(trimmed.length, sampleRate);
 
   return {
@@ -115,28 +127,88 @@ export async function trimSilenceWithVad(
   };
 }
 
-function joinSpeechSegments(
-  segments: SpeechSegment[],
+function segmentToRange(
+  segment: SpeechSegment,
+  sampleRate: number,
+  sampleCount: number
+): SampleRange {
+  const end = clamp(msToSamples(segment.end, sampleRate), 0, sampleCount);
+  const startFromTimestamp = clamp(msToSamples(segment.start, sampleRate), 0, end);
+  const startFromAudioLength = clamp(end - segment.audio.length, 0, end);
+
+  return {
+    start: Math.min(startFromTimestamp, startFromAudioLength),
+    end
+  };
+}
+
+function mergeNearbyRanges(
+  ranges: SampleRange[],
   sampleRate: number,
   preservedPauseMs: number
-): Float32Array {
-  const pauseSamples = Math.round((sampleRate * preservedPauseMs) / 1000);
-  const outputLength = segments.reduce((total, segment, index) => {
-    return total + segment.audio.length + (index > 0 ? pauseSamples : 0);
-  }, 0);
-  const output = new Float32Array(outputLength);
-  let offset = 0;
+): SampleRange[] {
+  const mergeGapSamples = Math.round((sampleRate * preservedPauseMs) / 1000);
+  const merged: SampleRange[] = [];
 
-  for (const [index, segment] of segments.entries()) {
-    if (index > 0) {
-      offset += pauseSamples;
+  for (const range of ranges
+    .filter((candidate) => candidate.end > candidate.start)
+    .sort((first, second) => first.start - second.start)) {
+    const previous = merged[merged.length - 1];
+
+    if (previous && range.start - previous.end <= mergeGapSamples) {
+      previous.end = Math.max(previous.end, range.end);
+    } else {
+      merged.push({ ...range });
     }
-
-    output.set(segment.audio, offset);
-    offset += segment.audio.length;
   }
 
-  return output;
+  return merged;
+}
+
+function concatenateRanges(
+  samples: Float32Array,
+  ranges: SampleRange[],
+  sampleRate: number
+): Float32Array {
+  if (ranges.length === 0) {
+    return new Float32Array(0);
+  }
+
+  const chunks = ranges.map((range) => samples.slice(range.start, range.end));
+  const crossfadeSamples = Math.round((sampleRate * JOIN_CROSSFADE_MS) / 1000);
+  const output: number[] = [];
+
+  for (const chunk of chunks) {
+    appendChunk(output, chunk, crossfadeSamples);
+  }
+
+  return Float32Array.from(output);
+}
+
+function appendChunk(output: number[], chunk: Float32Array, crossfadeSamples: number): void {
+  if (chunk.length === 0) {
+    return;
+  }
+
+  if (output.length === 0 || crossfadeSamples <= 0) {
+    for (const sample of chunk) {
+      output.push(sample);
+    }
+    return;
+  }
+
+  const fadeSamples = Math.min(crossfadeSamples, output.length, chunk.length);
+
+  for (let index = 0; index < fadeSamples; index += 1) {
+    const weight = (index + 1) / (fadeSamples + 1);
+    const outputIndex = output.length - fadeSamples + index;
+
+    output[outputIndex] = output[outputIndex] * (1 - weight) + chunk[index] * weight;
+  }
+
+  for (let index = fadeSamples; index < chunk.length; index += 1) {
+    output.push(chunk[index]);
+  }
 }
 
 function createStats(input: Omit<VadTrimStats, "model" | "removedDurationMs">): VadTrimStats {
@@ -149,4 +221,12 @@ function createStats(input: Omit<VadTrimStats, "model" | "removedDurationMs">): 
 
 function samplesToMs(samples: number, sampleRate: number): number {
   return Math.round((samples / sampleRate) * 1000);
+}
+
+function msToSamples(milliseconds: number, sampleRate: number): number {
+  return Math.round((milliseconds * sampleRate) / 1000);
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
 }

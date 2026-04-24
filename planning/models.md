@@ -93,6 +93,8 @@ Current implementation:
 - bundled Silero legacy ONNX model
 - bundled ONNX Runtime Web/WASM assets
 - post-recording trimming before Whisper transcription
+- original sample-range reconstruction instead of artificial zero-padding between segments
+- short join crossfades after removed silent gaps
 - no automatic recording stop behavior
 
 Reasons:
