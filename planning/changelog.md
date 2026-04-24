@@ -30,3 +30,4 @@
 - Added direct Unicode keyboard insertion and configurable chunked typing for remote or slow target apps.
 - Fixed target-window focusing so insertion no longer un-maximizes maximized applications.
 - Added an insertion test panel for captured target apps with clipboard, Unicode typing, and chunked typing checks.
+- Added auto-created per-app profiles with editable insertion mode and saved writing style defaults for browsers, remote apps, terminals, and Outlook.

@@ -64,6 +64,12 @@ Examples:
 - RDP/TeamViewer: slow typing mode.
 - Browser chat: conversational style.
 
+Initial profile behavior:
+
+- Profiles are created automatically from detected target apps.
+- Users can change a profile's insertion method and writing style directly in the UI.
+- Saved writing styles are ready for later local formatting/post-processing.
+
 ### Confidence-Aware Review
 
 Before insertion, VoxType can highlight uncertain words or likely corrections.
@@ -124,4 +130,3 @@ VoxType should tell the user what it sees:
 - Show model size and requirements.
 - Show source/license.
 - Offline-ready status.
-

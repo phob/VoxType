@@ -1,5 +1,5 @@
 import { clipboard } from "electron";
-import { type InsertionMode } from "../shared/settings";
+import { findAppProfile, type InsertionMode } from "../shared/settings";
 import { type SettingsStore } from "./settings-store";
 import { WindowsHelperService } from "./windows-helper-service";
 
@@ -7,6 +7,7 @@ const FOCUS_SETTLE_DELAY_MS = 120;
 
 type InsertOptions = {
   mode?: InsertionMode;
+  processName?: string | null;
 };
 
 export class InsertionService {
@@ -43,7 +44,8 @@ export class InsertionService {
 
   private async insertText(text: string, options?: InsertOptions): Promise<void> {
     const settings = await this.settingsStore.get();
-    const mode = options?.mode ?? settings.insertionMode;
+    const profile = findAppProfile(settings.appProfiles, options?.processName ?? null);
+    const mode = options?.mode ?? profile?.insertionMode ?? settings.insertionMode;
 
     if (mode === "clipboard") {
       await this.windowsHelperService.pasteText(text);

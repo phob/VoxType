@@ -4,7 +4,7 @@ import { eventToAccelerator } from "./hotkey-capture";
 import { type HotkeyStatus } from "../../../shared/hotkeys";
 import { type LocalModel } from "../../../shared/models";
 import { type WhisperRuntime } from "../../../shared/runtimes";
-import { type AppSettings, type InsertionMode } from "../../../shared/settings";
+import { type AppProfile, type AppSettings, type InsertionMode } from "../../../shared/settings";
 import { type TranscriptEntry } from "../../../shared/transcripts";
 import {
   type ActiveWindowInfo,
@@ -201,9 +201,11 @@ export function App(): JSX.Element {
     }
 
     hotkeyTargetRef.current = payload.target;
+    const settings = await window.voxtype.settings.get();
     setState((current) => ({
       ...current,
-      activeWindow: payload.target
+      activeWindow: payload.target,
+      settings
     }));
     await startRecording();
   }
@@ -239,7 +241,11 @@ export function App(): JSX.Element {
       if (state.settings?.insertionMode === "clipboard" && !options?.pasteTarget?.hwnd) {
         await window.voxtype.insertion.copy(result.entry.text);
       } else if (options?.pasteTarget?.hwnd) {
-        await window.voxtype.insertion.insertWindow(result.entry.text, options.pasteTarget.hwnd);
+        await window.voxtype.insertion.insertWindow(
+          result.entry.text,
+          options.pasteTarget.hwnd,
+          options.pasteTarget.processName
+        );
       }
       const [runtime, history] = await Promise.all([
         window.voxtype.runtime.getWhisper(),
@@ -306,8 +312,9 @@ export function App(): JSX.Element {
         window.voxtype.windowsHelper.status(),
         window.voxtype.windowsHelper.activeWindow()
       ]);
+      const settings = await window.voxtype.settings.get();
 
-      setState((current) => ({ ...current, windowsHelper, activeWindow }));
+      setState((current) => ({ ...current, windowsHelper, activeWindow, settings }));
     } catch (activeWindowError) {
       const windowsHelper = await window.voxtype.windowsHelper.status();
       setState((current) => ({ ...current, windowsHelper }));
@@ -325,9 +332,10 @@ export function App(): JSX.Element {
         window.voxtype.windowsHelper.status(),
         window.voxtype.windowsHelper.activeWindow()
       ]);
+      const settings = await window.voxtype.settings.get();
 
       setInsertionTarget(activeWindow);
-      setState((current) => ({ ...current, windowsHelper, activeWindow }));
+      setState((current) => ({ ...current, windowsHelper, activeWindow, settings }));
       setInsertionTestResult(
         `Captured ${activeWindow.processName ?? "unknown process"} · ${
           activeWindow.title || "Untitled window"
@@ -367,7 +375,8 @@ export function App(): JSX.Element {
       await window.voxtype.insertion.testWindow(
         insertionTestText,
         insertionTarget.hwnd,
-        mode
+        mode,
+        insertionTarget.processName
       );
       setInsertionTestResult(
         `Sent ${insertionTestText.length} characters with ${insertionModeLabel(mode)}.`
@@ -377,6 +386,18 @@ export function App(): JSX.Element {
     } finally {
       setBusyMessage(null);
     }
+  }
+
+  async function updateAppProfile(
+    profile: AppProfile,
+    patch: Partial<Pick<AppProfile, "insertionMode" | "writingStyle">>
+  ): Promise<void> {
+    const nextProfile = {
+      insertionMode: patch.insertionMode ?? profile.insertionMode,
+      writingStyle: patch.writingStyle ?? profile.writingStyle
+    };
+    const settings = await window.voxtype.appProfiles.update(profile.processName, nextProfile);
+    setState((current) => ({ ...current, settings }));
   }
 
   return (
@@ -604,6 +625,20 @@ export function App(): JSX.Element {
                 : "No target captured"}
             </strong>
             <p>{insertionTarget?.title || "Capture a target app before testing insertion."}</p>
+            {insertionTarget ? (
+              <p>
+                Profile:{" "}
+                {profileForWindow(state.settings?.appProfiles ?? [], insertionTarget)
+                  ? `${insertionModeLabel(
+                      profileForWindow(state.settings?.appProfiles ?? [], insertionTarget)!
+                        .insertionMode
+                    )} · ${writingStyleLabel(
+                      profileForWindow(state.settings?.appProfiles ?? [], insertionTarget)!
+                        .writingStyle
+                    )}`
+                  : "not created yet"}
+              </p>
+            ) : null}
             {insertionTarget?.processPath ? <p>{insertionTarget.processPath}</p> : null}
           </article>
         </div>
@@ -639,6 +674,67 @@ export function App(): JSX.Element {
           <p className="settings-note">{insertionTestResult}</p>
         ) : null}
       </section>
+
+      {state.settings ? (
+        <section className="profiles-panel" aria-label="App profiles">
+          <div className="section-heading">
+            <div>
+              <p className="eyebrow">Profiles</p>
+              <h2>Per-app behavior</h2>
+            </div>
+          </div>
+
+          <div className="profile-list">
+            {state.settings.appProfiles.length === 0 ? (
+              <p className="empty-state">
+                Profiles appear automatically after VoxType detects target apps.
+              </p>
+            ) : (
+              state.settings.appProfiles.map((profile) => (
+                <article className="profile-row" key={profile.id}>
+                  <div>
+                    <strong>{profile.displayName}</strong>
+                    <span>{profile.processName}</span>
+                    {profile.processPath ? <p>{profile.processPath}</p> : null}
+                  </div>
+
+                  <label className="field compact-field">
+                    <span>Insertion</span>
+                    <select
+                      value={profile.insertionMode}
+                      onChange={(event) =>
+                        void updateAppProfile(profile, {
+                          insertionMode: event.target.value as InsertionMode
+                        })
+                      }
+                    >
+                      <option value="clipboard">Clipboard paste</option>
+                      <option value="keyboard">Unicode typing</option>
+                      <option value="chunked">Chunked typing</option>
+                    </select>
+                  </label>
+
+                  <label className="field compact-field">
+                    <span>Style</span>
+                    <select
+                      value={profile.writingStyle}
+                      onChange={(event) =>
+                        void updateAppProfile(profile, {
+                          writingStyle: event.target.value as AppProfile["writingStyle"]
+                        })
+                      }
+                    >
+                      <option value="default">Default</option>
+                      <option value="chat">Chat</option>
+                      <option value="professional">Professional</option>
+                    </select>
+                  </label>
+                </article>
+              ))
+            )}
+          </div>
+        </section>
+      ) : null}
 
       {state.settings ? (
         <section className="settings-panel" aria-label="VoxType settings">
@@ -817,6 +913,30 @@ function insertionModeLabel(mode: InsertionMode): string {
   }
 
   return "chunked typing";
+}
+
+function writingStyleLabel(style: AppProfile["writingStyle"]): string {
+  if (style === "chat") {
+    return "chat style";
+  }
+
+  if (style === "professional") {
+    return "professional style";
+  }
+
+  return "default style";
+}
+
+function profileForWindow(
+  profiles: AppProfile[],
+  windowInfo: ActiveWindowInfo | null
+): AppProfile | null {
+  if (!windowInfo?.processName) {
+    return null;
+  }
+
+  const processName = windowInfo.processName.toLowerCase();
+  return profiles.find((profile) => profile.processName === processName) ?? null;
 }
 
 function wait(milliseconds: number): Promise<void> {

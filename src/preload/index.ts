@@ -2,7 +2,12 @@ import { contextBridge, ipcRenderer } from "electron";
 import { type HotkeyStatus } from "../shared/hotkeys";
 import { type LocalModel } from "../shared/models";
 import { type WhisperRuntime } from "../shared/runtimes";
-import { type AppSettings, type InsertionMode, type SettingsPatch } from "../shared/settings";
+import {
+  type AppProfile,
+  type AppSettings,
+  type InsertionMode,
+  type SettingsPatch
+} from "../shared/settings";
 import { type TranscriptEntry, type TranscriptionResult } from "../shared/transcripts";
 import {
   type DictationHotkeyPayload,
@@ -40,10 +45,10 @@ const voxtype = {
     copy: (text: string) => ipcRenderer.invoke("insertion:copy", text) as Promise<void>,
     insertActive: (text: string) =>
       ipcRenderer.invoke("insertion:insert-active", text) as Promise<void>,
-    insertWindow: (text: string, hwnd: string) =>
-      ipcRenderer.invoke("insertion:insert-window", text, hwnd) as Promise<void>,
-    testWindow: (text: string, hwnd: string, mode: InsertionMode) =>
-      ipcRenderer.invoke("insertion:test-window", text, hwnd, mode) as Promise<void>,
+    insertWindow: (text: string, hwnd: string, processName?: string | null) =>
+      ipcRenderer.invoke("insertion:insert-window", text, hwnd, processName) as Promise<void>,
+    testWindow: (text: string, hwnd: string, mode: InsertionMode, processName?: string | null) =>
+      ipcRenderer.invoke("insertion:test-window", text, hwnd, mode, processName) as Promise<void>,
     pasteActive: (text: string) =>
       ipcRenderer.invoke("insertion:paste-active", text) as Promise<void>,
     pasteWindow: (text: string, hwnd: string) =>
@@ -72,6 +77,14 @@ const voxtype = {
   },
   hotkeys: {
     status: () => ipcRenderer.invoke("hotkeys:status") as Promise<HotkeyStatus>
+  },
+  appProfiles: {
+    ensure: (windowInfo: ActiveWindowInfo | null) =>
+      ipcRenderer.invoke("app-profiles:ensure", windowInfo) as Promise<AppProfile | null>,
+    update: (
+      processName: string,
+      patch: Pick<AppProfile, "insertionMode" | "writingStyle">
+    ) => ipcRenderer.invoke("app-profiles:update", processName, patch) as Promise<AppSettings>
   },
   windowsHelper: {
     status: () =>

@@ -1,7 +1,7 @@
 import { app, BrowserWindow, Menu, Tray, globalShortcut, ipcMain, nativeImage } from "electron";
 import { join } from "node:path";
-import { type InsertionMode, type SettingsPatch } from "../shared/settings";
-import { type DictationHotkeyState } from "../shared/windows-helper";
+import { type AppProfile, type InsertionMode, type SettingsPatch } from "../shared/settings";
+import { type ActiveWindowInfo, type DictationHotkeyState } from "../shared/windows-helper";
 import { HistoryStore } from "./history-store";
 import { InsertionService } from "./insertion-service";
 import { ModelService } from "./model-service";
@@ -106,6 +106,7 @@ async function toggleDictationHotkey(): Promise<void> {
   }
 
   const target = await windowsHelperService.getActiveWindow().catch(() => null);
+  await settingsStore.ensureAppProfile(target);
 
   dictationHotkeyState = {
     recording: true,
@@ -195,13 +196,15 @@ ipcMain.handle("insertion:paste-window", (_event, text: string, hwnd: string) =>
 ipcMain.handle("insertion:insert-active", (_event, text: string) =>
   insertionService.insertIntoActiveApp(text)
 );
-ipcMain.handle("insertion:insert-window", (_event, text: string, hwnd: string) =>
-  insertionService.insertIntoWindow(text, hwnd)
+ipcMain.handle(
+  "insertion:insert-window",
+  (_event, text: string, hwnd: string, processName?: string | null) =>
+    insertionService.insertIntoWindow(text, hwnd, { processName })
 );
 ipcMain.handle(
   "insertion:test-window",
-  (_event, text: string, hwnd: string, mode: InsertionMode) =>
-    insertionService.insertIntoWindow(text, hwnd, { mode })
+  (_event, text: string, hwnd: string, mode: InsertionMode, processName?: string | null) =>
+    insertionService.insertIntoWindow(text, hwnd, { mode, processName })
 );
 ipcMain.handle("dictation:get-hotkey-state", () => dictationHotkeyState);
 ipcMain.handle("dictation:set-hotkey-recording", (_event, recording: boolean) => {
@@ -213,7 +216,23 @@ ipcMain.handle("dictation:set-hotkey-recording", (_event, recording: boolean) =>
 });
 ipcMain.handle("hotkeys:status", () => getHotkeyStatus());
 ipcMain.handle("windows-helper:status", () => windowsHelperService.getStatus());
-ipcMain.handle("windows-helper:active-window", () => windowsHelperService.getActiveWindow());
+ipcMain.handle("windows-helper:active-window", async () => {
+  const activeWindow = await windowsHelperService.getActiveWindow();
+  await settingsStore.ensureAppProfile(activeWindow);
+  return activeWindow;
+});
+ipcMain.handle("app-profiles:ensure", (_event, windowInfo: ActiveWindowInfo | null) =>
+  settingsStore.ensureAppProfile(windowInfo)
+);
+ipcMain.handle(
+  "app-profiles:update",
+  (
+    _event,
+    processName: string,
+    patch: Pick<AppProfile, "insertionMode" | "writingStyle">
+  ) =>
+    settingsStore.updateAppProfile(processName, patch)
+);
 ipcMain.handle("windows-helper:set-system-mute", (_event, muted: boolean) =>
   windowsHelperService.setSystemMute(muted)
 );

@@ -119,6 +119,7 @@ h1 {
 .runtime-panel,
 .windows-panel,
 .insertion-test-panel,
+.profiles-panel,
 .history-panel {
   padding: 24px;
   border: 1px solid rgba(255, 250, 240, 0.14);
@@ -131,6 +132,7 @@ h1 {
 .runtime-panel h2,
 .windows-panel h2,
 .insertion-test-panel h2,
+.profiles-panel h2,
 .history-panel h2 {
   margin: 0;
   color: #fffaf0;
@@ -144,6 +146,7 @@ h1 {
 .runtime-panel p,
 .windows-panel p,
 .insertion-test-panel p,
+.profiles-panel p,
 .history-panel p {
   margin: 0;
   color: #c9c1b2;
@@ -234,6 +237,10 @@ h1 {
   resize: vertical;
 }
 
+.compact-field {
+  min-width: 170px;
+}
+
 .hotkey-capture-button {
   text-align: left;
   cursor: pointer;
@@ -266,6 +273,7 @@ h1 {
 .runtime-panel,
 .windows-panel,
 .insertion-test-panel,
+.profiles-panel,
 .history-panel {
   margin-top: 16px;
 }
@@ -334,6 +342,7 @@ h1 {
 }
 
 .model-list,
+.profile-list,
 .history-list {
   display: grid;
   gap: 12px;
@@ -342,6 +351,7 @@ h1 {
 .model-row,
 .runtime-card,
 .target-card,
+.profile-row,
 .history-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -357,6 +367,10 @@ h1 {
   grid-template-columns: 1fr;
 }
 
+.profile-row {
+  grid-template-columns: minmax(0, 1fr) minmax(170px, 220px) minmax(170px, 220px);
+}
+
 .target-card {
   grid-template-columns: 1fr;
   align-content: start;
@@ -364,6 +378,7 @@ h1 {
 
 .model-row strong,
 .runtime-card strong,
+.profile-row strong,
 .target-card strong {
   display: block;
   color: #fffaf0;
@@ -371,6 +386,7 @@ h1 {
 
 .model-row span,
 .runtime-card span,
+.profile-row span,
 .target-card span {
   display: block;
   margin-top: 4px;
@@ -380,6 +396,7 @@ h1 {
 
 .model-row p,
 .runtime-card p,
+.profile-row p,
 .target-card p {
   margin-top: 8px;
   word-break: break-all;
@@ -428,7 +445,8 @@ h1 {
   }
 
   .model-row,
-  .runtime-card {
+  .runtime-card,
+  .profile-row {
     grid-template-columns: 1fr;
   }
 }

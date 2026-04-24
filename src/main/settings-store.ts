@@ -2,10 +2,14 @@ import { app } from "electron";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import {
+  type AppProfile,
   type AppSettings,
   type SettingsPatch,
+  createAppProfile,
+  findAppProfile,
   sanitizeSettings
 } from "../shared/settings";
+import { type ActiveWindowInfo } from "../shared/windows-helper";
 
 export class SettingsStore {
   private readonly settingsPath: string;
@@ -27,7 +31,8 @@ export class SettingsStore {
       autoMuteSystemAudio: false,
       restoreClipboard: true,
       remoteTypingDelayMs: 25,
-      remoteTypingChunkSize: 24
+      remoteTypingChunkSize: 24,
+      appProfiles: []
     };
   }
 
@@ -55,6 +60,56 @@ export class SettingsStore {
     await this.save(next);
 
     return next;
+  }
+
+  async ensureAppProfile(windowInfo: ActiveWindowInfo | null): Promise<AppProfile | null> {
+    if (!windowInfo?.processName) {
+      return null;
+    }
+
+    const settings = await this.get();
+    const existing = findAppProfile(settings.appProfiles, windowInfo.processName);
+
+    if (existing) {
+      return existing;
+    }
+
+    const profile = createAppProfile({
+      processName: windowInfo.processName,
+      processPath: windowInfo.processPath,
+      title: windowInfo.title
+    });
+
+    await this.update({
+      appProfiles: [...settings.appProfiles, profile]
+    });
+
+    return profile;
+  }
+
+  async updateAppProfile(
+    processName: string,
+    patch: Pick<AppProfile, "insertionMode" | "writingStyle">
+  ): Promise<AppSettings> {
+    const settings = await this.get();
+    const existing = findAppProfile(settings.appProfiles, processName);
+
+    if (!existing) {
+      return settings;
+    }
+
+    return this.update({
+      appProfiles: settings.appProfiles.map((profile) =>
+        profile.processName === existing.processName
+          ? {
+              ...profile,
+              insertionMode: patch.insertionMode,
+              writingStyle: patch.writingStyle,
+              updatedAt: new Date().toISOString()
+            }
+          : profile
+      )
+    });
   }
 
   async reset(): Promise<AppSettings> {

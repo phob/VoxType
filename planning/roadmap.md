@@ -41,8 +41,8 @@ Features:
 - Clipboard paste insertion into active app. Initial `paste-text` helper command sets Unicode clipboard text and sends Ctrl+V to the active foreground app.
 - Target-window paste after global dictation. Initial hotkey flow captures the active window before dictation and refocuses it before pasting the transcript.
 - Recording-safe audio control. Initial native helper command can mute or unmute the default Windows render endpoint for cleaner recordings.
-- Per-app insertion profiles.
-- RDP/TeamViewer profile.
+- Per-app insertion profiles. Initial implementation auto-creates a profile when a new app is detected, exposes profiles in the UI, and stores insertion mode plus writing style.
+- RDP/TeamViewer profile. Initial defaults use chunked typing for Remote Desktop, TeamViewer, and AnyDesk targets.
 - Insertion test panel. Initial renderer panel captures a target app after a short delay and can test clipboard paste, Unicode typing, and chunked typing independently.
 
 ## Phase 3: Dictionary And Correction Memory

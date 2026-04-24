@@ -123,6 +123,17 @@ Each profile can define:
 - whether to restore clipboard
 - whether to show review before insertion
 
+Initial implementation:
+
+- Profiles are automatically created when VoxType detects a new target process.
+- Profiles are stored in local settings and are visible/editable in the renderer.
+- Each profile currently stores app display name, process name/path, insertion mode, and writing style.
+- Browser defaults, including Chrome, use clipboard insertion and chat writing style.
+- Remote Desktop, TeamViewer, and AnyDesk defaults use chunked typing.
+- Terminal defaults, including Windows Terminal, Command Prompt, and PowerShell, use direct Unicode typing.
+- Outlook defaults to clipboard insertion and professional writing style.
+- Writing style is saved now so later formatting can use profile-specific behavior such as chat-style browser replies or professional Outlook grammar.
+
 ## Privilege Issues
 
 Windows input automation can fail when the target app runs at a higher privilege level than VoxType.
