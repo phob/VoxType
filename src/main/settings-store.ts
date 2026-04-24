@@ -30,6 +30,13 @@ export class SettingsStore {
       offlineMode: false,
       autoMuteSystemAudio: false,
       restoreClipboard: true,
+      vadEnabled: true,
+      vadPositiveSpeechThreshold: 0.5,
+      vadNegativeSpeechThreshold: 0.35,
+      vadMinSpeechMs: 250,
+      vadPreSpeechPadMs: 120,
+      vadRedemptionMs: 650,
+      vadPreservedPauseMs: 160,
       remoteTypingDelayMs: 25,
       remoteTypingChunkSize: 24,
       appProfiles: []

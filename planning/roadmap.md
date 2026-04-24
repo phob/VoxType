@@ -60,7 +60,7 @@ Features:
 
 ## Phase 3.5: Voice Activity Detection And Silence Trimming
 
-Goal: make recordings cleaner by removing silent and non-speech parts before transcription without ending the user's recording session automatically.
+Goal: make recordings cleaner by removing silent and non-speech parts before transcription without ending the user's recording session automatically. Initial implementation complete.
 
 Preferred direction:
 
@@ -75,20 +75,20 @@ Preferred direction:
 
 Features:
 
-- VAD on/off setting.
-- Sensitivity threshold.
-- Minimum speech duration.
-- Silence trimming threshold/duration.
-- Preserve-short-pause duration so normal thinking pauses are not aggressively removed.
-- Pre-roll duration.
+- VAD on/off setting. Initial setting added.
+- Sensitivity threshold. Initial speech and silence threshold settings added.
+- Minimum speech duration. Initial setting added.
+- Silence trimming threshold/duration. Initial Silero `redemptionMs` setting added.
+- Preserve-short-pause duration so normal thinking pauses are not aggressively removed. Initial segment-join pause setting added.
+- Pre-roll duration. Initial setting added.
 - Maximum recording duration as a separate safety setting, not driven by VAD.
-- Live recording state: recording, speech detected, silence detected, transcribing.
+- VAD trimming summary. Initial UI shows speech segments, kept duration, and trimmed duration after recording.
 - Per-device calibration or presets later.
 - Diagnostics panel later showing speech probability over time.
 
 Implementation notes:
 
-- First slice can run VAD in a renderer Web Worker using ONNX Runtime Web/WASM, with all model and WASM assets bundled or managed locally.
+- First slice runs post-recording Silero VAD in the renderer using `@ricky0123/vad-web` and ONNX Runtime Web/WASM. It bundles the Silero ONNX model and ONNX Runtime WASM assets locally with the renderer build.
 - If packaging or performance becomes awkward, move VAD inference into a small native/helper worker using ONNX Runtime.
 - VAD should gate and trim audio, but it must not replace or trigger the user's explicit start/stop hotkey.
 - VAD only detects speech/non-speech; automatic stopping based on pauses or transcript meaning is out of scope for the planned first VAD implementation.

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { startPcmRecorder, type PcmRecorder } from "./audio-recorder";
+import { startPcmRecorder, type PcmRecorder, type PcmRecordingResult } from "./audio-recorder";
 import { eventToAccelerator } from "./hotkey-capture";
 import { type DictionaryEntry } from "../../../shared/dictionary";
 import { type HotkeyStatus } from "../../../shared/hotkeys";
@@ -55,6 +55,7 @@ export function App(): JSX.Element {
   const [dictionaryCategory, setDictionaryCategory] = useState("general");
   const [dictionaryAppProcess, setDictionaryAppProcess] = useState("");
   const [fixLastText, setFixLastText] = useState("");
+  const [lastRecordingResult, setLastRecordingResult] = useState<PcmRecordingResult | null>(null);
 
   const activeModel = state.models.find((model) => model.id === state.settings?.activeModelId);
   const latestTranscript = state.history[0];
@@ -241,10 +242,21 @@ export function App(): JSX.Element {
     setBusyMessage("Transcribing locally...");
 
     try {
-      const wavBytes = await recorderRef.current.stop();
+      const recordingResult = await recorderRef.current.stop({ settings: state.settings });
       recorderRef.current = null;
       const unmuteError = await unmuteSystemAudio();
-      const result = await window.voxtype.transcription.transcribeWav(wavBytes, {
+      setLastRecordingResult(recordingResult);
+
+      if (recordingResult.vad.enabled && !recordingResult.vad.speechDetected) {
+        if (unmuteError) {
+          setError(`${recordingResult.vad.skippedReason ?? "No speech detected."} ${unmuteError}`);
+        } else {
+          setError(recordingResult.vad.skippedReason ?? "No speech detected.");
+        }
+        return;
+      }
+
+      const result = await window.voxtype.transcription.transcribeWav(recordingResult.wavBytes, {
         processName: options?.pasteTarget?.processName
       });
       if (unmuteError) {
@@ -543,6 +555,24 @@ export function App(): JSX.Element {
             <span>Latest transcript</span>
             <p>{latestTranscript?.text ?? "No transcript yet."}</p>
           </div>
+
+          {lastRecordingResult?.vad ? (
+            <div className="vad-summary">
+              <span>Silero VAD</span>
+              <p>
+                {lastRecordingResult.vad.enabled
+                  ? `${lastRecordingResult.vad.speechSegments} speech segment${
+                      lastRecordingResult.vad.speechSegments === 1 ? "" : "s"
+                    } · ${formatDuration(lastRecordingResult.vad.trimmedDurationMs)} kept · ${formatDuration(
+                      lastRecordingResult.vad.removedDurationMs
+                    )} trimmed`
+                  : "Disabled for the last recording."}
+              </p>
+              {lastRecordingResult.vad.skippedReason ? (
+                <p>{lastRecordingResult.vad.skippedReason}</p>
+              ) : null}
+            </div>
+          ) : null}
         </section>
 
         <section className="tool-panel" aria-label="Models">
@@ -930,11 +960,92 @@ export function App(): JSX.Element {
               />
               <span>Mute system audio while recording</span>
             </label>
+
+            <label className="toggle">
+              <input
+                checked={state.settings.vadEnabled}
+                type="checkbox"
+                onChange={(event) => void updateSettings({ vadEnabled: event.target.checked })}
+              />
+              <span>Trim silence with Silero VAD before transcription</span>
+            </label>
+
+            <label className="field">
+              <span>VAD speech threshold</span>
+              <input
+                max={0.95}
+                min={0.05}
+                step={0.05}
+                type="number"
+                value={state.settings.vadPositiveSpeechThreshold}
+                onChange={(event) =>
+                  void updateSettings({
+                    vadPositiveSpeechThreshold: Number(event.target.value)
+                  })
+                }
+              />
+            </label>
+
+            <label className="field">
+              <span>VAD silence threshold</span>
+              <input
+                max={0.9}
+                min={0.01}
+                step={0.05}
+                type="number"
+                value={state.settings.vadNegativeSpeechThreshold}
+                onChange={(event) =>
+                  void updateSettings({
+                    vadNegativeSpeechThreshold: Number(event.target.value)
+                  })
+                }
+              />
+            </label>
+
+            <label className="field">
+              <span>Minimum speech ms</span>
+              <input
+                max={5000}
+                min={50}
+                type="number"
+                value={state.settings.vadMinSpeechMs}
+                onChange={(event) =>
+                  void updateSettings({ vadMinSpeechMs: Number(event.target.value) })
+                }
+              />
+            </label>
+
+            <label className="field">
+              <span>Pre-roll ms</span>
+              <input
+                max={1000}
+                min={0}
+                type="number"
+                value={state.settings.vadPreSpeechPadMs}
+                onChange={(event) =>
+                  void updateSettings({ vadPreSpeechPadMs: Number(event.target.value) })
+                }
+              />
+            </label>
+
+            <label className="field">
+              <span>Pause preservation ms</span>
+              <input
+                max={2000}
+                min={0}
+                type="number"
+                value={state.settings.vadPreservedPauseMs}
+                onChange={(event) =>
+                  void updateSettings({ vadPreservedPauseMs: Number(event.target.value) })
+                }
+              />
+            </label>
           </div>
           <p className="settings-note">
             Registered hotkeys: dictation{" "}
             {state.hotkeys?.dictationToggleHotkey ?? "not registered"}, show window{" "}
             {state.hotkeys?.showWindowHotkey ?? "not registered"}.
+            Silero VAD only trims audio before Whisper; it does not stop recording.
           </p>
         </section>
       ) : null}
@@ -1146,4 +1257,12 @@ function wait(milliseconds: number): Promise<void> {
   return new Promise((resolve) => {
     window.setTimeout(resolve, milliseconds);
   });
+}
+
+function formatDuration(milliseconds: number): string {
+  if (milliseconds < 1000) {
+    return `${milliseconds} ms`;
+  }
+
+  return `${(milliseconds / 1000).toFixed(1)} s`;
 }

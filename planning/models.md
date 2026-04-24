@@ -87,6 +87,14 @@ Preferred first candidate:
 
 - Silero VAD through ONNX Runtime.
 
+Current implementation:
+
+- `@ricky0123/vad-web` NonRealTimeVAD
+- bundled Silero legacy ONNX model
+- bundled ONNX Runtime Web/WASM assets
+- post-recording trimming before Whisper transcription
+- no automatic recording stop behavior
+
 Reasons:
 
 - small model size

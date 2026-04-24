@@ -1,5 +1,13 @@
+import { type AppSettings } from "../../../shared/settings";
+import { trimSilenceWithVad, type VadTrimStats } from "./vad-trimmer";
+
 export type PcmRecorder = {
-  stop: () => Promise<Uint8Array>;
+  stop: (options?: { settings?: AppSettings | null }) => Promise<PcmRecordingResult>;
+};
+
+export type PcmRecordingResult = {
+  wavBytes: Uint8Array;
+  vad: VadTrimStats;
 };
 
 export async function startPcmRecorder(): Promise<PcmRecorder> {
@@ -34,7 +42,7 @@ export async function startPcmRecorder(): Promise<PcmRecorder> {
   silentMonitor.connect(audioContext.destination);
 
   return {
-    stop: async () => {
+    stop: async (options) => {
       const sampleRate = audioContext.sampleRate;
       processor.port.onmessage = null;
       processor.disconnect();
@@ -45,9 +53,54 @@ export async function startPcmRecorder(): Promise<PcmRecorder> {
 
       const merged = mergeChunks(chunks);
       const resampled = resampleLinear(merged, sampleRate, 16000);
+      const { samples, stats } = await safelyTrimSilence(resampled, options?.settings);
 
-      return encodeWav(resampled, 16000);
+      return {
+        wavBytes: encodeWav(samples, 16000),
+        vad: stats
+      };
     }
+  };
+}
+
+async function safelyTrimSilence(
+  samples: Float32Array,
+  settings?: AppSettings | null
+): Promise<{ samples: Float32Array; stats: VadTrimStats }> {
+  try {
+    return await trimSilenceWithVad(samples, 16000, settingsToVadOptions(settings));
+  } catch (error) {
+    const durationMs = Math.round((samples.length / 16000) * 1000);
+
+    return {
+      samples,
+      stats: {
+        enabled: settings?.vadEnabled ?? true,
+        model: "silero-legacy",
+        speechSegments: samples.length > 0 ? 1 : 0,
+        originalDurationMs: durationMs,
+        trimmedDurationMs: durationMs,
+        removedDurationMs: 0,
+        speechDetected: samples.length > 0,
+        skippedReason: `Silero VAD failed; using the untrimmed recording. ${formatError(error)}`
+      }
+    };
+  }
+}
+
+function formatError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function settingsToVadOptions(settings?: AppSettings | null) {
+  return {
+    vadEnabled: settings?.vadEnabled ?? true,
+    vadPositiveSpeechThreshold: settings?.vadPositiveSpeechThreshold ?? 0.5,
+    vadNegativeSpeechThreshold: settings?.vadNegativeSpeechThreshold ?? 0.35,
+    vadMinSpeechMs: settings?.vadMinSpeechMs ?? 250,
+    vadPreSpeechPadMs: settings?.vadPreSpeechPadMs ?? 120,
+    vadRedemptionMs: settings?.vadRedemptionMs ?? 650,
+    vadPreservedPauseMs: settings?.vadPreservedPauseMs ?? 160
   };
 }
 

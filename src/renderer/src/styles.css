@@ -344,7 +344,8 @@ h1 {
   opacity: 0.5;
 }
 
-.transcript-preview {
+.transcript-preview,
+.vad-summary {
   min-height: 160px;
   margin-top: 18px;
   padding: 16px;
@@ -353,7 +354,12 @@ h1 {
   background: rgba(255, 250, 240, 0.05);
 }
 
+.vad-summary {
+  min-height: 0;
+}
+
 .transcript-preview span,
+.vad-summary span,
 .history-row span {
   display: block;
   margin-bottom: 8px;
@@ -363,7 +369,8 @@ h1 {
   text-transform: uppercase;
 }
 
-.transcript-preview p {
+.transcript-preview p,
+.vad-summary p {
   color: #fffaf0;
   white-space: pre-wrap;
 }
