@@ -1,6 +1,6 @@
 import { app, BrowserWindow, Menu, Tray, globalShortcut, ipcMain, nativeImage } from "electron";
 import { join } from "node:path";
-import { type SettingsPatch } from "../shared/settings";
+import { type InsertionMode, type SettingsPatch } from "../shared/settings";
 import { type DictationHotkeyState } from "../shared/windows-helper";
 import { HistoryStore } from "./history-store";
 import { InsertionService } from "./insertion-service";
@@ -197,6 +197,11 @@ ipcMain.handle("insertion:insert-active", (_event, text: string) =>
 );
 ipcMain.handle("insertion:insert-window", (_event, text: string, hwnd: string) =>
   insertionService.insertIntoWindow(text, hwnd)
+);
+ipcMain.handle(
+  "insertion:test-window",
+  (_event, text: string, hwnd: string, mode: InsertionMode) =>
+    insertionService.insertIntoWindow(text, hwnd, { mode })
 );
 ipcMain.handle("dictation:get-hotkey-state", () => dictationHotkeyState);
 ipcMain.handle("dictation:set-hotkey-recording", (_event, recording: boolean) => {

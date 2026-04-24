@@ -2,7 +2,7 @@ import { contextBridge, ipcRenderer } from "electron";
 import { type HotkeyStatus } from "../shared/hotkeys";
 import { type LocalModel } from "../shared/models";
 import { type WhisperRuntime } from "../shared/runtimes";
-import { type AppSettings, type SettingsPatch } from "../shared/settings";
+import { type AppSettings, type InsertionMode, type SettingsPatch } from "../shared/settings";
 import { type TranscriptEntry, type TranscriptionResult } from "../shared/transcripts";
 import {
   type DictationHotkeyPayload,
@@ -42,6 +42,8 @@ const voxtype = {
       ipcRenderer.invoke("insertion:insert-active", text) as Promise<void>,
     insertWindow: (text: string, hwnd: string) =>
       ipcRenderer.invoke("insertion:insert-window", text, hwnd) as Promise<void>,
+    testWindow: (text: string, hwnd: string, mode: InsertionMode) =>
+      ipcRenderer.invoke("insertion:test-window", text, hwnd, mode) as Promise<void>,
     pasteActive: (text: string) =>
       ipcRenderer.invoke("insertion:paste-active", text) as Promise<void>,
     pasteWindow: (text: string, hwnd: string) =>

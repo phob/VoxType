@@ -42,6 +42,11 @@ export function App(): JSX.Element {
   const [capturingHotkey, setCapturingHotkey] = useState<
     "dictationToggleHotkey" | "showWindowHotkey" | null
   >(null);
+  const [insertionTarget, setInsertionTarget] = useState<ActiveWindowInfo | null>(null);
+  const [insertionTestText, setInsertionTestText] = useState(
+    "VoxType insertion test: cafe, naive, aeoeue, Unicode -> äöü é 漢字 123."
+  );
+  const [insertionTestResult, setInsertionTestResult] = useState<string | null>(null);
 
   const activeModel = state.models.find((model) => model.id === state.settings?.activeModelId);
   const latestTranscript = state.history[0];
@@ -310,6 +315,70 @@ export function App(): JSX.Element {
     }
   }
 
+  async function captureInsertionTarget(): Promise<void> {
+    setError(null);
+    setInsertionTestResult("Switch to the target app now. Capturing in 2.5 seconds...");
+
+    try {
+      await wait(2500);
+      const [windowsHelper, activeWindow] = await Promise.all([
+        window.voxtype.windowsHelper.status(),
+        window.voxtype.windowsHelper.activeWindow()
+      ]);
+
+      setInsertionTarget(activeWindow);
+      setState((current) => ({ ...current, windowsHelper, activeWindow }));
+      setInsertionTestResult(
+        `Captured ${activeWindow.processName ?? "unknown process"} · ${
+          activeWindow.title || "Untitled window"
+        }`
+      );
+    } catch (captureError) {
+      const windowsHelper = await window.voxtype.windowsHelper.status();
+      setState((current) => ({ ...current, windowsHelper }));
+      setError(formatError(captureError));
+    }
+  }
+
+  async function useDetectedAppAsInsertionTarget(): Promise<void> {
+    if (!state.activeWindow) {
+      setError("Refresh or capture a target app before using it for insertion tests.");
+      return;
+    }
+
+    setInsertionTarget(state.activeWindow);
+    setInsertionTestResult(
+      `Using ${state.activeWindow.processName ?? "unknown process"} · ${
+        state.activeWindow.title || "Untitled window"
+      }`
+    );
+  }
+
+  async function runInsertionTest(mode: InsertionMode): Promise<void> {
+    if (!insertionTarget) {
+      setError("Capture a target app before running an insertion test.");
+      return;
+    }
+
+    setError(null);
+    setBusyMessage(`Testing ${insertionModeLabel(mode)}...`);
+
+    try {
+      await window.voxtype.insertion.testWindow(
+        insertionTestText,
+        insertionTarget.hwnd,
+        mode
+      );
+      setInsertionTestResult(
+        `Sent ${insertionTestText.length} characters with ${insertionModeLabel(mode)}.`
+      );
+    } catch (testError) {
+      setError(formatError(testError));
+    } finally {
+      setBusyMessage(null);
+    }
+  }
+
   return (
     <main className="app-shell">
       <section className="intro">
@@ -492,6 +561,85 @@ export function App(): JSX.Element {
         </article>
       </section>
 
+      <section className="insertion-test-panel" aria-label="Insertion tests">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Insertion</p>
+            <h2>Test panel</h2>
+          </div>
+          <div className="test-actions">
+            <button
+              className="secondary-button"
+              onClick={() => void captureInsertionTarget()}
+              type="button"
+            >
+              Capture Target
+            </button>
+            <button
+              className="secondary-button"
+              disabled={!state.activeWindow}
+              onClick={() => void useDetectedAppAsInsertionTarget()}
+              type="button"
+            >
+              Use Detected App
+            </button>
+          </div>
+        </div>
+
+        <div className="insertion-test-grid">
+          <label className="field">
+            <span>Test text</span>
+            <textarea
+              rows={4}
+              value={insertionTestText}
+              onChange={(event) => setInsertionTestText(event.target.value)}
+            />
+          </label>
+
+          <article className="target-card">
+            <span>Captured target</span>
+            <strong>
+              {insertionTarget
+                ? insertionTarget.processName ?? "Unknown process"
+                : "No target captured"}
+            </strong>
+            <p>{insertionTarget?.title || "Capture a target app before testing insertion."}</p>
+            {insertionTarget?.processPath ? <p>{insertionTarget.processPath}</p> : null}
+          </article>
+        </div>
+
+        <div className="test-actions">
+          <button
+            className="secondary-button"
+            disabled={!insertionTarget || Boolean(busyMessage)}
+            onClick={() => void runInsertionTest("clipboard")}
+            type="button"
+          >
+            Test Clipboard Paste
+          </button>
+          <button
+            className="secondary-button"
+            disabled={!insertionTarget || Boolean(busyMessage)}
+            onClick={() => void runInsertionTest("keyboard")}
+            type="button"
+          >
+            Test Unicode Typing
+          </button>
+          <button
+            className="secondary-button"
+            disabled={!insertionTarget || Boolean(busyMessage)}
+            onClick={() => void runInsertionTest("chunked")}
+            type="button"
+          >
+            Test Chunked Typing
+          </button>
+        </div>
+
+        {insertionTestResult ? (
+          <p className="settings-note">{insertionTestResult}</p>
+        ) : null}
+      </section>
+
       {state.settings ? (
         <section className="settings-panel" aria-label="VoxType settings">
           <div className="section-heading">
@@ -657,4 +805,22 @@ function formatError(error: unknown): string {
 
 function joinErrors(primary: string, secondary: string | null): string {
   return secondary ? `${primary} ${secondary}` : primary;
+}
+
+function insertionModeLabel(mode: InsertionMode): string {
+  if (mode === "clipboard") {
+    return "clipboard paste";
+  }
+
+  if (mode === "keyboard") {
+    return "Unicode typing";
+  }
+
+  return "chunked typing";
+}
+
+function wait(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, milliseconds);
+  });
 }

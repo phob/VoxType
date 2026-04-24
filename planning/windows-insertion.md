@@ -143,11 +143,17 @@ Possible solutions:
 
 Settings should include a test area:
 
-- Test paste into current app.
-- Test keyboard typing into current app.
+- Test paste into a captured target app.
+- Test keyboard typing into a captured target app.
 - Test Unicode typing.
 - Test slow remote mode.
 - Show detected app/process/window title.
 - Show recommended insertion strategy.
 
 This can turn messy Windows behavior into a visible, controllable feature.
+
+Initial implementation:
+
+- The renderer includes an insertion test panel with editable test text.
+- The panel can capture a target window after a short delay so the user can switch focus away from VoxType.
+- Clipboard paste, Unicode direct typing, and chunked typing can be tested independently without changing the saved insertion mode.

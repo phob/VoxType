@@ -43,7 +43,7 @@ Features:
 - Recording-safe audio control. Initial native helper command can mute or unmute the default Windows render endpoint for cleaner recordings.
 - Per-app insertion profiles.
 - RDP/TeamViewer profile.
-- Insertion test panel.
+- Insertion test panel. Initial renderer panel captures a target app after a short delay and can test clipboard paste, Unicode typing, and chunked typing independently.
 
 ## Phase 3: Dictionary And Correction Memory
 

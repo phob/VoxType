@@ -118,6 +118,7 @@ h1 {
 .settings-panel,
 .runtime-panel,
 .windows-panel,
+.insertion-test-panel,
 .history-panel {
   padding: 24px;
   border: 1px solid rgba(255, 250, 240, 0.14);
@@ -129,6 +130,7 @@ h1 {
 .settings-panel h2,
 .runtime-panel h2,
 .windows-panel h2,
+.insertion-test-panel h2,
 .history-panel h2 {
   margin: 0;
   color: #fffaf0;
@@ -141,6 +143,7 @@ h1 {
 .settings-panel p,
 .runtime-panel p,
 .windows-panel p,
+.insertion-test-panel p,
 .history-panel p {
   margin: 0;
   color: #c9c1b2;
@@ -208,14 +211,27 @@ h1 {
 
 .field input,
 .field select,
+.field textarea,
 .hotkey-capture-button {
   width: 100%;
-  min-height: 42px;
   border: 1px solid rgba(255, 250, 240, 0.2);
   border-radius: 6px;
-  padding: 0 12px;
   color: #fffaf0;
   background: rgba(16, 17, 20, 0.78);
+}
+
+.field input,
+.field select,
+.hotkey-capture-button {
+  min-height: 42px;
+  padding: 0 12px;
+}
+
+.field textarea {
+  min-height: 116px;
+  padding: 12px;
+  line-height: 1.5;
+  resize: vertical;
 }
 
 .hotkey-capture-button {
@@ -249,15 +265,24 @@ h1 {
 .settings-panel,
 .runtime-panel,
 .windows-panel,
+.insertion-test-panel,
 .history-panel {
   margin-top: 16px;
 }
 
 .dictation-actions,
-.model-actions {
+.model-actions,
+.test-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.insertion-test-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(280px, 0.8fr);
+  gap: 16px;
+  margin-bottom: 16px;
 }
 
 .primary-button,
@@ -316,6 +341,7 @@ h1 {
 
 .model-row,
 .runtime-card,
+.target-card,
 .history-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -331,14 +357,21 @@ h1 {
   grid-template-columns: 1fr;
 }
 
+.target-card {
+  grid-template-columns: 1fr;
+  align-content: start;
+}
+
 .model-row strong,
-.runtime-card strong {
+.runtime-card strong,
+.target-card strong {
   display: block;
   color: #fffaf0;
 }
 
 .model-row span,
-.runtime-card span {
+.runtime-card span,
+.target-card span {
   display: block;
   margin-top: 4px;
   color: #d3bb8f;
@@ -346,7 +379,8 @@ h1 {
 }
 
 .model-row p,
-.runtime-card p {
+.runtime-card p,
+.target-card p {
   margin-top: 8px;
   word-break: break-all;
 }
@@ -369,7 +403,8 @@ h1 {
 @media (max-width: 920px) {
   .intro,
   .workspace-grid,
-  .settings-grid {
+  .settings-grid,
+  .insertion-test-grid {
     grid-template-columns: 1fr;
   }
 

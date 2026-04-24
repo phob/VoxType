@@ -1,8 +1,13 @@
 import { clipboard } from "electron";
+import { type InsertionMode } from "../shared/settings";
 import { type SettingsStore } from "./settings-store";
 import { WindowsHelperService } from "./windows-helper-service";
 
 const FOCUS_SETTLE_DELAY_MS = 120;
+
+type InsertOptions = {
+  mode?: InsertionMode;
+};
 
 export class InsertionService {
   constructor(
@@ -14,14 +19,18 @@ export class InsertionService {
     clipboard.writeText(text);
   }
 
-  async insertIntoActiveApp(text: string): Promise<void> {
-    await this.insertText(text);
+  async insertIntoActiveApp(text: string, options?: InsertOptions): Promise<void> {
+    await this.insertText(text, options);
   }
 
-  async insertIntoWindow(text: string, hwnd: string): Promise<void> {
+  async insertIntoWindow(
+    text: string,
+    hwnd: string,
+    options?: InsertOptions
+  ): Promise<void> {
     await this.windowsHelperService.focusWindow(hwnd);
     await wait(FOCUS_SETTLE_DELAY_MS);
-    await this.insertText(text);
+    await this.insertText(text, options);
   }
 
   async pasteIntoActiveApp(text: string): Promise<void> {
@@ -32,15 +41,16 @@ export class InsertionService {
     await this.insertIntoWindow(text, hwnd);
   }
 
-  private async insertText(text: string): Promise<void> {
+  private async insertText(text: string, options?: InsertOptions): Promise<void> {
     const settings = await this.settingsStore.get();
+    const mode = options?.mode ?? settings.insertionMode;
 
-    if (settings.insertionMode === "clipboard") {
+    if (mode === "clipboard") {
       await this.windowsHelperService.pasteText(text);
       return;
     }
 
-    if (settings.insertionMode === "keyboard") {
+    if (mode === "keyboard") {
       await this.windowsHelperService.typeText(text, 0);
       return;
     }
