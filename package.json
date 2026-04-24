@@ -1,0 +1,29 @@
+{
+  "name": "voxtype",
+  "version": "0.1.0",
+  "description": "Windows-first local speech-to-text app.",
+  "private": true,
+  "main": "out/main/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "tsc --noEmit && electron-vite build",
+    "preview": "electron-vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "react": "latest",
+    "react-dom": "latest"
+  },
+  "devDependencies": {
+    "@swc/core": "^1.15.5",
+    "@types/node": "latest",
+    "@types/react": "latest",
+    "@types/react-dom": "latest",
+    "@vitejs/plugin-react": "^5.2.0",
+    "electron": "latest",
+    "electron-vite": "^5.0.0",
+    "typescript": "latest",
+    "vite": "^7.3.2"
+  }
+}
