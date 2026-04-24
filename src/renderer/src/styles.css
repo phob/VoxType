@@ -338,6 +338,12 @@ h1 {
   background: rgba(255, 250, 240, 0.08);
 }
 
+.compact-button {
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 0.82rem;
+}
+
 .primary-button:disabled,
 .secondary-button:disabled {
   cursor: not-allowed;
@@ -401,6 +407,18 @@ h1 {
 
 .history-row {
   grid-template-columns: 1fr;
+}
+
+.history-row-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.history-row-header span {
+  margin-bottom: 0;
 }
 
 .profile-row {

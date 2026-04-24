@@ -48,7 +48,8 @@ const voxtype = {
       ) as Promise<TranscriptionResult>
   },
   history: {
-    list: () => ipcRenderer.invoke("history:list") as Promise<TranscriptEntry[]>
+    list: () => ipcRenderer.invoke("history:list") as Promise<TranscriptEntry[]>,
+    audio: (entryId: string) => ipcRenderer.invoke("history:audio", entryId) as Promise<Uint8Array>
   },
   dictionary: {
     list: () => ipcRenderer.invoke("dictionary:list") as Promise<DictionaryEntry[]>,

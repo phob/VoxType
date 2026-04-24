@@ -83,6 +83,7 @@ Features:
 - Pre-roll duration. Initial setting added.
 - Maximum recording duration as a separate safety setting, not driven by VAD.
 - VAD trimming summary. Initial UI shows speech segments, kept duration, and trimmed duration after recording.
+- Playback for saved processed audio. Initial history UI can play the WAV that was sent to Whisper so VAD trimming bugs can be heard directly.
 - Per-device calibration or presets later.
 - Diagnostics panel later showing speech probability over time.
 

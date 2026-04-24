@@ -115,6 +115,7 @@ Current foundation:
 - `src/shared/runtimes.ts` pins the first managed Windows runtime to official `ggml-org/whisper.cpp` `v1.8.4` `whisper-bin-x64.zip`.
 - `src/main/runtime-service.ts` downloads and extracts the managed CPU x64 `whisper.cpp` runtime into Electron's `userData` runtime directory.
 - `src/main/history-store.ts` persists recent transcript history under Electron's `userData` path.
+- Transcript history now stores successful transcription audio as WAV files under Electron's `userData` path and exposes them through IPC for playback. The saved audio is the processed WAV sent to Whisper, which makes VAD trimming issues audible from the history UI.
 - `src/main/dictionary-store.ts` persists local dictionary entries and correction memory under Electron's `userData` path. It builds compact Whisper prompts and applies conservative phrase replacements after ASR.
 - `src/main/transcription-service.ts` writes recorded WAV audio to a temp file, invokes Whisper with optional dictionary prompt context, applies local dictionary corrections, then stores corrected transcript history.
 - `src/main/insertion-service.ts` prepares clipboard insertion and delegates paste-into-active-app behavior to the native helper.

@@ -28,6 +28,8 @@ export function App(): JSX.Element {
   const recorderRef = useRef<PcmRecorder | null>(null);
   const hotkeyTargetRef = useRef<ActiveWindowInfo | null>(null);
   const systemAudioMutedByVoxTypeRef = useRef(false);
+  const audioElementRef = useRef<HTMLAudioElement | null>(null);
+  const audioObjectUrlRef = useRef<string | null>(null);
   const [version, setVersion] = useState<string>("0.1.0");
   const [state, setState] = useState<AppState>({
     models: [],
@@ -56,12 +58,25 @@ export function App(): JSX.Element {
   const [dictionaryAppProcess, setDictionaryAppProcess] = useState("");
   const [fixLastText, setFixLastText] = useState("");
   const [lastRecordingResult, setLastRecordingResult] = useState<PcmRecordingResult | null>(null);
+  const [playingTranscriptId, setPlayingTranscriptId] = useState<string | null>(null);
 
   const activeModel = state.models.find((model) => model.id === state.settings?.activeModelId);
   const latestTranscript = state.history[0];
 
   useEffect(() => {
     void refresh();
+
+    return () => {
+      if (audioElementRef.current) {
+        audioElementRef.current.pause();
+        audioElementRef.current = null;
+      }
+
+      if (audioObjectUrlRef.current) {
+        URL.revokeObjectURL(audioObjectUrlRef.current);
+        audioObjectUrlRef.current = null;
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -479,6 +494,63 @@ export function App(): JSX.Element {
     } catch (dictionaryError) {
       setError(formatError(dictionaryError));
     }
+  }
+
+  async function playTranscriptAudio(entry: TranscriptEntry): Promise<void> {
+    setError(null);
+
+    try {
+      if (playingTranscriptId === entry.id) {
+        stopTranscriptAudio();
+        return;
+      }
+
+      stopTranscriptAudio();
+
+      const audioBytes = await window.voxtype.history.audio(entry.id);
+      const blob = new Blob([audioBytes], { type: "audio/wav" });
+      const objectUrl = URL.createObjectURL(blob);
+      const audio = new Audio(objectUrl);
+
+      audioElementRef.current = audio;
+      audioObjectUrlRef.current = objectUrl;
+      setPlayingTranscriptId(entry.id);
+
+      audio.addEventListener(
+        "ended",
+        () => {
+          stopTranscriptAudio();
+        },
+        { once: true }
+      );
+      audio.addEventListener(
+        "error",
+        () => {
+          setError("Could not play the saved transcript audio.");
+          stopTranscriptAudio();
+        },
+        { once: true }
+      );
+
+      await audio.play();
+    } catch (audioError) {
+      stopTranscriptAudio();
+      setError(formatError(audioError));
+    }
+  }
+
+  function stopTranscriptAudio(): void {
+    if (audioElementRef.current) {
+      audioElementRef.current.pause();
+      audioElementRef.current = null;
+    }
+
+    if (audioObjectUrlRef.current) {
+      URL.revokeObjectURL(audioObjectUrlRef.current);
+      audioObjectUrlRef.current = null;
+    }
+
+    setPlayingTranscriptId(null);
   }
 
   return (
@@ -1191,8 +1263,20 @@ export function App(): JSX.Element {
           ) : (
             state.history.map((entry) => (
               <article className="history-row" key={entry.id}>
-                <span>{new Date(entry.createdAt).toLocaleString()}</span>
-                <p>{entry.text}</p>
+                <div>
+                  <div className="history-row-header">
+                    <span>{new Date(entry.createdAt).toLocaleString()}</span>
+                    <button
+                      className="secondary-button compact-button"
+                      disabled={!entry.audioFileName}
+                      onClick={() => void playTranscriptAudio(entry)}
+                      type="button"
+                    >
+                      {playingTranscriptId === entry.id ? "Stop" : "Play Audio"}
+                    </button>
+                  </div>
+                  <p>{entry.text}</p>
+                </div>
               </article>
             ))
           )}

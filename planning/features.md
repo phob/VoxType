@@ -65,6 +65,7 @@ The recording pipeline should use local VAD to:
 - cut out silent parts without stopping the recording automatically
 - keep a short pre-roll so words are not clipped
 - show clear states such as listening, speech detected, and transcribing
+- let users play the processed audio from history to debug bad trimming
 
 Silero VAD is the preferred first candidate because it is fast, local, and practical to run through ONNX.
 

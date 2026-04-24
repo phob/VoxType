@@ -192,6 +192,7 @@ ipcMain.handle(
     transcriptionService.transcribeWav(bytes, context)
 );
 ipcMain.handle("history:list", () => historyStore.list());
+ipcMain.handle("history:audio", (_event, entryId: string) => historyStore.readAudio(entryId));
 ipcMain.handle("dictionary:list", () => dictionaryStore.list());
 ipcMain.handle("dictionary:add", (_event, input: DictionaryCreateInput) =>
   dictionaryStore.add(input)

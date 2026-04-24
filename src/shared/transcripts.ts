@@ -3,6 +3,7 @@ export type TranscriptEntry = {
   text: string;
   rawText?: string;
   correctionsApplied?: string[];
+  audioFileName?: string;
   modelId: string;
   createdAt: string;
   durationMs: number;

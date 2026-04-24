@@ -76,11 +76,13 @@ export class TranscriptionService {
         throw new Error("Whisper completed but returned no transcript text.");
       }
 
+      const audioFileName = await this.historyStore.saveAudio(id, audioBytes);
       const entry: TranscriptEntry = {
         id,
         text,
         rawText: rawText !== text ? rawText : undefined,
         correctionsApplied: correction.applied.length > 0 ? correction.applied : undefined,
+        audioFileName,
         modelId: model.id,
         createdAt: new Date().toISOString(),
         durationMs: Date.now() - startedAt
