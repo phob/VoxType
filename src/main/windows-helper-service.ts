@@ -54,6 +54,20 @@ export class WindowsHelperService {
     await runHelperWithStdin(helperPath, ["paste-text"], text);
   }
 
+  async focusWindow(hwnd: string): Promise<void> {
+    const helperPath = await this.resolveHelperPath();
+
+    if (!helperPath) {
+      throw new Error(
+        "Windows helper executable was not found. Build it with `cargo build --manifest-path native/windows-helper/Cargo.toml`."
+      );
+    }
+
+    await execFileAsync(helperPath, ["focus-window", hwnd], {
+      windowsHide: true
+    });
+  }
+
   private async resolveHelperPath(): Promise<string | null> {
     const candidates = [
       process.env.VOXTYPE_WINDOWS_HELPER_PATH,

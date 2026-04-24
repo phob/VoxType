@@ -12,9 +12,10 @@ fn main() {
     let command = env::args().nth(1).unwrap_or_else(|| "help".to_string());
     let result = match command.as_str() {
         "active-window" => active_window_json(),
+        "focus-window" => focus_window_from_arg(),
         "paste-text" => paste_text_from_stdin(),
         "help" | "--help" | "-h" => {
-            println!("Usage: voxtype-windows-helper active-window | paste-text");
+            println!("Usage: voxtype-windows-helper active-window | focus-window <hwnd> | paste-text");
             Ok(())
         }
         _ => Err(format!("Unknown command: {command}")),
@@ -42,6 +43,19 @@ fn active_window_json() -> Result<(), String> {
 #[cfg(not(windows))]
 fn active_window_json() -> Result<(), String> {
     Err("active-window is only supported on Windows.".to_string())
+}
+
+#[cfg(windows)]
+fn focus_window_from_arg() -> Result<(), String> {
+    let hwnd = env::args()
+        .nth(2)
+        .ok_or_else(|| "focus-window requires an hwnd argument.".to_string())?;
+    windows_impl::focus_window(&hwnd)
+}
+
+#[cfg(not(windows))]
+fn focus_window_from_arg() -> Result<(), String> {
+    Err("focus-window is only supported on Windows.".to_string())
 }
 
 #[cfg(windows)]
@@ -80,6 +94,7 @@ mod windows_impl {
     };
     use windows::Win32::UI::WindowsAndMessaging::{
         GetForegroundWindow, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId,
+        SetForegroundWindow, ShowWindow, SW_RESTORE,
     };
 
     const CF_UNICODETEXT_FORMAT: u32 = 13;
@@ -121,6 +136,27 @@ mod windows_impl {
     pub fn paste_text(text: &str) -> Result<(), String> {
         set_clipboard_text(text)?;
         send_ctrl_v()
+    }
+
+    pub fn focus_window(hwnd: &str) -> Result<(), String> {
+        let hwnd = parse_hwnd(hwnd)?;
+
+        unsafe {
+            let _ = ShowWindow(hwnd, SW_RESTORE);
+            if SetForegroundWindow(hwnd).as_bool() == false {
+                return Err("Failed to focus target window.".to_string());
+            }
+        }
+
+        Ok(())
+    }
+
+    fn parse_hwnd(value: &str) -> Result<HWND, String> {
+        let normalized = value.trim().trim_start_matches("0x");
+        let raw = usize::from_str_radix(normalized, 16)
+            .map_err(|error| format!("Invalid hwnd '{value}': {error}"))?;
+
+        Ok(HWND(raw as *mut _))
     }
 
     fn set_clipboard_text(text: &str) -> Result<(), String> {

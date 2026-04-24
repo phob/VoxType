@@ -22,3 +22,4 @@
 - Added managed Windows CPU x64 `whisper.cpp` runtime acquisition from official `ggml-org/whisper.cpp` `v1.8.4` release assets, with UI install status and automatic use before falling back to `whisper-cli`.
 - Started Phase 2 with a Rust native Windows helper scaffold, foreground active-window detection, Electron IPC integration, and a renderer Windows integration panel.
 - Added native clipboard paste insertion through the Rust helper, including a `paste-text` command, Electron insertion IPC, and a renderer "Paste To Active App" action for the latest transcript.
+- Added global `Ctrl+Alt+Space` dictation toggle that captures the target window before recording, stops/transcribes on the second press, refocuses the captured app, and pastes the transcript without requiring VoxType button clicks.

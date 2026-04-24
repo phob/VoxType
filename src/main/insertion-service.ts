@@ -11,4 +11,16 @@ export class InsertionService {
   async pasteIntoActiveApp(text: string): Promise<void> {
     await this.windowsHelperService.pasteText(text);
   }
+
+  async pasteIntoWindow(text: string, hwnd: string): Promise<void> {
+    await this.windowsHelperService.focusWindow(hwnd);
+    await wait(120);
+    await this.windowsHelperService.pasteText(text);
+  }
+}
+
+function wait(milliseconds: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, milliseconds);
+  });
 }

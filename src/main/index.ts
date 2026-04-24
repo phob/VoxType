@@ -1,6 +1,7 @@
 import { app, BrowserWindow, Menu, Tray, globalShortcut, ipcMain, nativeImage } from "electron";
 import { join } from "node:path";
 import { type SettingsPatch } from "../shared/settings";
+import { type DictationHotkeyState } from "../shared/windows-helper";
 import { HistoryStore } from "./history-store";
 import { InsertionService } from "./insertion-service";
 import { ModelService } from "./model-service";
@@ -11,6 +12,10 @@ import { WindowsHelperService } from "./windows-helper-service";
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
+let dictationHotkeyState: DictationHotkeyState = {
+  recording: false,
+  target: null
+};
 
 const isDev = Boolean(process.env.ELECTRON_RENDERER_URL);
 const settingsStore = new SettingsStore();
@@ -86,6 +91,39 @@ function showMainWindow(): void {
   mainWindow.focus();
 }
 
+async function toggleDictationHotkey(): Promise<void> {
+  if (dictationHotkeyState.recording) {
+    dictationHotkeyState = {
+      ...dictationHotkeyState,
+      recording: false
+    };
+    mainWindow?.webContents.send("dictation-hotkey-stop", {
+      target: dictationHotkeyState.target
+    });
+    return;
+  }
+
+  const target = await windowsHelperService.getActiveWindow().catch(() => null);
+
+  dictationHotkeyState = {
+    recording: true,
+    target
+  };
+
+  if (!mainWindow) {
+    createWindow();
+  }
+
+  if (mainWindow?.webContents.isLoading()) {
+    mainWindow.webContents.once("did-finish-load", () => {
+      mainWindow?.webContents.send("dictation-hotkey-start", { target });
+    });
+    return;
+  }
+
+  mainWindow?.webContents.send("dictation-hotkey-start", { target });
+}
+
 ipcMain.handle("app:get-version", () => app.getVersion());
 ipcMain.handle("settings:get", () => settingsStore.get());
 ipcMain.handle("settings:update", (_event, patch: SettingsPatch) => settingsStore.update(patch));
@@ -102,6 +140,17 @@ ipcMain.handle("insertion:copy", (_event, text: string) => insertionService.copy
 ipcMain.handle("insertion:paste-active", (_event, text: string) =>
   insertionService.pasteIntoActiveApp(text)
 );
+ipcMain.handle("insertion:paste-window", (_event, text: string, hwnd: string) =>
+  insertionService.pasteIntoWindow(text, hwnd)
+);
+ipcMain.handle("dictation:get-hotkey-state", () => dictationHotkeyState);
+ipcMain.handle("dictation:set-hotkey-recording", (_event, recording: boolean) => {
+  dictationHotkeyState = {
+    ...dictationHotkeyState,
+    recording
+  };
+  return dictationHotkeyState;
+});
 ipcMain.handle("windows-helper:status", () => windowsHelperService.getStatus());
 ipcMain.handle("windows-helper:active-window", () => windowsHelperService.getActiveWindow());
 
@@ -109,6 +158,9 @@ app.whenReady().then(() => {
   createWindow();
   createTray();
   globalShortcut.register("CommandOrControl+Shift+Space", showMainWindow);
+  globalShortcut.register("CommandOrControl+Alt+Space", () => {
+    void toggleDictationHotkey();
+  });
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {

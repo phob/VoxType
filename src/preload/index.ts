@@ -4,6 +4,8 @@ import { type WhisperRuntime } from "../shared/runtimes";
 import { type AppSettings, type SettingsPatch } from "../shared/settings";
 import { type TranscriptEntry, type TranscriptionResult } from "../shared/transcripts";
 import {
+  type DictationHotkeyPayload,
+  type DictationHotkeyState,
   type ActiveWindowInfo,
   type WindowsHelperStatus
 } from "../shared/windows-helper";
@@ -36,7 +38,30 @@ const voxtype = {
   insertion: {
     copy: (text: string) => ipcRenderer.invoke("insertion:copy", text) as Promise<void>,
     pasteActive: (text: string) =>
-      ipcRenderer.invoke("insertion:paste-active", text) as Promise<void>
+      ipcRenderer.invoke("insertion:paste-active", text) as Promise<void>,
+    pasteWindow: (text: string, hwnd: string) =>
+      ipcRenderer.invoke("insertion:paste-window", text, hwnd) as Promise<void>
+  },
+  dictation: {
+    getHotkeyState: () =>
+      ipcRenderer.invoke("dictation:get-hotkey-state") as Promise<DictationHotkeyState>,
+    setHotkeyRecording: (recording: boolean) =>
+      ipcRenderer.invoke(
+        "dictation:set-hotkey-recording",
+        recording
+      ) as Promise<DictationHotkeyState>,
+    onHotkeyStart: (callback: (payload: DictationHotkeyPayload) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, payload: DictationHotkeyPayload) =>
+        callback(payload);
+      ipcRenderer.on("dictation-hotkey-start", listener);
+      return () => ipcRenderer.off("dictation-hotkey-start", listener);
+    },
+    onHotkeyStop: (callback: (payload: DictationHotkeyPayload) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, payload: DictationHotkeyPayload) =>
+        callback(payload);
+      ipcRenderer.on("dictation-hotkey-stop", listener);
+      return () => ipcRenderer.off("dictation-hotkey-stop", listener);
+    }
   },
   windowsHelper: {
     status: () =>

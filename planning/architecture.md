@@ -111,8 +111,9 @@ Current foundation:
 - `src/main/transcription-service.ts` writes recorded WAV audio to a temp file and invokes the custom executable path if configured, otherwise the managed runtime executable, otherwise `whisper-cli`.
 - `src/main/history-store.ts` persists recent transcript history under Electron's `userData` path.
 - `src/main/insertion-service.ts` prepares clipboard insertion and delegates paste-into-active-app behavior to the native helper.
-- `native/windows-helper` contains the first Rust native helper. It currently exposes `active-window` and `paste-text` commands. `active-window` returns foreground window title, hwnd, process id, process path, and process name as JSON. `paste-text` accepts UTF-8 text through stdin, sets the Windows Unicode clipboard, and sends Ctrl+V with `SendInput`.
+- `native/windows-helper` contains the first Rust native helper. It currently exposes `active-window`, `focus-window`, and `paste-text` commands. `active-window` returns foreground window title, hwnd, process id, process path, and process name as JSON. `focus-window` restores/focuses a captured hwnd. `paste-text` accepts UTF-8 text through stdin, sets the Windows Unicode clipboard, and sends Ctrl+V with `SendInput`.
 - `src/main/windows-helper-service.ts` resolves and invokes the native helper from Electron, with dev/release/resource path candidates.
+- The `Ctrl+Alt+Space` dictation hotkey captures the foreground window before recording, signals the renderer to start/stop microphone capture, then refocuses the captured window before paste insertion.
 
 ## Security And Privacy
 

@@ -12,3 +12,12 @@ export type WindowsHelperStatus = {
   error: string | null;
 };
 
+export type DictationHotkeyPayload = {
+  target: ActiveWindowInfo | null;
+};
+
+export type DictationHotkeyState = {
+  recording: boolean;
+  target: ActiveWindowInfo | null;
+};
+

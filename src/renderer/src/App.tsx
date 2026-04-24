@@ -6,6 +6,7 @@ import { type AppSettings, type InsertionMode } from "../../../shared/settings";
 import { type TranscriptEntry } from "../../../shared/transcripts";
 import {
   type ActiveWindowInfo,
+  type DictationHotkeyPayload,
   type WindowsHelperStatus
 } from "../../../shared/windows-helper";
 
@@ -20,6 +21,7 @@ type AppState = {
 
 export function App(): JSX.Element {
   const recorderRef = useRef<PcmRecorder | null>(null);
+  const hotkeyTargetRef = useRef<ActiveWindowInfo | null>(null);
   const [version, setVersion] = useState<string>("0.1.0");
   const [state, setState] = useState<AppState>({
     models: [],
@@ -39,6 +41,26 @@ export function App(): JSX.Element {
   useEffect(() => {
     void refresh();
   }, []);
+
+  useEffect(() => {
+    const removeStart = window.voxtype.dictation.onHotkeyStart((payload) => {
+      void handleHotkeyStart(payload);
+    });
+    const removeStop = window.voxtype.dictation.onHotkeyStop((payload) => {
+      void handleHotkeyStop(payload);
+    });
+
+    void window.voxtype.dictation.getHotkeyState().then((hotkeyState) => {
+      if (hotkeyState.recording) {
+        void handleHotkeyStart({ target: hotkeyState.target });
+      }
+    });
+
+    return () => {
+      removeStart();
+      removeStop();
+    };
+  }, [activeModel?.status, state.settings?.insertionMode, recording]);
 
   async function refresh(): Promise<void> {
     const [appVersion, settings, models, runtime, history, windowsHelper] = await Promise.all([
@@ -110,7 +132,32 @@ export function App(): JSX.Element {
     }
   }
 
-  async function stopAndTranscribe(): Promise<void> {
+  async function handleHotkeyStart(payload: DictationHotkeyPayload): Promise<void> {
+    if (recording || recorderRef.current) {
+      return;
+    }
+
+    hotkeyTargetRef.current = payload.target;
+    setState((current) => ({
+      ...current,
+      activeWindow: payload.target
+    }));
+    await startRecording();
+  }
+
+  async function handleHotkeyStop(payload: DictationHotkeyPayload): Promise<void> {
+    if (payload.target) {
+      hotkeyTargetRef.current = payload.target;
+    }
+
+    await stopAndTranscribe({ pasteTarget: hotkeyTargetRef.current });
+    await window.voxtype.dictation.setHotkeyRecording(false);
+    hotkeyTargetRef.current = null;
+  }
+
+  async function stopAndTranscribe(options?: {
+    pasteTarget?: ActiveWindowInfo | null;
+  }): Promise<void> {
     if (!recorderRef.current) {
       return;
     }
@@ -122,7 +169,9 @@ export function App(): JSX.Element {
       const wavBytes = await recorderRef.current.stop();
       recorderRef.current = null;
       const result = await window.voxtype.transcription.transcribeWav(wavBytes);
-      if (state.settings?.insertionMode === "clipboard") {
+      if (options?.pasteTarget?.hwnd && state.settings?.insertionMode === "clipboard") {
+        await window.voxtype.insertion.pasteWindow(result.entry.text, options.pasteTarget.hwnd);
+      } else if (state.settings?.insertionMode === "clipboard") {
         await window.voxtype.insertion.copy(result.entry.text);
       }
       const [runtime, history] = await Promise.all([
@@ -192,14 +241,18 @@ export function App(): JSX.Element {
           <h1>Local dictation for real Windows work.</h1>
           <p className="lede">
             Record audio, run a local Whisper model, and prepare the transcript for insertion.
-            Press Ctrl+Shift+Space to bring VoxType forward.
+            Press Ctrl+Alt+Space to start or stop dictation from any app.
           </p>
         </div>
         <div className="status-panel" aria-label="Application status">
           <span className={recording ? "status-dot recording-dot" : "status-dot"} />
           <div>
             <strong>{recording ? "Listening..." : busyMessage ?? "Ready for local dictation"}</strong>
-            <span>{activeModel ? `${activeModel.name} is selected.` : "Choose a model below."}</span>
+            <span>
+              {activeModel
+                ? `${activeModel.name} is selected. Ctrl+Alt+Space toggles recording.`
+                : "Choose a model below."}
+            </span>
           </div>
         </div>
       </section>
@@ -211,7 +264,7 @@ export function App(): JSX.Element {
           <div className="section-heading">
             <div>
               <p className="eyebrow">Dictation</p>
-              <h2>Phase 1 workflow</h2>
+              <h2>Hotkey workflow</h2>
             </div>
           </div>
 

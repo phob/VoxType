@@ -18,7 +18,7 @@ Features:
 - Electron app shell. Initial scaffold created.
 - Tray app. Initial tray context menu created.
 - Settings window. First persistent settings panel and main-process settings store created.
-- Global push-to-talk hotkey. Initial global shortcut brings VoxType forward with `Ctrl+Shift+Space`; true background push-to-talk remains native-helper work.
+- Global push-to-talk hotkey. `Ctrl+Alt+Space` now toggles recording/transcription from any app while preserving the target window; `Ctrl+Shift+Space` brings VoxType forward.
 - Microphone recording. Initial renderer recorder captures microphone audio and encodes 16 kHz WAV.
 - Whisper transcription through `whisper.cpp`. Initial service invokes a custom executable path if configured, otherwise the managed CPU x64 `whisper.cpp` runtime, otherwise `whisper-cli`.
 - Managed `whisper.cpp` runtime acquisition. Initial implementation downloads and extracts official `ggml-org/whisper.cpp` `v1.8.4` `whisper-bin-x64.zip` and finds `whisper-cli.exe`.
@@ -38,6 +38,7 @@ Features:
 - Unicode handling.
 - Active app detection. Initial `active-window` command reports foreground window metadata and is wired into the renderer test panel.
 - Clipboard paste insertion into active app. Initial `paste-text` helper command sets Unicode clipboard text and sends Ctrl+V to the active foreground app.
+- Target-window paste after global dictation. Initial hotkey flow captures the active window before dictation and refocuses it before pasting the transcript.
 - Per-app insertion profiles.
 - RDP/TeamViewer profile.
 - Insertion test panel.
