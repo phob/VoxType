@@ -52,7 +52,7 @@ export async function startPcmRecorder(): Promise<PcmRecorder> {
       await audioContext.close();
 
       const merged = mergeChunks(chunks);
-      const resampled = resampleLinear(merged, sampleRate, 16000);
+      const resampled = await resampleToSampleRate(merged, sampleRate, 16000);
       const { samples, stats } = await safelyTrimSilence(resampled, options?.settings);
 
       return {
@@ -99,8 +99,7 @@ function settingsToVadOptions(settings?: AppSettings | null) {
     vadNegativeSpeechThreshold: settings?.vadNegativeSpeechThreshold ?? 0.15,
     vadMinSpeechMs: settings?.vadMinSpeechMs ?? 250,
     vadPreSpeechPadMs: settings?.vadPreSpeechPadMs ?? 450,
-    vadRedemptionMs: settings?.vadRedemptionMs ?? 450,
-    vadPreservedPauseMs: settings?.vadPreservedPauseMs ?? 500
+    vadRedemptionMs: settings?.vadRedemptionMs ?? 450
   };
 }
 
@@ -127,6 +126,33 @@ function mergeChunks(chunks: Float32Array[]): Float32Array {
   }
 
   return merged;
+}
+
+async function resampleToSampleRate(
+  input: Float32Array,
+  inputRate: number,
+  outputRate: number
+): Promise<Float32Array> {
+  if (inputRate === outputRate) {
+    return input;
+  }
+
+  try {
+    const outputLength = Math.round((input.length * outputRate) / inputRate);
+    const offlineContext = new OfflineAudioContext(1, outputLength, outputRate);
+    const buffer = offlineContext.createBuffer(1, input.length, inputRate);
+    const source = offlineContext.createBufferSource();
+
+    buffer.copyToChannel(input, 0);
+    source.buffer = buffer;
+    source.connect(offlineContext.destination);
+    source.start(0);
+
+    const rendered = await offlineContext.startRendering();
+    return new Float32Array(rendered.getChannelData(0));
+  } catch {
+    return resampleLinear(input, inputRate, outputRate);
+  }
 }
 
 function resampleLinear(input: Float32Array, inputRate: number, outputRate: number): Float32Array {

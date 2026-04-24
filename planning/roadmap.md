@@ -90,8 +90,10 @@ Features:
 Implementation notes:
 
 - First slice runs post-recording Silero VAD in the renderer using `@ricky0123/vad-web` and ONNX Runtime Web/WASM. It bundles the Silero ONNX model and ONNX Runtime WASM assets locally with the renderer build.
-- VAD trimming should rebuild audio from original sample ranges and crossfade removed-gap joins. It should not insert artificial zero buffers between speech segments, because that creates audible dropouts and can distort the audio sent to Whisper.
-- Defaults should be conservative, closer to Handy's Silero approach: lower speech threshold, longer pre-roll, longer hangover/redemption, and preserved short pauses.
+- VAD trimming should currently be conservative edge trimming: find the first and last speech range and keep the continuous original audio between them. It should not cut internal pauses until VoxType has Handy-style frame-level smoothing.
+- VoxType should use a high-quality resampler before Whisper/VAD. The first fix uses Web Audio `OfflineAudioContext` resampling instead of the earlier linear downsampler.
+- Defaults should be conservative, closer to Handy's Silero approach: lower speech threshold, longer pre-roll, and longer hangover/redemption.
+- Deeper Handy comparison: Handy uses native `vad-rs` with `silero_vad_v4.onnx`, 30 ms frames, a `SmoothedVad` wrapper with prefill/hangover/onset frames, and a high-quality Rubato FFT resampler. VoxType's current browser path uses `@ricky0123/vad-web` legacy non-real-time VAD with larger frames, so internal pause cutting is riskier.
 - If packaging or performance becomes awkward, move VAD inference into a small native/helper worker using ONNX Runtime.
 - VAD should gate and trim audio, but it must not replace or trigger the user's explicit start/stop hotkey.
 - VAD only detects speech/non-speech; automatic stopping based on pauses or transcript meaning is out of scope for the planned first VAD implementation.

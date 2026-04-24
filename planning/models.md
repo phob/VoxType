@@ -93,9 +93,17 @@ Current implementation:
 - bundled Silero legacy ONNX model
 - bundled ONNX Runtime Web/WASM assets
 - post-recording trimming before Whisper transcription
-- original sample-range reconstruction instead of artificial zero-padding between segments
-- short join crossfades after removed silent gaps
+- conservative first/last speech envelope trimming instead of internal pause cutting
+- Web Audio offline resampling before VAD/Whisper, with linear fallback
 - no automatic recording stop behavior
+
+Handy comparison:
+
+- Handy uses `vad-rs` with `silero_vad_v4.onnx`.
+- Handy feeds Silero 30 ms frames.
+- Handy wraps Silero in `SmoothedVad` with prefill frames, hangover frames, and onset confirmation.
+- Handy uses a Rubato FFT resampler before VAD/Whisper.
+- VoxType should consider a native/helper VAD path if browser-side VAD remains unstable.
 
 Reasons:
 

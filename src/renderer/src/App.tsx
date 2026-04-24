@@ -1100,24 +1100,13 @@ export function App(): JSX.Element {
               />
             </label>
 
-            <label className="field">
-              <span>Pause preservation ms</span>
-              <input
-                max={2000}
-                min={0}
-                type="number"
-                value={state.settings.vadPreservedPauseMs}
-                onChange={(event) =>
-                  void updateSettings({ vadPreservedPauseMs: Number(event.target.value) })
-                }
-              />
-            </label>
           </div>
           <p className="settings-note">
             Registered hotkeys: dictation{" "}
             {state.hotkeys?.dictationToggleHotkey ?? "not registered"}, show window{" "}
             {state.hotkeys?.showWindowHotkey ?? "not registered"}.
-            Silero VAD only trims audio before Whisper; it does not stop recording.
+            Silero VAD trims leading and trailing non-speech before Whisper; it does not stop
+            recording or cut internal pauses.
           </p>
         </section>
       ) : null}
