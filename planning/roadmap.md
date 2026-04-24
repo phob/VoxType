@@ -20,7 +20,8 @@ Features:
 - Settings window. First persistent settings panel and main-process settings store created.
 - Global push-to-talk hotkey. Initial global shortcut brings VoxType forward with `Ctrl+Shift+Space`; true background push-to-talk remains native-helper work.
 - Microphone recording. Initial renderer recorder captures microphone audio and encodes 16 kHz WAV.
-- Whisper transcription through `whisper.cpp`. Initial service invokes configured `whisper-cli` with the selected local model.
+- Whisper transcription through `whisper.cpp`. Initial service invokes a custom executable path if configured, otherwise the managed CPU x64 `whisper.cpp` runtime, otherwise `whisper-cli`.
+- Managed `whisper.cpp` runtime acquisition. Initial implementation downloads and extracts official `ggml-org/whisper.cpp` `v1.8.4` `whisper-bin-x64.zip` and finds `whisper-cli.exe`.
 - Basic model download. Initial catalog downloads `tiny.en`, `base.en`, and `small.en` ggml models.
 - Clipboard paste insertion. Initial implementation copies the transcript to the clipboard automatically after transcription when clipboard mode is selected. Automatic paste into the previously focused app remains Phase 2 work.
 - Simple transcript history. Initial local JSON history stores the latest 50 transcripts.

@@ -106,7 +106,9 @@ Current foundation:
 - Initial settings include model directory, insertion mode, offline mode, clipboard restoration, and remote typing delay.
 - `src/shared/models.ts` defines the initial Whisper model catalog.
 - `src/main/model-service.ts` downloads Whisper ggml models from the `ggerganov/whisper.cpp` Hugging Face repository into the configured model directory.
-- `src/main/transcription-service.ts` writes recorded WAV audio to a temp file and invokes a configured `whisper.cpp` executable, defaulting to `whisper-cli`.
+- `src/shared/runtimes.ts` pins the first managed Windows runtime to official `ggml-org/whisper.cpp` `v1.8.4` `whisper-bin-x64.zip`.
+- `src/main/runtime-service.ts` downloads and extracts the managed CPU x64 `whisper.cpp` runtime into Electron's `userData` runtime directory.
+- `src/main/transcription-service.ts` writes recorded WAV audio to a temp file and invokes the custom executable path if configured, otherwise the managed runtime executable, otherwise `whisper-cli`.
 - `src/main/history-store.ts` persists recent transcript history under Electron's `userData` path.
 - `src/main/insertion-service.ts` currently prepares clipboard insertion by copying transcript text to the clipboard. Direct paste/typing into arbitrary Windows apps remains Phase 2 native-helper work.
 

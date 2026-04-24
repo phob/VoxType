@@ -7,6 +7,7 @@ import { promisify } from "node:util";
 import { getModelById } from "../shared/models";
 import { type TranscriptEntry, type TranscriptionResult } from "../shared/transcripts";
 import { HistoryStore } from "./history-store";
+import { RuntimeService } from "./runtime-service";
 import { SettingsStore } from "./settings-store";
 
 const execFileAsync = promisify(execFile);
@@ -14,7 +15,8 @@ const execFileAsync = promisify(execFile);
 export class TranscriptionService {
   constructor(
     private readonly settingsStore: SettingsStore,
-    private readonly historyStore: HistoryStore
+    private readonly historyStore: HistoryStore,
+    private readonly runtimeService: RuntimeService
   ) {}
 
   async transcribeWav(audioBytes: Uint8Array): Promise<TranscriptionResult> {
@@ -27,7 +29,10 @@ export class TranscriptionService {
     }
 
     const modelPath = join(settings.modelDirectory, model.fileName);
-    const executable = settings.whisperExecutablePath.trim() || "whisper-cli";
+    const executable =
+      settings.whisperExecutablePath.trim() ||
+      (await this.runtimeService.getExecutablePath({ allowInstall: !settings.offlineMode })) ||
+      "whisper-cli";
     const workDirectory = join(app.getPath("temp"), "voxtype");
     const id = randomUUID();
     const audioPath = join(workDirectory, `${id}.wav`);

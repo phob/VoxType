@@ -4,6 +4,7 @@ import { type SettingsPatch } from "../shared/settings";
 import { HistoryStore } from "./history-store";
 import { InsertionService } from "./insertion-service";
 import { ModelService } from "./model-service";
+import { RuntimeService } from "./runtime-service";
 import { SettingsStore } from "./settings-store";
 import { TranscriptionService } from "./transcription-service";
 
@@ -14,7 +15,12 @@ const isDev = Boolean(process.env.ELECTRON_RENDERER_URL);
 const settingsStore = new SettingsStore();
 const historyStore = new HistoryStore();
 const modelService = new ModelService(settingsStore);
-const transcriptionService = new TranscriptionService(settingsStore, historyStore);
+const runtimeService = new RuntimeService();
+const transcriptionService = new TranscriptionService(
+  settingsStore,
+  historyStore,
+  runtimeService
+);
 const insertionService = new InsertionService();
 
 function createWindow(): void {
@@ -84,6 +90,8 @@ ipcMain.handle("settings:update", (_event, patch: SettingsPatch) => settingsStor
 ipcMain.handle("settings:reset", () => settingsStore.reset());
 ipcMain.handle("models:list", () => modelService.list());
 ipcMain.handle("models:download", (_event, modelId: string) => modelService.download(modelId));
+ipcMain.handle("runtime:get-whisper", () => runtimeService.getWhisperRuntime());
+ipcMain.handle("runtime:install-whisper", () => runtimeService.installWhisperRuntime());
 ipcMain.handle("transcription:transcribe-wav", (_event, bytes: Uint8Array) =>
   transcriptionService.transcribeWav(bytes)
 );

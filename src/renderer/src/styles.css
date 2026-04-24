@@ -116,6 +116,7 @@ h1 {
 
 .tool-panel,
 .settings-panel,
+.runtime-panel,
 .history-panel {
   padding: 24px;
   border: 1px solid rgba(255, 250, 240, 0.14);
@@ -125,6 +126,7 @@ h1 {
 
 .tool-panel h2,
 .settings-panel h2,
+.runtime-panel h2,
 .history-panel h2 {
   margin: 0;
   color: #fffaf0;
@@ -135,6 +137,7 @@ h1 {
 
 .tool-panel p,
 .settings-panel p,
+.runtime-panel p,
 .history-panel p {
   margin: 0;
   color: #c9c1b2;
@@ -225,6 +228,7 @@ h1 {
 }
 
 .settings-panel,
+.runtime-panel,
 .history-panel {
   margin-top: 16px;
 }
@@ -291,6 +295,7 @@ h1 {
 }
 
 .model-row,
+.runtime-card,
 .history-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -306,20 +311,24 @@ h1 {
   grid-template-columns: 1fr;
 }
 
-.model-row strong {
+.model-row strong,
+.runtime-card strong {
   display: block;
   color: #fffaf0;
 }
 
-.model-row span {
+.model-row span,
+.runtime-card span {
   display: block;
   margin-top: 4px;
   color: #d3bb8f;
   font-size: 0.88rem;
 }
 
-.model-row p {
+.model-row p,
+.runtime-card p {
   margin-top: 8px;
+  word-break: break-all;
 }
 
 .error-banner {
@@ -363,7 +372,8 @@ h1 {
     min-height: 0;
   }
 
-  .model-row {
+  .model-row,
+  .runtime-card {
     grid-template-columns: 1fr;
   }
 }

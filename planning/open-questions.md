@@ -12,8 +12,8 @@
 
 - Should the native helper be written in Rust or C++?
 - Which Whisper model should be the default first-run recommendation?
-- Which `whisper.cpp` binary/backend should be packaged first: CPU-only, Vulkan, CUDA, or multiple?
-- How should VoxType bundle or acquire the `whisper.cpp` executable for Windows instead of requiring the user to set `whisperExecutablePath`?
+- Which accelerated `whisper.cpp` runtime should be added after CPU x64: Vulkan, CUDA, or both?
+- Should managed `whisper.cpp` runtimes be downloaded from official GitHub releases at first run, bundled into the installer, or mirrored with VoxType-owned checksums?
 - Which OCR engine should ship first: Tesseract or PaddleOCR?
 - How should model downloads be hosted and verified?
 - Should inference workers communicate with Electron through stdio, named pipes, local HTTP, or another IPC mechanism?

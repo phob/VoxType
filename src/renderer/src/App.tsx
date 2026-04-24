@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { startPcmRecorder, type PcmRecorder } from "./audio-recorder";
 import { type LocalModel } from "../../../shared/models";
+import { type WhisperRuntime } from "../../../shared/runtimes";
 import { type AppSettings, type InsertionMode } from "../../../shared/settings";
 import { type TranscriptEntry } from "../../../shared/transcripts";
 
 type AppState = {
   models: LocalModel[];
+  runtime: WhisperRuntime | null;
   settings: AppSettings | null;
   history: TranscriptEntry[];
 };
@@ -15,6 +17,7 @@ export function App(): JSX.Element {
   const [version, setVersion] = useState<string>("0.1.0");
   const [state, setState] = useState<AppState>({
     models: [],
+    runtime: null,
     settings: null,
     history: []
   });
@@ -30,15 +33,16 @@ export function App(): JSX.Element {
   }, []);
 
   async function refresh(): Promise<void> {
-    const [appVersion, settings, models, history] = await Promise.all([
+    const [appVersion, settings, models, runtime, history] = await Promise.all([
       window.voxtype.getVersion(),
       window.voxtype.settings.get(),
       window.voxtype.models.list(),
+      window.voxtype.runtime.getWhisper(),
       window.voxtype.history.list()
     ]);
 
     setVersion(appVersion);
-    setState({ settings, models, history });
+    setState({ settings, models, runtime, history });
   }
 
   async function updateSettings(patch: Partial<AppSettings>): Promise<void> {
@@ -50,6 +54,20 @@ export function App(): JSX.Element {
     const settings = await window.voxtype.settings.update(patch);
     const models = await window.voxtype.models.list();
     setState((current) => ({ ...current, settings, models }));
+  }
+
+  async function installRuntime(): Promise<void> {
+    setError(null);
+    setBusyMessage("Installing whisper.cpp runtime...");
+
+    try {
+      const runtime = await window.voxtype.runtime.installWhisper();
+      setState((current) => ({ ...current, runtime }));
+    } catch (runtimeError) {
+      setError(formatError(runtimeError));
+    } finally {
+      setBusyMessage(null);
+    }
   }
 
   async function downloadModel(modelId: string): Promise<void> {
@@ -98,9 +116,13 @@ export function App(): JSX.Element {
       if (state.settings?.insertionMode === "clipboard") {
         await window.voxtype.insertion.copy(result.entry.text);
       }
-      const history = await window.voxtype.history.list();
+      const [runtime, history] = await Promise.all([
+        window.voxtype.runtime.getWhisper(),
+        window.voxtype.history.list()
+      ]);
       setState((current) => ({
         ...current,
+        runtime,
         history: history.length > 0 ? history : [result.entry, ...current.history]
       }));
     } catch (transcriptionError) {
@@ -223,6 +245,40 @@ export function App(): JSX.Element {
             ))}
           </div>
         </section>
+      </section>
+
+      <section className="runtime-panel" aria-label="Whisper runtime">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Runtime</p>
+            <h2>Managed whisper.cpp</h2>
+          </div>
+        </div>
+
+        {state.runtime ? (
+          <article className="runtime-card">
+            <div>
+              <strong>{state.runtime.name}</strong>
+              <span>
+                {state.runtime.version} · {state.runtime.backend} · {state.runtime.platform} ·{" "}
+                {state.runtime.status}
+              </span>
+              <p>
+                {state.runtime.executablePath
+                  ? state.runtime.executablePath
+                  : "Install the managed CPU runtime or set a custom executable path below."}
+              </p>
+            </div>
+            <button
+              className="secondary-button"
+              disabled={state.runtime.status === "installed" || Boolean(busyMessage)}
+              onClick={() => void installRuntime()}
+              type="button"
+            >
+              Install Runtime
+            </button>
+          </article>
+        ) : null}
       </section>
 
       {state.settings ? (
