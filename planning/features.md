@@ -8,7 +8,7 @@
 - Tray app.
 - Push-to-talk and toggle dictation.
 - Voice activity detection.
-- Automatic silence trimming and endpointing.
+- Automatic silence trimming.
 - Clipboard paste insertion.
 - Direct keyboard typing insertion.
 - Chunked remote-safe typing.
@@ -61,7 +61,7 @@ The recording pipeline should use local VAD to:
 
 - avoid sending silence and background noise to Whisper
 - trim dead air before and after speech
-- stop automatically after the user finishes speaking
+- cut out silent parts without stopping the recording automatically
 - keep a short pre-roll so words are not clipped
 - show clear states such as listening, speech detected, and transcribing
 

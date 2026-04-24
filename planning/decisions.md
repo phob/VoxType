@@ -116,11 +116,11 @@ Users may dictate in one language while Windows is using another keyboard layout
 
 Decision:
 
-Add voice activity detection and endpointing as Phase 3.5, directly after the dictionary/correction-memory work and before the larger OCR phase.
+Add voice activity detection and silence trimming as Phase 3.5, directly after the dictionary/correction-memory work and before the larger OCR phase.
 
 Reason:
 
-VAD materially improves the everyday dictation loop by avoiding silence/noise transcription, trimming audio before Whisper, and enabling automatic stop after speech. It is foundational enough to plan immediately, but separate enough from dictionary and OCR to deserve its own roadmap slice.
+VAD materially improves the everyday dictation loop by avoiding silence/noise transcription and trimming audio before Whisper. It should not end recording automatically; the user remains in control through the hotkey or UI. It is foundational enough to plan immediately, but separate enough from dictionary and OCR to deserve its own roadmap slice.
 
 ## 2026-04-24: Prefer Silero VAD Through ONNX
 

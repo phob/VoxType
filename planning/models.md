@@ -101,8 +101,9 @@ Initial behavior:
 - detect speech start
 - keep a short pre-roll buffer
 - ignore short noise bursts
-- auto-stop after a configurable trailing silence
 - trim leading and trailing silence before Whisper transcription
+- optionally trim long internal silent spans while preserving natural short pauses
+- never stop the recording session automatically
 - expose conservative sensitivity presets before exposing advanced knobs
 
 Limitations:
@@ -110,13 +111,13 @@ Limitations:
 - VAD detects speech activity, not intent or "the user is done thinking".
 - It may false-trigger on TV, voices from speakers, or noisy rooms.
 - It needs threshold and silence-duration tuning per microphone/environment.
-- It must preserve manual hotkey control so users can override endpointing.
+- It must preserve manual hotkey control; VAD should improve captured audio, not decide when recording ends.
 
 Possible alternatives or fallbacks:
 
 - WebRTC VAD for a smaller traditional baseline if Silero packaging is too heavy.
 - Native ONNX Runtime worker if ONNX Runtime Web/WASM is awkward inside Electron packaging.
-- Later semantic endpointing using transcript/partial-transcript context.
+- Later automatic stopping based on pauses or transcript meaning could be explored as a separate optional feature, but it is not part of the intended Silero VAD role.
 
 ## Model Manager
 

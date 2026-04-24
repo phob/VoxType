@@ -33,4 +33,5 @@
 - Added auto-created per-app profiles with editable insertion mode and saved writing style defaults for browsers, remote apps, terminals, and Outlook.
 - Implemented restore-clipboard behavior for paste insertion, including common rich clipboard content snapshots.
 - Moved into Phase 3 with a local dictionary store, dictionary UI, replacement rules, simple correction memory, fix-latest correction capture, and Whisper prompt context generation.
-- Planned local voice activity detection as Phase 3.5, with Silero VAD via ONNX as the preferred first direction for speech gating, silence trimming, and automatic endpointing.
+- Planned local voice activity detection as Phase 3.5, with Silero VAD via ONNX as the preferred first direction for speech gating and silence trimming.
+- Clarified that Silero VAD should cut silent/non-speech parts from recordings before Whisper, not stop the recording automatically.

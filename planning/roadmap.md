@@ -58,9 +58,9 @@ Features:
 - Prompt context generation for Whisper. Initial transcription service passes a compact dictionary prompt to `whisper.cpp`.
 - Per-app dictionary categories. Initial entries can be scoped to all apps or a detected app profile/process.
 
-## Phase 3.5: Voice Activity Detection And Endpointing
+## Phase 3.5: Voice Activity Detection And Silence Trimming
 
-Goal: make recording feel intelligent, avoid transcribing silence/noise, and stop dictation at the right moment.
+Goal: make recordings cleaner by removing silent and non-speech parts before transcription without ending the user's recording session automatically.
 
 Preferred direction:
 
@@ -69,19 +69,20 @@ Preferred direction:
 - Keep the initial implementation CPU-only.
 - Process the same 16 kHz PCM stream already produced by the renderer audio recorder.
 - Maintain a short pre-roll buffer so the beginning of speech is not clipped.
-- Trim leading/trailing silence before sending audio to Whisper.
-- Add automatic endpointing: when speech is followed by a configurable silence duration, stop recording and transcribe.
-- Keep manual hotkey stop behavior as a reliable fallback.
+- Trim leading, trailing, and optionally long internal silent spans before sending audio to Whisper.
+- Do not use VAD to stop recording automatically.
+- Keep recording start/stop under explicit user control through the hotkey or UI.
 
 Features:
 
 - VAD on/off setting.
 - Sensitivity threshold.
 - Minimum speech duration.
-- Silence-to-stop duration.
+- Silence trimming threshold/duration.
+- Preserve-short-pause duration so normal thinking pauses are not aggressively removed.
 - Pre-roll duration.
-- Maximum utterance duration.
-- Live recording state: listening, speech detected, silence tail, transcribing.
+- Maximum recording duration as a separate safety setting, not driven by VAD.
+- Live recording state: recording, speech detected, silence detected, transcribing.
 - Per-device calibration or presets later.
 - Diagnostics panel later showing speech probability over time.
 
@@ -89,8 +90,8 @@ Implementation notes:
 
 - First slice can run VAD in a renderer Web Worker using ONNX Runtime Web/WASM, with all model and WASM assets bundled or managed locally.
 - If packaging or performance becomes awkward, move VAD inference into a small native/helper worker using ONNX Runtime.
-- VAD should gate and trim audio, but it should not replace the user's explicit start/stop hotkey.
-- VAD only detects speech/non-speech; semantic endpointing can be added later for better "finished thought" detection.
+- VAD should gate and trim audio, but it must not replace or trigger the user's explicit start/stop hotkey.
+- VAD only detects speech/non-speech; automatic stopping based on pauses or transcript meaning is out of scope for the planned first VAD implementation.
 
 ## Phase 4: OCR Context
 
