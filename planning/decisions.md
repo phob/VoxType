@@ -111,3 +111,23 @@ VoxType's direct typing path should send Unicode text rather than layout-depende
 Reason:
 
 Users may dictate in one language while Windows is using another keyboard layout. Dictation insertion should preserve the transcript text instead of changing behavior based on the active keyboard layout.
+
+## 2026-04-24: Add Local VAD Before OCR Polish
+
+Decision:
+
+Add voice activity detection and endpointing as Phase 3.5, directly after the dictionary/correction-memory work and before the larger OCR phase.
+
+Reason:
+
+VAD materially improves the everyday dictation loop by avoiding silence/noise transcription, trimming audio before Whisper, and enabling automatic stop after speech. It is foundational enough to plan immediately, but separate enough from dictionary and OCR to deserve its own roadmap slice.
+
+## 2026-04-24: Prefer Silero VAD Through ONNX
+
+Decision:
+
+Use Silero VAD as the preferred first VAD candidate, deployed locally through ONNX Runtime rather than Python/Torch.
+
+Reason:
+
+Silero VAD is small, fast on CPU, supports the 16 kHz audio path VoxType already uses, has broad speech/noise training coverage, and can be packaged for a local Windows Electron app without requiring a Python environment.

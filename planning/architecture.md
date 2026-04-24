@@ -21,6 +21,9 @@ ASR Worker
 OCR Worker
   local OCR engines, screenshot text extraction, context term extraction
 
+VAD Worker
+  local speech activity detection, silence trimming, endpointing signals
+
 Local Data Store
   settings, dictionary, correction memory, model manifests, transcript history
 ```
@@ -77,6 +80,7 @@ The output pipeline should be engine-independent:
 
 ```text
 audio
+  -> voice activity detection and trimming
   -> ASR engine
   -> transcript normalization
   -> dictionary and OCR-context corrections
@@ -105,6 +109,7 @@ Current foundation:
 - `src/preload/index.ts` exposes settings read/update/reset methods to the renderer through IPC.
 - Initial settings include model directory, insertion mode, app profiles, offline mode, clipboard restoration, remote typing delay, remote typing chunk size, configurable hotkeys, and optional automatic system-audio mute while recording.
 - `src/renderer/src/audio-recorder.ts` captures microphone audio with an `AudioWorkletNode`, keeps the monitor path silent with zero gain, resamples to 16 kHz, and encodes WAV for Whisper.
+- Voice activity detection is planned as a local worker that consumes the recorder's 16 kHz PCM chunks before final WAV encoding. The preferred first path is Silero VAD through ONNX Runtime Web/WASM in a renderer Web Worker, with all model/runtime assets bundled or downloaded into the local VoxType model/runtime store. The worker should emit speech probability, speech start, speech end, and endpoint events while preserving a short pre-roll buffer.
 - `src/shared/models.ts` defines the initial Whisper model catalog.
 - `src/main/model-service.ts` downloads Whisper ggml models from the `ggerganov/whisper.cpp` Hugging Face repository into the configured model directory.
 - `src/shared/runtimes.ts` pins the first managed Windows runtime to official `ggml-org/whisper.cpp` `v1.8.4` `whisper-bin-x64.zip`.

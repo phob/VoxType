@@ -79,6 +79,45 @@ OCR should support:
 - extraction of likely vocabulary terms
 - extraction of error codes, file names, hostnames, product names, and technical identifiers
 
+## Voice Activity Detection
+
+VAD should become part of the core local audio pipeline.
+
+Preferred first candidate:
+
+- Silero VAD through ONNX Runtime.
+
+Reasons:
+
+- small model size
+- fast CPU inference
+- works with 16 kHz audio, which matches the current VoxType recorder path
+- broad language/noise training background
+- permissive MIT license
+- practical local deployment through ONNX without Python/Torch
+
+Initial behavior:
+
+- detect speech start
+- keep a short pre-roll buffer
+- ignore short noise bursts
+- auto-stop after a configurable trailing silence
+- trim leading and trailing silence before Whisper transcription
+- expose conservative sensitivity presets before exposing advanced knobs
+
+Limitations:
+
+- VAD detects speech activity, not intent or "the user is done thinking".
+- It may false-trigger on TV, voices from speakers, or noisy rooms.
+- It needs threshold and silence-duration tuning per microphone/environment.
+- It must preserve manual hotkey control so users can override endpointing.
+
+Possible alternatives or fallbacks:
+
+- WebRTC VAD for a smaller traditional baseline if Silero packaging is too heavy.
+- Native ONNX Runtime worker if ONNX Runtime Web/WASM is awkward inside Electron packaging.
+- Later semantic endpointing using transcript/partial-transcript context.
+
 ## Model Manager
 
 The app needs a model manager with:
@@ -102,3 +141,4 @@ Each model entry should show:
 - source/license
 - local path
 
+VAD assets should be shown in the same model/runtime management philosophy as ASR and OCR assets, even if the UI presents them as "speech detection runtime" rather than a user-facing transcription model.

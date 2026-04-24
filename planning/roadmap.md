@@ -58,6 +58,40 @@ Features:
 - Prompt context generation for Whisper. Initial transcription service passes a compact dictionary prompt to `whisper.cpp`.
 - Per-app dictionary categories. Initial entries can be scoped to all apps or a detected app profile/process.
 
+## Phase 3.5: Voice Activity Detection And Endpointing
+
+Goal: make recording feel intelligent, avoid transcribing silence/noise, and stop dictation at the right moment.
+
+Preferred direction:
+
+- Use Silero VAD as the first neural VAD candidate.
+- Run VAD locally through ONNX Runtime rather than Python/Torch.
+- Keep the initial implementation CPU-only.
+- Process the same 16 kHz PCM stream already produced by the renderer audio recorder.
+- Maintain a short pre-roll buffer so the beginning of speech is not clipped.
+- Trim leading/trailing silence before sending audio to Whisper.
+- Add automatic endpointing: when speech is followed by a configurable silence duration, stop recording and transcribe.
+- Keep manual hotkey stop behavior as a reliable fallback.
+
+Features:
+
+- VAD on/off setting.
+- Sensitivity threshold.
+- Minimum speech duration.
+- Silence-to-stop duration.
+- Pre-roll duration.
+- Maximum utterance duration.
+- Live recording state: listening, speech detected, silence tail, transcribing.
+- Per-device calibration or presets later.
+- Diagnostics panel later showing speech probability over time.
+
+Implementation notes:
+
+- First slice can run VAD in a renderer Web Worker using ONNX Runtime Web/WASM, with all model and WASM assets bundled or managed locally.
+- If packaging or performance becomes awkward, move VAD inference into a small native/helper worker using ONNX Runtime.
+- VAD should gate and trim audio, but it should not replace the user's explicit start/stop hotkey.
+- VAD only detects speech/non-speech; semantic endpointing can be added later for better "finished thought" detection.
+
 ## Phase 4: OCR Context
 
 Goal: make VoxType screen-aware.

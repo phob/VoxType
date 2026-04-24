@@ -7,6 +7,8 @@
 - Global hotkeys.
 - Tray app.
 - Push-to-talk and toggle dictation.
+- Voice activity detection.
+- Automatic silence trimming and endpointing.
 - Clipboard paste insertion.
 - Direct keyboard typing insertion.
 - Chunked remote-safe typing.
@@ -50,6 +52,20 @@ The user can:
 VoxType learns from user corrections locally.
 
 This should not require model training. It can be implemented as a local correction database and dictionary rule system.
+
+### Smart Recording Gate
+
+VoxType should know when the user is actually speaking.
+
+The recording pipeline should use local VAD to:
+
+- avoid sending silence and background noise to Whisper
+- trim dead air before and after speech
+- stop automatically after the user finishes speaking
+- keep a short pre-roll so words are not clipped
+- show clear states such as listening, speech detected, and transcribing
+
+Silero VAD is the preferred first candidate because it is fast, local, and practical to run through ONNX.
 
 ### Per-App Intelligence
 
