@@ -1,7 +1,7 @@
 import { app } from "electron";
 import { execFile } from "node:child_process";
 import { createWriteStream } from "node:fs";
-import { mkdir, readdir, rename, rm, stat } from "node:fs/promises";
+import { mkdir, readdir, rename, rm } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
@@ -95,10 +95,18 @@ export class RuntimeService {
       "-ExecutionPolicy",
       "Bypass",
       "-Command",
-      "Expand-Archive -LiteralPath $args[0] -DestinationPath $args[1] -Force",
-      archivePath,
-      destination
-    ]);
+      [
+        "$archivePath = [Environment]::GetEnvironmentVariable('VOXTYPE_ARCHIVE_PATH')",
+        "$destinationPath = [Environment]::GetEnvironmentVariable('VOXTYPE_EXTRACT_PATH')",
+        "Expand-Archive -LiteralPath $archivePath -DestinationPath $destinationPath -Force"
+      ].join("; ")
+    ], {
+      env: {
+        ...process.env,
+        VOXTYPE_ARCHIVE_PATH: archivePath,
+        VOXTYPE_EXTRACT_PATH: destination
+      }
+    });
   }
 
   private async findExecutable(): Promise<string | null> {
@@ -139,13 +147,3 @@ async function findFile(directory: string, fileName: string): Promise<string | n
 
   return null;
 }
-
-export async function pathExists(path: string): Promise<boolean> {
-  try {
-    await stat(path);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
