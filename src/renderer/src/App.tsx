@@ -25,6 +25,7 @@ type AppState = {
 export function App(): JSX.Element {
   const recorderRef = useRef<PcmRecorder | null>(null);
   const hotkeyTargetRef = useRef<ActiveWindowInfo | null>(null);
+  const systemAudioMutedByVoxTypeRef = useRef(false);
   const [version, setVersion] = useState<string>("0.1.0");
   const [state, setState] = useState<AppState>({
     models: [],
@@ -176,10 +177,16 @@ export function App(): JSX.Element {
     }
 
     try {
+      if (state.settings?.autoMuteSystemAudio) {
+        await window.voxtype.windowsHelper.setSystemMute(true);
+        systemAudioMutedByVoxTypeRef.current = true;
+      }
+
       recorderRef.current = await startPcmRecorder();
       setRecording(true);
     } catch (recordingError) {
-      setError(formatError(recordingError));
+      const unmuteError = await unmuteSystemAudio();
+      setError(joinErrors(formatError(recordingError), unmuteError));
     }
   }
 
@@ -219,7 +226,11 @@ export function App(): JSX.Element {
     try {
       const wavBytes = await recorderRef.current.stop();
       recorderRef.current = null;
+      const unmuteError = await unmuteSystemAudio();
       const result = await window.voxtype.transcription.transcribeWav(wavBytes);
+      if (unmuteError) {
+        setError(unmuteError);
+      }
       if (options?.pasteTarget?.hwnd && state.settings?.insertionMode === "clipboard") {
         await window.voxtype.insertion.pasteWindow(result.entry.text, options.pasteTarget.hwnd);
       } else if (state.settings?.insertionMode === "clipboard") {
@@ -235,9 +246,24 @@ export function App(): JSX.Element {
         history: history.length > 0 ? history : [result.entry, ...current.history]
       }));
     } catch (transcriptionError) {
-      setError(formatError(transcriptionError));
+      const unmuteError = await unmuteSystemAudio();
+      setError(joinErrors(formatError(transcriptionError), unmuteError));
     } finally {
       setBusyMessage(null);
+    }
+  }
+
+  async function unmuteSystemAudio(): Promise<string | null> {
+    if (!systemAudioMutedByVoxTypeRef.current) {
+      return null;
+    }
+
+    systemAudioMutedByVoxTypeRef.current = false;
+    try {
+      await window.voxtype.windowsHelper.setSystemMute(false);
+      return null;
+    } catch (muteError) {
+      return `Failed to unmute system audio: ${formatError(muteError)}`;
     }
   }
 
@@ -567,6 +593,17 @@ export function App(): JSX.Element {
               />
               <span>Offline mode after models are installed</span>
             </label>
+
+            <label className="toggle">
+              <input
+                checked={state.settings.autoMuteSystemAudio}
+                type="checkbox"
+                onChange={(event) =>
+                  void updateSettings({ autoMuteSystemAudio: event.target.checked })
+                }
+              />
+              <span>Mute system audio while recording</span>
+            </label>
           </div>
           <p className="settings-note">
             Registered hotkeys: dictation{" "}
@@ -603,4 +640,8 @@ export function App(): JSX.Element {
 
 function formatError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function joinErrors(primary: string, secondary: string | null): string {
+  return secondary ? `${primary} ${secondary}` : primary;
 }

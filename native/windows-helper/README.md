@@ -16,6 +16,13 @@ Focus a previously captured window:
 cargo run --manifest-path native/windows-helper/Cargo.toml -- focus-window 0x123456
 ```
 
+Mute or unmute default system playback:
+
+```powershell
+cargo run --manifest-path native/windows-helper/Cargo.toml -- set-system-mute true
+cargo run --manifest-path native/windows-helper/Cargo.toml -- set-system-mute false
+```
+
 Paste text into the foreground app:
 
 ```powershell

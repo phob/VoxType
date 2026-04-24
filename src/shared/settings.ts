@@ -10,6 +10,7 @@ export type AppSettings = {
   dictationToggleHotkey: string;
   insertionMode: InsertionMode;
   offlineMode: boolean;
+  autoMuteSystemAudio: boolean;
   restoreClipboard: boolean;
   remoteTypingDelayMs: number;
 };
@@ -53,6 +54,10 @@ export function sanitizeSettings(
       : defaults.insertionMode,
     offlineMode:
       typeof input.offlineMode === "boolean" ? input.offlineMode : defaults.offlineMode,
+    autoMuteSystemAudio:
+      typeof input.autoMuteSystemAudio === "boolean"
+        ? input.autoMuteSystemAudio
+        : defaults.autoMuteSystemAudio,
     restoreClipboard:
       typeof input.restoreClipboard === "boolean"
         ? input.restoreClipboard

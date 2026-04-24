@@ -91,3 +91,13 @@ Build the native Windows helper in Rust.
 Reason:
 
 Rust gives VoxType a small, memory-safe native executable with good Windows API access through the `windows` crate. It is a good fit for foreground-window detection, clipboard/paste helpers, keyboard injection, screenshot support, and future privilege-boundary handling.
+
+## 2026-04-24: Make System Audio Muting Optional
+
+Decision:
+
+VoxType should offer an opt-in setting that mutes Windows system audio while microphone recording is active, then unmutes after recording stops.
+
+Reason:
+
+Muting playback during capture can prevent speaker audio from bleeding into dictation, but it changes global system state, so the behavior should be controlled by the user.

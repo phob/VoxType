@@ -203,6 +203,9 @@ ipcMain.handle("dictation:set-hotkey-recording", (_event, recording: boolean) =>
 ipcMain.handle("hotkeys:status", () => getHotkeyStatus());
 ipcMain.handle("windows-helper:status", () => windowsHelperService.getStatus());
 ipcMain.handle("windows-helper:active-window", () => windowsHelperService.getActiveWindow());
+ipcMain.handle("windows-helper:set-system-mute", (_event, muted: boolean) =>
+  windowsHelperService.setSystemMute(muted)
+);
 
 app.whenReady().then(() => {
   createWindow();

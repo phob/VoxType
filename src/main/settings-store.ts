@@ -24,6 +24,7 @@ export class SettingsStore {
       dictationToggleHotkey: "CommandOrControl+Alt+Space",
       insertionMode: "clipboard",
       offlineMode: false,
+      autoMuteSystemAudio: false,
       restoreClipboard: true,
       remoteTypingDelayMs: 25
     };

@@ -25,3 +25,4 @@
 - Added global `Ctrl+Alt+Space` dictation toggle that captures the target window before recording, stops/transcribes on the second press, refocuses the captured app, and pastes the transcript without requiring VoxType button clicks.
 - Made the dictation and show-window global hotkeys configurable through persisted settings, with registration status shown in the UI.
 - Replaced manual hotkey text entry with key-combination capture controls in the settings UI.
+- Added optional system-audio mute while recording, backed by a Windows Core Audio command in the native helper.

@@ -68,6 +68,20 @@ export class WindowsHelperService {
     });
   }
 
+  async setSystemMute(muted: boolean): Promise<void> {
+    const helperPath = await this.resolveHelperPath();
+
+    if (!helperPath) {
+      throw new Error(
+        "Windows helper executable was not found. Build it with `cargo build --manifest-path native/windows-helper/Cargo.toml`."
+      );
+    }
+
+    await execFileAsync(helperPath, ["set-system-mute", muted ? "true" : "false"], {
+      windowsHide: true
+    });
+  }
+
   private async resolveHelperPath(): Promise<string | null> {
     const candidates = [
       process.env.VOXTYPE_WINDOWS_HELPER_PATH,

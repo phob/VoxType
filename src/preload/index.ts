@@ -71,7 +71,9 @@ const voxtype = {
     status: () =>
       ipcRenderer.invoke("windows-helper:status") as Promise<WindowsHelperStatus>,
     activeWindow: () =>
-      ipcRenderer.invoke("windows-helper:active-window") as Promise<ActiveWindowInfo>
+      ipcRenderer.invoke("windows-helper:active-window") as Promise<ActiveWindowInfo>,
+    setSystemMute: (muted: boolean) =>
+      ipcRenderer.invoke("windows-helper:set-system-mute", muted) as Promise<void>
   }
 };
 

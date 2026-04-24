@@ -13,9 +13,10 @@ fn main() {
     let result = match command.as_str() {
         "active-window" => active_window_json(),
         "focus-window" => focus_window_from_arg(),
+        "set-system-mute" => set_system_mute_from_arg(),
         "paste-text" => paste_text_from_stdin(),
         "help" | "--help" | "-h" => {
-            println!("Usage: voxtype-windows-helper active-window | focus-window <hwnd> | paste-text");
+            println!("Usage: voxtype-windows-helper active-window | focus-window <hwnd> | set-system-mute <true|false> | paste-text");
             Ok(())
         }
         _ => Err(format!("Unknown command: {command}")),
@@ -73,12 +74,37 @@ fn paste_text_from_stdin() -> Result<(), String> {
 }
 
 #[cfg(windows)]
+fn set_system_mute_from_arg() -> Result<(), String> {
+    let muted = env::args()
+        .nth(2)
+        .ok_or_else(|| "set-system-mute requires true or false.".to_string())
+        .and_then(|value| match value.as_str() {
+            "true" => Ok(true),
+            "false" => Ok(false),
+            _ => Err("set-system-mute requires true or false.".to_string()),
+        })?;
+    windows_impl::set_system_mute(muted)
+}
+
+#[cfg(not(windows))]
+fn set_system_mute_from_arg() -> Result<(), String> {
+    Err("set-system-mute is only supported on Windows.".to_string())
+}
+
+#[cfg(windows)]
 mod windows_impl {
     use serde::Serialize;
     use std::mem::MaybeUninit;
     use std::ptr;
     use windows::core::PWSTR;
     use windows::Win32::Foundation::{CloseHandle, HANDLE, HWND, MAX_PATH};
+    use windows::Win32::Media::Audio::{
+        eConsole, eRender, IMMDeviceEnumerator, MMDeviceEnumerator,
+    };
+    use windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume;
+    use windows::Win32::System::Com::{
+        CoCreateInstance, CoInitializeEx, CoUninitialize, CLSCTX_ALL, COINIT_APARTMENTTHREADED,
+    };
     use windows::Win32::System::DataExchange::{
         CloseClipboard, EmptyClipboard, OpenClipboard, SetClipboardData,
     };
@@ -146,6 +172,27 @@ mod windows_impl {
             if SetForegroundWindow(hwnd).as_bool() == false {
                 return Err("Failed to focus target window.".to_string());
             }
+        }
+
+        Ok(())
+    }
+
+    pub fn set_system_mute(muted: bool) -> Result<(), String> {
+        unsafe {
+            let _com = ComGuard::new()?;
+            let enumerator: IMMDeviceEnumerator =
+                CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)
+                    .map_err(|error| error.to_string())?;
+            let device = enumerator
+                .GetDefaultAudioEndpoint(eRender, eConsole)
+                .map_err(|error| error.to_string())?;
+            let endpoint: IAudioEndpointVolume = device
+                .Activate(CLSCTX_ALL, None)
+                .map_err(|error| error.to_string())?;
+
+            endpoint
+                .SetMute(muted, std::ptr::null())
+                .map_err(|error| error.to_string())?;
         }
 
         Ok(())
@@ -239,6 +286,25 @@ mod windows_impl {
         fn drop(&mut self) {
             unsafe {
                 let _ = CloseClipboard();
+            }
+        }
+    }
+
+    struct ComGuard;
+
+    impl ComGuard {
+        unsafe fn new() -> Result<Self, String> {
+            CoInitializeEx(None, COINIT_APARTMENTTHREADED)
+                .ok()
+                .map_err(|error| error.to_string())?;
+            Ok(Self)
+        }
+    }
+
+    impl Drop for ComGuard {
+        fn drop(&mut self) {
+            unsafe {
+                CoUninitialize();
             }
         }
     }

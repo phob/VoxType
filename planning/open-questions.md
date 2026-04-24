@@ -19,6 +19,7 @@
 - Should inference workers communicate with Electron through stdio, named pipes, local HTTP, or another IPC mechanism?
 - How should VoxType detect and handle elevated target apps?
 - How much transcript history should be stored by default?
+- Should system-audio mute restore the previous mute state instead of always unmuting after VoxType finishes recording?
 
 ## UX
 

@@ -31,7 +31,7 @@ Local Data Store
 - TypeScript for app and shared domain code.
 - React for UI unless a different frontend stack is chosen later.
 - Vite for renderer development.
-- Native helper in Rust.
+- Native helper in Rust, including Windows integration that is awkward or unreliable from Electron alone.
 - `whisper.cpp` as the first ASR backend.
 - Tesseract or PaddleOCR as local OCR backends.
 - `electron-builder` with NSIS for Windows installer.
@@ -104,6 +104,7 @@ Current foundation:
 - `src/main/settings-store.ts` stores settings as JSON under Electron's `app.getPath("userData")`.
 - `src/preload/index.ts` exposes settings read/update/reset methods to the renderer through IPC.
 - Initial settings include model directory, insertion mode, offline mode, clipboard restoration, and remote typing delay.
+- Initial settings include model directory, insertion mode, offline mode, clipboard restoration, remote typing delay, configurable hotkeys, and optional automatic system-audio mute while recording.
 - `src/shared/models.ts` defines the initial Whisper model catalog.
 - `src/main/model-service.ts` downloads Whisper ggml models from the `ggerganov/whisper.cpp` Hugging Face repository into the configured model directory.
 - `src/shared/runtimes.ts` pins the first managed Windows runtime to official `ggml-org/whisper.cpp` `v1.8.4` `whisper-bin-x64.zip`.
@@ -111,9 +112,10 @@ Current foundation:
 - `src/main/transcription-service.ts` writes recorded WAV audio to a temp file and invokes the custom executable path if configured, otherwise the managed runtime executable, otherwise `whisper-cli`.
 - `src/main/history-store.ts` persists recent transcript history under Electron's `userData` path.
 - `src/main/insertion-service.ts` prepares clipboard insertion and delegates paste-into-active-app behavior to the native helper.
-- `native/windows-helper` contains the first Rust native helper. It currently exposes `active-window`, `focus-window`, and `paste-text` commands. `active-window` returns foreground window title, hwnd, process id, process path, and process name as JSON. `focus-window` restores/focuses a captured hwnd. `paste-text` accepts UTF-8 text through stdin, sets the Windows Unicode clipboard, and sends Ctrl+V with `SendInput`.
+- `native/windows-helper` contains the first Rust native helper. It currently exposes `active-window`, `focus-window`, `paste-text`, and `set-system-mute` commands. `active-window` returns foreground window title, hwnd, process id, process path, and process name as JSON. `focus-window` restores/focuses a captured hwnd. `paste-text` accepts UTF-8 text through stdin, sets the Windows Unicode clipboard, and sends Ctrl+V with `SendInput`. `set-system-mute` uses the Windows Core Audio endpoint API to mute or unmute the default render device.
 - `src/main/windows-helper-service.ts` resolves and invokes the native helper from Electron, with dev/release/resource path candidates.
 - Configurable global hotkeys are persisted in settings. Defaults are `CommandOrControl+Alt+Space` for dictation toggle and `CommandOrControl+Shift+Space` for showing VoxType. The dictation hotkey captures the foreground window before recording, signals the renderer to start/stop microphone capture, then refocuses the captured window before paste insertion.
+- The optional system-audio mute setting mutes the default Windows output device before microphone recording starts and un-mutes it immediately after the recording stops, before local transcription begins.
 
 ## Security And Privacy
 

@@ -25,6 +25,7 @@ Features:
 - Basic model download. Initial catalog downloads `tiny.en`, `base.en`, and `small.en` ggml models.
 - Clipboard paste insertion. Initial implementation copies the transcript to the clipboard automatically after transcription when clipboard mode is selected. Automatic paste into the previously focused app remains Phase 2 work.
 - Simple transcript history. Initial local JSON history stores the latest 50 transcripts.
+- Optional system audio mute while recording. Initial implementation mutes the default Windows output device during microphone capture and un-mutes it when recording stops.
 
 ## Phase 2: Windows Insertion Reliability
 
@@ -39,6 +40,7 @@ Features:
 - Active app detection. Initial `active-window` command reports foreground window metadata and is wired into the renderer test panel.
 - Clipboard paste insertion into active app. Initial `paste-text` helper command sets Unicode clipboard text and sends Ctrl+V to the active foreground app.
 - Target-window paste after global dictation. Initial hotkey flow captures the active window before dictation and refocuses it before pasting the transcript.
+- Recording-safe audio control. Initial native helper command can mute or unmute the default Windows render endpoint for cleaner recordings.
 - Per-app insertion profiles.
 - RDP/TeamViewer profile.
 - Insertion test panel.
