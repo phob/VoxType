@@ -27,6 +27,12 @@ Tradeoffs:
 - Can be blocked by some apps.
 - Must handle sensitive clipboard contents carefully.
 
+Initial restore behavior:
+
+- When `restoreClipboard` is enabled, VoxType snapshots clipboard contents before paste insertion.
+- VoxType restores common clipboard data after paste: plain text, HTML, RTF, and images.
+- Unusual Windows clipboard formats are restored on a best-effort basis through Electron raw buffers and may not always round-trip perfectly.
+
 Focus behavior:
 
 - Target-window insertion should not change the window's maximized state.

@@ -38,7 +38,7 @@ Features:
 - Chunked typing. Initial `chunked` insertion mode sends text in configurable chunks with a configurable delay for remote or slow targets.
 - Unicode handling. Initial direct typing path uses `KEYEVENTF_UNICODE` instead of layout-dependent virtual keys.
 - Active app detection. Initial `active-window` command reports foreground window metadata and is wired into the renderer test panel.
-- Clipboard paste insertion into active app. Initial `paste-text` helper command sets Unicode clipboard text and sends Ctrl+V to the active foreground app.
+- Clipboard paste insertion into active app. Initial `paste-text` helper command sets Unicode clipboard text and sends Ctrl+V to the active foreground app. Clipboard restore is implemented for common text, HTML, RTF, and image clipboard contents when the setting is enabled.
 - Target-window paste after global dictation. Initial hotkey flow captures the active window before dictation and refocuses it before pasting the transcript.
 - Recording-safe audio control. Initial native helper command can mute or unmute the default Windows render endpoint for cleaner recordings.
 - Per-app insertion profiles. Initial implementation auto-creates a profile when a new app is detected, exposes profiles in the UI, and stores insertion mode plus writing style.
