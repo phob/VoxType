@@ -93,6 +93,33 @@ Implementation notes:
 - VAD should gate and trim audio, but it must not replace or trigger the user's explicit start/stop hotkey.
 - VAD only detects speech/non-speech; automatic stopping based on pauses or transcript meaning is out of scope for the planned first VAD implementation.
 
+## Phase 3.6: Recording Coordination
+
+Goal: avoid microphone conflicts with communication apps while VoxType is recording.
+
+Preferred direction:
+
+- Do not rely on muting the global Windows microphone endpoint because that may also mute VoxType.
+- Do not attempt a universal per-app microphone mute for the first implementation; Windows does not expose a simple reliable public API for muting only another app's capture stream.
+- Use per-app profile actions first.
+- Let users configure a target app's mute/unmute hotkey, then have VoxType send that hotkey when recording starts and stops.
+- Make Discord the first supported profile because it has built-in configurable mute keybinds and is a clear user need.
+
+Features:
+
+- Per-app profile fields for recording-start action and recording-stop action.
+- Action type: none, send hotkey.
+- Configurable hotkey capture for those profile actions.
+- Optional "restore only if VoxType muted it" state tracking.
+- Discord default suggestion, but user-confirmed hotkey rather than hardcoded behavior.
+- Recording flow integration before microphone capture starts and after capture stops.
+
+Later possibilities:
+
+- App-specific adapters if a target app exposes a safe local control API.
+- UI Automation where reliable.
+- A virtual microphone/silence-routing approach only if the product later needs a heavy-duty solution.
+
 ## Phase 4: OCR Context
 
 Goal: make VoxType screen-aware.

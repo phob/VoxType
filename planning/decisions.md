@@ -131,3 +131,13 @@ Use Silero VAD as the preferred first VAD candidate, deployed locally through ON
 Reason:
 
 Silero VAD is small, fast on CPU, supports the 16 kHz audio path VoxType already uses, has broad speech/noise training coverage, and can be packaged for a local Windows Electron app without requiring a Python environment.
+
+## 2026-04-24: Use App Hotkey Automation For Microphone Coordination First
+
+Decision:
+
+For apps like Discord that also use the microphone, VoxType should first support per-app recording actions that send a configured mute/unmute hotkey when VoxType recording starts and stops.
+
+Reason:
+
+Windows does not provide a simple reliable public control for muting only another application's microphone capture while keeping VoxType recording from the same device. Muting the physical input endpoint risks muting VoxType too. App-level hotkey automation is more practical, reversible, user-controlled, and fits VoxType's existing per-app profile direction.

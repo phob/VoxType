@@ -17,6 +17,9 @@
 - Should Silero VAD assets be bundled with the installer, downloaded on first use, or managed like the Whisper runtime with checksums?
 - Should VAD run in a renderer Web Worker through ONNX Runtime Web/WASM, or in a separate native/helper process through ONNX Runtime?
 - What should the default VAD silence-trimming values be for Windows dictation: threshold, minimum speech duration, pre-roll, trailing silence, and internal pause preservation?
+- What profile action schema should VoxType use for recording coordination: separate mute/unmute hotkeys, one toggle hotkey with state tracking, or both?
+- Should Discord be detected and offered a guided setup for its mute keybind?
+- How should VoxType recover if a recording coordination hotkey fails or the target app was already muted before VoxType started?
 - Which OCR engine should ship first: Tesseract or PaddleOCR?
 - How should model downloads be hosted and verified?
 - Should inference workers communicate with Electron through stdio, named pipes, local HTTP, or another IPC mechanism?

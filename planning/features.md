@@ -9,6 +9,7 @@
 - Push-to-talk and toggle dictation.
 - Voice activity detection.
 - Automatic silence trimming.
+- Recording coordination for apps that also use the microphone.
 - Clipboard paste insertion.
 - Direct keyboard typing insertion.
 - Chunked remote-safe typing.
@@ -66,6 +67,27 @@ The recording pipeline should use local VAD to:
 - show clear states such as listening, speech detected, and transcribing
 
 Silero VAD is the preferred first candidate because it is fast, local, and practical to run through ONNX.
+
+### Recording Coordination
+
+VoxType should reduce conflicts with apps that are already using the microphone.
+
+Important use case:
+
+- When the user is in Discord and starts VoxType dictation, VoxType should be able to mute the user's Discord microphone automatically, then unmute it when VoxType recording finishes.
+
+Preferred first implementation:
+
+- Add per-app recording actions to app profiles.
+- Let a profile define a "mute before recording" shortcut and an "unmute after recording" shortcut.
+- Trigger those shortcuts through the native Windows helper before and after VoxType recording.
+- Use this for Discord first, because Discord already supports user-configurable mute/deafen keybinds.
+
+What VoxType should not promise initially:
+
+- A universal Windows per-app microphone mute switch for every application.
+- Muting the physical input endpoint globally, because that can also mute VoxType's own recording path.
+- A virtual microphone driver in the early product, because that adds driver packaging, signing, and trust complexity.
 
 ### Per-App Intelligence
 

@@ -13,7 +13,7 @@ Electron Main
 
 Native Windows Helper
   global hotkeys, active-window detection, clipboard, SendInput, UI Automation,
-  screenshots, privilege checks
+  screenshots, privilege checks, profile hotkey automation
 
 ASR Worker
   local speech-to-text engines, model loading, streaming/batch transcription
@@ -120,6 +120,7 @@ Current foundation:
 - `src/main/insertion-service.ts` prepares clipboard insertion and delegates paste-into-active-app behavior to the native helper.
 - `src/main/insertion-service.ts` centralizes insertion modes for clipboard paste, Unicode typing, and chunked typing. It consults per-app profiles when a target process is known. Clipboard paste can snapshot and restore common prior clipboard contents after insertion. The renderer insertion test panel can call these modes with one-off overrides without changing the saved default insertion mode.
 - App profiles live in settings for now. They are auto-created from detected foreground windows and store insertion mode plus writing style for later formatting behavior.
+- App profiles should also grow recording coordination actions. The first practical action should be "send this app's mute/unmute hotkey when VoxType starts/stops recording", mainly for apps like Discord. This avoids trying to globally mute the microphone input endpoint, which could also mute VoxType.
 - `native/windows-helper` contains the first Rust native helper. It currently exposes `active-window`, `focus-window`, `paste-text`, `type-text`, and `set-system-mute` commands. `active-window` returns foreground window title, hwnd, process id, process path, and process name as JSON. `focus-window` restores/focuses a captured hwnd. `paste-text` accepts UTF-8 text through stdin, sets the Windows Unicode clipboard, and sends Ctrl+V with `SendInput`. `type-text` accepts UTF-8 text through stdin and emits Unicode `SendInput` events so direct typing is not tied to the active keyboard layout. `set-system-mute` uses the Windows Core Audio endpoint API to mute or unmute the default render device.
 - `src/main/windows-helper-service.ts` resolves and invokes the native helper from Electron, with dev/release/resource path candidates.
 - Configurable global hotkeys are persisted in settings. Defaults are `CommandOrControl+Alt+Space` for dictation toggle and `CommandOrControl+Shift+Space` for showing VoxType. The dictation hotkey captures the foreground window before recording, signals the renderer to start/stop microphone capture, then refocuses the captured window before paste insertion.
