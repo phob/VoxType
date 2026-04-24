@@ -1,6 +1,6 @@
 import { app } from "electron";
-import { execFile, spawn } from "node:child_process";
-import { access } from "node:fs/promises";
+import { type ChildProcessWithoutNullStreams, execFile, spawn } from "node:child_process";
+import { access, mkdir, readFile, rm } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import {
@@ -10,7 +10,16 @@ import {
 
 const execFileAsync = promisify(execFile);
 
+type NativeRecording = {
+  child: ChildProcessWithoutNullStreams;
+  outputPath: string;
+  stdout: Buffer[];
+  stderr: Buffer[];
+};
+
 export class WindowsHelperService {
+  private recording: NativeRecording | null = null;
+
   async getStatus(): Promise<WindowsHelperStatus> {
     const helperPath = await this.resolveHelperPath();
 
@@ -92,6 +101,77 @@ export class WindowsHelperService {
     await execFileAsync(helperPath, ["set-system-mute", muted ? "true" : "false"], {
       windowsHide: true
     });
+  }
+
+  async startRecording(): Promise<void> {
+    if (this.recording) {
+      throw new Error("Native recording is already active.");
+    }
+
+    const helperPath = await this.resolveHelperPath();
+
+    if (!helperPath) {
+      throw new Error(
+        "Windows helper executable was not found. Build it with `cargo build --manifest-path native/windows-helper/Cargo.toml`."
+      );
+    }
+
+    const outputDirectory = join(app.getPath("userData"), "native-recordings");
+    await mkdir(outputDirectory, { recursive: true });
+    const outputPath = join(outputDirectory, `recording-${Date.now()}.wav`);
+    const child = spawn(helperPath, ["record-wav", outputPath], {
+      stdio: ["pipe", "pipe", "pipe"],
+      windowsHide: true
+    });
+    const stdout: Buffer[] = [];
+    const stderr: Buffer[] = [];
+
+    child.stdout.on("data", (chunk: Buffer) => stdout.push(chunk));
+    child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk));
+    child.once("exit", (code) => {
+      if (this.recording?.child === child && code !== null && code !== 0) {
+        this.recording = null;
+      }
+    });
+
+    this.recording = {
+      child,
+      outputPath,
+      stdout,
+      stderr
+    };
+  }
+
+  async stopRecording(): Promise<Uint8Array> {
+    const recording = this.recording;
+
+    if (!recording) {
+      throw new Error("Native recording is not active.");
+    }
+
+    this.recording = null;
+    recording.child.stdin.end("stop\n", "utf8");
+
+    await new Promise<void>((resolvePromise, reject) => {
+      recording.child.once("error", reject);
+      recording.child.once("close", (code) => {
+        if (code === 0) {
+          resolvePromise();
+          return;
+        }
+
+        const message =
+          Buffer.concat(recording.stdout).toString("utf8").trim() ||
+          Buffer.concat(recording.stderr).toString("utf8").trim() ||
+          `Windows helper exited with code ${code}.`;
+
+        reject(new Error(message));
+      });
+    });
+
+    const bytes = await readFile(recording.outputPath);
+    await rm(recording.outputPath, { force: true });
+    return new Uint8Array(bytes);
   }
 
   private async resolveHelperPath(): Promise<string | null> {

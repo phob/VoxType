@@ -251,6 +251,12 @@ ipcMain.handle(
 ipcMain.handle("windows-helper:set-system-mute", (_event, muted: boolean) =>
   windowsHelperService.setSystemMute(muted)
 );
+ipcMain.handle("windows-helper:start-recording", () =>
+  windowsHelperService.startRecording()
+);
+ipcMain.handle("windows-helper:stop-recording", () =>
+  windowsHelperService.stopRecording()
+);
 
 app.whenReady().then(() => {
   createWindow();

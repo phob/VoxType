@@ -14,10 +14,11 @@ fn main() {
         "active-window" => active_window_json(),
         "focus-window" => focus_window_from_arg(),
         "set-system-mute" => set_system_mute_from_arg(),
+        "record-wav" => record_wav_from_arg(),
         "paste-text" => paste_text_from_stdin(),
         "type-text" => type_text_from_stdin(),
         "help" | "--help" | "-h" => {
-            println!("Usage: voxtype-windows-helper active-window | focus-window <hwnd> | set-system-mute <true|false> | paste-text | type-text [delay-ms]");
+            println!("Usage: voxtype-windows-helper active-window | focus-window <hwnd> | set-system-mute <true|false> | record-wav <output.wav> | paste-text | type-text [delay-ms]");
             Ok(())
         }
         _ => Err(format!("Unknown command: {command}")),
@@ -30,6 +31,19 @@ fn main() {
         );
         process::exit(1);
     }
+}
+
+#[cfg(windows)]
+fn record_wav_from_arg() -> Result<(), String> {
+    let output_path = env::args()
+        .nth(2)
+        .ok_or_else(|| "record-wav requires an output path.".to_string())?;
+    windows_impl::record_wav_until_stdin_stop(&output_path)
+}
+
+#[cfg(not(windows))]
+fn record_wav_from_arg() -> Result<(), String> {
+    Err("record-wav is only supported on Windows.".to_string())
 }
 
 #[cfg(windows)]
@@ -117,9 +131,20 @@ fn set_system_mute_from_arg() -> Result<(), String> {
 
 #[cfg(windows)]
 mod windows_impl {
+    use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
+    use cpal::{Sample, SizedSample};
+    use rubato::{FftFixedIn, Resampler};
     use serde::Serialize;
+    use std::fs::File;
+    use std::io::{self, BufRead, BufReader, BufWriter};
     use std::mem::MaybeUninit;
+    use std::path::Path;
     use std::ptr;
+    use std::sync::mpsc;
+    use std::sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    };
     use std::thread;
     use std::time::Duration;
     use windows::core::PWSTR;
@@ -150,6 +175,8 @@ mod windows_impl {
     };
 
     const CF_UNICODETEXT_FORMAT: u32 = 13;
+    const VOXTYPE_SAMPLE_RATE: usize = 16_000;
+    const RESAMPLER_CHUNK_SIZE: usize = 1024;
 
     #[derive(Serialize)]
     #[serde(rename_all = "camelCase")]
@@ -243,6 +270,245 @@ mod windows_impl {
         }
 
         Ok(())
+    }
+
+    pub fn record_wav_until_stdin_stop(output_path: &str) -> Result<(), String> {
+        let output_path = Path::new(output_path);
+        let host = cpal::default_host();
+        let device = host
+            .default_input_device()
+            .ok_or_else(|| "No input device found.".to_string())?;
+        let config = get_preferred_input_config(&device)?;
+        let sample_rate = config.sample_rate().0;
+        let channels = config.channels() as usize;
+        let stop_flag = Arc::new(AtomicBool::new(false));
+        let stop_reader_flag = Arc::clone(&stop_flag);
+        let (sample_tx, sample_rx) = mpsc::channel::<Vec<f32>>();
+
+        thread::spawn(move || {
+            let mut line = String::new();
+            let mut reader = BufReader::new(io::stdin());
+            let _ = reader.read_line(&mut line);
+            stop_reader_flag.store(true, Ordering::SeqCst);
+        });
+
+        let stream = match config.sample_format() {
+            cpal::SampleFormat::U8 => {
+                build_input_stream::<u8>(&device, &config, channels, sample_tx)?
+            }
+            cpal::SampleFormat::I8 => {
+                build_input_stream::<i8>(&device, &config, channels, sample_tx)?
+            }
+            cpal::SampleFormat::I16 => {
+                build_input_stream::<i16>(&device, &config, channels, sample_tx)?
+            }
+            cpal::SampleFormat::I32 => {
+                build_input_stream::<i32>(&device, &config, channels, sample_tx)?
+            }
+            cpal::SampleFormat::F32 => {
+                build_input_stream::<f32>(&device, &config, channels, sample_tx)?
+            }
+            sample_format => return Err(format!("Unsupported sample format: {sample_format:?}")),
+        };
+
+        stream.play().map_err(|error| error.to_string())?;
+
+        let mut resampler = FrameResampler::new(sample_rate as usize, VOXTYPE_SAMPLE_RATE);
+        let mut samples = Vec::<f32>::new();
+
+        while !stop_flag.load(Ordering::SeqCst) {
+            match sample_rx.recv_timeout(Duration::from_millis(100)) {
+                Ok(chunk) => {
+                    resampler.push(&chunk, &mut |frame| samples.extend_from_slice(frame));
+                }
+                Err(mpsc::RecvTimeoutError::Timeout) => {}
+                Err(mpsc::RecvTimeoutError::Disconnected) => break,
+            }
+        }
+
+        drop(stream);
+
+        while let Ok(chunk) = sample_rx.try_recv() {
+            resampler.push(&chunk, &mut |frame| samples.extend_from_slice(frame));
+        }
+
+        resampler.finish(&mut |frame| samples.extend_from_slice(frame));
+        write_wav(output_path, &samples)?;
+        println!(
+            "{}",
+            serde_json::to_string(&RecordingResponse {
+                path: output_path.to_string_lossy().to_string(),
+                sample_rate: VOXTYPE_SAMPLE_RATE as u32,
+                samples: samples.len()
+            })
+            .map_err(|error| error.to_string())?
+        );
+        Ok(())
+    }
+
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct RecordingResponse {
+        path: String,
+        sample_rate: u32,
+        samples: usize,
+    }
+
+    fn get_preferred_input_config(
+        device: &cpal::Device,
+    ) -> Result<cpal::SupportedStreamConfig, String> {
+        let default_config = device.default_input_config().map_err(|error| error.to_string())?;
+        let target_rate = default_config.sample_rate();
+        let mut best_config: Option<cpal::SupportedStreamConfigRange> = None;
+
+        if let Ok(configs) = device.supported_input_configs() {
+            for config in configs {
+                if config.min_sample_rate() <= target_rate
+                    && config.max_sample_rate() >= target_rate
+                {
+                    match &best_config {
+                        None => best_config = Some(config),
+                        Some(current) => {
+                            if sample_format_score(config.sample_format())
+                                > sample_format_score(current.sample_format())
+                            {
+                                best_config = Some(config);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(best_config
+            .map(|config| config.with_sample_rate(target_rate))
+            .unwrap_or(default_config))
+    }
+
+    fn sample_format_score(format: cpal::SampleFormat) -> u8 {
+        match format {
+            cpal::SampleFormat::F32 => 4,
+            cpal::SampleFormat::I16 => 3,
+            cpal::SampleFormat::I32 => 2,
+            _ => 1,
+        }
+    }
+
+    fn build_input_stream<T>(
+        device: &cpal::Device,
+        config: &cpal::SupportedStreamConfig,
+        channels: usize,
+        sample_tx: mpsc::Sender<Vec<f32>>,
+    ) -> Result<cpal::Stream, String>
+    where
+        T: Sample + SizedSample + Send + 'static,
+        f32: cpal::FromSample<T>,
+    {
+        device
+            .build_input_stream(
+                &config.clone().into(),
+                move |data: &[T], _| {
+                    let mut output = Vec::with_capacity(data.len() / channels.max(1));
+
+                    if channels == 1 {
+                        output.extend(data.iter().map(|sample| sample.to_sample::<f32>()));
+                    } else {
+                        for frame in data.chunks_exact(channels) {
+                            output.push(
+                                frame
+                                    .iter()
+                                    .map(|sample| sample.to_sample::<f32>())
+                                    .sum::<f32>()
+                                    / channels as f32,
+                            );
+                        }
+                    }
+
+                    let _ = sample_tx.send(output);
+                },
+                move |error| eprintln!("Audio stream error: {error}"),
+                None,
+            )
+            .map_err(|error| error.to_string())
+    }
+
+    struct FrameResampler {
+        resampler: Option<FftFixedIn<f32>>,
+        chunk_in: usize,
+        in_buf: Vec<f32>,
+    }
+
+    impl FrameResampler {
+        fn new(input_rate: usize, output_rate: usize) -> Self {
+            let resampler = (input_rate != output_rate).then(|| {
+                FftFixedIn::<f32>::new(input_rate, output_rate, RESAMPLER_CHUNK_SIZE, 1, 1)
+                    .expect("create resampler")
+            });
+
+            Self {
+                resampler,
+                chunk_in: RESAMPLER_CHUNK_SIZE,
+                in_buf: Vec::with_capacity(RESAMPLER_CHUNK_SIZE),
+            }
+        }
+
+        fn push(&mut self, mut input: &[f32], emit: &mut impl FnMut(&[f32])) {
+            if self.resampler.is_none() {
+                emit(input);
+                return;
+            }
+
+            while !input.is_empty() {
+                let available = self.chunk_in - self.in_buf.len();
+                let count = available.min(input.len());
+                self.in_buf.extend_from_slice(&input[..count]);
+                input = &input[count..];
+
+                if self.in_buf.len() == self.chunk_in {
+                    if let Ok(output) = self.resampler.as_mut().unwrap().process(&[&self.in_buf], None)
+                    {
+                        emit(&output[0]);
+                    }
+                    self.in_buf.clear();
+                }
+            }
+        }
+
+        fn finish(&mut self, emit: &mut impl FnMut(&[f32])) {
+            if let Some(resampler) = self.resampler.as_mut() {
+                if !self.in_buf.is_empty() {
+                    self.in_buf.resize(self.chunk_in, 0.0);
+                    if let Ok(output) = resampler.process(&[&self.in_buf], None) {
+                        emit(&output[0]);
+                    }
+                    self.in_buf.clear();
+                }
+            }
+        }
+    }
+
+    fn write_wav(output_path: &Path, samples: &[f32]) -> Result<(), String> {
+        let file = File::create(output_path).map_err(|error| error.to_string())?;
+        let writer = BufWriter::new(file);
+        let spec = hound::WavSpec {
+            channels: 1,
+            sample_rate: VOXTYPE_SAMPLE_RATE as u32,
+            bits_per_sample: 16,
+            sample_format: hound::SampleFormat::Int,
+        };
+        let mut wav = hound::WavWriter::new(writer, spec).map_err(|error| error.to_string())?;
+
+        for sample in samples {
+            let clamped = sample.clamp(-1.0, 1.0);
+            let value = if clamped < 0.0 {
+                (clamped * i16::MIN as f32) as i16
+            } else {
+                (clamped * i16::MAX as f32) as i16
+            };
+            wav.write_sample(value).map_err(|error| error.to_string())?;
+        }
+
+        wav.finalize().map_err(|error| error.to_string())
     }
 
     fn parse_hwnd(value: &str) -> Result<HWND, String> {

@@ -141,3 +141,13 @@ For apps like Discord that also use the microphone, VoxType should first support
 Reason:
 
 Windows does not provide a simple reliable public control for muting only another application's microphone capture while keeping VoxType recording from the same device. Muting the physical input endpoint risks muting VoxType too. App-level hotkey automation is more practical, reversible, user-controlled, and fits VoxType's existing per-app profile direction.
+
+## 2026-04-25: Use Native CPAL Recording As Primary Capture Path
+
+Decision:
+
+VoxType should use the Rust Windows helper as the primary microphone recorder, using CPAL for device capture and Rubato for 16 kHz resampling. The browser `AudioWorkletNode` recorder should remain only as a fallback.
+
+Reason:
+
+Long VoxType recordings started crackling around the 25-30 second mark even when Silero VAD was disabled, which points to the browser/WebAudio capture path rather than VAD trimming. Handy does not show the same problem and uses native CPAL capture plus Rubato resampling, so VoxType should follow that architecture for stable Windows dictation.

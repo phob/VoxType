@@ -19,7 +19,7 @@ Features:
 - Tray app. Initial tray context menu created.
 - Settings window. First persistent settings panel and main-process settings store created.
 - Global push-to-talk hotkey. Configurable hotkeys default to `Ctrl+Alt+Space` for recording/transcription from any app and `Ctrl+Shift+Space` to bring VoxType forward. Settings UI captures pressed key combinations instead of requiring manual accelerator strings.
-- Microphone recording. Initial renderer recorder captures microphone audio through `AudioWorkletNode`, keeps monitoring silent, and encodes 16 kHz WAV.
+- Microphone recording. Initial renderer recorder captured microphone audio through `AudioWorkletNode`; primary recording now uses the Rust Windows helper with CPAL plus Rubato to produce 16 kHz WAV audio.
 - Whisper transcription through `whisper.cpp`. Initial service invokes a custom executable path if configured, otherwise the managed CPU x64 `whisper.cpp` runtime, otherwise `whisper-cli`.
 - Managed `whisper.cpp` runtime acquisition. Initial implementation downloads and extracts official `ggml-org/whisper.cpp` `v1.8.4` `whisper-bin-x64.zip` and finds `whisper-cli.exe`.
 - Basic model download. Initial catalog downloads `tiny.en`, `base.en`, and `small.en` ggml models.
@@ -90,8 +90,8 @@ Features:
 Implementation notes:
 
 - First slice runs post-recording Silero VAD in the renderer using `@ricky0123/vad-web` and ONNX Runtime Web/WASM. It bundles the Silero ONNX model and ONNX Runtime WASM assets locally with the renderer build.
-- Renderer recording now requests raw microphone audio by disabling browser echo cancellation, noise suppression, and automatic gain control, and batches AudioWorklet samples before transferring them to the renderer.
-- Handy's crackle-free behavior is likely helped by native CPAL recording, native worker-thread buffering, and Rubato resampling. VoxType should move microphone capture to a native helper/worker if crackle persists after the renderer recorder hardening.
+- Native recording is now the primary path. The Windows helper captures audio with CPAL, converts to mono, resamples to 16 kHz with Rubato, and writes WAV audio for the existing Whisper pipeline.
+- Renderer recording remains as fallback only. It requests raw microphone audio by disabling browser echo cancellation, noise suppression, and automatic gain control, and batches AudioWorklet samples before transferring them to the renderer.
 - VAD trimming should currently be conservative edge trimming: find the first and last speech range and keep the continuous original audio between them. It should not cut internal pauses until VoxType has Handy-style frame-level smoothing.
 - VoxType should use a high-quality resampler before Whisper/VAD. The first fix uses Web Audio `OfflineAudioContext` resampling instead of the earlier linear downsampler.
 - Defaults should be conservative, closer to Handy's Silero approach: lower speech threshold, longer pre-roll, and longer hangover/redemption.

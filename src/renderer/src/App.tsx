@@ -1,5 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { startPcmRecorder, type PcmRecorder, type PcmRecordingResult } from "./audio-recorder";
+import {
+  startNativePcmRecorder,
+  startPcmRecorder,
+  type PcmRecorder,
+  type PcmRecordingResult
+} from "./audio-recorder";
 import { eventToAccelerator } from "./hotkey-capture";
 import { type DictionaryEntry } from "../../../shared/dictionary";
 import { type HotkeyStatus } from "../../../shared/hotkeys";
@@ -213,7 +218,7 @@ export function App(): JSX.Element {
         systemAudioMutedByVoxTypeRef.current = true;
       }
 
-      recorderRef.current = await startPcmRecorder();
+      recorderRef.current = await startNativePcmRecorder().catch(async () => startPcmRecorder());
       setRecording(true);
     } catch (recordingError) {
       const unmuteError = await unmuteSystemAudio();

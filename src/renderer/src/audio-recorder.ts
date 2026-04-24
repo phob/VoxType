@@ -89,6 +89,47 @@ export async function startPcmRecorder(): Promise<PcmRecorder> {
   };
 }
 
+export async function startNativePcmRecorder(): Promise<PcmRecorder> {
+  await window.voxtype.windowsHelper.startRecording();
+
+  return {
+    stop: async () => {
+      const wavBytes = await window.voxtype.windowsHelper.stopRecording();
+
+      return {
+        wavBytes,
+        vad: {
+          enabled: false,
+          model: "native-cpal",
+          speechSegments: 1,
+          originalDurationMs: getWavDurationMs(wavBytes),
+          trimmedDurationMs: getWavDurationMs(wavBytes),
+          removedDurationMs: 0,
+          speechDetected: true,
+          skippedReason:
+            "Native CPAL recording is active; renderer Silero trimming is bypassed for capture diagnostics."
+        }
+      };
+    }
+  };
+}
+
+function getWavDurationMs(wavBytes: Uint8Array): number {
+  if (wavBytes.byteLength < 44) {
+    return 0;
+  }
+
+  const view = new DataView(wavBytes.buffer, wavBytes.byteOffset, wavBytes.byteLength);
+  const channels = view.getUint16(22, true);
+  const sampleRate = view.getUint32(24, true);
+  const bitsPerSample = view.getUint16(34, true);
+  const dataBytes = view.getUint32(40, true);
+  const bytesPerSampleFrame = Math.max(1, channels * (bitsPerSample / 8));
+  const sampleFrames = dataBytes / bytesPerSampleFrame;
+
+  return Math.round((sampleFrames / sampleRate) * 1000);
+}
+
 async function safelyTrimSilence(
   samples: Float32Array,
   settings?: AppSettings | null
