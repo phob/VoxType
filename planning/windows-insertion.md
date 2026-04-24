@@ -46,6 +46,12 @@ Tradeoffs:
 - Needs careful Unicode handling.
 - Target apps may drop characters if typing is too fast.
 
+Initial implementation:
+
+- The native helper exposes `type-text`.
+- Text is sent as Unicode `SendInput` events with `KEYEVENTF_UNICODE` instead of virtual key codes.
+- Direct typing should not depend on the currently selected Windows keyboard layout for normal Unicode text.
+
 ### Chunked Typing
 
 Keyboard emulation with configurable delays and chunks.
@@ -65,6 +71,12 @@ Settings:
 - delay between chunks
 - delay after punctuation
 - paste first, fallback to typing
+
+Initial implementation:
+
+- The `chunked` insertion mode sends Unicode text in chunks.
+- Chunk size and delay are controlled by local settings.
+- This is the first remote-safe mode for RDP, TeamViewer, and other targets that may drop very fast input.
 
 ### UI Automation
 
@@ -133,4 +145,3 @@ Settings should include a test area:
 - Show recommended insertion strategy.
 
 This can turn messy Windows behavior into a visible, controllable feature.
-

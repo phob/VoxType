@@ -30,7 +30,7 @@ const transcriptionService = new TranscriptionService(
   historyStore,
   runtimeService
 );
-const insertionService = new InsertionService(windowsHelperService);
+const insertionService = new InsertionService(windowsHelperService, settingsStore);
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -187,10 +187,16 @@ ipcMain.handle("transcription:transcribe-wav", (_event, bytes: Uint8Array) =>
 ipcMain.handle("history:list", () => historyStore.list());
 ipcMain.handle("insertion:copy", (_event, text: string) => insertionService.copyForInsertion(text));
 ipcMain.handle("insertion:paste-active", (_event, text: string) =>
-  insertionService.pasteIntoActiveApp(text)
+  insertionService.insertIntoActiveApp(text)
 );
 ipcMain.handle("insertion:paste-window", (_event, text: string, hwnd: string) =>
-  insertionService.pasteIntoWindow(text, hwnd)
+  insertionService.insertIntoWindow(text, hwnd)
+);
+ipcMain.handle("insertion:insert-active", (_event, text: string) =>
+  insertionService.insertIntoActiveApp(text)
+);
+ipcMain.handle("insertion:insert-window", (_event, text: string, hwnd: string) =>
+  insertionService.insertIntoWindow(text, hwnd)
 );
 ipcMain.handle("dictation:get-hotkey-state", () => dictationHotkeyState);
 ipcMain.handle("dictation:set-hotkey-recording", (_event, recording: boolean) => {

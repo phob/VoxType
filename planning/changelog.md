@@ -27,3 +27,4 @@
 - Replaced manual hotkey text entry with key-combination capture controls in the settings UI.
 - Added optional system-audio mute while recording, backed by a Windows Core Audio command in the native helper.
 - Replaced deprecated `ScriptProcessorNode` microphone capture with an `AudioWorkletNode` recorder.
+- Added direct Unicode keyboard insertion and configurable chunked typing for remote or slow target apps.

@@ -15,8 +15,9 @@ fn main() {
         "focus-window" => focus_window_from_arg(),
         "set-system-mute" => set_system_mute_from_arg(),
         "paste-text" => paste_text_from_stdin(),
+        "type-text" => type_text_from_stdin(),
         "help" | "--help" | "-h" => {
-            println!("Usage: voxtype-windows-helper active-window | focus-window <hwnd> | set-system-mute <true|false> | paste-text");
+            println!("Usage: voxtype-windows-helper active-window | focus-window <hwnd> | set-system-mute <true|false> | paste-text | type-text [delay-ms]");
             Ok(())
         }
         _ => Err(format!("Unknown command: {command}")),
@@ -74,6 +75,29 @@ fn paste_text_from_stdin() -> Result<(), String> {
 }
 
 #[cfg(windows)]
+fn type_text_from_stdin() -> Result<(), String> {
+    let delay_ms = env::args()
+        .nth(2)
+        .map(|value| {
+            value
+                .parse::<u64>()
+                .map_err(|error| format!("Invalid delay-ms '{value}': {error}"))
+        })
+        .transpose()?
+        .unwrap_or(0);
+    let mut text = String::new();
+    io::stdin()
+        .read_to_string(&mut text)
+        .map_err(|error| error.to_string())?;
+    windows_impl::type_text(&text, delay_ms)
+}
+
+#[cfg(not(windows))]
+fn type_text_from_stdin() -> Result<(), String> {
+    Err("type-text is only supported on Windows.".to_string())
+}
+
+#[cfg(windows)]
 fn set_system_mute_from_arg() -> Result<(), String> {
     let muted = env::args()
         .nth(2)
@@ -96,6 +120,8 @@ mod windows_impl {
     use serde::Serialize;
     use std::mem::MaybeUninit;
     use std::ptr;
+    use std::thread;
+    use std::time::Duration;
     use windows::core::PWSTR;
     use windows::Win32::Foundation::{CloseHandle, HANDLE, HWND, MAX_PATH};
     use windows::Win32::Media::Audio::{
@@ -115,8 +141,8 @@ mod windows_impl {
         OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION,
     };
     use windows::Win32::UI::Input::KeyboardAndMouse::{
-        SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP, VIRTUAL_KEY, VK_CONTROL,
-        VK_V,
+        SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP,
+        KEYEVENTF_UNICODE, VIRTUAL_KEY, VK_CONTROL, VK_V,
     };
     use windows::Win32::UI::WindowsAndMessaging::{
         GetForegroundWindow, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId,
@@ -162,6 +188,24 @@ mod windows_impl {
     pub fn paste_text(text: &str) -> Result<(), String> {
         set_clipboard_text(text)?;
         send_ctrl_v()
+    }
+
+    pub fn type_text(text: &str, delay_ms: u64) -> Result<(), String> {
+        let delay = if delay_ms > 0 {
+            Some(Duration::from_millis(delay_ms))
+        } else {
+            None
+        };
+
+        for unit in text.encode_utf16() {
+            send_unicode_unit(unit)?;
+
+            if let Some(delay) = delay {
+                thread::sleep(delay);
+            }
+        }
+
+        Ok(())
     }
 
     pub fn focus_window(hwnd: &str) -> Result<(), String> {
@@ -265,6 +309,25 @@ mod windows_impl {
         Ok(())
     }
 
+    fn send_unicode_unit(unit: u16) -> Result<(), String> {
+        let mut inputs = [
+            unicode_input(unit, false),
+            unicode_input(unit, true),
+        ];
+        let sent = unsafe {
+            SendInput(
+                &mut inputs,
+                std::mem::size_of::<INPUT>() as i32,
+            )
+        };
+
+        if sent != inputs.len() as u32 {
+            return Err(format!("SendInput sent {sent} of {} unicode events.", inputs.len()));
+        }
+
+        Ok(())
+    }
+
     fn keyboard_input(key: VIRTUAL_KEY, key_up: bool) -> INPUT {
         INPUT {
             r#type: INPUT_KEYBOARD,
@@ -273,6 +336,25 @@ mod windows_impl {
                     wVk: key,
                     wScan: 0,
                     dwFlags: if key_up { KEYEVENTF_KEYUP } else { Default::default() },
+                    time: 0,
+                    dwExtraInfo: 0,
+                },
+            },
+        }
+    }
+
+    fn unicode_input(unit: u16, key_up: bool) -> INPUT {
+        INPUT {
+            r#type: INPUT_KEYBOARD,
+            Anonymous: INPUT_0 {
+                ki: KEYBDINPUT {
+                    wVk: VIRTUAL_KEY(0),
+                    wScan: unit,
+                    dwFlags: if key_up {
+                        KEYEVENTF_UNICODE | KEYEVENTF_KEYUP
+                    } else {
+                        KEYEVENTF_UNICODE
+                    },
                     time: 0,
                     dwExtraInfo: 0,
                 },

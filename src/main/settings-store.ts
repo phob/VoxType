@@ -26,7 +26,8 @@ export class SettingsStore {
       offlineMode: false,
       autoMuteSystemAudio: false,
       restoreClipboard: true,
-      remoteTypingDelayMs: 25
+      remoteTypingDelayMs: 25,
+      remoteTypingChunkSize: 24
     };
   }
 

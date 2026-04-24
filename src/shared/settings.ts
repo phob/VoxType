@@ -13,6 +13,7 @@ export type AppSettings = {
   autoMuteSystemAudio: boolean;
   restoreClipboard: boolean;
   remoteTypingDelayMs: number;
+  remoteTypingChunkSize: number;
 };
 
 export type SettingsPatch = Partial<AppSettings>;
@@ -66,7 +67,12 @@ export function sanitizeSettings(
       typeof input.remoteTypingDelayMs === "number" &&
       Number.isFinite(input.remoteTypingDelayMs)
         ? clamp(Math.round(input.remoteTypingDelayMs), 0, 1000)
-        : defaults.remoteTypingDelayMs
+        : defaults.remoteTypingDelayMs,
+    remoteTypingChunkSize:
+      typeof input.remoteTypingChunkSize === "number" &&
+      Number.isFinite(input.remoteTypingChunkSize)
+        ? clamp(Math.round(input.remoteTypingChunkSize), 1, 250)
+        : defaults.remoteTypingChunkSize
   };
 }
 

@@ -38,6 +38,10 @@ const voxtype = {
   },
   insertion: {
     copy: (text: string) => ipcRenderer.invoke("insertion:copy", text) as Promise<void>,
+    insertActive: (text: string) =>
+      ipcRenderer.invoke("insertion:insert-active", text) as Promise<void>,
+    insertWindow: (text: string, hwnd: string) =>
+      ipcRenderer.invoke("insertion:insert-window", text, hwnd) as Promise<void>,
     pasteActive: (text: string) =>
       ipcRenderer.invoke("insertion:paste-active", text) as Promise<void>,
     pasteWindow: (text: string, hwnd: string) =>

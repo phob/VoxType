@@ -34,9 +34,9 @@ Goal: make VoxType work beyond normal text fields.
 Features:
 
 - Native Windows helper. Initial Rust helper scaffold created under `native/windows-helper`.
-- Direct keyboard typing.
-- Chunked typing.
-- Unicode handling.
+- Direct keyboard typing. Initial `type-text` helper command sends Unicode `SendInput` events independent of the active Windows keyboard layout.
+- Chunked typing. Initial `chunked` insertion mode sends text in configurable chunks with a configurable delay for remote or slow targets.
+- Unicode handling. Initial direct typing path uses `KEYEVENTF_UNICODE` instead of layout-dependent virtual keys.
 - Active app detection. Initial `active-window` command reports foreground window metadata and is wired into the renderer test panel.
 - Clipboard paste insertion into active app. Initial `paste-text` helper command sets Unicode clipboard text and sends Ctrl+V to the active foreground app.
 - Target-window paste after global dictation. Initial hotkey flow captures the active window before dictation and refocuses it before pasting the transcript.

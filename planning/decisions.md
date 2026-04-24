@@ -101,3 +101,13 @@ VoxType should offer an opt-in setting that mutes Windows system audio while mic
 Reason:
 
 Muting playback during capture can prevent speaker audio from bleeding into dictation, but it changes global system state, so the behavior should be controlled by the user.
+
+## 2026-04-24: Direct Typing Must Be Keyboard-Layout Independent
+
+Decision:
+
+VoxType's direct typing path should send Unicode text rather than layout-dependent virtual key presses.
+
+Reason:
+
+Users may dictate in one language while Windows is using another keyboard layout. Dictation insertion should preserve the transcript text instead of changing behavior based on the active keyboard layout.

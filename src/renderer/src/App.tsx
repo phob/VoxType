@@ -231,10 +231,10 @@ export function App(): JSX.Element {
       if (unmuteError) {
         setError(unmuteError);
       }
-      if (options?.pasteTarget?.hwnd && state.settings?.insertionMode === "clipboard") {
-        await window.voxtype.insertion.pasteWindow(result.entry.text, options.pasteTarget.hwnd);
-      } else if (state.settings?.insertionMode === "clipboard") {
+      if (state.settings?.insertionMode === "clipboard" && !options?.pasteTarget?.hwnd) {
         await window.voxtype.insertion.copy(result.entry.text);
+      } else if (options?.pasteTarget?.hwnd) {
+        await window.voxtype.insertion.insertWindow(result.entry.text, options.pasteTarget.hwnd);
       }
       const [runtime, history] = await Promise.all([
         window.voxtype.runtime.getWhisper(),
@@ -285,8 +285,8 @@ export function App(): JSX.Element {
     setError(null);
 
     try {
-      await window.voxtype.insertion.pasteActive(latestTranscript.text);
-      setBusyMessage("Pasted transcript into the active app.");
+      await window.voxtype.insertion.insertActive(latestTranscript.text);
+      setBusyMessage("Inserted transcript into the active app.");
       window.setTimeout(() => setBusyMessage(null), 1800);
     } catch (pasteError) {
       setError(formatError(pasteError));
@@ -376,7 +376,7 @@ export function App(): JSX.Element {
               onClick={() => void pasteLatestTranscript()}
               type="button"
             >
-              Paste To Active App
+              Insert Into Active App
             </button>
           </div>
 
@@ -570,6 +570,19 @@ export function App(): JSX.Element {
                 value={state.settings.remoteTypingDelayMs}
                 onChange={(event) =>
                   void updateSettings({ remoteTypingDelayMs: Number(event.target.value) })
+                }
+              />
+            </label>
+
+            <label className="field">
+              <span>Remote typing chunk size</span>
+              <input
+                max={250}
+                min={1}
+                type="number"
+                value={state.settings.remoteTypingChunkSize}
+                onChange={(event) =>
+                  void updateSettings({ remoteTypingChunkSize: Number(event.target.value) })
                 }
               />
             </label>
