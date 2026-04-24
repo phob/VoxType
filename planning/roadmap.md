@@ -7,6 +7,7 @@
 - Decide native helper language.
 - Decide first Whisper runtime and model download source.
 - Define minimal app UX. Initial shell created with a status screen and planned capability cards.
+- Add CI build checks. Done: GitHub Actions runs `npm ci` and `npm run build`.
 
 ## Phase 1: MVP Dictation
 
@@ -16,7 +17,7 @@ Features:
 
 - Electron app shell. Initial scaffold created.
 - Tray app. Initial tray context menu created.
-- Settings window.
+- Settings window. First persistent settings panel and main-process settings store created.
 - Global push-to-talk hotkey.
 - Microphone recording.
 - Whisper transcription through `whisper.cpp`.

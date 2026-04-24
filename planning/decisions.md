@@ -71,3 +71,13 @@ Use Conventional Commits plus Release Please as the initial changelog and releas
 Reason:
 
 VoxType needs consistent public changelogs that do not rely on manual updates, while still giving the maintainer a reviewable release PR before tags and GitHub Releases are created. This works well with AI-assisted development because generated release notes can be reviewed and edited before publication.
+
+## 2026-04-24: Store Settings In The Main Process
+
+Decision:
+
+Persist initial app settings through a typed main-process settings store and expose them to the renderer through a preload IPC bridge.
+
+Reason:
+
+The renderer should not own filesystem access. Keeping settings in the Electron main process creates a cleaner boundary for future local model paths, privacy/offline settings, insertion defaults, and Windows helper configuration.

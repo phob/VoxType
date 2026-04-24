@@ -159,9 +159,76 @@ h1 {
   background: rgba(255, 250, 240, 0.12);
 }
 
+.settings-panel {
+  margin-top: 28px;
+  padding: 24px;
+  border: 1px solid rgba(255, 250, 240, 0.14);
+  border-radius: 8px;
+  background: rgba(255, 250, 240, 0.07);
+}
+
+.section-heading {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: end;
+  margin-bottom: 20px;
+}
+
+.section-heading h2 {
+  margin: 0;
+  color: #fffaf0;
+  font-size: 1.25rem;
+  letter-spacing: 0;
+}
+
+.settings-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.field,
+.toggle {
+  display: grid;
+  gap: 8px;
+}
+
+.field span,
+.toggle span {
+  color: #efe5d5;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.field input,
+.field select {
+  width: 100%;
+  min-height: 42px;
+  border: 1px solid rgba(255, 250, 240, 0.2);
+  border-radius: 6px;
+  padding: 0 12px;
+  color: #fffaf0;
+  background: rgba(16, 17, 20, 0.78);
+}
+
+.toggle {
+  grid-template-columns: 20px minmax(0, 1fr);
+  align-items: center;
+  min-height: 42px;
+  padding: 10px 0;
+}
+
+.toggle input {
+  width: 18px;
+  height: 18px;
+  accent-color: #87d7c4;
+}
+
 @media (max-width: 920px) {
   .intro,
-  .capability-grid {
+  .capability-grid,
+  .settings-grid {
     grid-template-columns: 1fr;
   }
 
@@ -184,4 +251,3 @@ h1 {
     min-height: 0;
   }
 }
-

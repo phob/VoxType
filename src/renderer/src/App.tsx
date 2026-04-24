@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { type AppSettings, type InsertionMode } from "../../shared/settings";
 
 type Capability = {
   title: string;
@@ -31,10 +32,16 @@ const capabilities: Capability[] = [
 
 export function App(): JSX.Element {
   const [version, setVersion] = useState<string>("0.1.0");
+  const [settings, setSettings] = useState<AppSettings | null>(null);
 
   useEffect(() => {
     void window.voxtype.getVersion().then(setVersion);
+    void window.voxtype.settings.get().then(setSettings);
   }, []);
+
+  async function updateSettings(patch: Partial<AppSettings>): Promise<void> {
+    setSettings(await window.voxtype.settings.update(patch));
+  }
 
   return (
     <main className="app-shell">
@@ -65,7 +72,72 @@ export function App(): JSX.Element {
           </article>
         ))}
       </section>
+
+      {settings ? (
+        <section className="settings-panel" aria-label="VoxType settings">
+          <div className="section-heading">
+            <p className="eyebrow">Foundation</p>
+            <h2>Local settings are wired.</h2>
+          </div>
+
+          <div className="settings-grid">
+            <label className="field">
+              <span>Model directory</span>
+              <input
+                value={settings.modelDirectory}
+                onChange={(event) => void updateSettings({ modelDirectory: event.target.value })}
+              />
+            </label>
+
+            <label className="field">
+              <span>Insertion mode</span>
+              <select
+                value={settings.insertionMode}
+                onChange={(event) =>
+                  void updateSettings({ insertionMode: event.target.value as InsertionMode })
+                }
+              >
+                <option value="clipboard">Clipboard paste</option>
+                <option value="keyboard">Keyboard emulation</option>
+                <option value="chunked">Remote-safe chunked typing</option>
+              </select>
+            </label>
+
+            <label className="field">
+              <span>Remote typing delay</span>
+              <input
+                max={1000}
+                min={0}
+                type="number"
+                value={settings.remoteTypingDelayMs}
+                onChange={(event) =>
+                  void updateSettings({ remoteTypingDelayMs: Number(event.target.value) })
+                }
+              />
+            </label>
+
+            <label className="toggle">
+              <input
+                checked={settings.restoreClipboard}
+                type="checkbox"
+                onChange={(event) =>
+                  void updateSettings({ restoreClipboard: event.target.checked })
+                }
+              />
+              <span>Restore clipboard after paste insertion</span>
+            </label>
+
+            <label className="toggle">
+              <input
+                checked={settings.offlineMode}
+                type="checkbox"
+                onChange={(event) => void updateSettings({ offlineMode: event.target.checked })}
+              />
+              <span>Offline mode after models are installed</span>
+            </label>
+          </div>
+        </section>
+      ) : null}
     </main>
   );
 }
-

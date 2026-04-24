@@ -1,10 +1,13 @@
 import { app, BrowserWindow, Menu, Tray, ipcMain, nativeImage } from "electron";
 import { join } from "node:path";
+import { type SettingsPatch } from "../shared/settings";
+import { SettingsStore } from "./settings-store";
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 
 const isDev = Boolean(process.env.ELECTRON_RENDERER_URL);
+const settingsStore = new SettingsStore();
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -54,6 +57,9 @@ function createTray(): void {
 }
 
 ipcMain.handle("app:get-version", () => app.getVersion());
+ipcMain.handle("settings:get", () => settingsStore.get());
+ipcMain.handle("settings:update", (_event, patch: SettingsPatch) => settingsStore.update(patch));
+ipcMain.handle("settings:reset", () => settingsStore.reset());
 
 app.whenReady().then(() => {
   createWindow();

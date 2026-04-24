@@ -98,10 +98,16 @@ Likely storage locations on Windows:
 
 Final paths can be changed later, but user data and downloaded model data should be separated.
 
+Current foundation:
+
+- `src/shared/settings.ts` defines typed app settings and sanitization.
+- `src/main/settings-store.ts` stores settings as JSON under Electron's `app.getPath("userData")`.
+- `src/preload/index.ts` exposes settings read/update/reset methods to the renderer through IPC.
+- Initial settings include model directory, insertion mode, offline mode, clipboard restoration, and remote typing delay.
+
 ## Security And Privacy
 
 - Core transcription and OCR should run without internet after models are installed.
 - Do not upload audio, screenshots, OCR text, transcripts, or dictionary entries.
 - Network access should be limited to model downloads and updates unless the user opts into extra features.
 - Provide an offline mode that blocks all network access except explicit user action.
-

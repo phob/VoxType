@@ -140,16 +140,22 @@ When AI commits or prepares release notes:
 
 ## Planned Tooling
 
-When the app scaffold exists, add:
+Added after the initial Electron scaffold:
 
 - `release-please-config.json`
 - `.release-please-manifest.json`
 - `.github/workflows/release-please.yml`
 - `.github/PULL_REQUEST_TEMPLATE.md`
-- optional commit helper or commit message template
-- optional `commitlint` once the team wants stricter enforcement
 
-Do not add release automation before there is a package/version file to bump.
+Optional future additions:
+
+- commit helper or commit message template
+- `commitlint` once the project wants stricter enforcement
+- build/package workflow that attaches Windows installers to GitHub Releases
+
+Current bootstrap version is `0.1.0` in `package.json` and `.release-please-manifest.json`.
+
+After this setup is merged to `main`, future release-relevant commits should use Conventional Commits so Release Please can open release PRs.
 
 ## Relationship To Planning Changelog
 
@@ -160,3 +166,13 @@ There are two changelog concepts:
 
 Do not mix them.
 
+## First Release Bootstrap
+
+The repo starts with `0.1.0`.
+
+Recommended approach:
+
+1. Merge the Release Please setup.
+2. Tag the initial baseline as `v0.1.0` if a clean starting release marker is desired.
+3. Use Conventional Commits for future release-relevant work.
+4. Let Release Please open release PRs for later versions.
