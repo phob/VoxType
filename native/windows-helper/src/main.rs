@@ -1,5 +1,6 @@
 use serde::Serialize;
 use std::env;
+use std::io::{self, Read};
 use std::process;
 
 #[derive(Serialize)]
@@ -11,8 +12,9 @@ fn main() {
     let command = env::args().nth(1).unwrap_or_else(|| "help".to_string());
     let result = match command.as_str() {
         "active-window" => active_window_json(),
+        "paste-text" => paste_text_from_stdin(),
         "help" | "--help" | "-h" => {
-            println!("Usage: voxtype-windows-helper active-window");
+            println!("Usage: voxtype-windows-helper active-window | paste-text");
             Ok(())
         }
         _ => Err(format!("Unknown command: {command}")),
@@ -43,17 +45,44 @@ fn active_window_json() -> Result<(), String> {
 }
 
 #[cfg(windows)]
+fn paste_text_from_stdin() -> Result<(), String> {
+    let mut text = String::new();
+    io::stdin()
+        .read_to_string(&mut text)
+        .map_err(|error| error.to_string())?;
+    windows_impl::paste_text(&text)
+}
+
+#[cfg(not(windows))]
+fn paste_text_from_stdin() -> Result<(), String> {
+    Err("paste-text is only supported on Windows.".to_string())
+}
+
+#[cfg(windows)]
 mod windows_impl {
     use serde::Serialize;
     use std::mem::MaybeUninit;
+    use std::ptr;
     use windows::core::PWSTR;
-    use windows::Win32::Foundation::{CloseHandle, HWND, MAX_PATH};
+    use windows::Win32::Foundation::{CloseHandle, HANDLE, HWND, MAX_PATH};
+    use windows::Win32::System::DataExchange::{
+        CloseClipboard, EmptyClipboard, OpenClipboard, SetClipboardData,
+    };
+    use windows::Win32::System::Memory::{
+        GlobalAlloc, GlobalLock, GlobalUnlock, GMEM_MOVEABLE,
+    };
     use windows::Win32::System::Threading::{
         OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION,
+    };
+    use windows::Win32::UI::Input::KeyboardAndMouse::{
+        SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP, VIRTUAL_KEY, VK_CONTROL,
+        VK_V,
     };
     use windows::Win32::UI::WindowsAndMessaging::{
         GetForegroundWindow, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId,
     };
+
+    const CF_UNICODETEXT_FORMAT: u32 = 13;
 
     #[derive(Serialize)]
     #[serde(rename_all = "camelCase")]
@@ -87,6 +116,95 @@ mod windows_impl {
             process_path,
             process_name,
         })
+    }
+
+    pub fn paste_text(text: &str) -> Result<(), String> {
+        set_clipboard_text(text)?;
+        send_ctrl_v()
+    }
+
+    fn set_clipboard_text(text: &str) -> Result<(), String> {
+        let mut utf16: Vec<u16> = text.encode_utf16().collect();
+        utf16.push(0);
+        let byte_len = utf16.len() * std::mem::size_of::<u16>();
+
+        unsafe {
+            OpenClipboard(Some(HWND::default())).map_err(|error| error.to_string())?;
+            let clipboard = ClipboardGuard;
+
+            EmptyClipboard().map_err(|error| error.to_string())?;
+
+            let memory = GlobalAlloc(GMEM_MOVEABLE, byte_len)
+                .map_err(|error| error.to_string())?;
+            let locked = GlobalLock(memory);
+
+            if locked.is_null() {
+                return Err("Failed to lock clipboard memory.".to_string());
+            }
+
+            ptr::copy_nonoverlapping(
+                utf16.as_ptr().cast::<u8>(),
+                locked.cast::<u8>(),
+                byte_len,
+            );
+
+            let _ = GlobalUnlock(memory);
+
+            if SetClipboardData(CF_UNICODETEXT_FORMAT, Some(HANDLE(memory.0))).is_err() {
+                return Err("Failed to set clipboard text.".to_string());
+            }
+
+            std::mem::forget(clipboard);
+            CloseClipboard().map_err(|error| error.to_string())?;
+        }
+
+        Ok(())
+    }
+
+    fn send_ctrl_v() -> Result<(), String> {
+        let mut inputs = [
+            keyboard_input(VK_CONTROL, false),
+            keyboard_input(VK_V, false),
+            keyboard_input(VK_V, true),
+            keyboard_input(VK_CONTROL, true),
+        ];
+        let sent = unsafe {
+            SendInput(
+                &mut inputs,
+                std::mem::size_of::<INPUT>() as i32,
+            )
+        };
+
+        if sent != inputs.len() as u32 {
+            return Err(format!("SendInput sent {sent} of {} events.", inputs.len()));
+        }
+
+        Ok(())
+    }
+
+    fn keyboard_input(key: VIRTUAL_KEY, key_up: bool) -> INPUT {
+        INPUT {
+            r#type: INPUT_KEYBOARD,
+            Anonymous: INPUT_0 {
+                ki: KEYBDINPUT {
+                    wVk: key,
+                    wScan: 0,
+                    dwFlags: if key_up { KEYEVENTF_KEYUP } else { Default::default() },
+                    time: 0,
+                    dwExtraInfo: 0,
+                },
+            },
+        }
+    }
+
+    struct ClipboardGuard;
+
+    impl Drop for ClipboardGuard {
+        fn drop(&mut self) {
+            unsafe {
+                let _ = CloseClipboard();
+            }
+        }
     }
 
     fn get_window_title(hwnd: HWND) -> String {
@@ -146,4 +264,3 @@ mod windows_impl {
         Some(String::from_utf16_lossy(initialized))
     }
 }
-

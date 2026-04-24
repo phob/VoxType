@@ -151,6 +151,22 @@ export function App(): JSX.Element {
     window.setTimeout(() => setBusyMessage(null), 1800);
   }
 
+  async function pasteLatestTranscript(): Promise<void> {
+    if (!latestTranscript) {
+      return;
+    }
+
+    setError(null);
+
+    try {
+      await window.voxtype.insertion.pasteActive(latestTranscript.text);
+      setBusyMessage("Pasted transcript into the active app.");
+      window.setTimeout(() => setBusyMessage(null), 1800);
+    } catch (pasteError) {
+      setError(formatError(pasteError));
+    }
+  }
+
   async function refreshActiveWindow(): Promise<void> {
     setError(null);
 
@@ -223,6 +239,14 @@ export function App(): JSX.Element {
               type="button"
             >
               Copy Latest
+            </button>
+            <button
+              className="secondary-button"
+              disabled={!latestTranscript}
+              onClick={() => void pasteLatestTranscript()}
+              type="button"
+            >
+              Paste To Active App
             </button>
           </div>
 

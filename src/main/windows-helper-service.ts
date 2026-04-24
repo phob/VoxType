@@ -1,5 +1,5 @@
 import { app } from "electron";
-import { execFile } from "node:child_process";
+import { execFile, spawn } from "node:child_process";
 import { access } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
@@ -42,6 +42,18 @@ export class WindowsHelperService {
     return parsed;
   }
 
+  async pasteText(text: string): Promise<void> {
+    const helperPath = await this.resolveHelperPath();
+
+    if (!helperPath) {
+      throw new Error(
+        "Windows helper executable was not found. Build it with `cargo build --manifest-path native/windows-helper/Cargo.toml`."
+      );
+    }
+
+    await runHelperWithStdin(helperPath, ["paste-text"], text);
+  }
+
   private async resolveHelperPath(): Promise<string | null> {
     const candidates = [
       process.env.VOXTYPE_WINDOWS_HELPER_PATH,
@@ -59,6 +71,40 @@ export class WindowsHelperService {
 
     return null;
   }
+}
+
+function runHelperWithStdin(
+  helperPath: string,
+  args: string[],
+  stdin: string
+): Promise<void> {
+  return new Promise((resolvePromise, reject) => {
+    const child = spawn(helperPath, args, {
+      stdio: ["pipe", "pipe", "pipe"],
+      windowsHide: true
+    });
+    const stdout: Buffer[] = [];
+    const stderr: Buffer[] = [];
+
+    child.stdout.on("data", (chunk: Buffer) => stdout.push(chunk));
+    child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk));
+    child.on("error", reject);
+    child.on("close", (code) => {
+      if (code === 0) {
+        resolvePromise();
+        return;
+      }
+
+      const message =
+        Buffer.concat(stdout).toString("utf8").trim() ||
+        Buffer.concat(stderr).toString("utf8").trim() ||
+        `Windows helper exited with code ${code}.`;
+
+      reject(new Error(message));
+    });
+
+    child.stdin.end(stdin, "utf8");
+  });
 }
 
 async function fileExists(path: string): Promise<boolean> {
@@ -85,4 +131,3 @@ function isActiveWindowInfo(value: unknown): value is ActiveWindowInfo {
     (typeof info.processName === "string" || info.processName === null)
   );
 }
-

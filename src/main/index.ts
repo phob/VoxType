@@ -23,7 +23,7 @@ const transcriptionService = new TranscriptionService(
   historyStore,
   runtimeService
 );
-const insertionService = new InsertionService();
+const insertionService = new InsertionService(windowsHelperService);
 
 function createWindow(): void {
   mainWindow = new BrowserWindow({
@@ -99,6 +99,9 @@ ipcMain.handle("transcription:transcribe-wav", (_event, bytes: Uint8Array) =>
 );
 ipcMain.handle("history:list", () => historyStore.list());
 ipcMain.handle("insertion:copy", (_event, text: string) => insertionService.copyForInsertion(text));
+ipcMain.handle("insertion:paste-active", (_event, text: string) =>
+  insertionService.pasteIntoActiveApp(text)
+);
 ipcMain.handle("windows-helper:status", () => windowsHelperService.getStatus());
 ipcMain.handle("windows-helper:active-window", () => windowsHelperService.getActiveWindow());
 

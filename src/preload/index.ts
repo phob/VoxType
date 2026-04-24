@@ -34,7 +34,9 @@ const voxtype = {
     list: () => ipcRenderer.invoke("history:list") as Promise<TranscriptEntry[]>
   },
   insertion: {
-    copy: (text: string) => ipcRenderer.invoke("insertion:copy", text) as Promise<void>
+    copy: (text: string) => ipcRenderer.invoke("insertion:copy", text) as Promise<void>,
+    pasteActive: (text: string) =>
+      ipcRenderer.invoke("insertion:paste-active", text) as Promise<void>
   },
   windowsHelper: {
     status: () =>

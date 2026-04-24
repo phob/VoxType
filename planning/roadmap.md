@@ -37,6 +37,7 @@ Features:
 - Chunked typing.
 - Unicode handling.
 - Active app detection. Initial `active-window` command reports foreground window metadata and is wired into the renderer test panel.
+- Clipboard paste insertion into active app. Initial `paste-text` helper command sets Unicode clipboard text and sends Ctrl+V to the active foreground app.
 - Per-app insertion profiles.
 - RDP/TeamViewer profile.
 - Insertion test panel.
