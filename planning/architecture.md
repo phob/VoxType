@@ -109,8 +109,9 @@ Current foundation:
 - `src/main/model-service.ts` downloads Whisper ggml models from the `ggerganov/whisper.cpp` Hugging Face repository into the configured model directory.
 - `src/shared/runtimes.ts` pins the first managed Windows runtime to official `ggml-org/whisper.cpp` `v1.8.4` `whisper-bin-x64.zip`.
 - `src/main/runtime-service.ts` downloads and extracts the managed CPU x64 `whisper.cpp` runtime into Electron's `userData` runtime directory.
-- `src/main/transcription-service.ts` writes recorded WAV audio to a temp file and invokes the custom executable path if configured, otherwise the managed runtime executable, otherwise `whisper-cli`.
 - `src/main/history-store.ts` persists recent transcript history under Electron's `userData` path.
+- `src/main/dictionary-store.ts` persists local dictionary entries and correction memory under Electron's `userData` path. It builds compact Whisper prompts and applies conservative phrase replacements after ASR.
+- `src/main/transcription-service.ts` writes recorded WAV audio to a temp file, invokes Whisper with optional dictionary prompt context, applies local dictionary corrections, then stores corrected transcript history.
 - `src/main/insertion-service.ts` prepares clipboard insertion and delegates paste-into-active-app behavior to the native helper.
 - `src/main/insertion-service.ts` centralizes insertion modes for clipboard paste, Unicode typing, and chunked typing. It consults per-app profiles when a target process is known. Clipboard paste can snapshot and restore common prior clipboard contents after insertion. The renderer insertion test panel can call these modes with one-off overrides without changing the saved default insertion mode.
 - App profiles live in settings for now. They are auto-created from detected foreground windows and store insertion mode plus writing style for later formatting behavior.

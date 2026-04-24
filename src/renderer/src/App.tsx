@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { startPcmRecorder, type PcmRecorder } from "./audio-recorder";
 import { eventToAccelerator } from "./hotkey-capture";
+import { type DictionaryEntry } from "../../../shared/dictionary";
 import { type HotkeyStatus } from "../../../shared/hotkeys";
 import { type LocalModel } from "../../../shared/models";
 import { type WhisperRuntime } from "../../../shared/runtimes";
@@ -17,6 +18,7 @@ type AppState = {
   runtime: WhisperRuntime | null;
   settings: AppSettings | null;
   history: TranscriptEntry[];
+  dictionary: DictionaryEntry[];
   windowsHelper: WindowsHelperStatus | null;
   activeWindow: ActiveWindowInfo | null;
   hotkeys: HotkeyStatus | null;
@@ -32,6 +34,7 @@ export function App(): JSX.Element {
     runtime: null,
     settings: null,
     history: [],
+    dictionary: [],
     windowsHelper: null,
     activeWindow: null,
     hotkeys: null
@@ -47,6 +50,11 @@ export function App(): JSX.Element {
     "VoxType insertion test: cafe, naive, aeoeue, Unicode -> äöü é 漢字 123."
   );
   const [insertionTestResult, setInsertionTestResult] = useState<string | null>(null);
+  const [dictionaryPreferred, setDictionaryPreferred] = useState("");
+  const [dictionaryMatches, setDictionaryMatches] = useState("");
+  const [dictionaryCategory, setDictionaryCategory] = useState("general");
+  const [dictionaryAppProcess, setDictionaryAppProcess] = useState("");
+  const [fixLastText, setFixLastText] = useState("");
 
   const activeModel = state.models.find((model) => model.id === state.settings?.activeModelId);
   const latestTranscript = state.history[0];
@@ -107,13 +115,14 @@ export function App(): JSX.Element {
   }, [capturingHotkey]);
 
   async function refresh(): Promise<void> {
-    const [appVersion, settings, models, runtime, history, windowsHelper, hotkeys] =
+    const [appVersion, settings, models, runtime, history, dictionary, windowsHelper, hotkeys] =
       await Promise.all([
       window.voxtype.getVersion(),
       window.voxtype.settings.get(),
       window.voxtype.models.list(),
       window.voxtype.runtime.getWhisper(),
       window.voxtype.history.list(),
+      window.voxtype.dictionary.list(),
       window.voxtype.windowsHelper.status(),
       window.voxtype.hotkeys.status()
     ]);
@@ -124,6 +133,7 @@ export function App(): JSX.Element {
       models,
       runtime,
       history,
+      dictionary,
       windowsHelper,
       activeWindow: null,
       hotkeys
@@ -234,7 +244,9 @@ export function App(): JSX.Element {
       const wavBytes = await recorderRef.current.stop();
       recorderRef.current = null;
       const unmuteError = await unmuteSystemAudio();
-      const result = await window.voxtype.transcription.transcribeWav(wavBytes);
+      const result = await window.voxtype.transcription.transcribeWav(wavBytes, {
+        processName: options?.pasteTarget?.processName
+      });
       if (unmuteError) {
         setError(unmuteError);
       }
@@ -247,13 +259,15 @@ export function App(): JSX.Element {
           options.pasteTarget.processName
         );
       }
-      const [runtime, history] = await Promise.all([
+      const [runtime, history, dictionary] = await Promise.all([
         window.voxtype.runtime.getWhisper(),
-        window.voxtype.history.list()
+        window.voxtype.history.list(),
+        window.voxtype.dictionary.list()
       ]);
       setState((current) => ({
         ...current,
         runtime,
+        dictionary,
         history: history.length > 0 ? history : [result.entry, ...current.history]
       }));
     } catch (transcriptionError) {
@@ -398,6 +412,61 @@ export function App(): JSX.Element {
     };
     const settings = await window.voxtype.appProfiles.update(profile.processName, nextProfile);
     setState((current) => ({ ...current, settings }));
+  }
+
+  async function addDictionaryEntry(): Promise<void> {
+    setError(null);
+
+    try {
+      const dictionary = await window.voxtype.dictionary.add({
+        preferred: dictionaryPreferred,
+        matches: splitMatches(dictionaryMatches),
+        category: dictionaryCategory || "general",
+        appProcessName: dictionaryAppProcess || null,
+        source: "user"
+      });
+      setState((current) => ({ ...current, dictionary }));
+      setDictionaryPreferred("");
+      setDictionaryMatches("");
+      setDictionaryCategory("general");
+      setDictionaryAppProcess("");
+    } catch (dictionaryError) {
+      setError(formatError(dictionaryError));
+    }
+  }
+
+  async function toggleDictionaryEntry(entry: DictionaryEntry): Promise<void> {
+    const dictionary = await window.voxtype.dictionary.update(entry.id, {
+      enabled: !entry.enabled
+    });
+    setState((current) => ({ ...current, dictionary }));
+  }
+
+  async function removeDictionaryEntry(entry: DictionaryEntry): Promise<void> {
+    const dictionary = await window.voxtype.dictionary.remove(entry.id);
+    setState((current) => ({ ...current, dictionary }));
+  }
+
+  async function learnFixLastDictation(): Promise<void> {
+    if (!latestTranscript || !fixLastText.trim()) {
+      setError("Enter corrected text for the latest transcript before saving a correction.");
+      return;
+    }
+
+    setError(null);
+
+    try {
+      const dictionary = await window.voxtype.dictionary.add({
+        preferred: fixLastText,
+        matches: [latestTranscript.text],
+        category: "correction",
+        source: "correction"
+      });
+      setState((current) => ({ ...current, dictionary }));
+      setFixLastText("");
+    } catch (dictionaryError) {
+      setError(formatError(dictionaryError));
+    }
   }
 
   return (
@@ -870,6 +939,133 @@ export function App(): JSX.Element {
         </section>
       ) : null}
 
+      <section className="dictionary-panel" aria-label="Dictionary and corrections">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Dictionary</p>
+            <h2>Words and corrections</h2>
+          </div>
+        </div>
+
+        <div className="dictionary-grid">
+          <section className="dictionary-editor" aria-label="Add dictionary entry">
+            <label className="field">
+              <span>Preferred text</span>
+              <input
+                placeholder="Docker Compose"
+                value={dictionaryPreferred}
+                onChange={(event) => setDictionaryPreferred(event.target.value)}
+              />
+            </label>
+
+            <label className="field">
+              <span>Misheard phrases</span>
+              <textarea
+                placeholder="dock her compose, docker composed"
+                rows={3}
+                value={dictionaryMatches}
+                onChange={(event) => setDictionaryMatches(event.target.value)}
+              />
+            </label>
+
+            <div className="dictionary-controls">
+              <label className="field">
+                <span>Category</span>
+                <input
+                  value={dictionaryCategory}
+                  onChange={(event) => setDictionaryCategory(event.target.value)}
+                />
+              </label>
+
+              <label className="field">
+                <span>App scope</span>
+                <select
+                  value={dictionaryAppProcess}
+                  onChange={(event) => setDictionaryAppProcess(event.target.value)}
+                >
+                  <option value="">All apps</option>
+                  {state.settings?.appProfiles.map((profile) => (
+                    <option key={profile.id} value={profile.processName}>
+                      {profile.displayName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <button
+              className="primary-button"
+              disabled={!dictionaryPreferred.trim()}
+              onClick={() => void addDictionaryEntry()}
+              type="button"
+            >
+              Add Entry
+            </button>
+          </section>
+
+          <section className="dictionary-editor" aria-label="Fix latest dictation">
+            <label className="field">
+              <span>Correct latest transcript</span>
+              <textarea
+                disabled={!latestTranscript}
+                placeholder={latestTranscript?.text ?? "No transcript yet."}
+                rows={5}
+                value={fixLastText}
+                onChange={(event) => setFixLastText(event.target.value)}
+              />
+            </label>
+
+            <button
+              className="secondary-button"
+              disabled={!latestTranscript || !fixLastText.trim()}
+              onClick={() => void learnFixLastDictation()}
+              type="button"
+            >
+              Save Correction
+            </button>
+          </section>
+        </div>
+
+        <div className="dictionary-list">
+          {state.dictionary.length === 0 ? (
+            <p className="empty-state">Dictionary entries and learned corrections will appear here.</p>
+          ) : (
+            state.dictionary.map((entry) => (
+              <article className="dictionary-row" key={entry.id}>
+                <div>
+                  <strong>{entry.preferred}</strong>
+                  <span>
+                    {entry.category} · {entry.source} ·{" "}
+                    {entry.appProcessName ?? "all apps"}
+                  </span>
+                  <p>
+                    {entry.matches.length > 0
+                      ? entry.matches.join(", ")
+                      : "No replacement phrases yet."}
+                  </p>
+                </div>
+                <div className="test-actions">
+                  <button
+                    className="secondary-button"
+                    onClick={() => void toggleDictionaryEntry(entry)}
+                    type="button"
+                  >
+                    {entry.enabled ? "Disable" : "Enable"}
+                  </button>
+                  <button
+                    className="secondary-button"
+                    onClick={() => void removeDictionaryEntry(entry)}
+                    type="button"
+                  >
+                    Delete
+                  </button>
+                </div>
+              </article>
+            ))
+          )}
+        </div>
+      </section>
+
       <section className="history-panel" aria-label="Transcript history">
         <div className="section-heading">
           <div>
@@ -937,6 +1133,13 @@ function profileForWindow(
 
   const processName = windowInfo.processName.toLowerCase();
   return profiles.find((profile) => profile.processName === processName) ?? null;
+}
+
+function splitMatches(value: string): string[] {
+  return value
+    .split(/[\n,]/)
+    .map((match) => match.trim())
+    .filter(Boolean);
 }
 
 function wait(milliseconds: number): Promise<void> {

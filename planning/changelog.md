@@ -32,3 +32,4 @@
 - Added an insertion test panel for captured target apps with clipboard, Unicode typing, and chunked typing checks.
 - Added auto-created per-app profiles with editable insertion mode and saved writing style defaults for browsers, remote apps, terminals, and Outlook.
 - Implemented restore-clipboard behavior for paste insertion, including common rich clipboard content snapshots.
+- Moved into Phase 3 with a local dictionary store, dictionary UI, replacement rules, simple correction memory, fix-latest correction capture, and Whisper prompt context generation.

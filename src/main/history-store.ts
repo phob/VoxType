@@ -52,9 +52,10 @@ function isTranscriptEntry(value: unknown): value is TranscriptEntry {
   return (
     typeof entry.id === "string" &&
     typeof entry.text === "string" &&
+    (typeof entry.rawText === "string" || entry.rawText === undefined) &&
+    (Array.isArray(entry.correctionsApplied) || entry.correctionsApplied === undefined) &&
     typeof entry.modelId === "string" &&
     typeof entry.createdAt === "string" &&
     typeof entry.durationMs === "number"
   );
 }
-

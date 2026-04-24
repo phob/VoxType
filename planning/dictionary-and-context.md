@@ -47,6 +47,13 @@ Example entries:
 }
 ```
 
+Initial implementation:
+
+- Dictionary entries are stored locally in Electron `userData` as `dictionary.json`.
+- Entries include preferred text, misheard phrases, category, source, enabled state, and optional app process scope.
+- The renderer includes a dictionary panel for adding, disabling, and deleting entries.
+- Entries can be scoped to app profiles so corrections can be global or app-specific.
+
 ```json
 {
   "preferred": "Kubernetes",
@@ -103,6 +110,12 @@ Prompt context should be:
 - cleared or decayed after use
 - separated by app/session
 
+Initial implementation:
+
+- Before invoking `whisper.cpp`, VoxType builds a compact prompt from enabled relevant dictionary entries.
+- The prompt is passed to `whisper.cpp` with `--prompt`.
+- App-scoped entries are included when their process matches the current dictation target.
+
 ## Post-Processing Corrections
 
 Post-processing should apply after ASR:
@@ -115,6 +128,12 @@ Post-processing should apply after ASR:
 - punctuation cleanup
 
 The correction engine should be conservative. It should avoid replacing common words incorrectly.
+
+Initial implementation:
+
+- VoxType applies exact phrase replacements from enabled dictionary entries after ASR completes.
+- Corrections run before transcript history and insertion, so the user sees and inserts the corrected text.
+- Transcript history can retain raw text and applied correction notes when a correction changes the output.
 
 ## Correction Memory
 
@@ -134,6 +153,12 @@ Examples:
 - `team viewer` -> `TeamViewer`
 - `h result` -> `HRESULT`
 
+Initial implementation:
+
+- The dictionary panel includes a "Correct latest transcript" box.
+- Saving a correction creates a local correction entry whose match phrase is the latest transcript and preferred text is the corrected version.
+- This is intentionally simple; smarter diff-based correction suggestions remain future work.
+
 ## Dictionary UI Ideas
 
 - Add word manually.
@@ -143,4 +168,3 @@ Examples:
 - Disable a bad correction.
 - Per-app dictionary categories.
 - Import/export dictionary JSON.
-

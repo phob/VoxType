@@ -29,7 +29,7 @@ Features:
 
 ## Phase 2: Windows Insertion Reliability
 
-Goal: make VoxType work beyond normal text fields.
+Goal: make VoxType work beyond normal text fields. Initial implementation complete.
 
 Features:
 
@@ -51,12 +51,12 @@ Goal: make the app learn user words locally.
 
 Features:
 
-- User dictionary UI.
-- Replacement rules.
-- Correction memory.
-- Fix last dictation.
-- Prompt context generation for Whisper.
-- Per-app dictionary categories.
+- User dictionary UI. Initial panel lets users add, disable, and delete entries.
+- Replacement rules. Initial dictionary entries store preferred text plus misheard phrases and apply conservative post-processing replacements.
+- Correction memory. Initial correction entries can be learned from the latest transcript.
+- Fix last dictation. Initial UI saves corrected latest text as a local correction rule.
+- Prompt context generation for Whisper. Initial transcription service passes a compact dictionary prompt to `whisper.cpp`.
+- Per-app dictionary categories. Initial entries can be scoped to all apps or a detected app profile/process.
 
 ## Phase 4: OCR Context
 

@@ -120,6 +120,7 @@ h1 {
 .windows-panel,
 .insertion-test-panel,
 .profiles-panel,
+.dictionary-panel,
 .history-panel {
   padding: 24px;
   border: 1px solid rgba(255, 250, 240, 0.14);
@@ -133,6 +134,7 @@ h1 {
 .windows-panel h2,
 .insertion-test-panel h2,
 .profiles-panel h2,
+.dictionary-panel h2,
 .history-panel h2 {
   margin: 0;
   color: #fffaf0;
@@ -147,6 +149,7 @@ h1 {
 .windows-panel p,
 .insertion-test-panel p,
 .profiles-panel p,
+.dictionary-panel p,
 .history-panel p {
   margin: 0;
   color: #c9c1b2;
@@ -241,6 +244,29 @@ h1 {
   min-width: 170px;
 }
 
+.dictionary-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.dictionary-editor,
+.dictionary-row {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid rgba(255, 250, 240, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 250, 240, 0.05);
+}
+
+.dictionary-controls {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+
 .hotkey-capture-button {
   text-align: left;
   cursor: pointer;
@@ -274,6 +300,7 @@ h1 {
 .windows-panel,
 .insertion-test-panel,
 .profiles-panel,
+.dictionary-panel,
 .history-panel {
   margin-top: 16px;
 }
@@ -343,6 +370,7 @@ h1 {
 
 .model-list,
 .profile-list,
+.dictionary-list,
 .history-list {
   display: grid;
   gap: 12px;
@@ -352,6 +380,7 @@ h1 {
 .runtime-card,
 .target-card,
 .profile-row,
+.dictionary-row,
 .history-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
@@ -371,6 +400,10 @@ h1 {
   grid-template-columns: minmax(0, 1fr) minmax(170px, 220px) minmax(170px, 220px);
 }
 
+.dictionary-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
 .target-card {
   grid-template-columns: 1fr;
   align-content: start;
@@ -379,6 +412,7 @@ h1 {
 .model-row strong,
 .runtime-card strong,
 .profile-row strong,
+.dictionary-row strong,
 .target-card strong {
   display: block;
   color: #fffaf0;
@@ -387,6 +421,7 @@ h1 {
 .model-row span,
 .runtime-card span,
 .profile-row span,
+.dictionary-row span,
 .target-card span {
   display: block;
   margin-top: 4px;
@@ -397,6 +432,7 @@ h1 {
 .model-row p,
 .runtime-card p,
 .profile-row p,
+.dictionary-row p,
 .target-card p {
   margin-top: 8px;
   word-break: break-all;
@@ -421,7 +457,9 @@ h1 {
   .intro,
   .workspace-grid,
   .settings-grid,
-  .insertion-test-grid {
+  .insertion-test-grid,
+  .dictionary-grid,
+  .dictionary-controls {
     grid-template-columns: 1fr;
   }
 
@@ -446,7 +484,8 @@ h1 {
 
   .model-row,
   .runtime-card,
-  .profile-row {
+  .profile-row,
+  .dictionary-row {
     grid-template-columns: 1fr;
   }
 }

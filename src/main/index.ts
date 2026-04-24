@@ -1,7 +1,9 @@
 import { app, BrowserWindow, Menu, Tray, globalShortcut, ipcMain, nativeImage } from "electron";
 import { join } from "node:path";
+import { type DictionaryCreateInput, type DictionaryPatch } from "../shared/dictionary";
 import { type AppProfile, type InsertionMode, type SettingsPatch } from "../shared/settings";
 import { type ActiveWindowInfo, type DictationHotkeyState } from "../shared/windows-helper";
+import { DictionaryStore } from "./dictionary-store";
 import { HistoryStore } from "./history-store";
 import { InsertionService } from "./insertion-service";
 import { ModelService } from "./model-service";
@@ -21,6 +23,7 @@ let registeredDictationHotkey: string | null = null;
 
 const isDev = Boolean(process.env.ELECTRON_RENDERER_URL);
 const settingsStore = new SettingsStore();
+const dictionaryStore = new DictionaryStore();
 const historyStore = new HistoryStore();
 const modelService = new ModelService(settingsStore);
 const runtimeService = new RuntimeService();
@@ -28,7 +31,8 @@ const windowsHelperService = new WindowsHelperService();
 const transcriptionService = new TranscriptionService(
   settingsStore,
   historyStore,
-  runtimeService
+  runtimeService,
+  dictionaryStore
 );
 const insertionService = new InsertionService(windowsHelperService, settingsStore);
 
@@ -182,10 +186,20 @@ ipcMain.handle("models:list", () => modelService.list());
 ipcMain.handle("models:download", (_event, modelId: string) => modelService.download(modelId));
 ipcMain.handle("runtime:get-whisper", () => runtimeService.getWhisperRuntime());
 ipcMain.handle("runtime:install-whisper", () => runtimeService.installWhisperRuntime());
-ipcMain.handle("transcription:transcribe-wav", (_event, bytes: Uint8Array) =>
-  transcriptionService.transcribeWav(bytes)
+ipcMain.handle(
+  "transcription:transcribe-wav",
+  (_event, bytes: Uint8Array, context?: { processName?: string | null }) =>
+    transcriptionService.transcribeWav(bytes, context)
 );
 ipcMain.handle("history:list", () => historyStore.list());
+ipcMain.handle("dictionary:list", () => dictionaryStore.list());
+ipcMain.handle("dictionary:add", (_event, input: DictionaryCreateInput) =>
+  dictionaryStore.add(input)
+);
+ipcMain.handle("dictionary:update", (_event, id: string, patch: DictionaryPatch) =>
+  dictionaryStore.update(id, patch)
+);
+ipcMain.handle("dictionary:remove", (_event, id: string) => dictionaryStore.remove(id));
 ipcMain.handle("insertion:copy", (_event, text: string) => insertionService.copyForInsertion(text));
 ipcMain.handle("insertion:paste-active", (_event, text: string) =>
   insertionService.insertIntoActiveApp(text)

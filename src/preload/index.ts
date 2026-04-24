@@ -1,4 +1,9 @@
 import { contextBridge, ipcRenderer } from "electron";
+import {
+  type DictionaryCreateInput,
+  type DictionaryEntry,
+  type DictionaryPatch
+} from "../shared/dictionary";
 import { type HotkeyStatus } from "../shared/hotkeys";
 import { type LocalModel } from "../shared/models";
 import { type WhisperRuntime } from "../shared/runtimes";
@@ -35,11 +40,24 @@ const voxtype = {
       ipcRenderer.invoke("runtime:install-whisper") as Promise<WhisperRuntime>
   },
   transcription: {
-    transcribeWav: (bytes: Uint8Array) =>
-      ipcRenderer.invoke("transcription:transcribe-wav", bytes) as Promise<TranscriptionResult>
+    transcribeWav: (bytes: Uint8Array, context?: { processName?: string | null }) =>
+      ipcRenderer.invoke(
+        "transcription:transcribe-wav",
+        bytes,
+        context
+      ) as Promise<TranscriptionResult>
   },
   history: {
     list: () => ipcRenderer.invoke("history:list") as Promise<TranscriptEntry[]>
+  },
+  dictionary: {
+    list: () => ipcRenderer.invoke("dictionary:list") as Promise<DictionaryEntry[]>,
+    add: (input: DictionaryCreateInput) =>
+      ipcRenderer.invoke("dictionary:add", input) as Promise<DictionaryEntry[]>,
+    update: (id: string, patch: DictionaryPatch) =>
+      ipcRenderer.invoke("dictionary:update", id, patch) as Promise<DictionaryEntry[]>,
+    remove: (id: string) =>
+      ipcRenderer.invoke("dictionary:remove", id) as Promise<DictionaryEntry[]>
   },
   insertion: {
     copy: (text: string) => ipcRenderer.invoke("insertion:copy", text) as Promise<void>,

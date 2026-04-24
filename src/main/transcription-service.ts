@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { getModelById } from "../shared/models";
 import { type TranscriptEntry, type TranscriptionResult } from "../shared/transcripts";
+import { DictionaryStore } from "./dictionary-store";
 import { HistoryStore } from "./history-store";
 import { RuntimeService } from "./runtime-service";
 import { SettingsStore } from "./settings-store";
@@ -16,10 +17,14 @@ export class TranscriptionService {
   constructor(
     private readonly settingsStore: SettingsStore,
     private readonly historyStore: HistoryStore,
-    private readonly runtimeService: RuntimeService
+    private readonly runtimeService: RuntimeService,
+    private readonly dictionaryStore: DictionaryStore
   ) {}
 
-  async transcribeWav(audioBytes: Uint8Array): Promise<TranscriptionResult> {
+  async transcribeWav(
+    audioBytes: Uint8Array,
+    context?: { processName?: string | null }
+  ): Promise<TranscriptionResult> {
     const startedAt = Date.now();
     const settings = await this.settingsStore.get();
     const model = getModelById(settings.activeModelId);
@@ -38,23 +43,34 @@ export class TranscriptionService {
     const audioPath = join(workDirectory, `${id}.wav`);
     const outputBase = join(workDirectory, id);
     const outputTextPath = `${outputBase}.txt`;
+    const promptContext = await this.dictionaryStore.buildPromptContext(context?.processName);
+    const args = [
+      "-m",
+      modelPath,
+      "-f",
+      audioPath,
+      "-otxt",
+      "-of",
+      outputBase,
+      "-np"
+    ];
+
+    if (promptContext) {
+      args.push("--prompt", promptContext);
+    }
 
     await mkdir(workDirectory, { recursive: true });
     await writeFile(audioPath, audioBytes);
 
     try {
-      const { stdout } = await execFileAsync(executable, [
-        "-m",
-        modelPath,
-        "-f",
-        audioPath,
-        "-otxt",
-        "-of",
-        outputBase,
-        "-np"
-      ]);
+      const { stdout } = await execFileAsync(executable, args);
 
-      const text = (await readTextOutput(outputTextPath, stdout)).trim();
+      const rawText = (await readTextOutput(outputTextPath, stdout)).trim();
+      const correction = await this.dictionaryStore.applyCorrections(
+        rawText,
+        context?.processName
+      );
+      const text = correction.text.trim();
 
       if (!text) {
         throw new Error("Whisper completed but returned no transcript text.");
@@ -63,6 +79,8 @@ export class TranscriptionService {
       const entry: TranscriptEntry = {
         id,
         text,
+        rawText: rawText !== text ? rawText : undefined,
+        correctionsApplied: correction.applied.length > 0 ? correction.applied : undefined,
         modelId: model.id,
         createdAt: new Date().toISOString(),
         durationMs: Date.now() - startedAt
