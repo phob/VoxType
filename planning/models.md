@@ -43,6 +43,29 @@ Whisper cannot simply add new vocabulary like a traditional dictionary where the
 
 The dictionary should be a VoxType feature around Whisper, not a promise that Whisper itself learns new words.
 
+## Transcript Consistency
+
+Whisper punctuation and casing can vary noticeably between recordings, even with the same user and model.
+
+Likely causes:
+
+- audio quality differences, especially clipping, noise, room echo, or VAD trimming artifacts
+- missing natural pause cues when speech is too continuous or silence is cut too aggressively
+- model size and language mode differences
+- decoding settings such as temperature fallback, beam size, and context carryover
+- prompt/context changes from dictionary or OCR terms
+- chunk boundaries, especially when the model does not see enough before/after context
+
+VoxType should treat ASR as the raw transcript source and add a separate local consistency layer for the final inserted text. That layer can normalize punctuation, casing, spacing, and app-specific style without pretending the ASR model itself is always stable.
+
+Implementation direction:
+
+- keep raw ASR output in transcript history
+- store final post-processed text separately
+- expose style levels through app profiles, such as raw, clean dictation, chat, professional, terminal, and code
+- keep Whisper decoding settings pinned per model/profile so behavior does not drift unexpectedly
+- add local punctuation/casing restoration later if Whisper output remains inconsistent
+
 ## Parakeet V3 Later
 
 Parakeet V3 is interesting as an optional engine later:

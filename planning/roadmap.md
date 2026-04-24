@@ -148,6 +148,8 @@ Features:
 - Dictation modes.
 - Confidence review.
 - Local formatting engine.
+- Transcript consistency layer for stable punctuation, casing, spacing, and style level.
+- Separate raw ASR text from final inserted text in transcript history.
 - Better model manager.
 - Offline mode.
 - Auto-start with Windows.

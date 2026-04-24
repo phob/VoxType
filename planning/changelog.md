@@ -1,5 +1,10 @@
 # Planning Changelog
 
+## 2026-04-25
+
+- Added transcript consistency as a planned VoxType layer for stable punctuation, casing, spacing, and app/profile style levels.
+- Clarified that raw ASR output should be preserved separately from the final post-processed inserted text.
+
 ## 2026-04-24
 
 - Created initial planning directory.

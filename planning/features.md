@@ -128,6 +128,21 @@ Optional local post-processing can transform raw speech into:
 
 This should be optional and local-first.
 
+### Transcript Consistency Layer
+
+VoxType should produce a predictable final text level even when the ASR model output varies from one recording to the next.
+
+The app should keep raw ASR output for debugging, then apply a local consistency pass before insertion:
+
+- punctuation normalization
+- casing normalization
+- spacing cleanup
+- repeated-word cleanup
+- app/profile-specific style rules
+- optional strict "literal transcript" mode that avoids rewriting
+
+This is important because even strong speech-to-text systems can alternate between nearly perfect punctuation and almost no punctuation depending on audio quality, pauses, model decoding state, prompt context, and chunk boundaries.
+
 ### Insertion Reliability Dashboard
 
 VoxType should tell the user what it sees:
