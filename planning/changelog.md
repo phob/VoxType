@@ -24,3 +24,4 @@
 - Added native clipboard paste insertion through the Rust helper, including a `paste-text` command, Electron insertion IPC, and a renderer "Paste To Active App" action for the latest transcript.
 - Added global `Ctrl+Alt+Space` dictation toggle that captures the target window before recording, stops/transcribes on the second press, refocuses the captured app, and pastes the transcript without requiring VoxType button clicks.
 - Made the dictation and show-window global hotkeys configurable through persisted settings, with registration status shown in the UI.
+- Replaced manual hotkey text entry with key-combination capture controls in the settings UI.

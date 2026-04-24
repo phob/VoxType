@@ -207,7 +207,8 @@ h1 {
 }
 
 .field input,
-.field select {
+.field select,
+.hotkey-capture-button {
   width: 100%;
   min-height: 42px;
   border: 1px solid rgba(255, 250, 240, 0.2);
@@ -215,6 +216,16 @@ h1 {
   padding: 0 12px;
   color: #fffaf0;
   background: rgba(16, 17, 20, 0.78);
+}
+
+.hotkey-capture-button {
+  text-align: left;
+  cursor: pointer;
+}
+
+.hotkey-capture-button:focus {
+  outline: 2px solid rgba(135, 215, 196, 0.72);
+  outline-offset: 2px;
 }
 
 .toggle {

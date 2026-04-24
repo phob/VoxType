@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { startPcmRecorder, type PcmRecorder } from "./audio-recorder";
+import { eventToAccelerator } from "./hotkey-capture";
 import { type HotkeyStatus } from "../../../shared/hotkeys";
 import { type LocalModel } from "../../../shared/models";
 import { type WhisperRuntime } from "../../../shared/runtimes";
@@ -37,6 +38,9 @@ export function App(): JSX.Element {
   const [recording, setRecording] = useState(false);
   const [busyMessage, setBusyMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [capturingHotkey, setCapturingHotkey] = useState<
+    "dictationToggleHotkey" | "showWindowHotkey" | null
+  >(null);
 
   const activeModel = state.models.find((model) => model.id === state.settings?.activeModelId);
   const latestTranscript = state.history[0];
@@ -64,6 +68,37 @@ export function App(): JSX.Element {
       removeStop();
     };
   }, [activeModel?.status, state.settings?.insertionMode, recording]);
+
+  useEffect(() => {
+    if (!capturingHotkey) {
+      return;
+    }
+
+    function handleKeyDown(event: KeyboardEvent): void {
+      event.preventDefault();
+      event.stopPropagation();
+
+      if (event.key === "Escape") {
+        setCapturingHotkey(null);
+        return;
+      }
+
+      const accelerator = eventToAccelerator(event);
+
+      if (!accelerator) {
+        return;
+      }
+
+      void updateSettings({ [capturingHotkey]: accelerator });
+      setCapturingHotkey(null);
+    }
+
+    window.addEventListener("keydown", handleKeyDown, { capture: true });
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown, { capture: true });
+    };
+  }, [capturingHotkey]);
 
   async function refresh(): Promise<void> {
     const [appVersion, settings, models, runtime, history, windowsHelper, hotkeys] =
@@ -476,22 +511,28 @@ export function App(): JSX.Element {
 
             <label className="field">
               <span>Dictation hotkey</span>
-              <input
-                value={state.settings.dictationToggleHotkey}
-                onChange={(event) =>
-                  void updateSettings({ dictationToggleHotkey: event.target.value })
-                }
-              />
+              <button
+                className="hotkey-capture-button"
+                onClick={() => setCapturingHotkey("dictationToggleHotkey")}
+                type="button"
+              >
+                {capturingHotkey === "dictationToggleHotkey"
+                  ? "Press a key combination..."
+                  : state.settings.dictationToggleHotkey}
+              </button>
             </label>
 
             <label className="field">
               <span>Show VoxType hotkey</span>
-              <input
-                value={state.settings.showWindowHotkey}
-                onChange={(event) =>
-                  void updateSettings({ showWindowHotkey: event.target.value })
-                }
-              />
+              <button
+                className="hotkey-capture-button"
+                onClick={() => setCapturingHotkey("showWindowHotkey")}
+                type="button"
+              >
+                {capturingHotkey === "showWindowHotkey"
+                  ? "Press a key combination..."
+                  : state.settings.showWindowHotkey}
+              </button>
             </label>
 
             <label className="field">
