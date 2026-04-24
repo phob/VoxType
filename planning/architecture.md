@@ -31,7 +31,7 @@ Local Data Store
 - TypeScript for app and shared domain code.
 - React for UI unless a different frontend stack is chosen later.
 - Vite for renderer development.
-- Native helper in Rust or C++.
+- Native helper in Rust.
 - `whisper.cpp` as the first ASR backend.
 - Tesseract or PaddleOCR as local OCR backends.
 - `electron-builder` with NSIS for Windows installer.
@@ -111,6 +111,8 @@ Current foundation:
 - `src/main/transcription-service.ts` writes recorded WAV audio to a temp file and invokes the custom executable path if configured, otherwise the managed runtime executable, otherwise `whisper-cli`.
 - `src/main/history-store.ts` persists recent transcript history under Electron's `userData` path.
 - `src/main/insertion-service.ts` currently prepares clipboard insertion by copying transcript text to the clipboard. Direct paste/typing into arbitrary Windows apps remains Phase 2 native-helper work.
+- `native/windows-helper` contains the first Rust native helper. It currently exposes an `active-window` command that returns foreground window title, hwnd, process id, process path, and process name as JSON.
+- `src/main/windows-helper-service.ts` resolves and invokes the native helper from Electron, with dev/release/resource path candidates.
 
 ## Security And Privacy
 

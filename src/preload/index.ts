@@ -3,6 +3,10 @@ import { type LocalModel } from "../shared/models";
 import { type WhisperRuntime } from "../shared/runtimes";
 import { type AppSettings, type SettingsPatch } from "../shared/settings";
 import { type TranscriptEntry, type TranscriptionResult } from "../shared/transcripts";
+import {
+  type ActiveWindowInfo,
+  type WindowsHelperStatus
+} from "../shared/windows-helper";
 
 const voxtype = {
   getVersion: () => ipcRenderer.invoke("app:get-version") as Promise<string>,
@@ -31,6 +35,12 @@ const voxtype = {
   },
   insertion: {
     copy: (text: string) => ipcRenderer.invoke("insertion:copy", text) as Promise<void>
+  },
+  windowsHelper: {
+    status: () =>
+      ipcRenderer.invoke("windows-helper:status") as Promise<WindowsHelperStatus>,
+    activeWindow: () =>
+      ipcRenderer.invoke("windows-helper:active-window") as Promise<ActiveWindowInfo>
   }
 };
 

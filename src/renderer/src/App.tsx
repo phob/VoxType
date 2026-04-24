@@ -4,12 +4,18 @@ import { type LocalModel } from "../../../shared/models";
 import { type WhisperRuntime } from "../../../shared/runtimes";
 import { type AppSettings, type InsertionMode } from "../../../shared/settings";
 import { type TranscriptEntry } from "../../../shared/transcripts";
+import {
+  type ActiveWindowInfo,
+  type WindowsHelperStatus
+} from "../../../shared/windows-helper";
 
 type AppState = {
   models: LocalModel[];
   runtime: WhisperRuntime | null;
   settings: AppSettings | null;
   history: TranscriptEntry[];
+  windowsHelper: WindowsHelperStatus | null;
+  activeWindow: ActiveWindowInfo | null;
 };
 
 export function App(): JSX.Element {
@@ -19,7 +25,9 @@ export function App(): JSX.Element {
     models: [],
     runtime: null,
     settings: null,
-    history: []
+    history: [],
+    windowsHelper: null,
+    activeWindow: null
   });
   const [recording, setRecording] = useState(false);
   const [busyMessage, setBusyMessage] = useState<string | null>(null);
@@ -33,16 +41,17 @@ export function App(): JSX.Element {
   }, []);
 
   async function refresh(): Promise<void> {
-    const [appVersion, settings, models, runtime, history] = await Promise.all([
+    const [appVersion, settings, models, runtime, history, windowsHelper] = await Promise.all([
       window.voxtype.getVersion(),
       window.voxtype.settings.get(),
       window.voxtype.models.list(),
       window.voxtype.runtime.getWhisper(),
-      window.voxtype.history.list()
+      window.voxtype.history.list(),
+      window.voxtype.windowsHelper.status()
     ]);
 
     setVersion(appVersion);
-    setState({ settings, models, runtime, history });
+    setState({ settings, models, runtime, history, windowsHelper, activeWindow: null });
   }
 
   async function updateSettings(patch: Partial<AppSettings>): Promise<void> {
@@ -140,6 +149,23 @@ export function App(): JSX.Element {
     await window.voxtype.insertion.copy(latestTranscript.text);
     setBusyMessage("Copied transcript to clipboard.");
     window.setTimeout(() => setBusyMessage(null), 1800);
+  }
+
+  async function refreshActiveWindow(): Promise<void> {
+    setError(null);
+
+    try {
+      const [windowsHelper, activeWindow] = await Promise.all([
+        window.voxtype.windowsHelper.status(),
+        window.voxtype.windowsHelper.activeWindow()
+      ]);
+
+      setState((current) => ({ ...current, windowsHelper, activeWindow }));
+    } catch (activeWindowError) {
+      const windowsHelper = await window.voxtype.windowsHelper.status();
+      setState((current) => ({ ...current, windowsHelper }));
+      setError(formatError(activeWindowError));
+    }
   }
 
   return (
@@ -279,6 +305,37 @@ export function App(): JSX.Element {
             </button>
           </article>
         ) : null}
+      </section>
+
+      <section className="windows-panel" aria-label="Windows integration">
+        <div className="section-heading">
+          <div>
+            <p className="eyebrow">Windows</p>
+            <h2>Native helper</h2>
+          </div>
+          <button
+            className="secondary-button"
+            onClick={() => void refreshActiveWindow()}
+            type="button"
+          >
+            Refresh Active App
+          </button>
+        </div>
+
+        <article className="runtime-card">
+          <div>
+            <strong>
+              {state.windowsHelper?.available ? "Helper available" : "Helper unavailable"}
+            </strong>
+            <span>{state.windowsHelper?.helperPath ?? "Build the helper to enable Phase 2 APIs."}</span>
+            <p>
+              {state.activeWindow
+                ? `${state.activeWindow.processName ?? "Unknown process"} · ${state.activeWindow.title || "Untitled window"}`
+                : "Active-window details will appear here after refresh."}
+            </p>
+            {state.activeWindow?.processPath ? <p>{state.activeWindow.processPath}</p> : null}
+          </div>
+        </article>
       </section>
 
       {state.settings ? (

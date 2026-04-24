@@ -117,6 +117,7 @@ h1 {
 .tool-panel,
 .settings-panel,
 .runtime-panel,
+.windows-panel,
 .history-panel {
   padding: 24px;
   border: 1px solid rgba(255, 250, 240, 0.14);
@@ -127,6 +128,7 @@ h1 {
 .tool-panel h2,
 .settings-panel h2,
 .runtime-panel h2,
+.windows-panel h2,
 .history-panel h2 {
   margin: 0;
   color: #fffaf0;
@@ -138,6 +140,7 @@ h1 {
 .tool-panel p,
 .settings-panel p,
 .runtime-panel p,
+.windows-panel p,
 .history-panel p {
   margin: 0;
   color: #c9c1b2;
@@ -229,6 +232,7 @@ h1 {
 
 .settings-panel,
 .runtime-panel,
+.windows-panel,
 .history-panel {
   margin-top: 16px;
 }

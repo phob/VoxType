@@ -4,7 +4,7 @@
 
 - Maintain this planning directory.
 - Decide initial app stack. Done: Electron, TypeScript, React, and electron-vite.
-- Decide native helper language.
+- Decide native helper language. Done: Rust.
 - Decide first Whisper runtime and model download source.
 - Define minimal app UX. Initial shell created with a status screen and planned capability cards.
 - Add CI build checks. Done: GitHub Actions runs `npm ci` and `npm run build`.
@@ -32,11 +32,11 @@ Goal: make VoxType work beyond normal text fields.
 
 Features:
 
-- Native Windows helper.
+- Native Windows helper. Initial Rust helper scaffold created under `native/windows-helper`.
 - Direct keyboard typing.
 - Chunked typing.
 - Unicode handling.
-- Active app detection.
+- Active app detection. Initial `active-window` command reports foreground window metadata and is wired into the renderer test panel.
 - Per-app insertion profiles.
 - RDP/TeamViewer profile.
 - Insertion test panel.

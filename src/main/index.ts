@@ -7,6 +7,7 @@ import { ModelService } from "./model-service";
 import { RuntimeService } from "./runtime-service";
 import { SettingsStore } from "./settings-store";
 import { TranscriptionService } from "./transcription-service";
+import { WindowsHelperService } from "./windows-helper-service";
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
@@ -16,6 +17,7 @@ const settingsStore = new SettingsStore();
 const historyStore = new HistoryStore();
 const modelService = new ModelService(settingsStore);
 const runtimeService = new RuntimeService();
+const windowsHelperService = new WindowsHelperService();
 const transcriptionService = new TranscriptionService(
   settingsStore,
   historyStore,
@@ -97,6 +99,8 @@ ipcMain.handle("transcription:transcribe-wav", (_event, bytes: Uint8Array) =>
 );
 ipcMain.handle("history:list", () => historyStore.list());
 ipcMain.handle("insertion:copy", (_event, text: string) => insertionService.copyForInsertion(text));
+ipcMain.handle("windows-helper:status", () => windowsHelperService.getStatus());
+ipcMain.handle("windows-helper:active-window", () => windowsHelperService.getActiveWindow());
 
 app.whenReady().then(() => {
   createWindow();

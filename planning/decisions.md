@@ -81,3 +81,13 @@ Persist initial app settings through a typed main-process settings store and exp
 Reason:
 
 The renderer should not own filesystem access. Keeping settings in the Electron main process creates a cleaner boundary for future local model paths, privacy/offline settings, insertion defaults, and Windows helper configuration.
+
+## 2026-04-24: Use Rust For The Windows Helper
+
+Decision:
+
+Build the native Windows helper in Rust.
+
+Reason:
+
+Rust gives VoxType a small, memory-safe native executable with good Windows API access through the `windows` crate. It is a good fit for foreground-window detection, clipboard/paste helpers, keyboard injection, screenshot support, and future privilege-boundary handling.

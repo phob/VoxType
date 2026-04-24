@@ -3,8 +3,8 @@ dist/
 dist-electron/
 out/
 release/
+native/**/target/
 *.log
 .env
 .env.*
 !.env.example
-
