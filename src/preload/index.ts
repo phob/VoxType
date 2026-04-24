@@ -1,4 +1,5 @@
 import { contextBridge, ipcRenderer } from "electron";
+import { type HotkeyStatus } from "../shared/hotkeys";
 import { type LocalModel } from "../shared/models";
 import { type WhisperRuntime } from "../shared/runtimes";
 import { type AppSettings, type SettingsPatch } from "../shared/settings";
@@ -62,6 +63,9 @@ const voxtype = {
       ipcRenderer.on("dictation-hotkey-stop", listener);
       return () => ipcRenderer.off("dictation-hotkey-stop", listener);
     }
+  },
+  hotkeys: {
+    status: () => ipcRenderer.invoke("hotkeys:status") as Promise<HotkeyStatus>
   },
   windowsHelper: {
     status: () =>

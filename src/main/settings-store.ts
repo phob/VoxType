@@ -20,6 +20,8 @@ export class SettingsStore {
       modelDirectory: join(userDataPath, "models"),
       activeModelId: "tiny.en",
       whisperExecutablePath: "",
+      showWindowHotkey: "CommandOrControl+Shift+Space",
+      dictationToggleHotkey: "CommandOrControl+Alt+Space",
       insertionMode: "clipboard",
       offlineMode: false,
       restoreClipboard: true,

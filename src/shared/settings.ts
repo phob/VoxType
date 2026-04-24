@@ -6,6 +6,8 @@ export type AppSettings = {
   modelDirectory: string;
   activeModelId: string;
   whisperExecutablePath: string;
+  showWindowHotkey: string;
+  dictationToggleHotkey: string;
   insertionMode: InsertionMode;
   offlineMode: boolean;
   restoreClipboard: boolean;
@@ -37,6 +39,15 @@ export function sanitizeSettings(
       typeof input.whisperExecutablePath === "string"
         ? input.whisperExecutablePath
         : defaults.whisperExecutablePath,
+    showWindowHotkey:
+      typeof input.showWindowHotkey === "string" && input.showWindowHotkey.trim().length > 0
+        ? input.showWindowHotkey
+        : defaults.showWindowHotkey,
+    dictationToggleHotkey:
+      typeof input.dictationToggleHotkey === "string" &&
+      input.dictationToggleHotkey.trim().length > 0
+        ? input.dictationToggleHotkey
+        : defaults.dictationToggleHotkey,
     insertionMode: isInsertionMode(input.insertionMode)
       ? input.insertionMode
       : defaults.insertionMode,

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { startPcmRecorder, type PcmRecorder } from "./audio-recorder";
+import { type HotkeyStatus } from "../../../shared/hotkeys";
 import { type LocalModel } from "../../../shared/models";
 import { type WhisperRuntime } from "../../../shared/runtimes";
 import { type AppSettings, type InsertionMode } from "../../../shared/settings";
@@ -17,6 +18,7 @@ type AppState = {
   history: TranscriptEntry[];
   windowsHelper: WindowsHelperStatus | null;
   activeWindow: ActiveWindowInfo | null;
+  hotkeys: HotkeyStatus | null;
 };
 
 export function App(): JSX.Element {
@@ -29,7 +31,8 @@ export function App(): JSX.Element {
     settings: null,
     history: [],
     windowsHelper: null,
-    activeWindow: null
+    activeWindow: null,
+    hotkeys: null
   });
   const [recording, setRecording] = useState(false);
   const [busyMessage, setBusyMessage] = useState<string | null>(null);
@@ -63,17 +66,27 @@ export function App(): JSX.Element {
   }, [activeModel?.status, state.settings?.insertionMode, recording]);
 
   async function refresh(): Promise<void> {
-    const [appVersion, settings, models, runtime, history, windowsHelper] = await Promise.all([
+    const [appVersion, settings, models, runtime, history, windowsHelper, hotkeys] =
+      await Promise.all([
       window.voxtype.getVersion(),
       window.voxtype.settings.get(),
       window.voxtype.models.list(),
       window.voxtype.runtime.getWhisper(),
       window.voxtype.history.list(),
-      window.voxtype.windowsHelper.status()
+      window.voxtype.windowsHelper.status(),
+      window.voxtype.hotkeys.status()
     ]);
 
     setVersion(appVersion);
-    setState({ settings, models, runtime, history, windowsHelper, activeWindow: null });
+    setState({
+      settings,
+      models,
+      runtime,
+      history,
+      windowsHelper,
+      activeWindow: null,
+      hotkeys
+    });
   }
 
   async function updateSettings(patch: Partial<AppSettings>): Promise<void> {
@@ -83,8 +96,11 @@ export function App(): JSX.Element {
     }));
     setState((current) => current);
     const settings = await window.voxtype.settings.update(patch);
-    const models = await window.voxtype.models.list();
-    setState((current) => ({ ...current, settings, models }));
+    const [models, hotkeys] = await Promise.all([
+      window.voxtype.models.list(),
+      window.voxtype.hotkeys.status()
+    ]);
+    setState((current) => ({ ...current, settings, models, hotkeys }));
   }
 
   async function installRuntime(): Promise<void> {
@@ -459,6 +475,26 @@ export function App(): JSX.Element {
             </label>
 
             <label className="field">
+              <span>Dictation hotkey</span>
+              <input
+                value={state.settings.dictationToggleHotkey}
+                onChange={(event) =>
+                  void updateSettings({ dictationToggleHotkey: event.target.value })
+                }
+              />
+            </label>
+
+            <label className="field">
+              <span>Show VoxType hotkey</span>
+              <input
+                value={state.settings.showWindowHotkey}
+                onChange={(event) =>
+                  void updateSettings({ showWindowHotkey: event.target.value })
+                }
+              />
+            </label>
+
+            <label className="field">
               <span>Remote typing delay</span>
               <input
                 max={1000}
@@ -491,6 +527,11 @@ export function App(): JSX.Element {
               <span>Offline mode after models are installed</span>
             </label>
           </div>
+          <p className="settings-note">
+            Registered hotkeys: dictation{" "}
+            {state.hotkeys?.dictationToggleHotkey ?? "not registered"}, show window{" "}
+            {state.hotkeys?.showWindowHotkey ?? "not registered"}.
+          </p>
         </section>
       ) : null}
 

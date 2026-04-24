@@ -230,6 +230,11 @@ h1 {
   accent-color: #87d7c4;
 }
 
+.settings-note {
+  margin-top: 16px;
+  color: #c9c1b2;
+}
+
 .settings-panel,
 .runtime-panel,
 .windows-panel,

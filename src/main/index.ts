@@ -16,6 +16,8 @@ let dictationHotkeyState: DictationHotkeyState = {
   recording: false,
   target: null
 };
+let registeredShowWindowHotkey: string | null = null;
+let registeredDictationHotkey: string | null = null;
 
 const isDev = Boolean(process.env.ELECTRON_RENDERER_URL);
 const settingsStore = new SettingsStore();
@@ -124,10 +126,57 @@ async function toggleDictationHotkey(): Promise<void> {
   mainWindow?.webContents.send("dictation-hotkey-start", { target });
 }
 
+async function registerConfiguredHotkeys(): Promise<void> {
+  const settings = await settingsStore.get();
+
+  if (registeredShowWindowHotkey) {
+    globalShortcut.unregister(registeredShowWindowHotkey);
+    registeredShowWindowHotkey = null;
+  }
+
+  if (registeredDictationHotkey) {
+    globalShortcut.unregister(registeredDictationHotkey);
+    registeredDictationHotkey = null;
+  }
+
+  if (settings.showWindowHotkey.trim()) {
+    const registered = globalShortcut.register(settings.showWindowHotkey, showMainWindow);
+    registeredShowWindowHotkey = registered ? settings.showWindowHotkey : null;
+  }
+
+  if (
+    settings.dictationToggleHotkey.trim() &&
+    settings.dictationToggleHotkey !== settings.showWindowHotkey
+  ) {
+    const registered = globalShortcut.register(settings.dictationToggleHotkey, () => {
+      void toggleDictationHotkey();
+    });
+    registeredDictationHotkey = registered ? settings.dictationToggleHotkey : null;
+  }
+}
+
+function getHotkeyStatus(): {
+  showWindowHotkey: string | null;
+  dictationToggleHotkey: string | null;
+} {
+  return {
+    showWindowHotkey: registeredShowWindowHotkey,
+    dictationToggleHotkey: registeredDictationHotkey
+  };
+}
+
 ipcMain.handle("app:get-version", () => app.getVersion());
 ipcMain.handle("settings:get", () => settingsStore.get());
-ipcMain.handle("settings:update", (_event, patch: SettingsPatch) => settingsStore.update(patch));
-ipcMain.handle("settings:reset", () => settingsStore.reset());
+ipcMain.handle("settings:update", async (_event, patch: SettingsPatch) => {
+  const settings = await settingsStore.update(patch);
+  await registerConfiguredHotkeys();
+  return settings;
+});
+ipcMain.handle("settings:reset", async () => {
+  const settings = await settingsStore.reset();
+  await registerConfiguredHotkeys();
+  return settings;
+});
 ipcMain.handle("models:list", () => modelService.list());
 ipcMain.handle("models:download", (_event, modelId: string) => modelService.download(modelId));
 ipcMain.handle("runtime:get-whisper", () => runtimeService.getWhisperRuntime());
@@ -151,16 +200,14 @@ ipcMain.handle("dictation:set-hotkey-recording", (_event, recording: boolean) =>
   };
   return dictationHotkeyState;
 });
+ipcMain.handle("hotkeys:status", () => getHotkeyStatus());
 ipcMain.handle("windows-helper:status", () => windowsHelperService.getStatus());
 ipcMain.handle("windows-helper:active-window", () => windowsHelperService.getActiveWindow());
 
 app.whenReady().then(() => {
   createWindow();
   createTray();
-  globalShortcut.register("CommandOrControl+Shift+Space", showMainWindow);
-  globalShortcut.register("CommandOrControl+Alt+Space", () => {
-    void toggleDictationHotkey();
-  });
+  void registerConfiguredHotkeys();
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
