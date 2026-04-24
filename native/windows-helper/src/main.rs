@@ -204,7 +204,7 @@ fn set_system_mute_from_arg() -> Result<(), String> {
 #[cfg(windows)]
 mod windows_impl {
     use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
-    use cpal::{Sample, SizedSample};
+    use cpal::SizedSample;
     use rubato::{FftFixedIn, Resampler};
     use serde::Serialize;
     use std::collections::VecDeque;
@@ -375,6 +375,15 @@ mod windows_impl {
             cpal::SampleFormat::U8 => {
                 build_input_stream::<u8>(&device, &config, channels, sample_tx)?
             }
+            cpal::SampleFormat::U16 => {
+                build_input_stream::<u16>(&device, &config, channels, sample_tx)?
+            }
+            cpal::SampleFormat::U32 => {
+                build_input_stream::<u32>(&device, &config, channels, sample_tx)?
+            }
+            cpal::SampleFormat::U64 => {
+                build_input_stream::<u64>(&device, &config, channels, sample_tx)?
+            }
             cpal::SampleFormat::I8 => {
                 build_input_stream::<i8>(&device, &config, channels, sample_tx)?
             }
@@ -384,8 +393,14 @@ mod windows_impl {
             cpal::SampleFormat::I32 => {
                 build_input_stream::<i32>(&device, &config, channels, sample_tx)?
             }
+            cpal::SampleFormat::I64 => {
+                build_input_stream::<i64>(&device, &config, channels, sample_tx)?
+            }
             cpal::SampleFormat::F32 => {
                 build_input_stream::<f32>(&device, &config, channels, sample_tx)?
+            }
+            cpal::SampleFormat::F64 => {
+                build_input_stream::<f64>(&device, &config, channels, sample_tx)?
             }
             sample_format => return Err(format!("Unsupported sample format: {sample_format:?}")),
         };
@@ -562,8 +577,7 @@ mod windows_impl {
         sample_tx: mpsc::Sender<Vec<f32>>,
     ) -> Result<cpal::Stream, String>
     where
-        T: Sample + SizedSample + Send + 'static,
-        f32: cpal::FromSample<T>,
+        T: PcmSample + SizedSample + Send + 'static,
     {
         device
             .build_input_stream(
@@ -572,13 +586,13 @@ mod windows_impl {
                     let mut output = Vec::with_capacity(data.len() / channels.max(1));
 
                     if channels == 1 {
-                        output.extend(data.iter().map(|sample| sample.to_sample::<f32>()));
+                        output.extend(data.iter().map(PcmSample::to_f32));
                     } else {
                         for frame in data.chunks_exact(channels) {
                             output.push(
                                 frame
                                     .iter()
-                                    .map(|sample| sample.to_sample::<f32>())
+                                    .map(PcmSample::to_f32)
                                     .sum::<f32>()
                                     / channels as f32,
                             );
@@ -591,6 +605,71 @@ mod windows_impl {
                 None,
             )
             .map_err(|error| error.to_string())
+    }
+
+    trait PcmSample {
+        fn to_f32(&self) -> f32;
+    }
+
+    impl PcmSample for u8 {
+        fn to_f32(&self) -> f32 {
+            (*self as f32 - 128.0) / 128.0
+        }
+    }
+
+    impl PcmSample for u16 {
+        fn to_f32(&self) -> f32 {
+            (*self as f32 - 32768.0) / 32768.0
+        }
+    }
+
+    impl PcmSample for u32 {
+        fn to_f32(&self) -> f32 {
+            (*self as f32 - 2_147_483_648.0) / 2_147_483_648.0
+        }
+    }
+
+    impl PcmSample for u64 {
+        fn to_f32(&self) -> f32 {
+            (*self as f64 - 9_223_372_036_854_775_808.0) as f32
+                / 9_223_372_036_854_775_808.0_f32
+        }
+    }
+
+    impl PcmSample for i8 {
+        fn to_f32(&self) -> f32 {
+            *self as f32 / 128.0
+        }
+    }
+
+    impl PcmSample for i16 {
+        fn to_f32(&self) -> f32 {
+            *self as f32 / 32768.0
+        }
+    }
+
+    impl PcmSample for i32 {
+        fn to_f32(&self) -> f32 {
+            *self as f32 / 2_147_483_648.0
+        }
+    }
+
+    impl PcmSample for i64 {
+        fn to_f32(&self) -> f32 {
+            (*self as f64 / 9_223_372_036_854_775_808.0) as f32
+        }
+    }
+
+    impl PcmSample for f32 {
+        fn to_f32(&self) -> f32 {
+            *self
+        }
+    }
+
+    impl PcmSample for f64 {
+        fn to_f32(&self) -> f32 {
+            *self as f32
+        }
     }
 
     struct FrameResampler {
@@ -816,7 +895,7 @@ mod windows_impl {
         for sample in samples {
             let clamped = sample.clamp(-1.0, 1.0);
             let value = if clamped < 0.0 {
-                (clamped * i16::MIN as f32) as i16
+                (clamped * 32768.0) as i16
             } else {
                 (clamped * i16::MAX as f32) as i16
             };
