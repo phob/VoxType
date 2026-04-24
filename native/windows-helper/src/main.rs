@@ -146,7 +146,7 @@ mod windows_impl {
     };
     use windows::Win32::UI::WindowsAndMessaging::{
         GetForegroundWindow, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId,
-        SetForegroundWindow, ShowWindow, SW_RESTORE,
+        IsIconic, SetForegroundWindow, ShowWindow, SW_RESTORE,
     };
 
     const CF_UNICODETEXT_FORMAT: u32 = 13;
@@ -212,7 +212,10 @@ mod windows_impl {
         let hwnd = parse_hwnd(hwnd)?;
 
         unsafe {
-            let _ = ShowWindow(hwnd, SW_RESTORE);
+            if IsIconic(hwnd).as_bool() {
+                let _ = ShowWindow(hwnd, SW_RESTORE);
+            }
+
             if SetForegroundWindow(hwnd).as_bool() == false {
                 return Err("Failed to focus target window.".to_string());
             }

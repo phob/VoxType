@@ -27,6 +27,11 @@ Tradeoffs:
 - Can be blocked by some apps.
 - Must handle sensitive clipboard contents carefully.
 
+Focus behavior:
+
+- Target-window insertion should not change the window's maximized state.
+- The native helper should only call `SW_RESTORE` when a captured target window is minimized.
+
 ### Keyboard Emulation
 
 Use Windows keyboard injection, likely through `SendInput`.
@@ -51,6 +56,7 @@ Initial implementation:
 - The native helper exposes `type-text`.
 - Text is sent as Unicode `SendInput` events with `KEYEVENTF_UNICODE` instead of virtual key codes.
 - Direct typing should not depend on the currently selected Windows keyboard layout for normal Unicode text.
+- Focusing a captured target window preserves maximized windows and only restores minimized windows.
 
 ### Chunked Typing
 
