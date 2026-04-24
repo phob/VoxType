@@ -11,30 +11,56 @@ export async function startPcmRecorder(): Promise<PcmRecorder> {
     }
   });
   const audioContext = new AudioContext();
+  await loadPcmWorklet(audioContext);
   const source = audioContext.createMediaStreamSource(stream);
-  const processor = audioContext.createScriptProcessor(4096, 1, 1);
+  const processor = new AudioWorkletNode(audioContext, "voxtype-pcm-recorder", {
+    channelCount: 1,
+    channelCountMode: "explicit",
+    channelInterpretation: "speakers",
+    numberOfInputs: 1,
+    numberOfOutputs: 1,
+    outputChannelCount: [1]
+  });
+  const silentMonitor = audioContext.createGain();
   const chunks: Float32Array[] = [];
 
-  processor.onaudioprocess = (event) => {
-    chunks.push(new Float32Array(event.inputBuffer.getChannelData(0)));
+  silentMonitor.gain.value = 0;
+  processor.port.onmessage = (event: MessageEvent<Float32Array>) => {
+    chunks.push(event.data);
   };
 
   source.connect(processor);
-  processor.connect(audioContext.destination);
+  processor.connect(silentMonitor);
+  silentMonitor.connect(audioContext.destination);
 
   return {
     stop: async () => {
+      const sampleRate = audioContext.sampleRate;
+      processor.port.onmessage = null;
       processor.disconnect();
+      silentMonitor.disconnect();
       source.disconnect();
       stream.getTracks().forEach((track) => track.stop());
       await audioContext.close();
 
       const merged = mergeChunks(chunks);
-      const resampled = resampleLinear(merged, audioContext.sampleRate, 16000);
+      const resampled = resampleLinear(merged, sampleRate, 16000);
 
       return encodeWav(resampled, 16000);
     }
   };
+}
+
+async function loadPcmWorklet(audioContext: AudioContext): Promise<void> {
+  const workletUrl = URL.createObjectURL(
+    new Blob([PCM_WORKLET_SOURCE], { type: "text/javascript" })
+  );
+
+  try {
+    await audioContext.audioWorklet.addModule(workletUrl);
+  } finally {
+    URL.revokeObjectURL(workletUrl);
+  }
 }
 
 function mergeChunks(chunks: Float32Array[]): Float32Array {
@@ -107,3 +133,20 @@ function writeString(view: DataView, offset: number, value: string): void {
   }
 }
 
+const PCM_WORKLET_SOURCE = `
+class VoxTypePcmRecorder extends AudioWorkletProcessor {
+  process(inputs) {
+    const input = inputs[0];
+    const channel = input && input[0];
+
+    if (channel && channel.length > 0) {
+      const copy = new Float32Array(channel);
+      this.port.postMessage(copy, [copy.buffer]);
+    }
+
+    return true;
+  }
+}
+
+registerProcessor("voxtype-pcm-recorder", VoxTypePcmRecorder);
+`;

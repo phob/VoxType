@@ -103,8 +103,8 @@ Current foundation:
 - `src/shared/settings.ts` defines typed app settings and sanitization.
 - `src/main/settings-store.ts` stores settings as JSON under Electron's `app.getPath("userData")`.
 - `src/preload/index.ts` exposes settings read/update/reset methods to the renderer through IPC.
-- Initial settings include model directory, insertion mode, offline mode, clipboard restoration, and remote typing delay.
 - Initial settings include model directory, insertion mode, offline mode, clipboard restoration, remote typing delay, configurable hotkeys, and optional automatic system-audio mute while recording.
+- `src/renderer/src/audio-recorder.ts` captures microphone audio with an `AudioWorkletNode`, keeps the monitor path silent with zero gain, resamples to 16 kHz, and encodes WAV for Whisper.
 - `src/shared/models.ts` defines the initial Whisper model catalog.
 - `src/main/model-service.ts` downloads Whisper ggml models from the `ggerganov/whisper.cpp` Hugging Face repository into the configured model directory.
 - `src/shared/runtimes.ts` pins the first managed Windows runtime to official `ggml-org/whisper.cpp` `v1.8.4` `whisper-bin-x64.zip`.

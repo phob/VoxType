@@ -19,7 +19,7 @@ Features:
 - Tray app. Initial tray context menu created.
 - Settings window. First persistent settings panel and main-process settings store created.
 - Global push-to-talk hotkey. Configurable hotkeys default to `Ctrl+Alt+Space` for recording/transcription from any app and `Ctrl+Shift+Space` to bring VoxType forward. Settings UI captures pressed key combinations instead of requiring manual accelerator strings.
-- Microphone recording. Initial renderer recorder captures microphone audio and encodes 16 kHz WAV.
+- Microphone recording. Initial renderer recorder captures microphone audio through `AudioWorkletNode`, keeps monitoring silent, and encodes 16 kHz WAV.
 - Whisper transcription through `whisper.cpp`. Initial service invokes a custom executable path if configured, otherwise the managed CPU x64 `whisper.cpp` runtime, otherwise `whisper-cli`.
 - Managed `whisper.cpp` runtime acquisition. Initial implementation downloads and extracts official `ggml-org/whisper.cpp` `v1.8.4` `whisper-bin-x64.zip` and finds `whisper-cli.exe`.
 - Basic model download. Initial catalog downloads `tiny.en`, `base.en`, and `small.en` ggml models.

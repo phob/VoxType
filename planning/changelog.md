@@ -26,3 +26,4 @@
 - Made the dictation and show-window global hotkeys configurable through persisted settings, with registration status shown in the UI.
 - Replaced manual hotkey text entry with key-combination capture controls in the settings UI.
 - Added optional system-audio mute while recording, backed by a Windows Core Audio command in the native helper.
+- Replaced deprecated `ScriptProcessorNode` microphone capture with an `AudioWorkletNode` recorder.
