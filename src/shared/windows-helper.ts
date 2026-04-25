@@ -13,6 +13,7 @@ export type WindowsHelperStatus = {
 };
 
 export type NativeRecordingOptions = {
+  captureMode: "sharedCapture" | "exclusiveCapturePreferred" | "exclusiveCaptureRequired";
   vadEnabled: boolean;
   vadPositiveSpeechThreshold: number;
   vadPreSpeechPadMs: number;
@@ -25,7 +26,19 @@ export type NativeRecordingResult = {
   samples: number;
   rawSamples: number;
   vadEnabled: boolean;
+  captureMode: "sharedCapture" | "exclusiveCapture";
   speechFrames: number;
+};
+
+export type CaptureSessionMuteEntry = {
+  sessionInstanceIdentifier: string;
+  processId: number;
+  processName: string | null;
+  mutedBefore: boolean;
+};
+
+export type CaptureSessionMuteState = {
+  sessions: CaptureSessionMuteEntry[];
 };
 
 export type DictationHotkeyPayload = {

@@ -40,6 +40,15 @@ const transcriptionService = new TranscriptionService(
 );
 const insertionService = new InsertionService(windowsHelperService, settingsStore);
 
+if (process.platform === "win32") {
+  app.setAppUserModelId("com.voxtype.app");
+}
+
+function getAppIconPath(): string {
+  const resourcesRoot = app.isPackaged ? process.resourcesPath : join(app.getAppPath(), "resources");
+  return join(resourcesRoot, "icons", "voxtype.ico");
+}
+
 function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1100,
@@ -47,6 +56,7 @@ function createWindow(): void {
     minWidth: 900,
     minHeight: 620,
     title: "VoxType",
+    icon: getAppIconPath(),
     backgroundColor: "#101114",
     show: false,
     webPreferences: {
@@ -70,7 +80,7 @@ function createWindow(): void {
 }
 
 function createTray(): void {
-  const icon = nativeImage.createEmpty();
+  const icon = nativeImage.createFromPath(getAppIconPath());
   tray = new Tray(icon);
   tray.setToolTip("VoxType");
   tray.setContextMenu(
@@ -254,6 +264,9 @@ ipcMain.handle(
 );
 ipcMain.handle("windows-helper:set-system-mute", (_event, muted: boolean) =>
   windowsHelperService.setSystemMute(muted)
+);
+ipcMain.handle("windows-helper:send-hotkey", (_event, accelerator: string) =>
+  windowsHelperService.sendHotkey(accelerator)
 );
 ipcMain.handle("windows-helper:start-recording", (_event, options: NativeRecordingOptions) =>
   windowsHelperService.startRecording(options)

@@ -24,7 +24,7 @@ export const whisperModelCatalog: ModelCatalogItem[] = [
     url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny.en.bin",
     sizeLabel: "75 MB",
     language: "English",
-    description: "Fastest starter model for testing local dictation."
+    description: "Fastest starter model for testing local dictation.",
   },
   {
     id: "base.en",
@@ -33,7 +33,7 @@ export const whisperModelCatalog: ModelCatalogItem[] = [
     url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin",
     sizeLabel: "142 MB",
     language: "English",
-    description: "Better baseline accuracy while staying light."
+    description: "Better baseline accuracy while staying light.",
   },
   {
     id: "small.en",
@@ -42,11 +42,19 @@ export const whisperModelCatalog: ModelCatalogItem[] = [
     url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-small.en.bin",
     sizeLabel: "466 MB",
     language: "English",
-    description: "Higher quality for machines that can spare more memory."
-  }
+    description: "Higher quality for machines that can spare more memory.",
+  },
+  {
+    id: "large-v3-turbo",
+    name: "Whisper large-v3-turbo",
+    fileName: "ggml-large-v3-turbo.bin",
+    url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo.bin",
+    sizeLabel: "1.5 GiB",
+    language: "Multi",
+    description: "Highest quality for machines that can spare more memory.",
+  },
 ];
 
 export function getModelById(id: string): ModelCatalogItem | undefined {
   return whisperModelCatalog.find((model) => model.id === id);
 }
-

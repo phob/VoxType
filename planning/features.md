@@ -77,12 +77,13 @@ Important use case:
 
 - When the user is in Discord and starts VoxType dictation, VoxType should be able to mute the user's Discord microphone automatically, then unmute it when VoxType recording finishes.
 
-Preferred first implementation:
+Current implementation direction:
 
-- Add per-app recording actions to app profiles.
-- Let a profile define a "mute before recording" shortcut and an "unmute after recording" shortcut.
-- Trigger those shortcuts through the native Windows helper before and after VoxType recording.
-- Use this for Discord first, because Discord already supports user-configurable mute/deafen keybinds.
+- Use WASAPI exclusive capture as the preferred device-level strategy when the user wants other apps blocked from the microphone.
+- Offer `exclusiveCapturePreferred` for best-effort exclusive capture with shared fallback.
+- Offer `exclusiveCaptureRequired` for strict privacy behavior: if exclusive capture cannot open, VoxType should fail clearly instead of recording in shared mode.
+- Keep app-native hotkey automation as a global compatibility fallback. When global `sendHotkey` coordination is enabled, VoxType sends the configured start hotkey after recording opens and sends the configured stop hotkey when recording cleanup runs.
+- Use this for Discord when users prefer Discord's own mute state and UI to stay synchronized.
 
 What VoxType should not promise initially:
 

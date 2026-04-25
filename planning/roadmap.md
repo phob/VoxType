@@ -102,22 +102,23 @@ Goal: avoid microphone conflicts with communication apps while VoxType is record
 Preferred direction:
 
 - Do not rely on muting the global Windows microphone endpoint because that may also mute VoxType.
-- Do not attempt a universal per-app microphone mute for the first implementation; Windows does not expose a simple reliable public API for muting only another app's capture stream.
-- Use per-app profile actions first.
-- Let users configure a target app's mute/unmute hotkey, then have VoxType send that hotkey when recording starts and stops.
-- Make Discord the first supported profile because it has built-in configurable mute keybinds and is a clear user need.
+- Prefer WASAPI exclusive capture as the device-level coordination strategy when users want other apps blocked from the microphone.
+- Keep app-native hotkey automation as a global fallback for apps like Discord where users want the app's own mute state and UI to stay synchronized.
+- Do not require profile integration for the hotkey fallback yet; one global start hotkey and one global stop hotkey are enough for the first implementation.
+- Treat capture-session mute as experimental because testing showed it can silence Discord but may also interfere with VoxType capture depending on timing/session behavior.
 
 Features:
 
-- Per-app profile fields for recording-start action and recording-stop action.
-- Action type: none, send hotkey.
-- Configurable hotkey capture for those profile actions.
-- Optional "restore only if VoxType muted it" state tracking.
-- Discord default suggestion, but user-confirmed hotkey rather than hardcoded behavior.
-- Recording flow integration before microphone capture starts and after capture stops.
+- Recorder capture modes: `sharedCapture`, `exclusiveCapturePreferred`, and `exclusiveCaptureRequired`.
+- WASAPI exclusive recorder path with hardware-format negotiation and fallback behavior for preferred mode.
+- Global recording coordination mode: none or send hotkey.
+- Configurable global recording start and stop hotkeys.
+- Recording flow integration after microphone capture opens and during cleanup.
+- Discord setup guidance later, using user-confirmed hotkeys rather than hardcoded behavior.
 
 Later possibilities:
 
+- Per-app profile integration for recording coordination if global hotkey fallback is not enough.
 - App-specific adapters if a target app exposes a safe local control API.
 - UI Automation where reliable.
 - A virtual microphone/silence-routing approach only if the product later needs a heavy-duty solution.

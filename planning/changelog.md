@@ -8,6 +8,7 @@
 - Promoted native CPAL microphone recording through the Windows helper to the capture direction.
 - Removed the browser recording/VAD fallback direction and promoted native Silero VAD through the Windows helper using Handy-style `vad-rs`, Silero v4, 30 ms frames, and smoothing.
 - Fixed a native WAV writer sign bug that rectified negative samples into positive values, causing severely distorted audio from the Rust helper recordings.
+- Reworked Phase 3.6 around WASAPI exclusive capture, exclusive-format negotiation, and global hotkey coordination fallback instead of profile-bound hotkeys.
 
 ## 2026-04-24
 

@@ -116,6 +116,8 @@ const voxtype = {
       ipcRenderer.invoke("windows-helper:start-recording", options) as Promise<void>,
     stopRecording: () =>
       ipcRenderer.invoke("windows-helper:stop-recording") as Promise<NativeRecordingResult>,
+    sendHotkey: (accelerator: string) =>
+      ipcRenderer.invoke("windows-helper:send-hotkey", accelerator) as Promise<void>,
     setSystemMute: (muted: boolean) =>
       ipcRenderer.invoke("windows-helper:set-system-mute", muted) as Promise<void>
   }

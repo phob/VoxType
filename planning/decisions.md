@@ -136,11 +136,11 @@ Silero VAD is small, fast on CPU, supports the 16 kHz audio path VoxType already
 
 Decision:
 
-For apps like Discord that also use the microphone, VoxType should first support per-app recording actions that send a configured mute/unmute hotkey when VoxType recording starts and stops.
+Superseded by `2026-04-25: Layer Microphone Coordination Around Exclusive Capture`.
 
 Reason:
 
-Windows does not provide a simple reliable public control for muting only another application's microphone capture while keeping VoxType recording from the same device. Muting the physical input endpoint risks muting VoxType too. App-level hotkey automation is more practical, reversible, user-controlled, and fits VoxType's existing per-app profile direction.
+Research and testing showed that WASAPI exclusive capture is a better first-class device-level strategy than hotkey automation when the user wants other apps blocked from the microphone. Hotkey automation remains useful as a global fallback for app-native state sync.
 
 ## 2026-04-25: Use Native CPAL Recording As Only Capture Path
 
@@ -161,3 +161,13 @@ VoxType should run Silero VAD in the Rust Windows helper using Handy's approach:
 Reason:
 
 Keeping capture, resampling, and VAD in the same native pipeline avoids renderer/WebAudio timing issues, removes ONNX Runtime Web from the transcription path, and matches the Handy integration that behaved better during audio-quality testing.
+
+## 2026-04-25: Layer Microphone Coordination Around Exclusive Capture
+
+Decision:
+
+VoxType should offer layered microphone coordination: shared capture as the default, WASAPI exclusive capture as the preferred device-level way to block other microphone consumers, and global app-native hotkey automation as a compatibility fallback.
+
+Reason:
+
+Testing confirmed that capture-session mute can prevent Discord from receiving audio but can also leave VoxType with no detected speech. WASAPI exclusive capture keeps VoxType as the recorder while preventing other shared-mode consumers when Windows allows exclusive access. Discord hotkey automation is still valuable because it updates Discord's own mute state and UI, but it does not need to be profile-bound for the first implementation.

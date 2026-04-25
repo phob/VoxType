@@ -5,6 +5,7 @@ import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import {
   type ActiveWindowInfo,
+  type CaptureSessionMuteState,
   type NativeRecordingOptions,
   type NativeRecordingResult,
   type WindowsHelperStatus
@@ -105,6 +106,70 @@ export class WindowsHelperService {
     });
   }
 
+  async sendHotkey(accelerator: string): Promise<void> {
+    const helperPath = await this.resolveHelperPath();
+
+    if (!helperPath) {
+      throw new Error(
+        "Windows helper executable was not found. Build it with `cargo build --manifest-path native/windows-helper/Cargo.toml`."
+      );
+    }
+
+    if (!accelerator.trim()) {
+      throw new Error("Recording coordination hotkey is empty.");
+    }
+
+    await execFileAsync(helperPath, ["send-hotkey", accelerator], {
+      windowsHide: true
+    });
+  }
+
+  async muteCaptureSession(
+    processId: number,
+    processName?: string | null
+  ): Promise<CaptureSessionMuteState> {
+    const helperPath = await this.resolveHelperPath();
+
+    if (!helperPath) {
+      throw new Error(
+        "Windows helper executable was not found. Build it with `cargo build --manifest-path native/windows-helper/Cargo.toml`."
+      );
+    }
+
+    const args = ["mute-capture-session", String(processId)];
+
+    if (processName) {
+      args.push(processName);
+    }
+
+    const { stdout } = await execFileAsync(helperPath, args, {
+      windowsHide: true
+    });
+    const parsed = JSON.parse(stdout) as unknown;
+
+    if (!isCaptureSessionMuteState(parsed)) {
+      throw new Error("Windows helper returned an unexpected capture-session mute payload.");
+    }
+
+    return parsed;
+  }
+
+  async restoreCaptureSession(state: CaptureSessionMuteState): Promise<void> {
+    if (state.sessions.length === 0) {
+      return;
+    }
+
+    const helperPath = await this.resolveHelperPath();
+
+    if (!helperPath) {
+      throw new Error(
+        "Windows helper executable was not found. Build it with `cargo build --manifest-path native/windows-helper/Cargo.toml`."
+      );
+    }
+
+    await runHelperWithStdin(helperPath, ["restore-capture-session"], JSON.stringify(state));
+  }
+
   async startRecording(options: NativeRecordingOptions): Promise<void> {
     if (this.recording) {
       throw new Error("Native recording is already active.");
@@ -123,6 +188,11 @@ export class WindowsHelperService {
     const outputPath = join(outputDirectory, `recording-${Date.now()}.wav`);
     const args = ["record-wav", outputPath];
     const vadModelPath = await this.resolveSileroVadModelPath();
+    const captureModeArg = nativeCaptureModeArg(options.captureMode);
+
+    if (captureModeArg) {
+      args.push("--capture-mode", captureModeArg);
+    }
 
     if (options.vadEnabled) {
       if (!vadModelPath) {
@@ -174,6 +244,17 @@ export class WindowsHelperService {
 
       child.kill();
       await rm(outputPath, { force: true });
+
+      if (
+        options.captureMode === "exclusiveCapturePreferred" &&
+        errorMessage(error).includes("Exclusive microphone capture failed")
+      ) {
+        return this.startRecording({
+          ...options,
+          captureMode: "sharedCapture"
+        });
+      }
+
       throw error;
     }
   }
@@ -274,8 +355,26 @@ function parseNativeRecordingMetadata(stdout: string): Omit<NativeRecordingResul
     samples: typeof parsed.samples === "number" ? parsed.samples : 0,
     rawSamples: typeof parsed.rawSamples === "number" ? parsed.rawSamples : 0,
     vadEnabled: typeof parsed.vadEnabled === "boolean" ? parsed.vadEnabled : false,
+    captureMode:
+      parsed.captureMode === "exclusiveCapture" ? "exclusiveCapture" : "sharedCapture",
     speechFrames: typeof parsed.speechFrames === "number" ? parsed.speechFrames : 0
   };
+}
+
+function nativeCaptureModeArg(mode: NativeRecordingOptions["captureMode"]): string | null {
+  if (mode === "exclusiveCapturePreferred") {
+    return "exclusive-preferred";
+  }
+
+  if (mode === "exclusiveCaptureRequired") {
+    return "exclusive-required";
+  }
+
+  return null;
+}
+
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function waitForHelperStartup(
@@ -371,5 +470,31 @@ function isActiveWindowInfo(value: unknown): value is ActiveWindowInfo {
     typeof info.processId === "number" &&
     (typeof info.processPath === "string" || info.processPath === null) &&
     (typeof info.processName === "string" || info.processName === null)
+  );
+}
+
+function isCaptureSessionMuteState(value: unknown): value is CaptureSessionMuteState {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  const state = value as Record<string, unknown>;
+
+  return (
+    Array.isArray(state.sessions) &&
+    state.sessions.every((session) => {
+      if (typeof session !== "object" || session === null || Array.isArray(session)) {
+        return false;
+      }
+
+      const entry = session as Record<string, unknown>;
+
+      return (
+        typeof entry.sessionInstanceIdentifier === "string" &&
+        typeof entry.processId === "number" &&
+        (typeof entry.processName === "string" || entry.processName === null) &&
+        typeof entry.mutedBefore === "boolean"
+      );
+    })
   );
 }

@@ -1,8 +1,16 @@
 export const insertionModes = ["clipboard", "keyboard", "chunked"] as const;
 export const writingStyles = ["default", "chat", "professional"] as const;
+export const recordingCoordinationModes = ["none", "muteCaptureSession", "sendHotkey"] as const;
+export const recorderCaptureModes = [
+  "sharedCapture",
+  "exclusiveCapturePreferred",
+  "exclusiveCaptureRequired"
+] as const;
 
 export type InsertionMode = (typeof insertionModes)[number];
 export type WritingStyle = (typeof writingStyles)[number];
+export type RecordingCoordinationMode = (typeof recordingCoordinationModes)[number];
+export type RecorderCaptureMode = (typeof recorderCaptureModes)[number];
 
 export type AppProfile = {
   id: string;
@@ -11,6 +19,9 @@ export type AppProfile = {
   processPath: string | null;
   insertionMode: InsertionMode;
   writingStyle: WritingStyle;
+  recordingCoordinationMode: RecordingCoordinationMode;
+  recordingStartHotkey: string;
+  recordingStopHotkey: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -22,6 +33,10 @@ export type AppSettings = {
   showWindowHotkey: string;
   dictationToggleHotkey: string;
   insertionMode: InsertionMode;
+  recorderCaptureMode: RecorderCaptureMode;
+  recordingCoordinationMode: RecordingCoordinationMode;
+  recordingStartHotkey: string;
+  recordingStopHotkey: string;
   offlineMode: boolean;
   autoMuteSystemAudio: boolean;
   restoreClipboard: boolean;
@@ -45,6 +60,19 @@ export function isInsertionMode(value: unknown): value is InsertionMode {
 
 export function isWritingStyle(value: unknown): value is WritingStyle {
   return typeof value === "string" && writingStyles.includes(value as WritingStyle);
+}
+
+export function isRecordingCoordinationMode(
+  value: unknown
+): value is RecordingCoordinationMode {
+  return (
+    typeof value === "string" &&
+    recordingCoordinationModes.includes(value as RecordingCoordinationMode)
+  );
+}
+
+export function isRecorderCaptureMode(value: unknown): value is RecorderCaptureMode {
+  return typeof value === "string" && recorderCaptureModes.includes(value as RecorderCaptureMode);
 }
 
 export function sanitizeSettings(
@@ -78,6 +106,20 @@ export function sanitizeSettings(
     insertionMode: isInsertionMode(input.insertionMode)
       ? input.insertionMode
       : defaults.insertionMode,
+    recorderCaptureMode: isRecorderCaptureMode(input.recorderCaptureMode)
+      ? input.recorderCaptureMode
+      : defaults.recorderCaptureMode,
+    recordingCoordinationMode: isRecordingCoordinationMode(input.recordingCoordinationMode)
+      ? input.recordingCoordinationMode
+      : defaults.recordingCoordinationMode,
+    recordingStartHotkey:
+      typeof input.recordingStartHotkey === "string"
+        ? input.recordingStartHotkey
+        : defaults.recordingStartHotkey,
+    recordingStopHotkey:
+      typeof input.recordingStopHotkey === "string"
+        ? input.recordingStopHotkey
+        : defaults.recordingStopHotkey,
     offlineMode:
       typeof input.offlineMode === "boolean" ? input.offlineMode : defaults.offlineMode,
     autoMuteSystemAudio:
@@ -148,6 +190,9 @@ export function createAppProfile(input: {
     processPath: typeof input.processPath === "string" ? input.processPath : null,
     insertionMode: defaults.insertionMode,
     writingStyle: defaults.writingStyle,
+    recordingCoordinationMode: defaults.recordingCoordinationMode,
+    recordingStartHotkey: defaults.recordingStartHotkey ?? "",
+    recordingStopHotkey: defaults.recordingStopHotkey ?? "",
     createdAt: now,
     updatedAt: now
   };
@@ -191,6 +236,13 @@ function sanitizeAppProfiles(value: unknown): AppProfile[] {
       processPath: typeof item.processPath === "string" ? item.processPath : null,
       insertionMode: isInsertionMode(item.insertionMode) ? item.insertionMode : "clipboard",
       writingStyle: isWritingStyle(item.writingStyle) ? item.writingStyle : "default",
+      recordingCoordinationMode: isRecordingCoordinationMode(item.recordingCoordinationMode)
+        ? item.recordingCoordinationMode
+        : "none",
+      recordingStartHotkey:
+        typeof item.recordingStartHotkey === "string" ? item.recordingStartHotkey : "",
+      recordingStopHotkey:
+        typeof item.recordingStopHotkey === "string" ? item.recordingStopHotkey : "",
       createdAt:
         typeof item.createdAt === "string" && item.createdAt.trim()
           ? item.createdAt
@@ -209,12 +261,16 @@ function getProfileDefaults(processName: string): {
   displayName?: string;
   insertionMode: InsertionMode;
   writingStyle: WritingStyle;
+  recordingCoordinationMode: RecordingCoordinationMode;
+  recordingStartHotkey?: string;
+  recordingStopHotkey?: string;
 } {
   if (["chrome.exe", "msedge.exe", "firefox.exe", "brave.exe"].includes(processName)) {
     return {
       displayName: browserDisplayName(processName),
       insertionMode: "clipboard",
-      writingStyle: "chat"
+      writingStyle: "chat",
+      recordingCoordinationMode: "none"
     };
   }
 
@@ -222,7 +278,8 @@ function getProfileDefaults(processName: string): {
     return {
       displayName: remoteDisplayName(processName),
       insertionMode: "chunked",
-      writingStyle: "default"
+      writingStyle: "default",
+      recordingCoordinationMode: "none"
     };
   }
 
@@ -234,7 +291,8 @@ function getProfileDefaults(processName: string): {
     return {
       displayName: terminalDisplayName(processName),
       insertionMode: "keyboard",
-      writingStyle: "default"
+      writingStyle: "default",
+      recordingCoordinationMode: "none"
     };
   }
 
@@ -242,14 +300,35 @@ function getProfileDefaults(processName: string): {
     return {
       displayName: "Outlook",
       insertionMode: "clipboard",
-      writingStyle: "professional"
+      writingStyle: "professional",
+      recordingCoordinationMode: "none"
+    };
+  }
+
+  if (["discord.exe", "discordptb.exe", "discordcanary.exe"].includes(processName)) {
+    return {
+      displayName: discordDisplayName(processName),
+      insertionMode: "clipboard",
+      writingStyle: "chat",
+      recordingCoordinationMode: "none"
     };
   }
 
   return {
     insertionMode: "clipboard",
-    writingStyle: "default"
+    writingStyle: "default",
+    recordingCoordinationMode: "none"
   };
+}
+
+function discordDisplayName(processName: string): string {
+  const names: Record<string, string> = {
+    "discord.exe": "Discord",
+    "discordptb.exe": "Discord PTB",
+    "discordcanary.exe": "Discord Canary"
+  };
+
+  return names[processName] ?? displayNameFromProcess(processName);
 }
 
 function browserDisplayName(processName: string): string {

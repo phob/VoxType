@@ -6,6 +6,7 @@ export type PcmRecorder = {
 
 export type PcmRecordingResult = {
   wavBytes: Uint8Array;
+  captureMode: "sharedCapture" | "exclusiveCapture";
   vad: VadTrimStats;
 };
 
@@ -22,6 +23,7 @@ export type VadTrimStats = {
 
 export async function startNativePcmRecorder(settings?: AppSettings | null): Promise<PcmRecorder> {
   await window.voxtype.windowsHelper.startRecording({
+    captureMode: settings?.recorderCaptureMode ?? "sharedCapture",
     vadEnabled: settings?.vadEnabled ?? true,
     vadPositiveSpeechThreshold: settings?.vadPositiveSpeechThreshold ?? 0.3,
     vadPreSpeechPadMs: settings?.vadPreSpeechPadMs ?? 450,
@@ -37,6 +39,7 @@ export async function startNativePcmRecorder(settings?: AppSettings | null): Pro
 
       return {
         wavBytes: result.wavBytes,
+        captureMode: result.captureMode,
         vad: {
           enabled: result.vadEnabled,
           model: "silero-v4-native",

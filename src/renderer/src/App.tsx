@@ -9,7 +9,13 @@ import { type DictionaryEntry } from "../../../shared/dictionary";
 import { type HotkeyStatus } from "../../../shared/hotkeys";
 import { type LocalModel } from "../../../shared/models";
 import { type WhisperRuntime } from "../../../shared/runtimes";
-import { type AppProfile, type AppSettings, type InsertionMode } from "../../../shared/settings";
+import {
+  type AppProfile,
+  type AppSettings,
+  type InsertionMode,
+  type RecorderCaptureMode,
+  type RecordingCoordinationMode
+} from "../../../shared/settings";
 import { type TranscriptEntry } from "../../../shared/transcripts";
 import {
   type ActiveWindowInfo,
@@ -28,10 +34,28 @@ type AppState = {
   hotkeys: HotkeyStatus | null;
 };
 
+type DevTab = "dictation" | "models" | "insertion" | "profiles" | "dictionary" | "settings" | "logs";
+type HotkeyCaptureTarget =
+  | "dictationToggleHotkey"
+  | "showWindowHotkey"
+  | "recordingStartHotkey"
+  | "recordingStopHotkey";
+
+const devTabs: Array<{ id: DevTab; label: string }> = [
+  { id: "dictation", label: "Dictation" },
+  { id: "models", label: "Models" },
+  { id: "insertion", label: "Insertion" },
+  { id: "profiles", label: "Profiles" },
+  { id: "dictionary", label: "Dictionary" },
+  { id: "settings", label: "Settings" },
+  { id: "logs", label: "Logs" }
+];
+
 export function App(): JSX.Element {
   const recorderRef = useRef<PcmRecorder | null>(null);
   const hotkeyTargetRef = useRef<ActiveWindowInfo | null>(null);
   const systemAudioMutedByVoxTypeRef = useRef(false);
+  const recordingStopHotkeyRef = useRef<string | null>(null);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
   const audioObjectUrlRef = useRef<string | null>(null);
   const [version, setVersion] = useState<string>("0.1.0");
@@ -48,9 +72,7 @@ export function App(): JSX.Element {
   const [recording, setRecording] = useState(false);
   const [busyMessage, setBusyMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [capturingHotkey, setCapturingHotkey] = useState<
-    "dictationToggleHotkey" | "showWindowHotkey" | null
-  >(null);
+  const [capturingHotkey, setCapturingHotkey] = useState<HotkeyCaptureTarget | null>(null);
   const [insertionTarget, setInsertionTarget] = useState<ActiveWindowInfo | null>(null);
   const [insertionTestText, setInsertionTestText] = useState(
     "VoxType insertion test: cafe, naive, aeoeue, Unicode -> äöü é 漢字 123."
@@ -63,9 +85,12 @@ export function App(): JSX.Element {
   const [fixLastText, setFixLastText] = useState("");
   const [lastRecordingResult, setLastRecordingResult] = useState<PcmRecordingResult | null>(null);
   const [playingTranscriptId, setPlayingTranscriptId] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<DevTab>("dictation");
 
   const activeModel = state.models.find((model) => model.id === state.settings?.activeModelId);
   const latestTranscript = state.history[0];
+  const currentTarget = insertionTarget ?? state.activeWindow;
+  const appStatus = error ? "Error" : recording ? "Recording" : busyMessage ? busyMessage : "Ready";
 
   useEffect(() => {
     void refresh();
@@ -218,10 +243,25 @@ export function App(): JSX.Element {
       }
 
       recorderRef.current = await startNativePcmRecorder(state.settings);
+      await startRecordingCoordination(state.settings);
       setRecording(true);
     } catch (recordingError) {
+      const recorder = recorderRef.current;
+      recorderRef.current = null;
+      const recorderStopError = recorder
+        ? await recorder.stop().then(
+            () => null,
+            (stopError) => formatError(stopError)
+          )
+        : null;
+      const coordinationError = await stopRecordingCoordination();
       const unmuteError = await unmuteSystemAudio();
-      setError(joinErrors(formatError(recordingError), unmuteError));
+      setError(
+        joinErrors(
+          joinErrors(joinErrors(formatError(recordingError), recorderStopError), coordinationError),
+          unmuteError
+        )
+      );
     }
   }
 
@@ -263,12 +303,14 @@ export function App(): JSX.Element {
     try {
       const recordingResult = await recorderRef.current.stop();
       recorderRef.current = null;
+      const coordinationError = await stopRecordingCoordination();
       const unmuteError = await unmuteSystemAudio();
       setLastRecordingResult(recordingResult);
 
       if (recordingResult.vad.enabled && !recordingResult.vad.speechDetected) {
-        if (unmuteError) {
-          setError(`${recordingResult.vad.skippedReason ?? "No speech detected."} ${unmuteError}`);
+        const cleanupError = joinErrors(coordinationError ?? "", unmuteError).trim();
+        if (cleanupError) {
+          setError(`${recordingResult.vad.skippedReason ?? "No speech detected."} ${cleanupError}`);
         } else {
           setError(recordingResult.vad.skippedReason ?? "No speech detected.");
         }
@@ -280,6 +322,9 @@ export function App(): JSX.Element {
       });
       if (unmuteError) {
         setError(unmuteError);
+      }
+      if (coordinationError) {
+        setError(coordinationError);
       }
       if (state.settings?.insertionMode === "clipboard" && !options?.pasteTarget?.hwnd) {
         await window.voxtype.insertion.copy(result.entry.text);
@@ -302,10 +347,37 @@ export function App(): JSX.Element {
         history: history.length > 0 ? history : [result.entry, ...current.history]
       }));
     } catch (transcriptionError) {
+      const coordinationError = await stopRecordingCoordination();
       const unmuteError = await unmuteSystemAudio();
-      setError(joinErrors(formatError(transcriptionError), unmuteError));
+      setError(joinErrors(joinErrors(formatError(transcriptionError), coordinationError), unmuteError));
     } finally {
       setBusyMessage(null);
+    }
+  }
+
+  async function startRecordingCoordination(settings: AppSettings | null): Promise<void> {
+    if (!settings || settings.recordingCoordinationMode !== "sendHotkey") {
+      return;
+    }
+
+    await window.voxtype.windowsHelper.sendHotkey(settings.recordingStartHotkey);
+    recordingStopHotkeyRef.current = settings.recordingStopHotkey || settings.recordingStartHotkey;
+  }
+
+  async function stopRecordingCoordination(): Promise<string | null> {
+    const stopHotkey = recordingStopHotkeyRef.current;
+
+    if (!stopHotkey) {
+      return null;
+    }
+
+    recordingStopHotkeyRef.current = null;
+
+    try {
+      await window.voxtype.windowsHelper.sendHotkey(stopHotkey);
+      return null;
+    } catch (coordinationError) {
+      return `Failed to restore recording coordination: ${formatError(coordinationError)}`;
     }
   }
 
@@ -558,722 +630,743 @@ export function App(): JSX.Element {
   }
 
   return (
-    <main className="app-shell">
-      <section className="intro">
-        <div>
-          <p className="eyebrow">VoxType {version}</p>
-          <h1>Local dictation for real Windows work.</h1>
-          <p className="lede">
-            Record audio, run a local Whisper model, and prepare the transcript for insertion.
-            Press Ctrl+Alt+Space to start or stop dictation from any app.
-          </p>
+    <main className="dev-shell">
+      <header className="dev-toolbar">
+        <div className="app-title">VoxType Dev</div>
+        <div className="toolbar-status">
+          <span className={recording ? "status-dot status-dot-recording" : "status-dot"} />
+          <code>{appStatus}</code>
         </div>
-        <div className="status-panel" aria-label="Application status">
-          <span className={recording ? "status-dot recording-dot" : "status-dot"} />
-          <div>
-            <strong>{recording ? "Listening..." : busyMessage ?? "Ready for local dictation"}</strong>
-            <span>
-              {activeModel
-                ? `${activeModel.name} is selected. Ctrl+Alt+Space toggles recording.`
-                : "Choose a model below."}
-            </span>
-          </div>
+        <select
+          disabled={!state.settings}
+          value={state.settings?.activeModelId ?? ""}
+          onChange={(event) => void updateSettings({ activeModelId: event.target.value })}
+        >
+          <option value="">model</option>
+          {state.models.map((model) => (
+            <option key={model.id} value={model.id}>
+              {model.id}
+            </option>
+          ))}
+        </select>
+        <button disabled={Boolean(busyMessage) || recording} onClick={() => void startRecording()} type="button">
+          Start
+        </button>
+        <button disabled={!recording} onClick={() => void stopAndTranscribe()} type="button">
+          Stop
+        </button>
+        <code className="toolbar-code">{currentTarget?.processName ?? "target:none"}</code>
+        <code className="toolbar-code">{state.settings?.dictationToggleHotkey ?? "hotkey:none"}</code>
+        <button onClick={() => void refreshActiveWindow()} type="button">
+          Refresh
+        </button>
+      </header>
+
+      {error ? (
+        <div className="inline-error">
+          <code>error</code>
+          <span>{error}</span>
         </div>
-      </section>
+      ) : null}
 
-      {error ? <div className="error-banner">{error}</div> : null}
+      <nav className="dev-tabs" aria-label="Developer tabs">
+        {devTabs.map((tab) => (
+          <button
+            className={activeTab === tab.id ? "active" : ""}
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            type="button"
+          >
+            {tab.label}
+          </button>
+        ))}
+      </nav>
 
-      <section className="workspace-grid">
-        <section className="tool-panel" aria-label="Dictation">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Dictation</p>
-              <h2>Hotkey workflow</h2>
-            </div>
-          </div>
-
-          <div className="dictation-actions">
-            <button
-              className="primary-button"
-              disabled={Boolean(busyMessage) || recording}
-              onClick={() => void startRecording()}
-              type="button"
-            >
-              Start Recording
-            </button>
-            <button
-              className="secondary-button"
-              disabled={!recording}
-              onClick={() => void stopAndTranscribe()}
-              type="button"
-            >
-              Stop And Transcribe
-            </button>
-            <button
-              className="secondary-button"
-              disabled={!latestTranscript}
-              onClick={() => void copyLatestTranscript()}
-              type="button"
-            >
-              Copy Latest
-            </button>
-            <button
-              className="secondary-button"
-              disabled={!latestTranscript}
-              onClick={() => void pasteLatestTranscript()}
-              type="button"
-            >
-              Insert Into Active App
-            </button>
-          </div>
-
-          <div className="transcript-preview">
-            <span>Latest transcript</span>
-            <p>{latestTranscript?.text ?? "No transcript yet."}</p>
-          </div>
-
-          {lastRecordingResult?.vad ? (
-            <div className="vad-summary">
-              <span>Silero VAD</span>
-              <p>
-                {lastRecordingResult.vad.enabled
-                  ? `${lastRecordingResult.vad.speechSegments} speech segment${
-                      lastRecordingResult.vad.speechSegments === 1 ? "" : "s"
-                    } · ${formatDuration(lastRecordingResult.vad.trimmedDurationMs)} kept · ${formatDuration(
-                      lastRecordingResult.vad.removedDurationMs
-                    )} trimmed`
-                  : "Disabled for the last recording."}
-              </p>
-              {lastRecordingResult.vad.skippedReason ? (
-                <p>{lastRecordingResult.vad.skippedReason}</p>
+      <section className="dev-panel">
+        {activeTab === "dictation" ? (
+          <div className="dictation-layout">
+            <section className="panel-block">
+              <h2>control</h2>
+              <div className="button-row">
+                <button disabled={Boolean(busyMessage) || recording} onClick={() => void startRecording()} type="button">
+                  Start
+                </button>
+                <button disabled={!recording} onClick={() => void stopAndTranscribe()} type="button">
+                  Stop
+                </button>
+                <button disabled={!latestTranscript} onClick={() => void copyLatestTranscript()} type="button">
+                  Copy
+                </button>
+                <button disabled={!latestTranscript} onClick={() => void pasteLatestTranscript()} type="button">
+                  Insert
+                </button>
+              </div>
+              {state.settings ? (
+                <div className="form-grid compact">
+                  <label className="checkbox-field">
+                    <input
+                      checked={state.settings.vadEnabled}
+                      type="checkbox"
+                      onChange={(event) => void updateSettings({ vadEnabled: event.target.checked })}
+                    />
+                    VAD
+                  </label>
+                  <label className="checkbox-field">
+                    <input
+                      checked={state.settings.autoMuteSystemAudio}
+                      type="checkbox"
+                      onChange={(event) =>
+                        void updateSettings({ autoMuteSystemAudio: event.target.checked })
+                      }
+                    />
+                    mute
+                  </label>
+                  <label className="dev-field">
+                    <span>recorderCaptureMode</span>
+                    <select
+                      value={state.settings.recorderCaptureMode}
+                      onChange={(event) =>
+                        void updateSettings({
+                          recorderCaptureMode: event.target.value as RecorderCaptureMode
+                        })
+                      }
+                    >
+                      <option value="sharedCapture">sharedCapture</option>
+                      <option value="exclusiveCapturePreferred">exclusiveCapturePreferred</option>
+                      <option value="exclusiveCaptureRequired">exclusiveCaptureRequired</option>
+                    </select>
+                  </label>
+                  <label className="dev-field">
+                    <span>recordingCoordinationMode</span>
+                    <select
+                      value={state.settings.recordingCoordinationMode}
+                      onChange={(event) =>
+                        void updateSettings({
+                          recordingCoordinationMode:
+                            event.target.value as RecordingCoordinationMode
+                        })
+                      }
+                    >
+                      <option value="none">none</option>
+                      <option value="sendHotkey">sendHotkey</option>
+                    </select>
+                  </label>
+                  <label className="dev-field">
+                    <span>insertionMode</span>
+                    <select
+                      value={state.settings.insertionMode}
+                      onChange={(event) =>
+                        void updateSettings({ insertionMode: event.target.value as InsertionMode })
+                      }
+                    >
+                      <option value="clipboard">clipboard</option>
+                      <option value="keyboard">keyboard</option>
+                      <option value="chunked">chunked</option>
+                    </select>
+                  </label>
+                </div>
               ) : null}
-            </div>
-          ) : null}
-        </section>
+            </section>
 
-        <section className="tool-panel" aria-label="Models">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Models</p>
-              <h2>Whisper catalog</h2>
-            </div>
-          </div>
+            <section className="panel-block">
+              <h2>state</h2>
+              <dl className="kv-grid">
+                <dt>state</dt>
+                <dd>{appStatus}</dd>
+                <dt>model</dt>
+                <dd>{activeModel?.id ?? "none"}</dd>
+                <dt>runtime</dt>
+                <dd>{state.runtime ? `${state.runtime.version} ${state.runtime.backend}` : "none"}</dd>
+                <dt>helper</dt>
+                <dd>{state.windowsHelper?.available ? "available" : "unavailable"}</dd>
+                <dt>captureMode</dt>
+                <dd>{lastRecordingResult?.captureMode ?? state.settings?.recorderCaptureMode ?? "none"}</dd>
+                <dt>target</dt>
+                <dd>{currentTarget?.processName ?? "none"}</dd>
+                <dt>hwnd</dt>
+                <dd>{currentTarget?.hwnd ?? "none"}</dd>
+              </dl>
+            </section>
 
-          <div className="model-list">
-            {state.models.map((model) => (
-              <article className="model-row" key={model.id}>
-                <div>
-                  <strong>{model.name}</strong>
-                  <span>
-                    {model.language} · {model.sizeLabel} · {model.status}
-                  </span>
-                  <p>{model.description}</p>
-                </div>
-                <div className="model-actions">
-                  <button
-                    className="secondary-button"
-                    onClick={() => void updateSettings({ activeModelId: model.id })}
-                    type="button"
-                  >
-                    {state.settings?.activeModelId === model.id ? "Selected" : "Select"}
+            <section className="panel-block transcript-block">
+              <h2>latestTranscript</h2>
+              <pre>{latestTranscript?.text ?? "empty"}</pre>
+              {latestTranscript ? (
+                <div className="button-row">
+                  <button onClick={() => void copyLatestTranscript()} type="button">
+                    Copy
+                  </button>
+                  <button onClick={() => void pasteLatestTranscript()} type="button">
+                    Insert
                   </button>
                   <button
-                    className="secondary-button"
-                    disabled={model.status === "downloaded" || Boolean(busyMessage)}
-                    onClick={() => void downloadModel(model.id)}
+                    disabled={!latestTranscript.audioFileName}
+                    onClick={() => void playTranscriptAudio(latestTranscript)}
                     type="button"
                   >
-                    Download
+                    {playingTranscriptId === latestTranscript.id ? "Stop" : "Play"}
                   </button>
                 </div>
-              </article>
-            ))}
-          </div>
-        </section>
-      </section>
+              ) : null}
+            </section>
 
-      <section className="runtime-panel" aria-label="Whisper runtime">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">Runtime</p>
-            <h2>Managed whisper.cpp</h2>
-          </div>
-        </div>
+            <section className="panel-block">
+              <h2>vad</h2>
+              <dl className="kv-grid">
+                <dt>enabled</dt>
+                <dd>{String(lastRecordingResult?.vad.enabled ?? state.settings?.vadEnabled ?? false)}</dd>
+                <dt>speech</dt>
+                <dd>{String(lastRecordingResult?.vad.speechDetected ?? false)}</dd>
+                <dt>segments</dt>
+                <dd>{lastRecordingResult?.vad.speechSegments ?? 0}</dd>
+                <dt>originalMs</dt>
+                <dd>{lastRecordingResult?.vad.originalDurationMs ?? 0}</dd>
+                <dt>trimmedMs</dt>
+                <dd>{lastRecordingResult?.vad.trimmedDurationMs ?? 0}</dd>
+                <dt>removedMs</dt>
+                <dd>{lastRecordingResult?.vad.removedDurationMs ?? 0}</dd>
+              </dl>
+            </section>
 
-        {state.runtime ? (
-          <article className="runtime-card">
-            <div>
-              <strong>{state.runtime.name}</strong>
-              <span>
-                {state.runtime.version} · {state.runtime.backend} · {state.runtime.platform} ·{" "}
-                {state.runtime.status}
-              </span>
-              <p>
-                {state.runtime.executablePath
-                  ? state.runtime.executablePath
-                  : "Install the managed CPU runtime or set a custom executable path below."}
-              </p>
-            </div>
-            <button
-              className="secondary-button"
-              disabled={state.runtime.status === "installed" || Boolean(busyMessage)}
-              onClick={() => void installRuntime()}
-              type="button"
-            >
-              Install Runtime
-            </button>
-          </article>
+            <section className="panel-block log-block">
+              <h2>events</h2>
+              <pre>
+                {[
+                  `status=${appStatus}`,
+                  `model=${activeModel?.id ?? "none"}`,
+                  `target=${currentTarget?.processName ?? "none"}`,
+                  `history=${state.history.length}`,
+                  `dictionary=${state.dictionary.length}`,
+                  insertionTestResult ? `insertionTest=${insertionTestResult}` : null,
+                  lastRecordingResult
+                    ? `vad speech=${lastRecordingResult.vad.speechDetected} trimmed=${lastRecordingResult.vad.removedDurationMs}ms`
+                    : null
+                ]
+                  .filter(Boolean)
+                  .join("\n")}
+              </pre>
+            </section>
+          </div>
         ) : null}
-      </section>
 
-      <section className="windows-panel" aria-label="Windows integration">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">Windows</p>
-            <h2>Native helper</h2>
-          </div>
-          <button
-            className="secondary-button"
-            onClick={() => void refreshActiveWindow()}
-            type="button"
-          >
-            Refresh Active App
-          </button>
-        </div>
-
-        <article className="runtime-card">
-          <div>
-            <strong>
-              {state.windowsHelper?.available ? "Helper available" : "Helper unavailable"}
-            </strong>
-            <span>{state.windowsHelper?.helperPath ?? "Build the helper to enable Phase 2 APIs."}</span>
-            <p>
-              {state.activeWindow
-                ? `${state.activeWindow.processName ?? "Unknown process"} · ${state.activeWindow.title || "Untitled window"}`
-                : "Active-window details will appear here after refresh."}
-            </p>
-            {state.activeWindow?.processPath ? <p>{state.activeWindow.processPath}</p> : null}
-          </div>
-        </article>
-      </section>
-
-      <section className="insertion-test-panel" aria-label="Insertion tests">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">Insertion</p>
-            <h2>Test panel</h2>
-          </div>
-          <div className="test-actions">
-            <button
-              className="secondary-button"
-              onClick={() => void captureInsertionTarget()}
-              type="button"
-            >
-              Capture Target
-            </button>
-            <button
-              className="secondary-button"
-              disabled={!state.activeWindow}
-              onClick={() => void useDetectedAppAsInsertionTarget()}
-              type="button"
-            >
-              Use Detected App
-            </button>
-          </div>
-        </div>
-
-        <div className="insertion-test-grid">
-          <label className="field">
-            <span>Test text</span>
-            <textarea
-              rows={4}
-              value={insertionTestText}
-              onChange={(event) => setInsertionTestText(event.target.value)}
-            />
-          </label>
-
-          <article className="target-card">
-            <span>Captured target</span>
-            <strong>
-              {insertionTarget
-                ? insertionTarget.processName ?? "Unknown process"
-                : "No target captured"}
-            </strong>
-            <p>{insertionTarget?.title || "Capture a target app before testing insertion."}</p>
-            {insertionTarget ? (
-              <p>
-                Profile:{" "}
-                {profileForWindow(state.settings?.appProfiles ?? [], insertionTarget)
-                  ? `${insertionModeLabel(
-                      profileForWindow(state.settings?.appProfiles ?? [], insertionTarget)!
-                        .insertionMode
-                    )} · ${writingStyleLabel(
-                      profileForWindow(state.settings?.appProfiles ?? [], insertionTarget)!
-                        .writingStyle
-                    )}`
-                  : "not created yet"}
-              </p>
-            ) : null}
-            {insertionTarget?.processPath ? <p>{insertionTarget.processPath}</p> : null}
-          </article>
-        </div>
-
-        <div className="test-actions">
-          <button
-            className="secondary-button"
-            disabled={!insertionTarget || Boolean(busyMessage)}
-            onClick={() => void runInsertionTest("clipboard")}
-            type="button"
-          >
-            Test Clipboard Paste
-          </button>
-          <button
-            className="secondary-button"
-            disabled={!insertionTarget || Boolean(busyMessage)}
-            onClick={() => void runInsertionTest("keyboard")}
-            type="button"
-          >
-            Test Unicode Typing
-          </button>
-          <button
-            className="secondary-button"
-            disabled={!insertionTarget || Boolean(busyMessage)}
-            onClick={() => void runInsertionTest("chunked")}
-            type="button"
-          >
-            Test Chunked Typing
-          </button>
-        </div>
-
-        {insertionTestResult ? (
-          <p className="settings-note">{insertionTestResult}</p>
-        ) : null}
-      </section>
-
-      {state.settings ? (
-        <section className="profiles-panel" aria-label="App profiles">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Profiles</p>
-              <h2>Per-app behavior</h2>
-            </div>
-          </div>
-
-          <div className="profile-list">
-            {state.settings.appProfiles.length === 0 ? (
-              <p className="empty-state">
-                Profiles appear automatically after VoxType detects target apps.
-              </p>
-            ) : (
-              state.settings.appProfiles.map((profile) => (
-                <article className="profile-row" key={profile.id}>
-                  <div>
-                    <strong>{profile.displayName}</strong>
-                    <span>{profile.processName}</span>
-                    {profile.processPath ? <p>{profile.processPath}</p> : null}
-                  </div>
-
-                  <label className="field compact-field">
-                    <span>Insertion</span>
-                    <select
-                      value={profile.insertionMode}
-                      onChange={(event) =>
-                        void updateAppProfile(profile, {
-                          insertionMode: event.target.value as InsertionMode
-                        })
-                      }
-                    >
-                      <option value="clipboard">Clipboard paste</option>
-                      <option value="keyboard">Unicode typing</option>
-                      <option value="chunked">Chunked typing</option>
-                    </select>
-                  </label>
-
-                  <label className="field compact-field">
-                    <span>Style</span>
-                    <select
-                      value={profile.writingStyle}
-                      onChange={(event) =>
-                        void updateAppProfile(profile, {
-                          writingStyle: event.target.value as AppProfile["writingStyle"]
-                        })
-                      }
-                    >
-                      <option value="default">Default</option>
-                      <option value="chat">Chat</option>
-                      <option value="professional">Professional</option>
-                    </select>
-                  </label>
-                </article>
-              ))
-            )}
-          </div>
-        </section>
-      ) : null}
-
-      {state.settings ? (
-        <section className="settings-panel" aria-label="VoxType settings">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">Settings</p>
-              <h2>Local app settings</h2>
-            </div>
-          </div>
-
-          <div className="settings-grid">
-            <label className="field">
-              <span>Whisper executable path</span>
-              <input
-                placeholder="whisper-cli or C:\\path\\to\\whisper-cli.exe"
-                value={state.settings.whisperExecutablePath}
-                onChange={(event) =>
-                  void updateSettings({ whisperExecutablePath: event.target.value })
-                }
-              />
-            </label>
-
-            <label className="field">
-              <span>Model directory</span>
-              <input
-                value={state.settings.modelDirectory}
-                onChange={(event) => void updateSettings({ modelDirectory: event.target.value })}
-              />
-            </label>
-
-            <label className="field">
-              <span>Insertion mode</span>
-              <select
-                value={state.settings.insertionMode}
-                onChange={(event) =>
-                  void updateSettings({ insertionMode: event.target.value as InsertionMode })
-                }
-              >
-                <option value="clipboard">Clipboard paste</option>
-                <option value="keyboard">Keyboard emulation</option>
-                <option value="chunked">Remote-safe chunked typing</option>
-              </select>
-            </label>
-
-            <label className="field">
-              <span>Dictation hotkey</span>
-              <button
-                className="hotkey-capture-button"
-                onClick={() => setCapturingHotkey("dictationToggleHotkey")}
-                type="button"
-              >
-                {capturingHotkey === "dictationToggleHotkey"
-                  ? "Press a key combination..."
-                  : state.settings.dictationToggleHotkey}
-              </button>
-            </label>
-
-            <label className="field">
-              <span>Show VoxType hotkey</span>
-              <button
-                className="hotkey-capture-button"
-                onClick={() => setCapturingHotkey("showWindowHotkey")}
-                type="button"
-              >
-                {capturingHotkey === "showWindowHotkey"
-                  ? "Press a key combination..."
-                  : state.settings.showWindowHotkey}
-              </button>
-            </label>
-
-            <label className="field">
-              <span>Remote typing delay</span>
-              <input
-                max={1000}
-                min={0}
-                type="number"
-                value={state.settings.remoteTypingDelayMs}
-                onChange={(event) =>
-                  void updateSettings({ remoteTypingDelayMs: Number(event.target.value) })
-                }
-              />
-            </label>
-
-            <label className="field">
-              <span>Remote typing chunk size</span>
-              <input
-                max={250}
-                min={1}
-                type="number"
-                value={state.settings.remoteTypingChunkSize}
-                onChange={(event) =>
-                  void updateSettings({ remoteTypingChunkSize: Number(event.target.value) })
-                }
-              />
-            </label>
-
-            <label className="toggle">
-              <input
-                checked={state.settings.restoreClipboard}
-                type="checkbox"
-                onChange={(event) =>
-                  void updateSettings({ restoreClipboard: event.target.checked })
-                }
-              />
-              <span>Restore clipboard after paste insertion</span>
-            </label>
-
-            <label className="toggle">
-              <input
-                checked={state.settings.offlineMode}
-                type="checkbox"
-                onChange={(event) => void updateSettings({ offlineMode: event.target.checked })}
-              />
-              <span>Offline mode after models are installed</span>
-            </label>
-
-            <label className="toggle">
-              <input
-                checked={state.settings.autoMuteSystemAudio}
-                type="checkbox"
-                onChange={(event) =>
-                  void updateSettings({ autoMuteSystemAudio: event.target.checked })
-                }
-              />
-              <span>Mute system audio while recording</span>
-            </label>
-
-            <label className="toggle">
-              <input
-                checked={state.settings.vadEnabled}
-                type="checkbox"
-                onChange={(event) => void updateSettings({ vadEnabled: event.target.checked })}
-              />
-              <span>Trim silence with Silero VAD before transcription</span>
-            </label>
-
-            <label className="field">
-              <span>VAD speech threshold</span>
-              <input
-                max={0.95}
-                min={0.05}
-                step={0.05}
-                type="number"
-                value={state.settings.vadPositiveSpeechThreshold}
-                onChange={(event) =>
-                  void updateSettings({
-                    vadPositiveSpeechThreshold: Number(event.target.value)
-                  })
-                }
-              />
-            </label>
-
-            <label className="field">
-              <span>VAD silence threshold</span>
-              <input
-                max={0.9}
-                min={0.01}
-                step={0.05}
-                type="number"
-                value={state.settings.vadNegativeSpeechThreshold}
-                onChange={(event) =>
-                  void updateSettings({
-                    vadNegativeSpeechThreshold: Number(event.target.value)
-                  })
-                }
-              />
-            </label>
-
-            <label className="field">
-              <span>Minimum speech ms</span>
-              <input
-                max={5000}
-                min={50}
-                type="number"
-                value={state.settings.vadMinSpeechMs}
-                onChange={(event) =>
-                  void updateSettings({ vadMinSpeechMs: Number(event.target.value) })
-                }
-              />
-            </label>
-
-            <label className="field">
-              <span>Pre-roll ms</span>
-              <input
-                max={1000}
-                min={0}
-                type="number"
-                value={state.settings.vadPreSpeechPadMs}
-                onChange={(event) =>
-                  void updateSettings({ vadPreSpeechPadMs: Number(event.target.value) })
-                }
-              />
-            </label>
-
-          </div>
-          <p className="settings-note">
-            Registered hotkeys: dictation{" "}
-            {state.hotkeys?.dictationToggleHotkey ?? "not registered"}, show window{" "}
-            {state.hotkeys?.showWindowHotkey ?? "not registered"}.
-            Silero VAD trims leading and trailing non-speech before Whisper; it does not stop
-            recording or cut internal pauses.
-          </p>
-        </section>
-      ) : null}
-
-      <section className="dictionary-panel" aria-label="Dictionary and corrections">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">Dictionary</p>
-            <h2>Words and corrections</h2>
-          </div>
-        </div>
-
-        <div className="dictionary-grid">
-          <section className="dictionary-editor" aria-label="Add dictionary entry">
-            <label className="field">
-              <span>Preferred text</span>
-              <input
-                placeholder="Docker Compose"
-                value={dictionaryPreferred}
-                onChange={(event) => setDictionaryPreferred(event.target.value)}
-              />
-            </label>
-
-            <label className="field">
-              <span>Misheard phrases</span>
-              <textarea
-                placeholder="dock her compose, docker composed"
-                rows={3}
-                value={dictionaryMatches}
-                onChange={(event) => setDictionaryMatches(event.target.value)}
-              />
-            </label>
-
-            <div className="dictionary-controls">
-              <label className="field">
-                <span>Category</span>
-                <input
-                  value={dictionaryCategory}
-                  onChange={(event) => setDictionaryCategory(event.target.value)}
-                />
-              </label>
-
-              <label className="field">
-                <span>App scope</span>
-                <select
-                  value={dictionaryAppProcess}
-                  onChange={(event) => setDictionaryAppProcess(event.target.value)}
-                >
-                  <option value="">All apps</option>
-                  {state.settings?.appProfiles.map((profile) => (
-                    <option key={profile.id} value={profile.processName}>
-                      {profile.displayName}
-                    </option>
+        {activeTab === "models" ? (
+          <div className="stack">
+            <section className="panel-block">
+              <h2>models</h2>
+              <table>
+                <thead>
+                  <tr>
+                    <th>id</th>
+                    <th>name</th>
+                    <th>size</th>
+                    <th>status</th>
+                    <th>path</th>
+                    <th>action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {state.models.map((model) => (
+                    <tr key={model.id}>
+                      <td><code>{model.id}</code></td>
+                      <td>{model.name}</td>
+                      <td>{model.sizeLabel}</td>
+                      <td>{state.settings?.activeModelId === model.id ? "selected" : model.status}</td>
+                      <td><code>{model.localPath}</code></td>
+                      <td>
+                        <div className="table-actions">
+                          <button onClick={() => void updateSettings({ activeModelId: model.id })} type="button">
+                            Select
+                          </button>
+                          <button
+                            disabled={model.status === "downloaded" || Boolean(busyMessage)}
+                            onClick={() => void downloadModel(model.id)}
+                            type="button"
+                          >
+                            Download
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
                   ))}
-                </select>
-              </label>
-            </div>
+                </tbody>
+              </table>
+            </section>
 
-            <button
-              className="primary-button"
-              disabled={!dictionaryPreferred.trim()}
-              onClick={() => void addDictionaryEntry()}
-              type="button"
-            >
-              Add Entry
-            </button>
+            <section className="panel-block">
+              <h2>runtime</h2>
+              <table>
+                <tbody>
+                  <tr>
+                    <th>name</th>
+                    <td>{state.runtime?.name ?? "none"}</td>
+                    <th>version</th>
+                    <td>{state.runtime?.version ?? "none"}</td>
+                    <th>status</th>
+                    <td>{state.runtime?.status ?? "none"}</td>
+                    <td>
+                      <button
+                        disabled={state.runtime?.status === "installed" || Boolean(busyMessage)}
+                        onClick={() => void installRuntime()}
+                        type="button"
+                      >
+                        Install
+                      </button>
+                    </td>
+                  </tr>
+                  <tr>
+                    <th>exe</th>
+                    <td colSpan={6}><code>{state.runtime?.executablePath ?? "none"}</code></td>
+                  </tr>
+                </tbody>
+              </table>
+            </section>
+          </div>
+        ) : null}
+
+        {activeTab === "insertion" ? (
+          <div className="stack">
+            <section className="panel-block">
+              <h2>target</h2>
+              <dl className="kv-grid wide">
+                <dt>process</dt>
+                <dd>{currentTarget?.processName ?? "none"}</dd>
+                <dt>title</dt>
+                <dd>{currentTarget?.title ?? "none"}</dd>
+                <dt>hwnd</dt>
+                <dd>{currentTarget?.hwnd ?? "none"}</dd>
+                <dt>path</dt>
+                <dd>{currentTarget?.processPath ?? "none"}</dd>
+              </dl>
+              <div className="button-row">
+                <button onClick={() => void captureInsertionTarget()} type="button">Capture</button>
+                <button disabled={!state.activeWindow} onClick={() => void useDetectedAppAsInsertionTarget()} type="button">
+                  UseActive
+                </button>
+                <button disabled={!insertionTarget || Boolean(busyMessage)} onClick={() => void runInsertionTest("clipboard")} type="button">
+                  TestClipboard
+                </button>
+                <button disabled={!insertionTarget || Boolean(busyMessage)} onClick={() => void runInsertionTest("keyboard")} type="button">
+                  TestKeyboard
+                </button>
+                <button disabled={!insertionTarget || Boolean(busyMessage)} onClick={() => void runInsertionTest("chunked")} type="button">
+                  TestChunked
+                </button>
+              </div>
+            </section>
+
+            <section className="panel-block">
+              <h2>payload</h2>
+              <textarea value={insertionTestText} onChange={(event) => setInsertionTestText(event.target.value)} />
+              <div className="result-row">
+                <code>result</code>
+                <span>{insertionTestResult ?? "none"}</span>
+              </div>
+            </section>
+          </div>
+        ) : null}
+
+        {activeTab === "profiles" ? (
+          <section className="panel-block">
+            <h2>profiles</h2>
+            <table>
+              <thead>
+                <tr>
+                  <th>app</th>
+                  <th>process</th>
+                  <th>path</th>
+                  <th>insertion</th>
+                  <th>style</th>
+                </tr>
+              </thead>
+              <tbody>
+                {state.settings?.appProfiles.length ? (
+                  state.settings.appProfiles.map((profile) => (
+                    <tr key={profile.id}>
+                      <td>{profile.displayName}</td>
+                      <td><code>{profile.processName}</code></td>
+                      <td><code>{profile.processPath ?? "none"}</code></td>
+                      <td>
+                        <select
+                          value={profile.insertionMode}
+                          onChange={(event) =>
+                            void updateAppProfile(profile, {
+                              insertionMode: event.target.value as InsertionMode
+                            })
+                          }
+                        >
+                          <option value="clipboard">clipboard</option>
+                          <option value="keyboard">keyboard</option>
+                          <option value="chunked">chunked</option>
+                        </select>
+                      </td>
+                      <td>
+                        <select
+                          value={profile.writingStyle}
+                          onChange={(event) =>
+                            void updateAppProfile(profile, {
+                              writingStyle: event.target.value as AppProfile["writingStyle"]
+                            })
+                          }
+                        >
+                          <option value="default">default</option>
+                          <option value="chat">chat</option>
+                          <option value="professional">professional</option>
+                        </select>
+                      </td>
+                    </tr>
+                  ))
+                ) : (
+                  <tr>
+                    <td colSpan={5}>empty</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </section>
+        ) : null}
 
-          <section className="dictionary-editor" aria-label="Fix latest dictation">
-            <label className="field">
-              <span>Correct latest transcript</span>
+        {activeTab === "dictionary" ? (
+          <div className="split-layout">
+            <section className="panel-block">
+              <h2>entry</h2>
+              <div className="form-grid">
+                <label className="dev-field">
+                  <span>preferred</span>
+                  <input value={dictionaryPreferred} onChange={(event) => setDictionaryPreferred(event.target.value)} />
+                </label>
+                <label className="dev-field">
+                  <span>matches</span>
+                  <textarea value={dictionaryMatches} onChange={(event) => setDictionaryMatches(event.target.value)} />
+                </label>
+                <label className="dev-field">
+                  <span>category</span>
+                  <input value={dictionaryCategory} onChange={(event) => setDictionaryCategory(event.target.value)} />
+                </label>
+                <label className="dev-field">
+                  <span>scope</span>
+                  <select value={dictionaryAppProcess} onChange={(event) => setDictionaryAppProcess(event.target.value)}>
+                    <option value="">all</option>
+                    {state.settings?.appProfiles.map((profile) => (
+                      <option key={profile.id} value={profile.processName}>
+                        {profile.processName}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div className="button-row">
+                <button disabled={!dictionaryPreferred.trim()} onClick={() => void addDictionaryEntry()} type="button">
+                  Save
+                </button>
+              </div>
+
+              <h2>fixLatest</h2>
               <textarea
                 disabled={!latestTranscript}
-                placeholder={latestTranscript?.text ?? "No transcript yet."}
-                rows={5}
                 value={fixLastText}
                 onChange={(event) => setFixLastText(event.target.value)}
               />
-            </label>
+              <div className="button-row">
+                <button
+                  disabled={!latestTranscript || !fixLastText.trim()}
+                  onClick={() => void learnFixLastDictation()}
+                  type="button"
+                >
+                  SaveCorrection
+                </button>
+              </div>
+            </section>
 
-            <button
-              className="secondary-button"
-              disabled={!latestTranscript || !fixLastText.trim()}
-              onClick={() => void learnFixLastDictation()}
-              type="button"
-            >
-              Save Correction
-            </button>
-          </section>
-        </div>
-
-        <div className="dictionary-list">
-          {state.dictionary.length === 0 ? (
-            <p className="empty-state">Dictionary entries and learned corrections will appear here.</p>
-          ) : (
-            state.dictionary.map((entry) => (
-              <article className="dictionary-row" key={entry.id}>
-                <div>
-                  <strong>{entry.preferred}</strong>
-                  <span>
-                    {entry.category} · {entry.source} ·{" "}
-                    {entry.appProcessName ?? "all apps"}
-                  </span>
-                  <p>
-                    {entry.matches.length > 0
-                      ? entry.matches.join(", ")
-                      : "No replacement phrases yet."}
-                  </p>
-                </div>
-                <div className="test-actions">
-                  <button
-                    className="secondary-button"
-                    onClick={() => void toggleDictionaryEntry(entry)}
-                    type="button"
-                  >
-                    {entry.enabled ? "Disable" : "Enable"}
-                  </button>
-                  <button
-                    className="secondary-button"
-                    onClick={() => void removeDictionaryEntry(entry)}
-                    type="button"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </article>
-            ))
-          )}
-        </div>
-      </section>
-
-      <section className="history-panel" aria-label="Transcript history">
-        <div className="section-heading">
-          <div>
-            <p className="eyebrow">History</p>
-            <h2>Recent transcripts</h2>
+            <section className="panel-block">
+              <h2>dictionary</h2>
+              <table>
+                <thead>
+                  <tr>
+                    <th>preferred</th>
+                    <th>source</th>
+                    <th>category</th>
+                    <th>scope</th>
+                    <th>enabled</th>
+                    <th>actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {state.dictionary.length ? (
+                    state.dictionary.map((entry) => (
+                      <tr key={entry.id}>
+                        <td>{entry.preferred}</td>
+                        <td>{entry.source}</td>
+                        <td>{entry.category}</td>
+                        <td><code>{entry.appProcessName ?? "all"}</code></td>
+                        <td>{String(entry.enabled)}</td>
+                        <td>
+                          <div className="table-actions">
+                            <button onClick={() => void toggleDictionaryEntry(entry)} type="button">
+                              {entry.enabled ? "Disable" : "Enable"}
+                            </button>
+                            <button onClick={() => void removeDictionaryEntry(entry)} type="button">
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={6}>empty</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </section>
           </div>
-        </div>
+        ) : null}
 
-        <div className="history-list">
-          {state.history.length === 0 ? (
-            <p className="empty-state">Transcripts will appear here after local Whisper runs.</p>
-          ) : (
-            state.history.map((entry) => (
-              <article className="history-row" key={entry.id}>
-                <div>
-                  <div className="history-row-header">
-                    <span>{new Date(entry.createdAt).toLocaleString()}</span>
-                    <button
-                      className="secondary-button compact-button"
-                      disabled={!entry.audioFileName}
-                      onClick={() => void playTranscriptAudio(entry)}
-                      type="button"
-                    >
-                      {playingTranscriptId === entry.id ? "Stop" : "Play Audio"}
-                    </button>
-                  </div>
-                  <p>{entry.text}</p>
-                </div>
-              </article>
-            ))
-          )}
-        </div>
+        {activeTab === "settings" && state.settings ? (
+          <section className="panel-block">
+            <h2>settings</h2>
+            <div className="settings-form">
+              <label className="dev-field wide">
+                <span>whisperExecutablePath</span>
+                <input
+                  value={state.settings.whisperExecutablePath}
+                  onChange={(event) => void updateSettings({ whisperExecutablePath: event.target.value })}
+                />
+              </label>
+              <label className="dev-field wide">
+                <span>modelDirectory</span>
+                <input
+                  value={state.settings.modelDirectory}
+                  onChange={(event) => void updateSettings({ modelDirectory: event.target.value })}
+                />
+              </label>
+              <label className="dev-field">
+                <span>insertionMode</span>
+                <select
+                  value={state.settings.insertionMode}
+                  onChange={(event) =>
+                    void updateSettings({ insertionMode: event.target.value as InsertionMode })
+                  }
+                >
+                  <option value="clipboard">clipboard</option>
+                  <option value="keyboard">keyboard</option>
+                  <option value="chunked">chunked</option>
+                </select>
+              </label>
+              <label className="dev-field">
+                <span>recorderCaptureMode</span>
+                <select
+                  value={state.settings.recorderCaptureMode}
+                  onChange={(event) =>
+                    void updateSettings({
+                      recorderCaptureMode: event.target.value as RecorderCaptureMode
+                    })
+                  }
+                >
+                  <option value="sharedCapture">sharedCapture</option>
+                  <option value="exclusiveCapturePreferred">exclusiveCapturePreferred</option>
+                  <option value="exclusiveCaptureRequired">exclusiveCaptureRequired</option>
+                </select>
+              </label>
+              <label className="dev-field">
+                <span>recordingCoordinationMode</span>
+                <select
+                  value={state.settings.recordingCoordinationMode}
+                  onChange={(event) =>
+                    void updateSettings({
+                      recordingCoordinationMode: event.target.value as RecordingCoordinationMode
+                    })
+                  }
+                >
+                  <option value="none">none</option>
+                  <option value="sendHotkey">sendHotkey</option>
+                </select>
+              </label>
+              <label className="dev-field">
+                <span>recordingStartHotkey</span>
+                <button onClick={() => setCapturingHotkey("recordingStartHotkey")} type="button">
+                  {capturingHotkey === "recordingStartHotkey"
+                    ? "capture..."
+                    : state.settings.recordingStartHotkey || "unset"}
+                </button>
+              </label>
+              <label className="dev-field">
+                <span>recordingStopHotkey</span>
+                <button onClick={() => setCapturingHotkey("recordingStopHotkey")} type="button">
+                  {capturingHotkey === "recordingStopHotkey"
+                    ? "capture..."
+                    : state.settings.recordingStopHotkey || "same as start"}
+                </button>
+              </label>
+              <label className="dev-field">
+                <span>dictationToggleHotkey</span>
+                <button onClick={() => setCapturingHotkey("dictationToggleHotkey")} type="button">
+                  {capturingHotkey === "dictationToggleHotkey"
+                    ? "capture..."
+                    : state.settings.dictationToggleHotkey}
+                </button>
+              </label>
+              <label className="dev-field">
+                <span>showWindowHotkey</span>
+                <button onClick={() => setCapturingHotkey("showWindowHotkey")} type="button">
+                  {capturingHotkey === "showWindowHotkey" ? "capture..." : state.settings.showWindowHotkey}
+                </button>
+              </label>
+              <label className="dev-field">
+                <span>remoteTypingDelayMs</span>
+                <input
+                  max={1000}
+                  min={0}
+                  type="number"
+                  value={state.settings.remoteTypingDelayMs}
+                  onChange={(event) => void updateSettings({ remoteTypingDelayMs: Number(event.target.value) })}
+                />
+              </label>
+              <label className="dev-field">
+                <span>remoteTypingChunkSize</span>
+                <input
+                  max={250}
+                  min={1}
+                  type="number"
+                  value={state.settings.remoteTypingChunkSize}
+                  onChange={(event) => void updateSettings({ remoteTypingChunkSize: Number(event.target.value) })}
+                />
+              </label>
+              <label className="dev-field">
+                <span>vadPositiveSpeechThreshold</span>
+                <input
+                  max={0.95}
+                  min={0.05}
+                  step={0.05}
+                  type="number"
+                  value={state.settings.vadPositiveSpeechThreshold}
+                  onChange={(event) =>
+                    void updateSettings({ vadPositiveSpeechThreshold: Number(event.target.value) })
+                  }
+                />
+              </label>
+              <label className="dev-field">
+                <span>vadNegativeSpeechThreshold</span>
+                <input
+                  max={0.9}
+                  min={0.01}
+                  step={0.05}
+                  type="number"
+                  value={state.settings.vadNegativeSpeechThreshold}
+                  onChange={(event) =>
+                    void updateSettings({ vadNegativeSpeechThreshold: Number(event.target.value) })
+                  }
+                />
+              </label>
+              <label className="dev-field">
+                <span>vadMinSpeechMs</span>
+                <input
+                  max={5000}
+                  min={50}
+                  type="number"
+                  value={state.settings.vadMinSpeechMs}
+                  onChange={(event) => void updateSettings({ vadMinSpeechMs: Number(event.target.value) })}
+                />
+              </label>
+              <label className="dev-field">
+                <span>vadPreSpeechPadMs</span>
+                <input
+                  max={1000}
+                  min={0}
+                  type="number"
+                  value={state.settings.vadPreSpeechPadMs}
+                  onChange={(event) => void updateSettings({ vadPreSpeechPadMs: Number(event.target.value) })}
+                />
+              </label>
+              <label className="checkbox-field">
+                <input
+                  checked={state.settings.restoreClipboard}
+                  type="checkbox"
+                  onChange={(event) => void updateSettings({ restoreClipboard: event.target.checked })}
+                />
+                restoreClipboard
+              </label>
+              <label className="checkbox-field">
+                <input
+                  checked={state.settings.offlineMode}
+                  type="checkbox"
+                  onChange={(event) => void updateSettings({ offlineMode: event.target.checked })}
+                />
+                offlineMode
+              </label>
+              <label className="checkbox-field">
+                <input
+                  checked={state.settings.autoMuteSystemAudio}
+                  type="checkbox"
+                  onChange={(event) => void updateSettings({ autoMuteSystemAudio: event.target.checked })}
+                />
+                autoMuteSystemAudio
+              </label>
+              <label className="checkbox-field">
+                <input
+                  checked={state.settings.vadEnabled}
+                  type="checkbox"
+                  onChange={(event) => void updateSettings({ vadEnabled: event.target.checked })}
+                />
+                vadEnabled
+              </label>
+            </div>
+            <div className="result-row">
+              <code>hotkeys</code>
+              <span>
+                dictation={state.hotkeys?.dictationToggleHotkey ?? "none"} show=
+                {state.hotkeys?.showWindowHotkey ?? "none"}
+              </span>
+            </div>
+          </section>
+        ) : null}
+
+        {activeTab === "logs" ? (
+          <section className="panel-block">
+            <h2>logs</h2>
+            <div className="button-row">
+              <button type="button">All</button>
+              <button type="button">Clear</button>
+              <button type="button">Export</button>
+            </div>
+            <table>
+              <thead>
+                <tr>
+                  <th>level</th>
+                  <th>subsystem</th>
+                  <th>message</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>info</td>
+                  <td>app</td>
+                  <td><code>version={version}</code></td>
+                </tr>
+                <tr>
+                  <td>info</td>
+                  <td>state</td>
+                  <td><code>status={appStatus}</code></td>
+                </tr>
+                <tr>
+                  <td>info</td>
+                  <td>model</td>
+                  <td><code>active={activeModel?.id ?? "none"}</code></td>
+                </tr>
+                <tr>
+                  <td>info</td>
+                  <td>windows</td>
+                  <td><code>target={currentTarget?.processName ?? "none"}</code></td>
+                </tr>
+                <tr>
+                  <td>{error ? "error" : "info"}</td>
+                  <td>error</td>
+                  <td><code>{error ?? "none"}</code></td>
+                </tr>
+              </tbody>
+            </table>
+          </section>
+        ) : null}
       </section>
     </main>
   );

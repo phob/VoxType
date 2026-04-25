@@ -14,11 +14,14 @@ fn main() {
         "active-window" => active_window_json(),
         "focus-window" => focus_window_from_arg(),
         "set-system-mute" => set_system_mute_from_arg(),
+        "send-hotkey" => send_hotkey_from_arg(),
+        "mute-capture-session" => mute_capture_session_from_args(),
+        "restore-capture-session" => restore_capture_session_from_stdin(),
         "record-wav" => record_wav_from_args(),
         "paste-text" => paste_text_from_stdin(),
         "type-text" => type_text_from_stdin(),
         "help" | "--help" | "-h" => {
-            println!("Usage: voxtype-windows-helper active-window | focus-window <hwnd> | set-system-mute <true|false> | record-wav <output.wav> | paste-text | type-text [delay-ms]");
+            println!("Usage: voxtype-windows-helper active-window | focus-window <hwnd> | set-system-mute <true|false> | send-hotkey <accelerator> | mute-capture-session <process-id> [process-name] | restore-capture-session | record-wav <output.wav> [--capture-mode shared|exclusive-preferred|exclusive-required] | paste-text | type-text [delay-ms]");
             Ok(())
         }
         _ => Err(format!("Unknown command: {command}")),
@@ -38,12 +41,96 @@ fn record_wav_from_args() -> Result<(), String> {
     let output_path = env::args()
         .nth(2)
         .ok_or_else(|| "record-wav requires an output path.".to_string())?;
-    windows_impl::record_wav_until_stdin_stop(&output_path, NativeVadConfig::from_args()?)
+    let options = NativeRecordingConfig::from_args()?;
+    windows_impl::record_wav_until_stdin_stop(&output_path, options)
 }
 
 #[cfg(not(windows))]
 fn record_wav_from_args() -> Result<(), String> {
     Err("record-wav is only supported on Windows.".to_string())
+}
+
+#[derive(Clone)]
+struct NativeRecordingConfig {
+    capture_mode: CaptureMode,
+    vad: NativeVadConfig,
+}
+
+impl NativeRecordingConfig {
+    fn from_args() -> Result<Self, String> {
+        let args = env::args().skip(3).collect::<Vec<_>>();
+        let mut capture_mode = CaptureMode::Shared;
+        let mut vad_config = NativeVadConfig::default();
+        let mut index = 0;
+
+        while index < args.len() {
+            match args[index].as_str() {
+                "--capture-mode" => {
+                    index += 1;
+                    capture_mode = CaptureMode::from_arg(
+                        args.get(index)
+                            .ok_or_else(|| "--capture-mode requires a value.".to_string())?,
+                    )?;
+                }
+                "--vad-model" => {
+                    index += 1;
+                    vad_config.enabled = true;
+                    vad_config.model_path = args.get(index).cloned();
+                }
+                "--vad-threshold" => {
+                    index += 1;
+                    vad_config.threshold = args
+                        .get(index)
+                        .ok_or_else(|| "--vad-threshold requires a value.".to_string())?
+                        .parse::<f32>()
+                        .map_err(|error| format!("Invalid --vad-threshold: {error}"))?;
+                }
+                "--vad-prefill-frames" => {
+                    index += 1;
+                    vad_config.prefill_frames =
+                        parse_usize_arg(&args, index, "--vad-prefill-frames")?;
+                }
+                "--vad-hangover-frames" => {
+                    index += 1;
+                    vad_config.hangover_frames =
+                        parse_usize_arg(&args, index, "--vad-hangover-frames")?;
+                }
+                "--vad-onset-frames" => {
+                    index += 1;
+                    vad_config.onset_frames = parse_usize_arg(&args, index, "--vad-onset-frames")?;
+                }
+                option => return Err(format!("Unknown record-wav option: {option}")),
+            }
+            index += 1;
+        }
+
+        if vad_config.enabled && vad_config.model_path.is_none() {
+            return Err("--vad-model requires a model path.".to_string());
+        }
+
+        Ok(Self {
+            capture_mode,
+            vad: vad_config,
+        })
+    }
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum CaptureMode {
+    Shared,
+    ExclusivePreferred,
+    ExclusiveRequired,
+}
+
+impl CaptureMode {
+    fn from_arg(value: &str) -> Result<Self, String> {
+        match value {
+            "shared" => Ok(Self::Shared),
+            "exclusive-preferred" => Ok(Self::ExclusivePreferred),
+            "exclusive-required" => Ok(Self::ExclusiveRequired),
+            _ => Err("capture mode must be shared, exclusive-preferred, or exclusive-required.".to_string()),
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -56,58 +143,16 @@ struct NativeVadConfig {
     onset_frames: usize,
 }
 
-impl NativeVadConfig {
-    fn from_args() -> Result<Self, String> {
-        let args = env::args().skip(3).collect::<Vec<_>>();
-        let mut config = Self {
+impl Default for NativeVadConfig {
+    fn default() -> Self {
+        Self {
             enabled: false,
             model_path: None,
             threshold: 0.3,
             prefill_frames: 15,
             hangover_frames: 15,
             onset_frames: 2,
-        };
-        let mut index = 0;
-
-        while index < args.len() {
-            match args[index].as_str() {
-                "--vad-model" => {
-                    index += 1;
-                    config.enabled = true;
-                    config.model_path = args.get(index).cloned();
-                }
-                "--vad-threshold" => {
-                    index += 1;
-                    config.threshold = args
-                        .get(index)
-                        .ok_or_else(|| "--vad-threshold requires a value.".to_string())?
-                        .parse::<f32>()
-                        .map_err(|error| format!("Invalid --vad-threshold: {error}"))?;
-                }
-                "--vad-prefill-frames" => {
-                    index += 1;
-                    config.prefill_frames =
-                        parse_usize_arg(&args, index, "--vad-prefill-frames")?;
-                }
-                "--vad-hangover-frames" => {
-                    index += 1;
-                    config.hangover_frames =
-                        parse_usize_arg(&args, index, "--vad-hangover-frames")?;
-                }
-                "--vad-onset-frames" => {
-                    index += 1;
-                    config.onset_frames = parse_usize_arg(&args, index, "--vad-onset-frames")?;
-                }
-                option => return Err(format!("Unknown record-wav option: {option}")),
-            }
-            index += 1;
         }
-
-        if config.enabled && config.model_path.is_none() {
-            return Err("--vad-model requires a model path.".to_string());
-        }
-
-        Ok(config)
     }
 }
 
@@ -196,6 +241,56 @@ fn set_system_mute_from_arg() -> Result<(), String> {
     windows_impl::set_system_mute(muted)
 }
 
+#[cfg(windows)]
+fn send_hotkey_from_arg() -> Result<(), String> {
+    let accelerator = env::args()
+        .nth(2)
+        .ok_or_else(|| "send-hotkey requires an accelerator.".to_string())?;
+    windows_impl::send_hotkey(&accelerator)
+}
+
+#[cfg(not(windows))]
+fn send_hotkey_from_arg() -> Result<(), String> {
+    Err("send-hotkey is only supported on Windows.".to_string())
+}
+
+#[cfg(windows)]
+fn mute_capture_session_from_args() -> Result<(), String> {
+    let process_id = env::args()
+        .nth(2)
+        .ok_or_else(|| "mute-capture-session requires a process id.".to_string())?
+        .parse::<u32>()
+        .map_err(|error| format!("Invalid process id: {error}"))?;
+    let process_name = env::args().nth(3);
+    let state = windows_impl::mute_capture_sessions(process_id, process_name.as_deref())?;
+    println!(
+        "{}",
+        serde_json::to_string(&state).map_err(|error| error.to_string())?
+    );
+    Ok(())
+}
+
+#[cfg(not(windows))]
+fn mute_capture_session_from_args() -> Result<(), String> {
+    Err("mute-capture-session is only supported on Windows.".to_string())
+}
+
+#[cfg(windows)]
+fn restore_capture_session_from_stdin() -> Result<(), String> {
+    let mut json = String::new();
+    io::stdin()
+        .read_to_string(&mut json)
+        .map_err(|error| error.to_string())?;
+    let state: windows_impl::CaptureSessionMuteState =
+        serde_json::from_str(&json).map_err(|error| error.to_string())?;
+    windows_impl::restore_capture_sessions(&state)
+}
+
+#[cfg(not(windows))]
+fn restore_capture_session_from_stdin() -> Result<(), String> {
+    Err("restore-capture-session is only supported on Windows.".to_string())
+}
+
 #[cfg(not(windows))]
 fn set_system_mute_from_arg() -> Result<(), String> {
     Err("set-system-mute is only supported on Windows.".to_string())
@@ -206,7 +301,7 @@ mod windows_impl {
     use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
     use cpal::SizedSample;
     use rubato::{FftFixedIn, Resampler};
-    use serde::Serialize;
+    use serde::{Deserialize, Serialize};
     use std::collections::VecDeque;
     use std::fs::File;
     use std::io::{self, BufRead, BufReader, BufWriter};
@@ -221,14 +316,21 @@ mod windows_impl {
     use std::thread;
     use std::time::Duration;
     use vad_rs::Vad;
-    use windows::core::PWSTR;
+    use windows::core::{GUID, Interface, PWSTR};
     use windows::Win32::Foundation::{CloseHandle, HANDLE, HWND, MAX_PATH};
     use windows::Win32::Media::Audio::{
-        eConsole, eRender, IMMDeviceEnumerator, MMDeviceEnumerator,
+        eCapture, eConsole, eRender, IAudioCaptureClient, IAudioClient,
+        IAudioSessionControl2, IAudioSessionManager2, ISimpleAudioVolume,
+        AUDCLNT_BUFFERFLAGS_SILENT, AUDCLNT_SHAREMODE_EXCLUSIVE,
+        IMMDeviceEnumerator, MMDeviceEnumerator, WAVEFORMATEX, WAVEFORMATEXTENSIBLE,
+        WAVE_FORMAT_PCM,
     };
     use windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume;
+    use windows::Win32::Media::KernelStreaming::WAVE_FORMAT_EXTENSIBLE;
+    use windows::Win32::Media::Multimedia::WAVE_FORMAT_IEEE_FLOAT;
     use windows::Win32::System::Com::{
-        CoCreateInstance, CoInitializeEx, CoUninitialize, CLSCTX_ALL, COINIT_APARTMENTTHREADED,
+        CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, CLSCTX_ALL,
+        COINIT_APARTMENTTHREADED,
     };
     use windows::Win32::System::DataExchange::{
         CloseClipboard, EmptyClipboard, OpenClipboard, SetClipboardData,
@@ -241,7 +343,7 @@ mod windows_impl {
     };
     use windows::Win32::UI::Input::KeyboardAndMouse::{
         SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP,
-        KEYEVENTF_UNICODE, VIRTUAL_KEY, VK_CONTROL, VK_V,
+        KEYEVENTF_UNICODE, VIRTUAL_KEY, VK_CONTROL, VK_LMENU, VK_LSHIFT, VK_LWIN, VK_V,
     };
     use windows::Win32::UI::WindowsAndMessaging::{
         GetForegroundWindow, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId,
@@ -348,7 +450,181 @@ mod windows_impl {
         Ok(())
     }
 
+    pub fn send_hotkey(accelerator: &str) -> Result<(), String> {
+        let hotkey = parse_hotkey(accelerator)?;
+        let mut inputs = Vec::with_capacity((hotkey.modifiers.len() * 2) + 2);
+
+        for modifier in &hotkey.modifiers {
+            inputs.push(keyboard_input(*modifier, false));
+        }
+
+        inputs.push(keyboard_input(hotkey.key, false));
+        inputs.push(keyboard_input(hotkey.key, true));
+
+        for modifier in hotkey.modifiers.iter().rev() {
+            inputs.push(keyboard_input(*modifier, true));
+        }
+
+        let sent = unsafe { SendInput(&mut inputs, std::mem::size_of::<INPUT>() as i32) };
+
+        if sent != inputs.len() as u32 {
+            return Err(format!("SendInput sent {sent} of {} events.", inputs.len()));
+        }
+
+        Ok(())
+    }
+
+    #[derive(Deserialize, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct CaptureSessionMuteState {
+        sessions: Vec<CaptureSessionMuteEntry>,
+    }
+
+    #[derive(Deserialize, Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct CaptureSessionMuteEntry {
+        session_instance_identifier: String,
+        process_id: u32,
+        process_name: Option<String>,
+        muted_before: bool,
+    }
+
+    pub fn mute_capture_sessions(
+        target_process_id: u32,
+        target_process_name: Option<&str>,
+    ) -> Result<CaptureSessionMuteState, String> {
+        let target_process_name = target_process_name.map(|name| name.to_ascii_lowercase());
+        let mut muted_sessions = Vec::new();
+
+        unsafe {
+            let _com = ComGuard::new()?;
+            let enumerator: IMMDeviceEnumerator =
+                CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)
+                    .map_err(|error| error.to_string())?;
+            let device = enumerator
+                .GetDefaultAudioEndpoint(eCapture, eConsole)
+                .map_err(|error| error.to_string())?;
+            let manager: IAudioSessionManager2 = device
+                .Activate(CLSCTX_ALL, None)
+                .map_err(|error| error.to_string())?;
+            let sessions = manager.GetSessionEnumerator().map_err(|error| error.to_string())?;
+            let count = sessions.GetCount().map_err(|error| error.to_string())?;
+
+            for index in 0..count {
+                let session = sessions.GetSession(index).map_err(|error| error.to_string())?;
+                let session2: IAudioSessionControl2 =
+                    session.cast().map_err(|error| error.to_string())?;
+                let process_id = session2.GetProcessId().map_err(|error| error.to_string())?;
+                let process_name = get_process_path(process_id)
+                    .as_deref()
+                    .and_then(|path| path.rsplit(['\\', '/']).next())
+                    .map(|name| name.to_ascii_lowercase());
+
+                if process_id != target_process_id
+                    && process_name.as_deref() != target_process_name.as_deref()
+                {
+                    continue;
+                }
+
+                let volume: ISimpleAudioVolume =
+                    session.cast().map_err(|error| error.to_string())?;
+                let muted_before = volume
+                    .GetMute()
+                    .map_err(|error| error.to_string())?
+                    .as_bool();
+
+                if muted_before {
+                    continue;
+                }
+
+                volume
+                    .SetMute(true, std::ptr::null())
+                    .map_err(|error| error.to_string())?;
+
+                muted_sessions.push(CaptureSessionMuteEntry {
+                    session_instance_identifier: pwstr_to_string_and_free(
+                        session2
+                            .GetSessionInstanceIdentifier()
+                            .map_err(|error| error.to_string())?,
+                    ),
+                    process_id,
+                    process_name,
+                    muted_before,
+                });
+            }
+        }
+
+        Ok(CaptureSessionMuteState {
+            sessions: muted_sessions,
+        })
+    }
+
+    pub fn restore_capture_sessions(state: &CaptureSessionMuteState) -> Result<(), String> {
+        if state.sessions.is_empty() {
+            return Ok(());
+        }
+
+        unsafe {
+            let _com = ComGuard::new()?;
+            let enumerator: IMMDeviceEnumerator =
+                CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)
+                    .map_err(|error| error.to_string())?;
+            let device = enumerator
+                .GetDefaultAudioEndpoint(eCapture, eConsole)
+                .map_err(|error| error.to_string())?;
+            let manager: IAudioSessionManager2 = device
+                .Activate(CLSCTX_ALL, None)
+                .map_err(|error| error.to_string())?;
+            let sessions = manager.GetSessionEnumerator().map_err(|error| error.to_string())?;
+            let count = sessions.GetCount().map_err(|error| error.to_string())?;
+
+            for index in 0..count {
+                let session = sessions.GetSession(index).map_err(|error| error.to_string())?;
+                let session2: IAudioSessionControl2 =
+                    session.cast().map_err(|error| error.to_string())?;
+                let process_id = session2.GetProcessId().map_err(|error| error.to_string())?;
+                let session_instance_identifier = pwstr_to_string_and_free(
+                    session2
+                        .GetSessionInstanceIdentifier()
+                        .map_err(|error| error.to_string())?,
+                );
+
+                if let Some(entry) = state.sessions.iter().find(|entry| {
+                    entry.process_id == process_id
+                        && entry.session_instance_identifier == session_instance_identifier
+                }) {
+                    let volume: ISimpleAudioVolume =
+                        session.cast().map_err(|error| error.to_string())?;
+                    volume
+                        .SetMute(entry.muted_before, std::ptr::null())
+                        .map_err(|error| error.to_string())?;
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     pub fn record_wav_until_stdin_stop(
+        output_path: &str,
+        recording_config: super::NativeRecordingConfig,
+    ) -> Result<(), String> {
+        if recording_config.capture_mode != super::CaptureMode::Shared {
+            match record_wav_wasapi_exclusive(output_path, recording_config.vad.clone()) {
+                Ok(()) => return Ok(()),
+                Err(error) if recording_config.capture_mode == super::CaptureMode::ExclusiveRequired => {
+                    return Err(format!("Exclusive microphone capture failed: {error}"));
+                }
+                Err(error) => {
+                    eprintln!("Exclusive microphone capture failed, falling back to shared capture: {error}");
+                }
+            }
+        }
+
+        record_wav_shared_until_stdin_stop(output_path, recording_config.vad)
+    }
+
+    fn record_wav_shared_until_stdin_stop(
         output_path: &str,
         vad_config: super::NativeVadConfig,
     ) -> Result<(), String> {
@@ -479,6 +755,7 @@ mod windows_impl {
                 samples: samples.len(),
                 raw_samples,
                 vad_enabled: vad_config.enabled,
+                capture_mode: "sharedCapture".to_string(),
                 speech_frames,
             })
             .map_err(|error| error.to_string())?
@@ -494,7 +771,450 @@ mod windows_impl {
         samples: usize,
         raw_samples: usize,
         vad_enabled: bool,
+        capture_mode: String,
         speech_frames: usize,
+    }
+
+    fn record_wav_wasapi_exclusive(
+        output_path: &str,
+        vad_config: super::NativeVadConfig,
+    ) -> Result<(), String> {
+        let output_path = Path::new(output_path);
+        let stop_flag = Arc::new(AtomicBool::new(false));
+        let stop_reader_flag = Arc::clone(&stop_flag);
+
+        thread::spawn(move || {
+            let mut line = String::new();
+            let mut reader = BufReader::new(io::stdin());
+            let _ = reader.read_line(&mut line);
+            stop_reader_flag.store(true, Ordering::SeqCst);
+        });
+
+        let format_ptr: *mut WAVEFORMATEX;
+        let mut samples = Vec::<f32>::new();
+        let mut raw_samples = 0usize;
+        let mut speech_frames = 0usize;
+
+        unsafe {
+            let _com = ComGuard::new()?;
+            let enumerator: IMMDeviceEnumerator =
+                CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)
+                    .map_err(|error| error.to_string())?;
+            let device = enumerator
+                .GetDefaultAudioEndpoint(eCapture, eConsole)
+                .map_err(|error| error.to_string())?;
+            let audio_client: IAudioClient = device
+                .Activate(CLSCTX_ALL, None)
+                .map_err(|error| error.to_string())?;
+
+            format_ptr = audio_client.GetMixFormat().map_err(|error| error.to_string())?;
+            let selected_format = select_exclusive_capture_format(&audio_client, format_ptr)?;
+            let format = selected_format.input;
+
+            let mut default_period = 0i64;
+            audio_client
+                .GetDevicePeriod(Some(&mut default_period), None)
+                .map_err(|error| error.to_string())?;
+            let buffer_duration = if default_period > 0 {
+                default_period
+            } else {
+                100_000
+            };
+
+            audio_client
+                .Initialize(
+                    AUDCLNT_SHAREMODE_EXCLUSIVE,
+                    0,
+                    buffer_duration,
+                    buffer_duration,
+                    selected_format.ptr,
+                    None,
+                )
+                .map_err(|error| error.to_string())?;
+
+            let capture_client: IAudioCaptureClient =
+                audio_client.GetService().map_err(|error| error.to_string())?;
+            let mut resampler = FrameResampler::new(format.sample_rate, VOXTYPE_SAMPLE_RATE);
+            let mut frame_emitter = FrameEmitter::new(VAD_FRAME_SAMPLES);
+            let mut vad = if vad_config.enabled {
+                Some(SmoothedVad::new(
+                    Box::new(SileroVad::new(
+                        vad_config
+                            .model_path
+                            .as_deref()
+                            .ok_or_else(|| "VAD model path is missing.".to_string())?,
+                        vad_config.threshold,
+                    )?),
+                    vad_config.prefill_frames,
+                    vad_config.hangover_frames,
+                    vad_config.onset_frames,
+                ))
+            } else {
+                None
+            };
+
+            audio_client.Start().map_err(|error| error.to_string())?;
+
+            while !stop_flag.load(Ordering::SeqCst) {
+                drain_wasapi_capture(
+                    &capture_client,
+                    &format,
+                    &mut resampler,
+                    &mut frame_emitter,
+                    vad.as_mut(),
+                    &mut samples,
+                    &mut raw_samples,
+                    &mut speech_frames,
+                )?;
+                thread::sleep(Duration::from_millis(10));
+            }
+
+            drain_wasapi_capture(
+                &capture_client,
+                &format,
+                &mut resampler,
+                &mut frame_emitter,
+                vad.as_mut(),
+                &mut samples,
+                &mut raw_samples,
+                &mut speech_frames,
+            )?;
+            audio_client.Stop().map_err(|error| error.to_string())?;
+
+            resampler.finish(&mut |resampled| {
+                raw_samples += resampled.len();
+                frame_emitter.push(resampled, &mut |frame| {
+                    process_vad_frame(frame, vad.as_mut(), &mut samples, &mut speech_frames);
+                });
+            });
+            frame_emitter.finish(&mut |frame| {
+                process_vad_frame(frame, vad.as_mut(), &mut samples, &mut speech_frames);
+            });
+        }
+
+        if !format_ptr.is_null() {
+            unsafe {
+                CoTaskMemFree(Some(format_ptr.cast()));
+            }
+        }
+
+        write_wav(output_path, &samples)?;
+        println!(
+            "{}",
+            serde_json::to_string(&RecordingResponse {
+                path: output_path.to_string_lossy().to_string(),
+                sample_rate: VOXTYPE_SAMPLE_RATE as u32,
+                samples: samples.len(),
+                raw_samples,
+                vad_enabled: vad_config.enabled,
+                capture_mode: "exclusiveCapture".to_string(),
+                speech_frames,
+            })
+            .map_err(|error| error.to_string())?
+        );
+        Ok(())
+    }
+
+    fn drain_wasapi_capture(
+        capture_client: &IAudioCaptureClient,
+        format: &WasapiInputFormat,
+        resampler: &mut FrameResampler,
+        frame_emitter: &mut FrameEmitter,
+        mut vad: Option<&mut SmoothedVad>,
+        samples: &mut Vec<f32>,
+        raw_samples: &mut usize,
+        speech_frames: &mut usize,
+    ) -> Result<(), String> {
+        unsafe {
+            let mut packet_size = capture_client
+                .GetNextPacketSize()
+                .map_err(|error| error.to_string())?;
+
+            while packet_size > 0 {
+                let mut data = std::ptr::null_mut::<u8>();
+                let mut frames = 0u32;
+                let mut flags = 0u32;
+
+                capture_client
+                    .GetBuffer(&mut data, &mut frames, &mut flags, None, None)
+                    .map_err(|error| error.to_string())?;
+
+                let chunk = convert_wasapi_buffer_to_mono(data, frames, flags, format)?;
+                process_audio_chunk(
+                    &chunk,
+                    resampler,
+                    frame_emitter,
+                    vad.as_deref_mut(),
+                    samples,
+                    raw_samples,
+                    speech_frames,
+                );
+
+                capture_client
+                    .ReleaseBuffer(frames)
+                    .map_err(|error| error.to_string())?;
+                packet_size = capture_client
+                    .GetNextPacketSize()
+                    .map_err(|error| error.to_string())?;
+            }
+        }
+
+        Ok(())
+    }
+
+    #[derive(Clone, Copy)]
+    struct WasapiInputFormat {
+        sample_rate: usize,
+        channels: usize,
+        bits_per_sample: u16,
+        block_align: usize,
+        sample_kind: WasapiSampleKind,
+    }
+
+    #[derive(Clone, Copy)]
+    enum WasapiSampleKind {
+        Float,
+        Pcm,
+    }
+
+    struct SelectedWasapiFormat {
+        ptr: *const WAVEFORMATEX,
+        input: WasapiInputFormat,
+        _owned: Option<Box<WAVEFORMATEX>>,
+    }
+
+    fn select_exclusive_capture_format(
+        audio_client: &IAudioClient,
+        mix_format: *const WAVEFORMATEX,
+    ) -> Result<SelectedWasapiFormat, String> {
+        unsafe {
+            if audio_client
+                .IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE, mix_format, None)
+                .is_ok()
+            {
+                return Ok(SelectedWasapiFormat {
+                    ptr: mix_format,
+                    input: WasapiInputFormat::from_wave_format(mix_format)?,
+                    _owned: None,
+                });
+            }
+        }
+
+        let mix = unsafe { WasapiInputFormat::from_wave_format(mix_format)? };
+        let mut candidates = exclusive_capture_format_candidates(mix.sample_rate, mix.channels);
+        let mut failures = Vec::new();
+
+        for candidate in candidates.drain(..) {
+            let candidate_ptr = candidate.as_ref() as *const WAVEFORMATEX;
+            let description = describe_wave_format(candidate.as_ref());
+            let support = unsafe {
+                audio_client.IsFormatSupported(AUDCLNT_SHAREMODE_EXCLUSIVE, candidate_ptr, None)
+            };
+
+            if support.is_ok() {
+                return Ok(SelectedWasapiFormat {
+                    ptr: candidate_ptr,
+                    input: unsafe { WasapiInputFormat::from_wave_format(candidate_ptr)? },
+                    _owned: Some(candidate),
+                });
+            }
+
+            failures.push(format!("{description}: {support:?}"));
+        }
+
+        Err(format!(
+            "No supported exclusive microphone format was found. Tried {}",
+            failures.join("; ")
+        ))
+    }
+
+    fn exclusive_capture_format_candidates(
+        mix_sample_rate: usize,
+        mix_channels: usize,
+    ) -> Vec<Box<WAVEFORMATEX>> {
+        let mut sample_rates = vec![mix_sample_rate as u32, 48_000, 44_100, 16_000];
+        sample_rates.sort_unstable();
+        sample_rates.dedup();
+        sample_rates.reverse();
+
+        let mut channels = vec![mix_channels.clamp(1, 2) as u16, 1, 2];
+        channels.sort_unstable();
+        channels.dedup();
+
+        let mut candidates = Vec::new();
+
+        for sample_rate in sample_rates {
+            for channel_count in &channels {
+                candidates.push(Box::new(wave_format_pcm(sample_rate, *channel_count, 16)));
+                candidates.push(Box::new(wave_format_float(sample_rate, *channel_count)));
+                candidates.push(Box::new(wave_format_pcm(sample_rate, *channel_count, 24)));
+            }
+        }
+
+        candidates
+    }
+
+    fn wave_format_pcm(sample_rate: u32, channels: u16, bits_per_sample: u16) -> WAVEFORMATEX {
+        let block_align = channels * (bits_per_sample / 8);
+
+        WAVEFORMATEX {
+            wFormatTag: WAVE_FORMAT_PCM as u16,
+            nChannels: channels,
+            nSamplesPerSec: sample_rate,
+            nAvgBytesPerSec: sample_rate * u32::from(block_align),
+            nBlockAlign: block_align,
+            wBitsPerSample: bits_per_sample,
+            cbSize: 0,
+        }
+    }
+
+    fn wave_format_float(sample_rate: u32, channels: u16) -> WAVEFORMATEX {
+        let bits_per_sample = 32;
+        let block_align = channels * (bits_per_sample / 8);
+
+        WAVEFORMATEX {
+            wFormatTag: WAVE_FORMAT_IEEE_FLOAT as u16,
+            nChannels: channels,
+            nSamplesPerSec: sample_rate,
+            nAvgBytesPerSec: sample_rate * u32::from(block_align),
+            nBlockAlign: block_align,
+            wBitsPerSample: bits_per_sample,
+            cbSize: 0,
+        }
+    }
+
+    fn describe_wave_format(format: &WAVEFORMATEX) -> String {
+        let kind = match format.wFormatTag as u32 {
+            WAVE_FORMAT_PCM => "pcm",
+            WAVE_FORMAT_IEEE_FLOAT => "float",
+            WAVE_FORMAT_EXTENSIBLE => "extensible",
+            _ => "unknown",
+        };
+        let sample_rate = format.nSamplesPerSec;
+        let channels = format.nChannels;
+        let bits_per_sample = format.wBitsPerSample;
+
+        format!(
+            "{}Hz {}ch {}bit {}",
+            sample_rate, channels, bits_per_sample, kind
+        )
+    }
+
+    impl WasapiInputFormat {
+        unsafe fn from_wave_format(format: *const WAVEFORMATEX) -> Result<Self, String> {
+            if format.is_null() {
+                return Err("WASAPI returned a null mix format.".to_string());
+            }
+
+            let wave = &*format;
+            let mut sample_kind = match wave.wFormatTag as u32 {
+                WAVE_FORMAT_PCM => WasapiSampleKind::Pcm,
+                WAVE_FORMAT_IEEE_FLOAT => WasapiSampleKind::Float,
+                WAVE_FORMAT_EXTENSIBLE => {
+                    let extensible = format.cast::<WAVEFORMATEXTENSIBLE>();
+                    let sub_format = ptr::addr_of!((*extensible).SubFormat).read_unaligned();
+
+                    if sub_format == KSDATAFORMAT_SUBTYPE_IEEE_FLOAT {
+                        WasapiSampleKind::Float
+                    } else if sub_format == KSDATAFORMAT_SUBTYPE_PCM {
+                        WasapiSampleKind::Pcm
+                    } else {
+                        return Err("Unsupported WASAPI extensible sample subtype.".to_string());
+                    }
+                }
+                tag => return Err(format!("Unsupported WASAPI sample format tag: {tag}")),
+            };
+
+            if wave.wBitsPerSample == 32 && matches!(sample_kind, WasapiSampleKind::Pcm) {
+                sample_kind = WasapiSampleKind::Pcm;
+            }
+
+            Ok(Self {
+                sample_rate: wave.nSamplesPerSec as usize,
+                channels: wave.nChannels as usize,
+                bits_per_sample: wave.wBitsPerSample,
+                block_align: wave.nBlockAlign as usize,
+                sample_kind,
+            })
+        }
+    }
+
+    const KSDATAFORMAT_SUBTYPE_PCM: GUID =
+        GUID::from_u128(0x00000001_0000_0010_8000_00aa00389b71);
+    const KSDATAFORMAT_SUBTYPE_IEEE_FLOAT: GUID =
+        GUID::from_u128(0x00000003_0000_0010_8000_00aa00389b71);
+
+    fn convert_wasapi_buffer_to_mono(
+        data: *const u8,
+        frames: u32,
+        flags: u32,
+        format: &WasapiInputFormat,
+    ) -> Result<Vec<f32>, String> {
+        if flags & AUDCLNT_BUFFERFLAGS_SILENT.0 as u32 != 0 {
+            return Ok(vec![0.0; frames as usize]);
+        }
+
+        if data.is_null() {
+            return Err("WASAPI returned a null capture buffer.".to_string());
+        }
+
+        let bytes_per_sample = usize::from(format.bits_per_sample / 8);
+
+        if bytes_per_sample == 0 || format.channels == 0 || format.block_align == 0 {
+            return Err("WASAPI returned an invalid capture format.".to_string());
+        }
+
+        let mut output = Vec::with_capacity(frames as usize);
+
+        for frame in 0..frames as usize {
+            let frame_offset = frame * format.block_align;
+            let mut mono = 0.0f32;
+
+            for channel in 0..format.channels {
+                let sample_offset = frame_offset + channel * bytes_per_sample;
+                let sample_ptr = unsafe { data.add(sample_offset) };
+                mono += read_wasapi_sample(sample_ptr, format.sample_kind, format.bits_per_sample)?;
+            }
+
+            output.push(mono / format.channels as f32);
+        }
+
+        Ok(output)
+    }
+
+    fn read_wasapi_sample(
+        sample_ptr: *const u8,
+        sample_kind: WasapiSampleKind,
+        bits_per_sample: u16,
+    ) -> Result<f32, String> {
+        match (sample_kind, bits_per_sample) {
+            (WasapiSampleKind::Float, 32) => {
+                let bytes = unsafe { std::slice::from_raw_parts(sample_ptr, 4) };
+                Ok(f32::from_le_bytes(bytes.try_into().unwrap()).clamp(-1.0, 1.0))
+            }
+            (WasapiSampleKind::Pcm, 8) => {
+                let value = unsafe { *sample_ptr } as f32;
+                Ok((value - 128.0) / 128.0)
+            }
+            (WasapiSampleKind::Pcm, 16) => {
+                let bytes = unsafe { std::slice::from_raw_parts(sample_ptr, 2) };
+                Ok(i16::from_le_bytes(bytes.try_into().unwrap()) as f32 / 32768.0)
+            }
+            (WasapiSampleKind::Pcm, 24) => {
+                let bytes = unsafe { std::slice::from_raw_parts(sample_ptr, 3) };
+                let raw = ((bytes[2] as i32) << 24)
+                    | ((bytes[1] as i32) << 16)
+                    | ((bytes[0] as i32) << 8);
+                Ok((raw >> 8) as f32 / 8_388_608.0)
+            }
+            (WasapiSampleKind::Pcm, 32) => {
+                let bytes = unsafe { std::slice::from_raw_parts(sample_ptr, 4) };
+                Ok(i32::from_le_bytes(bytes.try_into().unwrap()) as f32 / 2_147_483_648.0)
+            }
+            _ => Err(format!(
+                "Unsupported WASAPI sample width: {bits_per_sample} bits"
+            )),
+        }
     }
 
     fn process_audio_chunk(
@@ -991,6 +1711,90 @@ mod windows_impl {
         Ok(())
     }
 
+    struct ParsedHotkey {
+        modifiers: Vec<VIRTUAL_KEY>,
+        key: VIRTUAL_KEY,
+    }
+
+    fn parse_hotkey(accelerator: &str) -> Result<ParsedHotkey, String> {
+        let parts = accelerator
+            .split('+')
+            .map(|part| part.trim())
+            .filter(|part| !part.is_empty())
+            .collect::<Vec<_>>();
+        let key_name = parts
+            .last()
+            .ok_or_else(|| "Hotkey cannot be empty.".to_string())?;
+        let mut modifiers = Vec::new();
+
+        for part in &parts[..parts.len().saturating_sub(1)] {
+            match part.to_ascii_lowercase().as_str() {
+                "commandorcontrol" | "control" | "ctrl" => push_unique(&mut modifiers, VK_CONTROL),
+                "alt" | "option" => push_unique(&mut modifiers, VK_LMENU),
+                "shift" => push_unique(&mut modifiers, VK_LSHIFT),
+                "super" | "meta" | "win" | "windows" | "command" => {
+                    push_unique(&mut modifiers, VK_LWIN)
+                }
+                unknown => return Err(format!("Unsupported hotkey modifier: {unknown}")),
+            }
+        }
+
+        Ok(ParsedHotkey {
+            modifiers,
+            key: parse_hotkey_key(key_name)?,
+        })
+    }
+
+    fn push_unique(values: &mut Vec<VIRTUAL_KEY>, value: VIRTUAL_KEY) {
+        if !values.contains(&value) {
+            values.push(value);
+        }
+    }
+
+    fn parse_hotkey_key(key: &str) -> Result<VIRTUAL_KEY, String> {
+        let normalized = key.to_ascii_uppercase();
+
+        if normalized.len() == 1 {
+            let byte = normalized.as_bytes()[0];
+            if byte.is_ascii_alphanumeric() {
+                return Ok(VIRTUAL_KEY(byte as u16));
+            }
+        }
+
+        let value = match normalized.as_str() {
+            "SPACE" => 0x20,
+            "ENTER" | "RETURN" => 0x0D,
+            "TAB" => 0x09,
+            "ESC" | "ESCAPE" => 0x1B,
+            "BACKSPACE" => 0x08,
+            "DELETE" => 0x2E,
+            "INSERT" => 0x2D,
+            "HOME" => 0x24,
+            "END" => 0x23,
+            "PAGEUP" => 0x21,
+            "PAGEDOWN" => 0x22,
+            "UP" => 0x26,
+            "DOWN" => 0x28,
+            "LEFT" => 0x25,
+            "RIGHT" => 0x27,
+            "F1" => 0x70,
+            "F2" => 0x71,
+            "F3" => 0x72,
+            "F4" => 0x73,
+            "F5" => 0x74,
+            "F6" => 0x75,
+            "F7" => 0x76,
+            "F8" => 0x77,
+            "F9" => 0x78,
+            "F10" => 0x79,
+            "F11" => 0x7A,
+            "F12" => 0x7B,
+            _ => return Err(format!("Unsupported hotkey key: {key}")),
+        };
+
+        Ok(VIRTUAL_KEY(value))
+    }
+
     fn keyboard_input(key: VIRTUAL_KEY, key_up: bool) -> INPUT {
         INPUT {
             r#type: INPUT_KEYBOARD,
@@ -1109,5 +1913,24 @@ mod windows_impl {
         };
 
         Some(String::from_utf16_lossy(initialized))
+    }
+
+    fn pwstr_to_string_and_free(value: PWSTR) -> String {
+        if value.is_null() {
+            return String::new();
+        }
+
+        let mut len = 0usize;
+        unsafe {
+            while *value.0.add(len) != 0 {
+                len += 1;
+            }
+        }
+
+        let text = unsafe { String::from_utf16_lossy(std::slice::from_raw_parts(value.0, len)) };
+        unsafe {
+            CoTaskMemFree(Some(value.0.cast()));
+        }
+        text
     }
 }

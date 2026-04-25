@@ -27,6 +27,10 @@ export class SettingsStore {
       showWindowHotkey: "CommandOrControl+Shift+Space",
       dictationToggleHotkey: "CommandOrControl+Alt+Space",
       insertionMode: "clipboard",
+      recorderCaptureMode: "sharedCapture",
+      recordingCoordinationMode: "none",
+      recordingStartHotkey: "",
+      recordingStopHotkey: "",
       offlineMode: false,
       autoMuteSystemAudio: false,
       restoreClipboard: true,
@@ -96,7 +100,14 @@ export class SettingsStore {
 
   async updateAppProfile(
     processName: string,
-    patch: Pick<AppProfile, "insertionMode" | "writingStyle">
+    patch: Pick<
+      AppProfile,
+      | "insertionMode"
+      | "writingStyle"
+      | "recordingCoordinationMode"
+      | "recordingStartHotkey"
+      | "recordingStopHotkey"
+    >
   ): Promise<AppSettings> {
     const settings = await this.get();
     const existing = findAppProfile(settings.appProfiles, processName);
@@ -112,6 +123,9 @@ export class SettingsStore {
               ...profile,
               insertionMode: patch.insertionMode,
               writingStyle: patch.writingStyle,
+              recordingCoordinationMode: patch.recordingCoordinationMode,
+              recordingStartHotkey: patch.recordingStartHotkey,
+              recordingStopHotkey: patch.recordingStopHotkey,
               updatedAt: new Date().toISOString()
             }
           : profile
