@@ -2028,26 +2028,44 @@ function formatError(error: unknown): string {
 }
 
 function RecordingOverlay({ state }: { state: RecordingOverlayState }): JSX.Element {
-  const level = Math.round(Math.min(Math.max(state.level, 0), 1) * 100);
+  const [levels, setLevels] = useState<number[]>([]);
+  const [peakCeiling, setPeakCeiling] = useState(0.08);
+  const clampedLevel = Math.min(Math.max(state.level, 0), 1);
+
+  useEffect(() => {
+    if (state.mode !== "recording") {
+      setLevels([]);
+      setPeakCeiling(0.08);
+      return;
+    }
+
+    setPeakCeiling((current) => Math.max(current, clampedLevel, 0.08));
+    setLevels((current) => {
+      const previous = current.at(-1) ?? clampedLevel;
+      const smoothed = previous + (clampedLevel - previous) * 0.42;
+      return [...current.slice(-63), smoothed];
+    });
+  }, [clampedLevel, state.mode]);
 
   return (
     <main className="recording-overlay">
-      <div className="overlay-status">
-        <span
-          className={
-            state.mode === "recording"
-              ? "status-dot status-dot-recording"
-              : "status-dot status-dot-transcribing"
-          }
-        />
-        <div>
-          <strong>{state.message}</strong>
-          <span>{state.mode === "recording" ? "Listening" : "Working locally"}</span>
+      {state.mode === "recording" ? (
+        <div className="overlay-timeline" aria-label="Input gain timeline">
+          {levels.map((level, index) => (
+            <span
+              key={`${index}-${level.toFixed(3)}`}
+              style={{
+                height:
+                  level < 0.01
+                    ? "0"
+                    : `${Math.max(8, Math.min(100, Math.round((level / peakCeiling) * 100)))}%`
+              }}
+            />
+          ))}
         </div>
-      </div>
-      <div className="overlay-meter" aria-label="Input gain">
-        <span style={{ width: `${level}%` }} />
-      </div>
+      ) : (
+        <div className="overlay-transcribing">Transcribing</div>
+      )}
     </main>
   );
 }

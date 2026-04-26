@@ -19,6 +19,7 @@ body {
 }
 
 body:has(.recording-overlay) {
+  overflow: hidden;
   min-width: 0;
   min-height: 0;
   background: transparent;
@@ -292,11 +293,12 @@ pre {
 }
 
 .recording-overlay {
-  display: grid;
-  gap: 10px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
   width: 320px;
-  height: 74px;
-  padding: 12px 14px;
+  height: 40px;
+  padding: 7px 12px;
   border: 1px solid rgb(75 86 99 / 0.82);
   border-radius: 8px;
   color: #f1f4f8;
@@ -305,40 +307,53 @@ pre {
   backdrop-filter: blur(14px);
 }
 
-.overlay-status {
-  display: flex;
-  gap: 10px;
+.overlay-timeline {
+  position: relative;
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 2px;
   align-items: center;
-}
-
-.overlay-status strong,
-.overlay-status span {
-  display: block;
-}
-
-.overlay-status strong {
-  font-size: 0.9rem;
-}
-
-.overlay-status span {
-  color: #aab4bf;
-  font-size: 0.72rem;
-}
-
-.overlay-meter {
+  justify-content: end;
+  gap: 3px;
   overflow: hidden;
-  height: 8px;
-  border-radius: 999px;
-  background: #252b33;
+  width: 100%;
+  height: 28px;
+  padding: 0 2px;
+  isolation: isolate;
 }
 
-.overlay-meter span {
+.overlay-transcribing {
+  width: 100%;
+  color: #f1f4f8;
+  font-size: 0.86rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.overlay-timeline::before {
+  position: absolute;
+  z-index: -1;
+  right: 8px;
+  left: 8px;
+  top: 50%;
+  height: 1px;
+  border-radius: 999px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgb(241 244 248 / 0.82) 18%,
+    rgb(241 244 248 / 0.82) 82%,
+    transparent
+  );
+  content: "";
+}
+
+.overlay-timeline span {
   display: block;
-  width: 0;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, #52b788, #f4d35e, #ff6b6b);
-  transition: width 80ms linear;
+  width: 2px;
+  border-radius: 999px;
+  background: #d7dce2;
+  transition: height 140ms ease-out;
 }
 
 .inline-error {

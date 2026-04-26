@@ -192,7 +192,7 @@ function createOverlayWindow(): BrowserWindow {
 
   overlayWindow = new BrowserWindow({
     width: 320,
-    height: 74,
+    height: 40,
     frame: false,
     resizable: false,
     movable: false,
@@ -238,7 +238,7 @@ function positionOverlayWindow(): void {
   const bounds = display.workArea;
   const [width, height] = window.getSize();
   const x = Math.round(bounds.x + (bounds.width - width) / 2);
-  const y = Math.round(bounds.y + bounds.height - height - 28);
+  const y = Math.round(bounds.y + bounds.height - height - 24);
   window.setPosition(x, y, false);
 }
 
