@@ -125,13 +125,14 @@ Later possibilities:
 
 ## Phase 4: OCR Context
 
-Goal: make VoxType screen-aware.
+Goal: make VoxType screen-aware. Initial screenshot foundation started.
 
 Features:
 
-- Screenshot capture.
+- Screenshot capture. Initial native helper command captures the full virtual screen or active foreground window to PNG, with Electron IPC and a renderer OCR preview panel.
+- OCR service boundary backed by Windows Media OCR through the native helper.
 - Region selection overlay.
-- Local OCR.
+- Local OCR through Windows Media OCR. Initial OCR tab can run OCR on captured screenshots and display recognized text and line results.
 - OCR term extraction.
 - Temporary OCR dictionary.
 - Add OCR terms to permanent dictionary.
@@ -163,5 +164,5 @@ Possible additions:
 
 - Parakeet V3 or newer Parakeet model.
 - Faster Whisper/CTranslate2.
-- PaddleOCR.
+- Additional OCR engines only if Windows Media OCR proves insufficient.
 - Local LLM formatting provider.

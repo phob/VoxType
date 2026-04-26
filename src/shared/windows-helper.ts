@@ -12,6 +12,30 @@ export type WindowsHelperStatus = {
   error: string | null;
 };
 
+export type ScreenshotCaptureMode = "screen" | "activeWindow";
+
+export type ScreenshotCaptureResult = {
+  path: string;
+  bytes: Uint8Array;
+  capturedAt: string;
+  mode: ScreenshotCaptureMode;
+};
+
+export type WindowsMediaOcrLine = {
+  text: string;
+  confidence: number | null;
+  box: [number, number, number, number] | null;
+};
+
+export type WindowsMediaOcrResult = {
+  provider: "windowsMediaOcr";
+  engine: string;
+  imagePath: string;
+  text: string;
+  lines: WindowsMediaOcrLine[];
+  durationMs: number;
+};
+
 export type NativeRecordingOptions = {
   captureMode: "sharedCapture" | "exclusiveCapturePreferred" | "exclusiveCaptureRequired";
   vadEnabled: boolean;

@@ -167,6 +167,7 @@ VoxType should tell the user what it sees:
 
 ## OCR Features
 
+- Screenshot capture for the active window or full virtual screen. Initial implementation writes PNG screenshots through the native Windows helper and previews them in the renderer OCR panel.
 - Region screenshot OCR.
 - Active-window OCR.
 - Full-screen OCR.

@@ -6,6 +6,7 @@ import {
 } from "../shared/dictionary";
 import { type HotkeyStatus } from "../shared/hotkeys";
 import { type LocalModel } from "../shared/models";
+import { type OcrResult } from "../shared/ocr";
 import { type WhisperRuntime } from "../shared/runtimes";
 import {
   type AppProfile,
@@ -19,6 +20,8 @@ import {
   type DictationHotkeyState,
   type NativeRecordingOptions,
   type NativeRecordingResult,
+  type ScreenshotCaptureMode,
+  type ScreenshotCaptureResult,
   type ActiveWindowInfo,
   type WindowsHelperStatus
 } from "../shared/windows-helper";
@@ -40,6 +43,10 @@ const voxtype = {
     getWhisper: () => ipcRenderer.invoke("runtime:get-whisper") as Promise<WhisperRuntime>,
     installWhisper: () =>
       ipcRenderer.invoke("runtime:install-whisper") as Promise<WhisperRuntime>
+  },
+  ocr: {
+    recognizeScreenshot: (imagePath: string, mode: ScreenshotCaptureMode) =>
+      ipcRenderer.invoke("ocr:recognize-screenshot", imagePath, mode) as Promise<OcrResult>
   },
   transcription: {
     transcribeWav: (bytes: Uint8Array, context?: { processName?: string | null }) =>
@@ -118,6 +125,11 @@ const voxtype = {
       ipcRenderer.invoke("windows-helper:stop-recording") as Promise<NativeRecordingResult>,
     sendHotkey: (accelerator: string) =>
       ipcRenderer.invoke("windows-helper:send-hotkey", accelerator) as Promise<void>,
+    captureScreenshot: (mode: ScreenshotCaptureMode) =>
+      ipcRenderer.invoke(
+        "windows-helper:capture-screenshot",
+        mode
+      ) as Promise<ScreenshotCaptureResult>,
     setSystemMute: (muted: boolean) =>
       ipcRenderer.invoke("windows-helper:set-system-mute", muted) as Promise<void>
   }

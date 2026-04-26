@@ -8,6 +8,9 @@ import {
   type CaptureSessionMuteState,
   type NativeRecordingOptions,
   type NativeRecordingResult,
+  type WindowsMediaOcrResult,
+  type ScreenshotCaptureMode,
+  type ScreenshotCaptureResult,
   type WindowsHelperStatus
 } from "../shared/windows-helper";
 
@@ -122,6 +125,57 @@ export class WindowsHelperService {
     await execFileAsync(helperPath, ["send-hotkey", accelerator], {
       windowsHide: true
     });
+  }
+
+  async captureScreenshot(mode: ScreenshotCaptureMode): Promise<ScreenshotCaptureResult> {
+    const helperPath = await this.resolveHelperPath();
+
+    if (!helperPath) {
+      throw new Error(
+        "Windows helper executable was not found. Build it with `cargo build --manifest-path native/windows-helper/Cargo.toml`."
+      );
+    }
+
+    const outputDirectory = join(app.getPath("userData"), "screenshots");
+    await mkdir(outputDirectory, { recursive: true });
+    const outputPath = join(outputDirectory, `screenshot-${Date.now()}.png`);
+    const args = ["capture-screenshot", outputPath];
+
+    if (mode === "activeWindow") {
+      args.push("--active-window");
+    }
+
+    await execFileAsync(helperPath, args, {
+      windowsHide: true
+    });
+
+    return {
+      path: outputPath,
+      bytes: new Uint8Array(await readFile(outputPath)),
+      capturedAt: new Date().toISOString(),
+      mode
+    };
+  }
+
+  async recognizeImageText(imagePath: string): Promise<WindowsMediaOcrResult> {
+    const helperPath = await this.resolveHelperPath();
+
+    if (!helperPath) {
+      throw new Error(
+        "Windows helper executable was not found. Build it with `cargo build --manifest-path native/windows-helper/Cargo.toml`."
+      );
+    }
+
+    const { stdout } = await execFileAsync(helperPath, ["ocr-image", imagePath], {
+      windowsHide: true
+    });
+    const parsed = JSON.parse(stdout) as unknown;
+
+    if (!isWindowsMediaOcrResult(parsed)) {
+      throw new Error("Windows helper returned an unexpected Windows OCR payload.");
+    }
+
+    return parsed;
   }
 
   async muteCaptureSession(
@@ -331,6 +385,39 @@ export class WindowsHelperService {
 
     return null;
   }
+}
+
+function isWindowsMediaOcrResult(value: unknown): value is WindowsMediaOcrResult {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  const result = value as Record<string, unknown>;
+
+  return (
+    result.provider === "windowsMediaOcr" &&
+    typeof result.engine === "string" &&
+    typeof result.imagePath === "string" &&
+    typeof result.text === "string" &&
+    typeof result.durationMs === "number" &&
+    Array.isArray(result.lines) &&
+    result.lines.every((line) => {
+      if (typeof line !== "object" || line === null || Array.isArray(line)) {
+        return false;
+      }
+
+      const entry = line as Record<string, unknown>;
+
+      return (
+        typeof entry.text === "string" &&
+        (typeof entry.confidence === "number" || entry.confidence === null) &&
+        (entry.box === null ||
+          (Array.isArray(entry.box) &&
+            entry.box.length === 4 &&
+            entry.box.every((item) => typeof item === "number")))
+      );
+    })
+  );
 }
 
 function msToVadFrames(milliseconds: number): number {

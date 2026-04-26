@@ -20,7 +20,7 @@
 - Should Discord be detected and offered a guided setup for the global recording coordination hotkey?
 - Should VoxType eventually add per-app recording coordination profiles, or is a global hotkey fallback enough alongside WASAPI exclusive capture?
 - Should VoxType expose which exclusive hardware format was selected for diagnostics?
-- Which OCR engine should ship first: Tesseract or PaddleOCR?
+- What screenshot cases, languages, or UI layouts would justify adding a heavier OCR engine beyond Windows Media OCR?
 - How should model downloads be hosted and verified?
 - Should inference workers communicate with Electron through stdio, named pipes, local HTTP, or another IPC mechanism?
 - How should VoxType detect and handle elevated target apps?

@@ -89,10 +89,17 @@ Parakeet should fit behind the same ASR provider interface.
 
 OCR is a core feature because it feeds the live dictionary/context system.
 
-Potential OCR engines:
+Preferred OCR direction:
 
-- Tesseract: mature, fully local, practical first option.
-- PaddleOCR: potentially better accuracy, heavier, optional later.
+- Windows Media OCR should be the first OCR engine for Phase 4 because VoxType is OCRing Windows screenshots, and the native API is fast, local, package-light, and good enough for the first screen-aware dictation loop.
+- Heavier OCR engines should remain future options only if Windows Media OCR cannot handle important screenshot cases.
+
+Implementation direction:
+
+- Keep OCR behind a provider-shaped service boundary so future engines can share the same screenshot-to-context pipeline if needed.
+- Initial implementation uses `native/windows-helper ocr-image`, which loads screenshots into a WinRT `SoftwareBitmap` and recognizes text with `Windows.Media.Ocr`.
+- Local smoke testing through the Rust helper was sub-second including helper process startup, with the Windows OCR engine itself reporting low hundreds of milliseconds on active-window screenshots.
+- Treat startup latency, package size, offline behavior, and screenshot accuracy as first-class acceptance criteria before considering any heavier OCR backend.
 
 OCR should support:
 

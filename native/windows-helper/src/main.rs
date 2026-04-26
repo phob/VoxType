@@ -15,13 +15,15 @@ fn main() {
         "focus-window" => focus_window_from_arg(),
         "set-system-mute" => set_system_mute_from_arg(),
         "send-hotkey" => send_hotkey_from_arg(),
+        "capture-screenshot" => capture_screenshot_from_args(),
+        "ocr-image" => ocr_image_from_args(),
         "mute-capture-session" => mute_capture_session_from_args(),
         "restore-capture-session" => restore_capture_session_from_stdin(),
         "record-wav" => record_wav_from_args(),
         "paste-text" => paste_text_from_stdin(),
         "type-text" => type_text_from_stdin(),
         "help" | "--help" | "-h" => {
-            println!("Usage: voxtype-windows-helper active-window | focus-window <hwnd> | set-system-mute <true|false> | send-hotkey <accelerator> | mute-capture-session <process-id> [process-name] | restore-capture-session | record-wav <output.wav> [--capture-mode shared|exclusive-preferred|exclusive-required] | paste-text | type-text [delay-ms]");
+            println!("Usage: voxtype-windows-helper active-window | focus-window <hwnd> | set-system-mute <true|false> | send-hotkey <accelerator> | capture-screenshot <output.png> [--active-window] | ocr-image <input.png> | mute-capture-session <process-id> [process-name] | restore-capture-session | record-wav <output.wav> [--capture-mode shared|exclusive-preferred|exclusive-required] | paste-text | type-text [delay-ms]");
             Ok(())
         }
         _ => Err(format!("Unknown command: {command}")),
@@ -34,6 +36,38 @@ fn main() {
         );
         process::exit(1);
     }
+}
+
+#[cfg(windows)]
+fn ocr_image_from_args() -> Result<(), String> {
+    let input_path = env::args()
+        .nth(2)
+        .ok_or_else(|| "ocr-image requires an input image path.".to_string())?;
+    let result = windows_impl::recognize_image_text(&input_path)?;
+    println!(
+        "{}",
+        serde_json::to_string(&result).map_err(|error| format!("Could not serialize OCR result: {error}"))?
+    );
+    Ok(())
+}
+
+#[cfg(not(windows))]
+fn ocr_image_from_args() -> Result<(), String> {
+    Err("ocr-image is only supported on Windows.".to_string())
+}
+
+#[cfg(windows)]
+fn capture_screenshot_from_args() -> Result<(), String> {
+    let output_path = env::args()
+        .nth(2)
+        .ok_or_else(|| "capture-screenshot requires an output path.".to_string())?;
+    let active_window_only = env::args().skip(3).any(|arg| arg == "--active-window");
+    windows_impl::capture_screenshot(&output_path, active_window_only)
+}
+
+#[cfg(not(windows))]
+fn capture_screenshot_from_args() -> Result<(), String> {
+    Err("capture-screenshot is only supported on Windows.".to_string())
 }
 
 #[cfg(windows)]
@@ -128,7 +162,10 @@ impl CaptureMode {
             "shared" => Ok(Self::Shared),
             "exclusive-preferred" => Ok(Self::ExclusivePreferred),
             "exclusive-required" => Ok(Self::ExclusiveRequired),
-            _ => Err("capture mode must be shared, exclusive-preferred, or exclusive-required.".to_string()),
+            _ => Err(
+                "capture mode must be shared, exclusive-preferred, or exclusive-required."
+                    .to_string(),
+            ),
         }
     }
 }
@@ -300,6 +337,7 @@ fn set_system_mute_from_arg() -> Result<(), String> {
 mod windows_impl {
     use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
     use cpal::SizedSample;
+    use image::{ImageBuffer, Rgba};
     use rubato::{FftFixedIn, Resampler};
     use serde::{Deserialize, Serialize};
     use std::collections::VecDeque;
@@ -316,16 +354,25 @@ mod windows_impl {
     use std::thread;
     use std::time::Duration;
     use vad_rs::Vad;
-    use windows::core::{GUID, Interface, PWSTR};
-    use windows::Win32::Foundation::{CloseHandle, HANDLE, HWND, MAX_PATH};
-    use windows::Win32::Media::Audio::{
-        eCapture, eConsole, eRender, IAudioCaptureClient, IAudioClient,
-        IAudioSessionControl2, IAudioSessionManager2, ISimpleAudioVolume,
-        AUDCLNT_BUFFERFLAGS_SILENT, AUDCLNT_SHAREMODE_EXCLUSIVE,
-        IMMDeviceEnumerator, MMDeviceEnumerator, WAVEFORMATEX, WAVEFORMATEXTENSIBLE,
-        WAVE_FORMAT_PCM,
+    use windows::Globalization::Language;
+    use windows::Graphics::Imaging::{BitmapAlphaMode, BitmapPixelFormat, SoftwareBitmap};
+    use windows::Media::Ocr::OcrEngine;
+    use windows::Storage::Streams::DataWriter;
+    use windows::core::{Interface, GUID, PWSTR};
+    use windows::Win32::Foundation::{CloseHandle, HANDLE, HWND, MAX_PATH, RECT};
+    use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_EXTENDED_FRAME_BOUNDS};
+    use windows::Win32::Graphics::Gdi::{
+        BitBlt, CreateCompatibleBitmap, CreateCompatibleDC, DeleteDC, DeleteObject, GetDC,
+        GetDIBits, ReleaseDC, SelectObject, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS,
+        HBITMAP, HDC, HGDIOBJ, SRCCOPY,
     };
     use windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume;
+    use windows::Win32::Media::Audio::{
+        eCapture, eConsole, eRender, IAudioCaptureClient, IAudioClient, IAudioSessionControl2,
+        IAudioSessionManager2, IMMDeviceEnumerator, ISimpleAudioVolume, MMDeviceEnumerator,
+        AUDCLNT_BUFFERFLAGS_SILENT, AUDCLNT_SHAREMODE_EXCLUSIVE, WAVEFORMATEX,
+        WAVEFORMATEXTENSIBLE, WAVE_FORMAT_PCM,
+    };
     use windows::Win32::Media::KernelStreaming::WAVE_FORMAT_EXTENSIBLE;
     use windows::Win32::Media::Multimedia::WAVE_FORMAT_IEEE_FLOAT;
     use windows::Win32::System::Com::{
@@ -335,19 +382,19 @@ mod windows_impl {
     use windows::Win32::System::DataExchange::{
         CloseClipboard, EmptyClipboard, OpenClipboard, SetClipboardData,
     };
-    use windows::Win32::System::Memory::{
-        GlobalAlloc, GlobalLock, GlobalUnlock, GMEM_MOVEABLE,
-    };
+    use windows::Win32::System::Memory::{GlobalAlloc, GlobalLock, GlobalUnlock, GMEM_MOVEABLE};
     use windows::Win32::System::Threading::{
-        OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_WIN32, PROCESS_QUERY_LIMITED_INFORMATION,
+        OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_WIN32,
+        PROCESS_QUERY_LIMITED_INFORMATION,
     };
     use windows::Win32::UI::Input::KeyboardAndMouse::{
-        SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP,
-        KEYEVENTF_UNICODE, VIRTUAL_KEY, VK_CONTROL, VK_LMENU, VK_LSHIFT, VK_LWIN, VK_V,
+        SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP, KEYEVENTF_UNICODE,
+        VIRTUAL_KEY, VK_CONTROL, VK_LMENU, VK_LSHIFT, VK_LWIN, VK_V,
     };
     use windows::Win32::UI::WindowsAndMessaging::{
-        GetForegroundWindow, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId,
-        IsIconic, SetForegroundWindow, ShowWindow, SW_RESTORE,
+        GetForegroundWindow, GetSystemMetrics, GetWindowRect, GetWindowTextLengthW, GetWindowTextW,
+        GetWindowThreadProcessId, IsIconic, SetForegroundWindow, ShowWindow, SM_CXVIRTUALSCREEN,
+        SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN, SW_RESTORE,
     };
 
     const CF_UNICODETEXT_FORMAT: u32 = 13;
@@ -364,6 +411,25 @@ mod windows_impl {
         process_id: u32,
         process_path: Option<String>,
         process_name: Option<String>,
+    }
+
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct WindowsOcrResult {
+        provider: String,
+        engine: String,
+        image_path: String,
+        text: String,
+        lines: Vec<WindowsOcrLine>,
+        duration_ms: u128,
+    }
+
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct WindowsOcrLine {
+        text: String,
+        confidence: Option<f32>,
+        box_: Option<[i32; 4]>,
     }
 
     pub fn get_active_window() -> Result<ActiveWindow, String> {
@@ -507,11 +573,15 @@ mod windows_impl {
             let manager: IAudioSessionManager2 = device
                 .Activate(CLSCTX_ALL, None)
                 .map_err(|error| error.to_string())?;
-            let sessions = manager.GetSessionEnumerator().map_err(|error| error.to_string())?;
+            let sessions = manager
+                .GetSessionEnumerator()
+                .map_err(|error| error.to_string())?;
             let count = sessions.GetCount().map_err(|error| error.to_string())?;
 
             for index in 0..count {
-                let session = sessions.GetSession(index).map_err(|error| error.to_string())?;
+                let session = sessions
+                    .GetSession(index)
+                    .map_err(|error| error.to_string())?;
                 let session2: IAudioSessionControl2 =
                     session.cast().map_err(|error| error.to_string())?;
                 let process_id = session2.GetProcessId().map_err(|error| error.to_string())?;
@@ -575,11 +645,15 @@ mod windows_impl {
             let manager: IAudioSessionManager2 = device
                 .Activate(CLSCTX_ALL, None)
                 .map_err(|error| error.to_string())?;
-            let sessions = manager.GetSessionEnumerator().map_err(|error| error.to_string())?;
+            let sessions = manager
+                .GetSessionEnumerator()
+                .map_err(|error| error.to_string())?;
             let count = sessions.GetCount().map_err(|error| error.to_string())?;
 
             for index in 0..count {
-                let session = sessions.GetSession(index).map_err(|error| error.to_string())?;
+                let session = sessions
+                    .GetSession(index)
+                    .map_err(|error| error.to_string())?;
                 let session2: IAudioSessionControl2 =
                     session.cast().map_err(|error| error.to_string())?;
                 let process_id = session2.GetProcessId().map_err(|error| error.to_string())?;
@@ -612,7 +686,9 @@ mod windows_impl {
         if recording_config.capture_mode != super::CaptureMode::Shared {
             match record_wav_wasapi_exclusive(output_path, recording_config.vad.clone()) {
                 Ok(()) => return Ok(()),
-                Err(error) if recording_config.capture_mode == super::CaptureMode::ExclusiveRequired => {
+                Err(error)
+                    if recording_config.capture_mode == super::CaptureMode::ExclusiveRequired =>
+                {
                     return Err(format!("Exclusive microphone capture failed: {error}"));
                 }
                 Err(error) => {
@@ -807,7 +883,9 @@ mod windows_impl {
                 .Activate(CLSCTX_ALL, None)
                 .map_err(|error| error.to_string())?;
 
-            format_ptr = audio_client.GetMixFormat().map_err(|error| error.to_string())?;
+            format_ptr = audio_client
+                .GetMixFormat()
+                .map_err(|error| error.to_string())?;
             let selected_format = select_exclusive_capture_format(&audio_client, format_ptr)?;
             let format = selected_format.input;
 
@@ -832,8 +910,9 @@ mod windows_impl {
                 )
                 .map_err(|error| error.to_string())?;
 
-            let capture_client: IAudioCaptureClient =
-                audio_client.GetService().map_err(|error| error.to_string())?;
+            let capture_client: IAudioCaptureClient = audio_client
+                .GetService()
+                .map_err(|error| error.to_string())?;
             let mut resampler = FrameResampler::new(format.sample_rate, VOXTYPE_SAMPLE_RATE);
             let mut frame_emitter = FrameEmitter::new(VAD_FRAME_SAMPLES);
             let mut vad = if vad_config.enabled {
@@ -975,6 +1054,259 @@ mod windows_impl {
     enum WasapiSampleKind {
         Float,
         Pcm,
+    }
+
+    pub fn capture_screenshot(output_path: &str, active_window_only: bool) -> Result<(), String> {
+        let rect = screenshot_rect(active_window_only)?;
+        let width = rect.right - rect.left;
+        let height = rect.bottom - rect.top;
+
+        if width <= 0 || height <= 0 {
+            return Err("Screenshot target has no visible area.".to_string());
+        }
+
+        let screen_dc = unsafe { GetDC(None) };
+        if screen_dc.0.is_null() {
+            return Err("Could not get the screen device context.".to_string());
+        }
+
+        let result = capture_rect_to_png(screen_dc, rect, output_path);
+        unsafe {
+            ReleaseDC(None, screen_dc);
+        }
+        result
+    }
+
+    pub fn recognize_image_text(input_path: &str) -> Result<WindowsOcrResult, String> {
+        let started = std::time::Instant::now();
+        let path = std::fs::canonicalize(input_path)
+            .map_err(|error| format!("Could not resolve OCR image path: {error}"))?;
+        let path_string = path.to_string_lossy().to_string();
+        let bitmap = load_software_bitmap_from_image(&path_string)?;
+        let engine = OcrEngine::TryCreateFromUserProfileLanguages()
+            .map_err(|error| format!("Could not create Windows OCR engine: {error}"))?;
+        let result = engine
+            .RecognizeAsync(&bitmap)
+            .map_err(|error| format!("Could not start Windows OCR: {error}"))?
+            .join()
+            .map_err(|error| format!("Windows OCR failed: {error}"))?;
+        let ocr_lines = result
+            .Lines()
+            .map_err(|error| format!("Could not read Windows OCR lines: {error}"))?;
+        let mut lines = Vec::new();
+        let mut text_lines = Vec::new();
+
+        for index in 0..ocr_lines
+            .Size()
+            .map_err(|error| format!("Could not count Windows OCR lines: {error}"))?
+        {
+            let line = ocr_lines
+                .GetAt(index)
+                .map_err(|error| format!("Could not read Windows OCR line: {error}"))?;
+            let text = line
+                .Text()
+                .map_err(|error| format!("Could not read Windows OCR line text: {error}"))?
+                .to_string_lossy();
+
+            if text.trim().is_empty() {
+                continue;
+            }
+
+            text_lines.push(text.clone());
+            lines.push(WindowsOcrLine {
+                text,
+                confidence: None,
+                box_: None,
+            });
+        }
+
+        Ok(WindowsOcrResult {
+            provider: "windowsMediaOcr".to_string(),
+            engine: ocr_engine_label(&engine),
+            image_path: path_string,
+            text: text_lines.join("\n"),
+            lines,
+            duration_ms: started.elapsed().as_millis(),
+        })
+    }
+
+    fn load_software_bitmap_from_image(path: &str) -> Result<SoftwareBitmap, String> {
+        let image = image::open(path)
+            .map_err(|error| format!("Could not decode OCR image: {error}"))?
+            .to_rgba8();
+        let (width, height) = image.dimensions();
+        let mut bgra = image.into_raw();
+
+        for pixel in bgra.chunks_exact_mut(4) {
+            pixel.swap(0, 2);
+        }
+
+        let writer = DataWriter::new()
+            .map_err(|error| format!("Could not create OCR image buffer writer: {error}"))?;
+        writer
+            .WriteBytes(&bgra)
+            .map_err(|error| format!("Could not write OCR image pixels: {error}"))?;
+        let buffer = writer
+            .DetachBuffer()
+            .map_err(|error| format!("Could not detach OCR image buffer: {error}"))?;
+
+        SoftwareBitmap::CreateCopyWithAlphaFromBuffer(
+            &buffer,
+            BitmapPixelFormat::Bgra8,
+            width as i32,
+            height as i32,
+            BitmapAlphaMode::Premultiplied,
+        )
+        .map_err(|error| format!("Could not create OCR software bitmap: {error}"))
+    }
+
+    fn ocr_engine_label(engine: &OcrEngine) -> String {
+        engine
+            .RecognizerLanguage()
+            .ok()
+            .and_then(|language: Language| language.LanguageTag().ok())
+            .map(|tag| format!("Windows.Media.Ocr {tag}"))
+            .unwrap_or_else(|| "Windows.Media.Ocr".to_string())
+    }
+
+    fn screenshot_rect(active_window_only: bool) -> Result<RECT, String> {
+        if active_window_only {
+            let hwnd = unsafe { GetForegroundWindow() };
+
+            if hwnd.0.is_null() {
+                return Err("No foreground window is currently available.".to_string());
+            }
+
+            let mut rect = RECT::default();
+            let dwm_result = unsafe {
+                DwmGetWindowAttribute(
+                    hwnd,
+                    DWMWA_EXTENDED_FRAME_BOUNDS,
+                    &mut rect as *mut RECT as *mut _,
+                    std::mem::size_of::<RECT>() as u32,
+                )
+            };
+
+            if dwm_result.is_err() || rect.right <= rect.left || rect.bottom <= rect.top {
+                unsafe { GetWindowRect(hwnd, &mut rect) }
+                    .map_err(|error| format!("Could not get foreground window bounds: {error}"))?;
+            }
+
+            return Ok(rect);
+        }
+
+        Ok(RECT {
+            left: unsafe { GetSystemMetrics(SM_XVIRTUALSCREEN) },
+            top: unsafe { GetSystemMetrics(SM_YVIRTUALSCREEN) },
+            right: unsafe { GetSystemMetrics(SM_XVIRTUALSCREEN) }
+                + unsafe { GetSystemMetrics(SM_CXVIRTUALSCREEN) },
+            bottom: unsafe { GetSystemMetrics(SM_YVIRTUALSCREEN) }
+                + unsafe { GetSystemMetrics(SM_CYVIRTUALSCREEN) },
+        })
+    }
+
+    fn capture_rect_to_png(screen_dc: HDC, rect: RECT, output_path: &str) -> Result<(), String> {
+        let width = rect.right - rect.left;
+        let height = rect.bottom - rect.top;
+        let memory_dc = unsafe { CreateCompatibleDC(Some(screen_dc)) };
+
+        if memory_dc.0.is_null() {
+            return Err("Could not create a compatible screenshot device context.".to_string());
+        }
+
+        let bitmap = unsafe { CreateCompatibleBitmap(screen_dc, width, height) };
+        if bitmap.0.is_null() {
+            unsafe {
+                let _ = DeleteDC(memory_dc);
+            }
+            return Err("Could not create a compatible screenshot bitmap.".to_string());
+        }
+
+        let result = copy_bitmap_to_png(screen_dc, memory_dc, bitmap, rect, output_path);
+
+        unsafe {
+            let _ = DeleteObject(HGDIOBJ(bitmap.0));
+            let _ = DeleteDC(memory_dc);
+        }
+
+        result
+    }
+
+    fn copy_bitmap_to_png(
+        screen_dc: HDC,
+        memory_dc: HDC,
+        bitmap: HBITMAP,
+        rect: RECT,
+        output_path: &str,
+    ) -> Result<(), String> {
+        let width = rect.right - rect.left;
+        let height = rect.bottom - rect.top;
+        let old_object = unsafe { SelectObject(memory_dc, HGDIOBJ(bitmap.0)) };
+
+        if old_object.0.is_null() {
+            return Err("Could not select the screenshot bitmap.".to_string());
+        }
+
+        unsafe {
+            BitBlt(
+                memory_dc,
+                0,
+                0,
+                width,
+                height,
+                Some(screen_dc),
+                rect.left,
+                rect.top,
+                SRCCOPY,
+            )
+        }
+        .map_err(|error| {
+            format!("Could not copy the screen into the screenshot bitmap: {error}")
+        })?;
+
+        let mut bitmap_info = BITMAPINFO {
+            bmiHeader: BITMAPINFOHEADER {
+                biSize: std::mem::size_of::<BITMAPINFOHEADER>() as u32,
+                biWidth: width,
+                biHeight: -height,
+                biPlanes: 1,
+                biBitCount: 32,
+                biCompression: BI_RGB.0,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        let mut pixels = vec![0_u8; width as usize * height as usize * 4];
+        let scan_lines = unsafe {
+            GetDIBits(
+                memory_dc,
+                bitmap,
+                0,
+                height as u32,
+                Some(pixels.as_mut_ptr().cast()),
+                &mut bitmap_info,
+                DIB_RGB_COLORS,
+            )
+        };
+
+        unsafe {
+            SelectObject(memory_dc, old_object);
+        }
+
+        if scan_lines == 0 {
+            return Err("Could not read screenshot bitmap pixels.".to_string());
+        }
+
+        for pixel in pixels.chunks_exact_mut(4) {
+            pixel.swap(0, 2);
+            pixel[3] = 255;
+        }
+
+        let image = ImageBuffer::<Rgba<u8>, _>::from_raw(width as u32, height as u32, pixels)
+            .ok_or_else(|| "Could not build screenshot image buffer.".to_string())?;
+        image
+            .save(output_path)
+            .map_err(|error| format!("Could not save screenshot PNG: {error}"))
     }
 
     struct SelectedWasapiFormat {
@@ -1139,8 +1471,7 @@ mod windows_impl {
         }
     }
 
-    const KSDATAFORMAT_SUBTYPE_PCM: GUID =
-        GUID::from_u128(0x00000001_0000_0010_8000_00aa00389b71);
+    const KSDATAFORMAT_SUBTYPE_PCM: GUID = GUID::from_u128(0x00000001_0000_0010_8000_00aa00389b71);
     const KSDATAFORMAT_SUBTYPE_IEEE_FLOAT: GUID =
         GUID::from_u128(0x00000003_0000_0010_8000_00aa00389b71);
 
@@ -1253,7 +1584,9 @@ mod windows_impl {
     fn get_preferred_input_config(
         device: &cpal::Device,
     ) -> Result<cpal::SupportedStreamConfig, String> {
-        let default_config = device.default_input_config().map_err(|error| error.to_string())?;
+        let default_config = device
+            .default_input_config()
+            .map_err(|error| error.to_string())?;
         let target_rate = default_config.sample_rate();
         let mut best_config: Option<cpal::SupportedStreamConfigRange> = None;
 
@@ -1310,11 +1643,7 @@ mod windows_impl {
                     } else {
                         for frame in data.chunks_exact(channels) {
                             output.push(
-                                frame
-                                    .iter()
-                                    .map(PcmSample::to_f32)
-                                    .sum::<f32>()
-                                    / channels as f32,
+                                frame.iter().map(PcmSample::to_f32).sum::<f32>() / channels as f32,
                             );
                         }
                     }
@@ -1351,8 +1680,7 @@ mod windows_impl {
 
     impl PcmSample for u64 {
         fn to_f32(&self) -> f32 {
-            (*self as f64 - 9_223_372_036_854_775_808.0) as f32
-                / 9_223_372_036_854_775_808.0_f32
+            (*self as f64 - 9_223_372_036_854_775_808.0) as f32 / 9_223_372_036_854_775_808.0_f32
         }
     }
 
@@ -1425,7 +1753,11 @@ mod windows_impl {
                 input = &input[count..];
 
                 if self.in_buf.len() == self.chunk_in {
-                    if let Ok(output) = self.resampler.as_mut().unwrap().process(&[&self.in_buf], None)
+                    if let Ok(output) = self
+                        .resampler
+                        .as_mut()
+                        .unwrap()
+                        .process(&[&self.in_buf], None)
                     {
                         emit(&output[0]);
                     }
@@ -1644,19 +1976,14 @@ mod windows_impl {
 
             EmptyClipboard().map_err(|error| error.to_string())?;
 
-            let memory = GlobalAlloc(GMEM_MOVEABLE, byte_len)
-                .map_err(|error| error.to_string())?;
+            let memory = GlobalAlloc(GMEM_MOVEABLE, byte_len).map_err(|error| error.to_string())?;
             let locked = GlobalLock(memory);
 
             if locked.is_null() {
                 return Err("Failed to lock clipboard memory.".to_string());
             }
 
-            ptr::copy_nonoverlapping(
-                utf16.as_ptr().cast::<u8>(),
-                locked.cast::<u8>(),
-                byte_len,
-            );
+            ptr::copy_nonoverlapping(utf16.as_ptr().cast::<u8>(), locked.cast::<u8>(), byte_len);
 
             let _ = GlobalUnlock(memory);
 
@@ -1678,12 +2005,7 @@ mod windows_impl {
             keyboard_input(VK_V, true),
             keyboard_input(VK_CONTROL, true),
         ];
-        let sent = unsafe {
-            SendInput(
-                &mut inputs,
-                std::mem::size_of::<INPUT>() as i32,
-            )
-        };
+        let sent = unsafe { SendInput(&mut inputs, std::mem::size_of::<INPUT>() as i32) };
 
         if sent != inputs.len() as u32 {
             return Err(format!("SendInput sent {sent} of {} events.", inputs.len()));
@@ -1693,19 +2015,14 @@ mod windows_impl {
     }
 
     fn send_unicode_unit(unit: u16) -> Result<(), String> {
-        let mut inputs = [
-            unicode_input(unit, false),
-            unicode_input(unit, true),
-        ];
-        let sent = unsafe {
-            SendInput(
-                &mut inputs,
-                std::mem::size_of::<INPUT>() as i32,
-            )
-        };
+        let mut inputs = [unicode_input(unit, false), unicode_input(unit, true)];
+        let sent = unsafe { SendInput(&mut inputs, std::mem::size_of::<INPUT>() as i32) };
 
         if sent != inputs.len() as u32 {
-            return Err(format!("SendInput sent {sent} of {} unicode events.", inputs.len()));
+            return Err(format!(
+                "SendInput sent {sent} of {} unicode events.",
+                inputs.len()
+            ));
         }
 
         Ok(())
@@ -1807,7 +2124,11 @@ mod windows_impl {
                 ki: KEYBDINPUT {
                     wVk: key,
                     wScan: 0,
-                    dwFlags: if key_up { KEYEVENTF_KEYUP } else { Default::default() },
+                    dwFlags: if key_up {
+                        KEYEVENTF_KEYUP
+                    } else {
+                        Default::default()
+                    },
                     time: 0,
                     dwExtraInfo: 0,
                 },
@@ -1885,14 +2206,8 @@ mod windows_impl {
     }
 
     fn get_process_path(process_id: u32) -> Option<String> {
-        let process = unsafe {
-            OpenProcess(
-                PROCESS_QUERY_LIMITED_INFORMATION,
-                false,
-                process_id,
-            )
-        }
-        .ok()?;
+        let process =
+            unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, process_id) }.ok()?;
 
         let mut buffer = [MaybeUninit::<u16>::uninit(); MAX_PATH as usize];
         let mut size = buffer.len() as u32;
@@ -1913,9 +2228,8 @@ mod windows_impl {
             return None;
         }
 
-        let initialized = unsafe {
-            std::slice::from_raw_parts(buffer.as_ptr().cast::<u16>(), size as usize)
-        };
+        let initialized =
+            unsafe { std::slice::from_raw_parts(buffer.as_ptr().cast::<u16>(), size as usize) };
 
         Some(String::from_utf16_lossy(initialized))
     }

@@ -11,6 +11,7 @@ import { DictionaryStore } from "./dictionary-store";
 import { HistoryStore } from "./history-store";
 import { InsertionService } from "./insertion-service";
 import { ModelService } from "./model-service";
+import { OcrService } from "./ocr-service";
 import { RuntimeService } from "./runtime-service";
 import { SettingsStore } from "./settings-store";
 import { TranscriptionService } from "./transcription-service";
@@ -32,6 +33,7 @@ const historyStore = new HistoryStore();
 const modelService = new ModelService(settingsStore);
 const runtimeService = new RuntimeService();
 const windowsHelperService = new WindowsHelperService();
+const ocrService = new OcrService(windowsHelperService);
 const transcriptionService = new TranscriptionService(
   settingsStore,
   historyStore,
@@ -201,6 +203,11 @@ ipcMain.handle("models:download", (_event, modelId: string) => modelService.down
 ipcMain.handle("runtime:get-whisper", () => runtimeService.getWhisperRuntime());
 ipcMain.handle("runtime:install-whisper", () => runtimeService.installWhisperRuntime());
 ipcMain.handle(
+  "ocr:recognize-screenshot",
+  (_event, imagePath: string, mode: "screen" | "activeWindow") =>
+    ocrService.recognizeImage(imagePath, mode)
+);
+ipcMain.handle(
   "transcription:transcribe-wav",
   (_event, bytes: Uint8Array, context?: { processName?: string | null }) =>
     transcriptionService.transcribeWav(bytes, context)
@@ -267,6 +274,9 @@ ipcMain.handle("windows-helper:set-system-mute", (_event, muted: boolean) =>
 );
 ipcMain.handle("windows-helper:send-hotkey", (_event, accelerator: string) =>
   windowsHelperService.sendHotkey(accelerator)
+);
+ipcMain.handle("windows-helper:capture-screenshot", (_event, mode: "screen" | "activeWindow") =>
+  windowsHelperService.captureScreenshot(mode)
 );
 ipcMain.handle("windows-helper:start-recording", (_event, options: NativeRecordingOptions) =>
   windowsHelperService.startRecording(options)

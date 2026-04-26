@@ -1,5 +1,3 @@
-export type RuntimeStatus = "not-installed" | "installed";
-
 export type WhisperRuntime = {
   id: string;
   name: string;
@@ -8,7 +6,7 @@ export type WhisperRuntime = {
   platform: string;
   archiveName: string;
   url: string;
-  status: RuntimeStatus;
+  status: "not-installed" | "installed";
   executablePath: string | null;
 };
 
@@ -21,4 +19,3 @@ export const whisperRuntimeCatalog = {
   archiveName: "whisper-bin-x64.zip",
   url: "https://github.com/ggml-org/whisper.cpp/releases/download/v1.8.4/whisper-bin-x64.zip"
 } as const;
-

@@ -46,6 +46,4 @@ Raw ideas go here before they become planned features.
 - Add Parakeet V3 as optional fast engine.
 - Add newer Parakeet Unified model for English low-latency mode if useful.
 - Add faster-whisper/CTranslate2 for users with NVIDIA GPUs.
-- Add PaddleOCR as high-quality OCR option.
 - Add local LLM for formatting, not as required STT.
-

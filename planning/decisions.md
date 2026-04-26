@@ -171,3 +171,13 @@ VoxType should offer layered microphone coordination: shared capture as the defa
 Reason:
 
 Testing confirmed that capture-session mute can prevent Discord from receiving audio but can also leave VoxType with no detected speech. WASAPI exclusive capture keeps VoxType as the recorder while preventing other shared-mode consumers when Windows allows exclusive access. Discord hotkey automation is still valuable because it updates Discord's own mute state and UI, but it does not need to be profile-bound for the first implementation.
+
+## 2026-04-25: Prefer Windows Media OCR For Phase 4
+
+Decision:
+
+VoxType should target Windows Media OCR as the preferred first OCR engine for Phase 4.
+
+Reason:
+
+VoxType works with Windows screenshots, and local testing showed the native Windows OCR path is fast enough for the screen-aware dictation loop without introducing a managed Python runtime, large model downloads, or slow warm-up costs.

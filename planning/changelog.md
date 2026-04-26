@@ -1,7 +1,14 @@
 # Planning Changelog
 
+## 2026-04-26
+
+- Added Windows Media OCR as a native Rust-helper OCR provider/benchmark and fixed active-window screenshot offsets by using DWM extended frame bounds.
+- Removed the heavyweight OCR runtime path and made Windows Media OCR the Phase 4 OCR direction for screenshot-based context.
+
 ## 2026-04-25
 
+- Started the first OCR provider path with a managed local runtime experiment before replacing it with native Windows OCR.
+- Started Phase 4 with native screenshot capture for active-window and full-screen OCR context, plus renderer preview plumbing.
 - Added transcript consistency as a planned VoxType layer for stable punctuation, casing, spacing, and app/profile style levels.
 - Clarified that raw ASR output should be preserved separately from the final post-processed inserted text.
 - Clarified the recording-path difference between VoxType and Handy, and captured native microphone capture as the likely next fix if renderer/WebAudio capture still crackles during longer recordings.

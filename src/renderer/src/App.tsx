@@ -8,6 +8,7 @@ import { eventToAccelerator } from "./hotkey-capture";
 import { type DictionaryEntry } from "../../../shared/dictionary";
 import { type HotkeyStatus } from "../../../shared/hotkeys";
 import { type LocalModel } from "../../../shared/models";
+import { type OcrResult } from "../../../shared/ocr";
 import { type WhisperRuntime } from "../../../shared/runtimes";
 import {
   type AppProfile,
@@ -20,6 +21,8 @@ import { type TranscriptEntry } from "../../../shared/transcripts";
 import {
   type ActiveWindowInfo,
   type DictationHotkeyPayload,
+  type ScreenshotCaptureMode,
+  type ScreenshotCaptureResult,
   type WindowsHelperStatus
 } from "../../../shared/windows-helper";
 
@@ -34,7 +37,15 @@ type AppState = {
   hotkeys: HotkeyStatus | null;
 };
 
-type DevTab = "dictation" | "models" | "insertion" | "profiles" | "dictionary" | "settings" | "logs";
+type DevTab =
+  | "dictation"
+  | "models"
+  | "insertion"
+  | "profiles"
+  | "dictionary"
+  | "ocr"
+  | "settings"
+  | "logs";
 type HotkeyCaptureTarget =
   | "dictationToggleHotkey"
   | "showWindowHotkey"
@@ -47,6 +58,7 @@ const devTabs: Array<{ id: DevTab; label: string }> = [
   { id: "insertion", label: "Insertion" },
   { id: "profiles", label: "Profiles" },
   { id: "dictionary", label: "Dictionary" },
+  { id: "ocr", label: "OCR" },
   { id: "settings", label: "Settings" },
   { id: "logs", label: "Logs" }
 ];
@@ -84,6 +96,9 @@ export function App(): JSX.Element {
   const [dictionaryAppProcess, setDictionaryAppProcess] = useState("");
   const [fixLastText, setFixLastText] = useState("");
   const [lastRecordingResult, setLastRecordingResult] = useState<PcmRecordingResult | null>(null);
+  const [screenshotMode, setScreenshotMode] = useState<ScreenshotCaptureMode>("activeWindow");
+  const [latestScreenshot, setLatestScreenshot] = useState<ScreenshotCaptureResult | null>(null);
+  const [latestOcrResult, setLatestOcrResult] = useState<OcrResult | null>(null);
   const [playingTranscriptId, setPlayingTranscriptId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<DevTab>("dictation");
 
@@ -160,7 +175,16 @@ export function App(): JSX.Element {
   }, [capturingHotkey]);
 
   async function refresh(): Promise<void> {
-    const [appVersion, settings, models, runtime, history, dictionary, windowsHelper, hotkeys] =
+    const [
+      appVersion,
+      settings,
+      models,
+      runtime,
+      history,
+      dictionary,
+      windowsHelper,
+      hotkeys
+    ] =
       await Promise.all([
       window.voxtype.getVersion(),
       window.voxtype.settings.get(),
@@ -436,6 +460,42 @@ export function App(): JSX.Element {
       const windowsHelper = await window.voxtype.windowsHelper.status();
       setState((current) => ({ ...current, windowsHelper }));
       setError(formatError(activeWindowError));
+    }
+  }
+
+  async function captureScreenshot(): Promise<void> {
+    setError(null);
+    setBusyMessage("Capturing screenshot...");
+
+    try {
+      const screenshot = await window.voxtype.windowsHelper.captureScreenshot(screenshotMode);
+      setLatestScreenshot(screenshot);
+      setLatestOcrResult(null);
+    } catch (screenshotError) {
+      setError(formatError(screenshotError));
+    } finally {
+      setBusyMessage(null);
+    }
+  }
+
+  async function recognizeLatestScreenshot(): Promise<void> {
+    if (!latestScreenshot) {
+      return;
+    }
+
+    setError(null);
+    setBusyMessage("Running Windows OCR...");
+
+    try {
+      const ocrResult = await window.voxtype.ocr.recognizeScreenshot(
+        latestScreenshot.path,
+        latestScreenshot.mode
+      );
+      setLatestOcrResult(ocrResult);
+    } catch (ocrError) {
+      setError(formatError(ocrError));
+    } finally {
+      setBusyMessage(null);
     }
   }
 
@@ -1122,6 +1182,102 @@ export function App(): JSX.Element {
           </div>
         ) : null}
 
+        {activeTab === "ocr" ? (
+          <div className="stack">
+            <section className="panel-block">
+              <h2>capture</h2>
+              <div className="form-grid compact">
+                <label className="dev-field">
+                  <span>mode</span>
+                  <select
+                    value={screenshotMode}
+                    onChange={(event) =>
+                      setScreenshotMode(event.target.value as ScreenshotCaptureMode)
+                    }
+                  >
+                    <option value="activeWindow">activeWindow</option>
+                    <option value="screen">screen</option>
+                  </select>
+                </label>
+              </div>
+              <div className="button-row">
+                <button disabled={Boolean(busyMessage)} onClick={() => void captureScreenshot()} type="button">
+                  Capture
+                </button>
+                <button
+                  disabled={!latestScreenshot || Boolean(busyMessage)}
+                  onClick={() => void recognizeLatestScreenshot()}
+                  type="button"
+                >
+                  RunWindowsOCR
+                </button>
+              </div>
+              <dl className="kv-grid wide">
+                <dt>engine</dt>
+                <dd>{latestOcrResult?.engine ?? "Windows Media OCR"}</dd>
+                <dt>mode</dt>
+                <dd>{latestScreenshot?.mode ?? screenshotMode}</dd>
+                <dt>capturedAt</dt>
+                <dd>{latestScreenshot?.capturedAt ?? "none"}</dd>
+                <dt>path</dt>
+                <dd>{latestScreenshot?.path ?? "none"}</dd>
+                <dt>bytes</dt>
+                <dd>{latestScreenshot?.bytes.byteLength ?? 0}</dd>
+                <dt>lines</dt>
+                <dd>{latestOcrResult?.lines.length ?? 0}</dd>
+                <dt>durationMs</dt>
+                <dd>{latestOcrResult?.durationMs ?? 0}</dd>
+              </dl>
+            </section>
+
+            <section className="panel-block">
+              <h2>preview</h2>
+              {latestScreenshot ? (
+                <img
+                  alt="Latest OCR screenshot capture"
+                  className="screenshot-preview"
+                  src={pngBytesToDataUrl(latestScreenshot.bytes)}
+                />
+              ) : (
+                <pre>empty</pre>
+              )}
+            </section>
+
+            <section className="panel-block transcript-block">
+              <h2>ocrText</h2>
+              <pre>{latestOcrResult?.text || "empty"}</pre>
+            </section>
+
+            <section className="panel-block">
+              <h2>ocrLines</h2>
+              <table>
+                <thead>
+                  <tr>
+                    <th>text</th>
+                    <th>confidence</th>
+                    <th>box</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {latestOcrResult?.lines.length ? (
+                    latestOcrResult.lines.map((line, index) => (
+                      <tr key={`${line.text}-${index}`}>
+                        <td>{line.text}</td>
+                        <td>{line.confidence?.toFixed(3) ?? "n/a"}</td>
+                        <td><code>{line.box?.join(",") ?? "n/a"}</code></td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={3}>empty</td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </section>
+          </div>
+        ) : null}
+
         {activeTab === "settings" && state.settings ? (
           <section className="panel-block">
             <h2>settings</h2>
@@ -1378,6 +1534,16 @@ function formatError(error: unknown): string {
 
 function joinErrors(primary: string, secondary: string | null): string {
   return secondary ? `${primary} ${secondary}` : primary;
+}
+
+function pngBytesToDataUrl(bytes: Uint8Array): string {
+  let binary = "";
+
+  for (const byte of bytes) {
+    binary += String.fromCharCode(byte);
+  }
+
+  return `data:image/png;base64,${window.btoa(binary)}`;
 }
 
 function insertionModeLabel(mode: InsertionMode): string {
