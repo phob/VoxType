@@ -36,6 +36,12 @@ This helps with:
 - code identifiers
 - ticket/order/customer numbers
 
+Initial Phase 4 direction:
+
+- Keep OCR context optional and user-controllable through a simple enable/disable setting in the final UI.
+- Keep raw OCR text, rejected terms, prompt previews, and correction diagnostics in a developer/debug surface rather than the main user workflow.
+- Accept that OCR will not perfectly fix every difficult visible word; the feature is valuable as a contextual assist, not a guaranteed correction system.
+
 ### Fix Last Dictation
 
 After insertion, VoxType remembers what it inserted.
@@ -168,13 +174,15 @@ VoxType should tell the user what it sees:
 ## OCR Features
 
 - Screenshot capture for the active window or full virtual screen. Initial implementation writes PNG screenshots through the native Windows helper and previews them in the renderer OCR panel.
-- Region screenshot OCR.
-- Active-window OCR.
-- Full-screen OCR.
-- Copy OCR result.
-- Insert OCR result.
-- Add OCR terms to temporary dictionary.
+- Active-window OCR for global-hotkey dictation.
+- Captured-window OCR by hwnd so the intended target is used even if foreground focus changes.
+- OCR term extraction with strict, balanced, and broad modes.
+- Temporary OCR dictionary for a dictation session.
 - Add OCR terms to permanent dictionary.
+- Final UI enable/disable checkbox for OCR context.
+- Developer/debug view for raw OCR result, rejected candidates, prompt preview, and copy tools.
+- Region screenshot OCR later only if active-window OCR is not enough.
+- Insert OCR result later only if it becomes a clear user workflow.
 
 ## Model Management Features
 

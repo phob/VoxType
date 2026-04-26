@@ -3,6 +3,8 @@ export type TranscriptEntry = {
   text: string;
   rawText?: string;
   correctionsApplied?: string[];
+  ocrCorrectionsApplied?: string[];
+  promptContext?: string;
   audioFileName?: string;
   modelId: string;
   createdAt: string;
@@ -11,4 +13,5 @@ export type TranscriptEntry = {
 
 export type TranscriptionResult = {
   entry: TranscriptEntry;
+  promptContext: string | null;
 };

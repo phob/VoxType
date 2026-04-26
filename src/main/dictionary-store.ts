@@ -92,9 +92,13 @@ export class DictionaryStore {
     return this.entries;
   }
 
-  async buildPromptContext(processName?: string | null): Promise<string | null> {
+  async buildPromptContext(
+    processName?: string | null,
+    ocrTerms?: string[] | null
+  ): Promise<string | null> {
     const entries = await this.relevantEntries(processName);
-    const terms = entries.map((entry) => entry.preferred).filter(Boolean).slice(0, 40);
+    const dictionaryTerms = entries.map((entry) => entry.preferred).filter(Boolean);
+    const terms = uniqueTerms([...dictionaryTerms, ...(ocrTerms ?? [])]).slice(0, 160);
 
     if (terms.length === 0) {
       return null;
@@ -153,4 +157,23 @@ function replacePhrase(text: string, match: string, preferred: string): string {
   const expression = new RegExp(`${prefix}${escaped}${suffix}`, "gi");
 
   return text.replace(expression, preferred);
+}
+
+function uniqueTerms(terms: string[]): string[] {
+  const seen = new Set<string>();
+  const unique: string[] = [];
+
+  for (const term of terms) {
+    const normalized = term.trim();
+    const key = normalized.toLowerCase();
+
+    if (!normalized || seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    unique.push(normalized);
+  }
+
+  return unique;
 }

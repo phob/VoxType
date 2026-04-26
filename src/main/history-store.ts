@@ -100,6 +100,8 @@ function isTranscriptEntry(value: unknown): value is TranscriptEntry {
     typeof entry.text === "string" &&
     (typeof entry.rawText === "string" || entry.rawText === undefined) &&
     (Array.isArray(entry.correctionsApplied) || entry.correctionsApplied === undefined) &&
+    (Array.isArray(entry.ocrCorrectionsApplied) || entry.ocrCorrectionsApplied === undefined) &&
+    (typeof entry.promptContext === "string" || entry.promptContext === undefined) &&
     (typeof entry.audioFileName === "string" || entry.audioFileName === undefined) &&
     typeof entry.modelId === "string" &&
     typeof entry.createdAt === "string" &&

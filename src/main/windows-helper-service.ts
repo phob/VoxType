@@ -127,7 +127,10 @@ export class WindowsHelperService {
     });
   }
 
-  async captureScreenshot(mode: ScreenshotCaptureMode): Promise<ScreenshotCaptureResult> {
+  async captureScreenshot(
+    mode: ScreenshotCaptureMode,
+    targetHwnd?: string | null
+  ): Promise<ScreenshotCaptureResult> {
     const helperPath = await this.resolveHelperPath();
 
     if (!helperPath) {
@@ -143,6 +146,10 @@ export class WindowsHelperService {
 
     if (mode === "activeWindow") {
       args.push("--active-window");
+    }
+
+    if (targetHwnd) {
+      args.push("--hwnd", targetHwnd);
     }
 
     await execFileAsync(helperPath, args, {

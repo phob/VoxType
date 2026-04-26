@@ -321,6 +321,18 @@ pre {
   margin-top: 8px;
 }
 
+.ocr-term-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ocr-term-list button {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .screenshot-preview {
   display: block;
   width: 100%;

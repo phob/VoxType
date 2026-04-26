@@ -5,6 +5,7 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
 import { getModelById } from "../shared/models";
+import { type OcrPromptContext } from "../shared/ocr-context";
 import { type TranscriptEntry, type TranscriptionResult } from "../shared/transcripts";
 import { DictionaryStore } from "./dictionary-store";
 import { HistoryStore } from "./history-store";
@@ -23,7 +24,7 @@ export class TranscriptionService {
 
   async transcribeWav(
     audioBytes: Uint8Array,
-    context?: { processName?: string | null }
+    context?: { processName?: string | null; ocrContext?: OcrPromptContext | null }
   ): Promise<TranscriptionResult> {
     const startedAt = Date.now();
     const settings = await this.settingsStore.get();
@@ -43,7 +44,11 @@ export class TranscriptionService {
     const audioPath = join(workDirectory, `${id}.wav`);
     const outputBase = join(workDirectory, id);
     const outputTextPath = `${outputBase}.txt`;
-    const promptContext = await this.dictionaryStore.buildPromptContext(context?.processName);
+    const generatedPromptContext = await this.dictionaryStore.buildPromptContext(
+      context?.processName,
+      context?.ocrContext?.terms
+    );
+    const promptContext = settings.whisperPromptOverride.trim() || generatedPromptContext;
     const args = [
       "-m",
       modelPath,
@@ -70,7 +75,11 @@ export class TranscriptionService {
         rawText,
         context?.processName
       );
-      const text = correction.text.trim();
+      const ocrCorrection = applyOcrTermCorrections(
+        correction.text,
+        context?.ocrContext?.terms ?? []
+      );
+      const text = ocrCorrection.text.trim();
 
       if (!text) {
         throw new Error("Whisper completed but returned no transcript text.");
@@ -82,6 +91,9 @@ export class TranscriptionService {
         text,
         rawText: rawText !== text ? rawText : undefined,
         correctionsApplied: correction.applied.length > 0 ? correction.applied : undefined,
+        ocrCorrectionsApplied:
+          ocrCorrection.applied.length > 0 ? ocrCorrection.applied : undefined,
+        promptContext: promptContext || undefined,
         audioFileName,
         modelId: model.id,
         createdAt: new Date().toISOString(),
@@ -90,7 +102,7 @@ export class TranscriptionService {
 
       await this.historyStore.add(entry);
 
-      return { entry };
+      return { entry, promptContext: promptContext || null };
     } catch (error) {
       throw new Error(formatWhisperError(error, executable));
     } finally {
@@ -116,4 +128,76 @@ function formatWhisperError(error: unknown, executable: string): string {
     "Install/build whisper.cpp and set the whisper executable path in VoxType settings.",
     detail
   ].join(" ");
+}
+
+function applyOcrTermCorrections(text: string, terms: string[]): {
+  text: string;
+  applied: string[];
+} {
+  let corrected = text;
+  const applied: string[] = [];
+
+  for (const term of terms.slice(0, 60)) {
+    const variants = spokenVariantsForTerm(term);
+
+    for (const variant of variants) {
+      if (!variant || variant.toLowerCase() === term.toLowerCase()) {
+        continue;
+      }
+
+      const next = replaceSpokenVariant(corrected, variant, term);
+
+      if (next !== corrected) {
+        corrected = next;
+        applied.push(`${variant} -> ${term}`);
+        break;
+      }
+    }
+  }
+
+  return { text: corrected, applied };
+}
+
+function spokenVariantsForTerm(term: string): string[] {
+  const normalized = term.trim();
+
+  if (normalized.length < 4 || normalized.length > 72) {
+    return [];
+  }
+
+  const variants = new Set<string>();
+  const separatorVariant = normalized.replace(/[._/#\\-]+/g, " ").replace(/\s+/g, " ").trim();
+  const camelVariant = normalized
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  if (separatorVariant.includes(" ")) {
+    variants.add(separatorVariant);
+  }
+
+  if (camelVariant.includes(" ")) {
+    variants.add(camelVariant);
+  }
+
+  if (/^[A-Z]{2,6}$/.test(normalized)) {
+    variants.add(normalized.split("").join(" "));
+  }
+
+  if (/^HRESULT$/i.test(normalized)) {
+    variants.add("h result");
+  }
+
+  return [...variants].filter((variant) => variant.length >= 3);
+}
+
+function replaceSpokenVariant(text: string, variant: string, term: string): string {
+  const escaped = variant
+    .split(/\s+/)
+    .map((part) => part.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+    .join("\\s+");
+  const expression = new RegExp(`\\b${escaped}\\b`, "gi");
+
+  return text.replace(expression, term);
 }

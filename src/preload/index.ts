@@ -6,6 +6,7 @@ import {
 } from "../shared/dictionary";
 import { type HotkeyStatus } from "../shared/hotkeys";
 import { type LocalModel } from "../shared/models";
+import { type OcrPromptContext } from "../shared/ocr-context";
 import { type OcrResult } from "../shared/ocr";
 import { type WhisperRuntime } from "../shared/runtimes";
 import {
@@ -16,6 +17,7 @@ import {
 } from "../shared/settings";
 import { type TranscriptEntry, type TranscriptionResult } from "../shared/transcripts";
 import {
+  type DictationOcrContextPayload,
   type DictationHotkeyPayload,
   type DictationHotkeyState,
   type NativeRecordingOptions,
@@ -49,7 +51,10 @@ const voxtype = {
       ipcRenderer.invoke("ocr:recognize-screenshot", imagePath, mode) as Promise<OcrResult>
   },
   transcription: {
-    transcribeWav: (bytes: Uint8Array, context?: { processName?: string | null }) =>
+    transcribeWav: (
+      bytes: Uint8Array,
+      context?: { processName?: string | null; ocrContext?: OcrPromptContext | null }
+    ) =>
       ipcRenderer.invoke(
         "transcription:transcribe-wav",
         bytes,
@@ -101,6 +106,12 @@ const voxtype = {
         callback(payload);
       ipcRenderer.on("dictation-hotkey-stop", listener);
       return () => ipcRenderer.off("dictation-hotkey-stop", listener);
+    },
+    onOcrContext: (callback: (payload: DictationOcrContextPayload) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, payload: DictationOcrContextPayload) =>
+        callback(payload);
+      ipcRenderer.on("dictation-ocr-context", listener);
+      return () => ipcRenderer.off("dictation-ocr-context", listener);
     }
   },
   hotkeys: {

@@ -6,11 +6,13 @@ export const recorderCaptureModes = [
   "exclusiveCapturePreferred",
   "exclusiveCaptureRequired"
 ] as const;
+export const ocrTermModes = ["strict", "balanced", "broad"] as const;
 
 export type InsertionMode = (typeof insertionModes)[number];
 export type WritingStyle = (typeof writingStyles)[number];
 export type RecordingCoordinationMode = (typeof recordingCoordinationModes)[number];
 export type RecorderCaptureMode = (typeof recorderCaptureModes)[number];
+export type OcrTermMode = (typeof ocrTermModes)[number];
 
 export type AppProfile = {
   id: string;
@@ -30,10 +32,12 @@ export type AppSettings = {
   modelDirectory: string;
   activeModelId: string;
   whisperExecutablePath: string;
+  whisperPromptOverride: string;
   showWindowHotkey: string;
   dictationToggleHotkey: string;
   insertionMode: InsertionMode;
   recorderCaptureMode: RecorderCaptureMode;
+  ocrTermMode: OcrTermMode;
   recordingCoordinationMode: RecordingCoordinationMode;
   recordingStartHotkey: string;
   recordingStopHotkey: string;
@@ -75,6 +79,10 @@ export function isRecorderCaptureMode(value: unknown): value is RecorderCaptureM
   return typeof value === "string" && recorderCaptureModes.includes(value as RecorderCaptureMode);
 }
 
+export function isOcrTermMode(value: unknown): value is OcrTermMode {
+  return typeof value === "string" && ocrTermModes.includes(value as OcrTermMode);
+}
+
 export function sanitizeSettings(
   value: unknown,
   defaults: AppSettings
@@ -94,6 +102,10 @@ export function sanitizeSettings(
       typeof input.whisperExecutablePath === "string"
         ? input.whisperExecutablePath
         : defaults.whisperExecutablePath,
+    whisperPromptOverride:
+      typeof input.whisperPromptOverride === "string"
+        ? input.whisperPromptOverride.slice(0, 2000)
+        : defaults.whisperPromptOverride,
     showWindowHotkey:
       typeof input.showWindowHotkey === "string" && input.showWindowHotkey.trim().length > 0
         ? input.showWindowHotkey
@@ -109,6 +121,9 @@ export function sanitizeSettings(
     recorderCaptureMode: isRecorderCaptureMode(input.recorderCaptureMode)
       ? input.recorderCaptureMode
       : defaults.recorderCaptureMode,
+    ocrTermMode: isOcrTermMode(input.ocrTermMode)
+      ? input.ocrTermMode
+      : defaults.ocrTermMode,
     recordingCoordinationMode: isRecordingCoordinationMode(input.recordingCoordinationMode)
       ? input.recordingCoordinationMode
       : defaults.recordingCoordinationMode,

@@ -23,7 +23,7 @@ fn main() {
         "paste-text" => paste_text_from_stdin(),
         "type-text" => type_text_from_stdin(),
         "help" | "--help" | "-h" => {
-            println!("Usage: voxtype-windows-helper active-window | focus-window <hwnd> | set-system-mute <true|false> | send-hotkey <accelerator> | capture-screenshot <output.png> [--active-window] | ocr-image <input.png> | mute-capture-session <process-id> [process-name] | restore-capture-session | record-wav <output.wav> [--capture-mode shared|exclusive-preferred|exclusive-required] | paste-text | type-text [delay-ms]");
+            println!("Usage: voxtype-windows-helper active-window | focus-window <hwnd> | set-system-mute <true|false> | send-hotkey <accelerator> | capture-screenshot <output.png> [--active-window | --hwnd <hwnd>] | ocr-image <input.png> | mute-capture-session <process-id> [process-name] | restore-capture-session | record-wav <output.wav> [--capture-mode shared|exclusive-preferred|exclusive-required] | paste-text | type-text [delay-ms]");
             Ok(())
         }
         _ => Err(format!("Unknown command: {command}")),
@@ -61,8 +61,13 @@ fn capture_screenshot_from_args() -> Result<(), String> {
     let output_path = env::args()
         .nth(2)
         .ok_or_else(|| "capture-screenshot requires an output path.".to_string())?;
-    let active_window_only = env::args().skip(3).any(|arg| arg == "--active-window");
-    windows_impl::capture_screenshot(&output_path, active_window_only)
+    let args = env::args().skip(3).collect::<Vec<_>>();
+    let active_window_only = args.iter().any(|arg| arg == "--active-window");
+    let hwnd = args
+        .windows(2)
+        .find(|items| items[0] == "--hwnd")
+        .map(|items| items[1].as_str());
+    windows_impl::capture_screenshot(&output_path, active_window_only, hwnd)
 }
 
 #[cfg(not(windows))]
@@ -340,7 +345,7 @@ mod windows_impl {
     use image::{ImageBuffer, Rgba};
     use rubato::{FftFixedIn, Resampler};
     use serde::{Deserialize, Serialize};
-    use std::collections::VecDeque;
+    use std::collections::{HashSet, VecDeque};
     use std::fs::File;
     use std::io::{self, BufRead, BufReader, BufWriter};
     use std::mem::MaybeUninit;
@@ -402,6 +407,7 @@ mod windows_impl {
     const RESAMPLER_CHUNK_SIZE: usize = 1024;
     const VAD_FRAME_MS: usize = 30;
     const VAD_FRAME_SAMPLES: usize = VOXTYPE_SAMPLE_RATE * VAD_FRAME_MS / 1000;
+    const OCR_TILE_OVERLAP: u32 = 96;
 
     #[derive(Serialize)]
     #[serde(rename_all = "camelCase")]
@@ -430,6 +436,12 @@ mod windows_impl {
         text: String,
         confidence: Option<f32>,
         box_: Option<[i32; 4]>,
+    }
+
+    struct OcrImage {
+        width: u32,
+        height: u32,
+        bgra: Vec<u8>,
     }
 
     pub fn get_active_window() -> Result<ActiveWindow, String> {
@@ -1056,8 +1068,12 @@ mod windows_impl {
         Pcm,
     }
 
-    pub fn capture_screenshot(output_path: &str, active_window_only: bool) -> Result<(), String> {
-        let rect = screenshot_rect(active_window_only)?;
+    pub fn capture_screenshot(
+        output_path: &str,
+        active_window_only: bool,
+        hwnd: Option<&str>,
+    ) -> Result<(), String> {
+        let rect = screenshot_rect(active_window_only, hwnd)?;
         let width = rect.right - rect.left;
         let height = rect.bottom - rect.top;
 
@@ -1082,11 +1098,51 @@ mod windows_impl {
         let path = std::fs::canonicalize(input_path)
             .map_err(|error| format!("Could not resolve OCR image path: {error}"))?;
         let path_string = path.to_string_lossy().to_string();
-        let bitmap = load_software_bitmap_from_image(&path_string)?;
+        let image = load_ocr_image(&path_string)?;
         let engine = OcrEngine::TryCreateFromUserProfileLanguages()
             .map_err(|error| format!("Could not create Windows OCR engine: {error}"))?;
+        let mut lines = Vec::new();
+        let mut text_lines = Vec::new();
+        let mut seen_lines = HashSet::new();
+        let max_dimension = OcrEngine::MaxImageDimension()
+            .map_err(|error| format!("Could not read Windows OCR max image dimension: {error}"))?;
+
+        for tile in ocr_tiles(image.width, image.height, max_dimension) {
+            let bitmap = software_bitmap_for_tile(&image, tile)?;
+            let tile_lines = recognize_software_bitmap_lines(&engine, &bitmap)?;
+
+            for text in tile_lines {
+                let normalized = text.split_whitespace().collect::<Vec<_>>().join(" ");
+
+                if normalized.is_empty() || !seen_lines.insert(normalized.to_lowercase()) {
+                    continue;
+                }
+
+                text_lines.push(normalized.clone());
+                lines.push(WindowsOcrLine {
+                    text: normalized,
+                    confidence: None,
+                    box_: None,
+                });
+            }
+        }
+
+        Ok(WindowsOcrResult {
+            provider: "windowsMediaOcr".to_string(),
+            engine: ocr_engine_label(&engine),
+            image_path: path_string,
+            text: text_lines.join("\n"),
+            lines,
+            duration_ms: started.elapsed().as_millis(),
+        })
+    }
+
+    fn recognize_software_bitmap_lines(
+        engine: &OcrEngine,
+        bitmap: &SoftwareBitmap,
+    ) -> Result<Vec<String>, String> {
         let result = engine
-            .RecognizeAsync(&bitmap)
+            .RecognizeAsync(bitmap)
             .map_err(|error| format!("Could not start Windows OCR: {error}"))?
             .join()
             .map_err(|error| format!("Windows OCR failed: {error}"))?;
@@ -1094,7 +1150,6 @@ mod windows_impl {
             .Lines()
             .map_err(|error| format!("Could not read Windows OCR lines: {error}"))?;
         let mut lines = Vec::new();
-        let mut text_lines = Vec::new();
 
         for index in 0..ocr_lines
             .Size()
@@ -1112,25 +1167,13 @@ mod windows_impl {
                 continue;
             }
 
-            text_lines.push(text.clone());
-            lines.push(WindowsOcrLine {
-                text,
-                confidence: None,
-                box_: None,
-            });
+            lines.push(text);
         }
 
-        Ok(WindowsOcrResult {
-            provider: "windowsMediaOcr".to_string(),
-            engine: ocr_engine_label(&engine),
-            image_path: path_string,
-            text: text_lines.join("\n"),
-            lines,
-            duration_ms: started.elapsed().as_millis(),
-        })
+        Ok(lines)
     }
 
-    fn load_software_bitmap_from_image(path: &str) -> Result<SoftwareBitmap, String> {
+    fn load_ocr_image(path: &str) -> Result<OcrImage, String> {
         let image = image::open(path)
             .map_err(|error| format!("Could not decode OCR image: {error}"))?
             .to_rgba8();
@@ -1141,10 +1184,42 @@ mod windows_impl {
             pixel.swap(0, 2);
         }
 
+        Ok(OcrImage {
+            width,
+            height,
+            bgra,
+        })
+    }
+
+    fn software_bitmap_for_tile(
+        image: &OcrImage,
+        tile: (u32, u32, u32, u32),
+    ) -> Result<SoftwareBitmap, String> {
+        let (x, y, width, height) = tile;
+        let mut bgra = vec![0_u8; width as usize * height as usize * 4];
+        let source_stride = image.width as usize * 4;
+        let tile_stride = width as usize * 4;
+
+        for row in 0..height as usize {
+            let source_start = (y as usize + row) * source_stride + x as usize * 4;
+            let source_end = source_start + tile_stride;
+            let target_start = row * tile_stride;
+            bgra[target_start..target_start + tile_stride]
+                .copy_from_slice(&image.bgra[source_start..source_end]);
+        }
+
+        software_bitmap_from_bgra(width, height, &bgra)
+    }
+
+    fn software_bitmap_from_bgra(
+        width: u32,
+        height: u32,
+        bgra: &[u8],
+    ) -> Result<SoftwareBitmap, String> {
         let writer = DataWriter::new()
             .map_err(|error| format!("Could not create OCR image buffer writer: {error}"))?;
         writer
-            .WriteBytes(&bgra)
+            .WriteBytes(bgra)
             .map_err(|error| format!("Could not write OCR image pixels: {error}"))?;
         let buffer = writer
             .DetachBuffer()
@@ -1160,6 +1235,43 @@ mod windows_impl {
         .map_err(|error| format!("Could not create OCR software bitmap: {error}"))
     }
 
+    fn ocr_tiles(width: u32, height: u32, max_dimension: u32) -> Vec<(u32, u32, u32, u32)> {
+        let tile_size = max_dimension.max(1);
+
+        if width <= tile_size && height <= tile_size {
+            return vec![(0, 0, width, height)];
+        }
+
+        let overlap = OCR_TILE_OVERLAP.min(tile_size.saturating_sub(1));
+        let step = tile_size.saturating_sub(overlap).max(1);
+        let mut tiles = Vec::new();
+        let mut y = 0;
+
+        loop {
+            let mut x = 0;
+            let tile_height = tile_size.min(height - y);
+
+            loop {
+                let tile_width = tile_size.min(width - x);
+                tiles.push((x, y, tile_width, tile_height));
+
+                if x + tile_width >= width {
+                    break;
+                }
+
+                x = (x + step).min(width - 1);
+            }
+
+            if y + tile_height >= height {
+                break;
+            }
+
+            y = (y + step).min(height - 1);
+        }
+
+        tiles
+    }
+
     fn ocr_engine_label(engine: &OcrEngine) -> String {
         engine
             .RecognizerLanguage()
@@ -1169,7 +1281,11 @@ mod windows_impl {
             .unwrap_or_else(|| "Windows.Media.Ocr".to_string())
     }
 
-    fn screenshot_rect(active_window_only: bool) -> Result<RECT, String> {
+    fn screenshot_rect(active_window_only: bool, hwnd: Option<&str>) -> Result<RECT, String> {
+        if let Some(hwnd) = hwnd {
+            return window_rect(parse_hwnd(hwnd)?, "target window");
+        }
+
         if active_window_only {
             let hwnd = unsafe { GetForegroundWindow() };
 
@@ -1177,22 +1293,7 @@ mod windows_impl {
                 return Err("No foreground window is currently available.".to_string());
             }
 
-            let mut rect = RECT::default();
-            let dwm_result = unsafe {
-                DwmGetWindowAttribute(
-                    hwnd,
-                    DWMWA_EXTENDED_FRAME_BOUNDS,
-                    &mut rect as *mut RECT as *mut _,
-                    std::mem::size_of::<RECT>() as u32,
-                )
-            };
-
-            if dwm_result.is_err() || rect.right <= rect.left || rect.bottom <= rect.top {
-                unsafe { GetWindowRect(hwnd, &mut rect) }
-                    .map_err(|error| format!("Could not get foreground window bounds: {error}"))?;
-            }
-
-            return Ok(rect);
+            return window_rect(hwnd, "foreground window");
         }
 
         Ok(RECT {
@@ -1203,6 +1304,25 @@ mod windows_impl {
             bottom: unsafe { GetSystemMetrics(SM_YVIRTUALSCREEN) }
                 + unsafe { GetSystemMetrics(SM_CYVIRTUALSCREEN) },
         })
+    }
+
+    fn window_rect(hwnd: HWND, label: &str) -> Result<RECT, String> {
+        let mut rect = RECT::default();
+        let dwm_result = unsafe {
+            DwmGetWindowAttribute(
+                hwnd,
+                DWMWA_EXTENDED_FRAME_BOUNDS,
+                &mut rect as *mut RECT as *mut _,
+                std::mem::size_of::<RECT>() as u32,
+            )
+        };
+
+        if dwm_result.is_err() || rect.right <= rect.left || rect.bottom <= rect.top {
+            unsafe { GetWindowRect(hwnd, &mut rect) }
+                .map_err(|error| format!("Could not get {label} bounds: {error}"))?;
+        }
+
+        Ok(rect)
     }
 
     fn capture_rect_to_png(screen_dc: HDC, rect: RECT, output_path: &str) -> Result<(), String> {

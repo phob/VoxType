@@ -1,6 +1,7 @@
 import { app, BrowserWindow, Menu, Tray, globalShortcut, ipcMain, nativeImage } from "electron";
 import { join } from "node:path";
 import { type DictionaryCreateInput, type DictionaryPatch } from "../shared/dictionary";
+import { buildOcrPromptContext, type OcrPromptContext } from "../shared/ocr-context";
 import { type AppProfile, type InsertionMode, type SettingsPatch } from "../shared/settings";
 import {
   type ActiveWindowInfo,
@@ -21,8 +22,11 @@ let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null;
 let dictationHotkeyState: DictationHotkeyState = {
   recording: false,
-  target: null
+  sessionId: 0,
+  target: null,
+  ocrContext: null
 };
+let nextDictationSessionId = 1;
 let registeredShowWindowHotkey: string | null = null;
 let registeredDictationHotkey: string | null = null;
 
@@ -115,23 +119,43 @@ function showMainWindow(): void {
 
 async function toggleDictationHotkey(): Promise<void> {
   if (dictationHotkeyState.recording) {
+    const payload = {
+      sessionId: dictationHotkeyState.sessionId,
+      target: dictationHotkeyState.target,
+      ocrContext: dictationHotkeyState.ocrContext
+    };
+
     dictationHotkeyState = {
       ...dictationHotkeyState,
-      recording: false
+      recording: false,
+      ocrContext: null
     };
-    mainWindow?.webContents.send("dictation-hotkey-stop", {
-      target: dictationHotkeyState.target
-    });
+    mainWindow?.webContents.send("dictation-hotkey-stop", payload);
     return;
   }
 
   const target = await windowsHelperService.getActiveWindow().catch(() => null);
   await settingsStore.ensureAppProfile(target);
+  const sessionId = nextDictationSessionId++;
 
   dictationHotkeyState = {
     recording: true,
-    target
+    sessionId,
+    target,
+    ocrContext: null
   };
+
+  void captureActiveWindowOcrContext(target).then((ocrContext) => {
+    if (!dictationHotkeyState.recording || dictationHotkeyState.sessionId !== sessionId) {
+      return;
+    }
+
+    dictationHotkeyState = {
+      ...dictationHotkeyState,
+      ocrContext
+    };
+    mainWindow?.webContents.send("dictation-ocr-context", { sessionId, ocrContext });
+  });
 
   if (!mainWindow) {
     createWindow();
@@ -139,12 +163,33 @@ async function toggleDictationHotkey(): Promise<void> {
 
   if (mainWindow?.webContents.isLoading()) {
     mainWindow.webContents.once("did-finish-load", () => {
-      mainWindow?.webContents.send("dictation-hotkey-start", { target });
+      mainWindow?.webContents.send("dictation-hotkey-start", {
+        sessionId,
+        target,
+        ocrContext: null
+      });
     });
     return;
   }
 
-  mainWindow?.webContents.send("dictation-hotkey-start", { target });
+  mainWindow?.webContents.send("dictation-hotkey-start", { sessionId, target, ocrContext: null });
+}
+
+async function captureActiveWindowOcrContext(
+  target: ActiveWindowInfo | null
+): Promise<OcrPromptContext | null> {
+  if (!target) {
+    return null;
+  }
+
+  try {
+    const settings = await settingsStore.get();
+    const screenshot = await windowsHelperService.captureScreenshot("activeWindow", target.hwnd);
+    const ocrResult = await ocrService.recognizeImage(screenshot.path, screenshot.mode);
+    return buildOcrPromptContext(ocrResult, target, settings.ocrTermMode);
+  } catch {
+    return null;
+  }
 }
 
 async function registerConfiguredHotkeys(): Promise<void> {
@@ -209,7 +254,11 @@ ipcMain.handle(
 );
 ipcMain.handle(
   "transcription:transcribe-wav",
-  (_event, bytes: Uint8Array, context?: { processName?: string | null }) =>
+  (
+    _event,
+    bytes: Uint8Array,
+    context?: { processName?: string | null; ocrContext?: OcrPromptContext | null }
+  ) =>
     transcriptionService.transcribeWav(bytes, context)
 );
 ipcMain.handle("history:list", () => historyStore.list());
@@ -246,7 +295,8 @@ ipcMain.handle("dictation:get-hotkey-state", () => dictationHotkeyState);
 ipcMain.handle("dictation:set-hotkey-recording", (_event, recording: boolean) => {
   dictationHotkeyState = {
     ...dictationHotkeyState,
-    recording
+    recording,
+    ocrContext: recording ? dictationHotkeyState.ocrContext : null
   };
   return dictationHotkeyState;
 });

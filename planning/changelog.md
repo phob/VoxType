@@ -4,6 +4,15 @@
 
 - Added Windows Media OCR as a native Rust-helper OCR provider/benchmark and fixed active-window screenshot offsets by using DWM extended frame bounds.
 - Removed the heavyweight OCR runtime path and made Windows Media OCR the Phase 4 OCR direction for screenshot-based context.
+- Wired global-hotkey dictation to capture active-window OCR context, extract conservative terms, and feed them into the Whisper prompt path.
+- Added an editable Whisper prompt override in the dictation UI, with a Default action that returns to the generated dictionary/OCR prompt.
+- Moved active-window OCR for global-hotkey dictation into a background session update so microphone recording starts immediately and short recordings can proceed without OCR context.
+- Added conservative OCR-term post-processing, separate OCR correction reporting, and one-click OCR term promotion into the dictionary.
+- Added Windows OCR tiling based on `OcrEngine::MaxImageDimension` so large active-window screenshots, including 4K-sized windows, can be recognized in overlapping chunks.
+- Added raw OCR text diagnostics beside filtered OCR terms in the dictation UI.
+- Added OCR term extraction modes (`strict`, `balanced`, `broad`), rejected-candidate diagnostics, and copy buttons for raw OCR text and extracted terms.
+- Fixed global-hotkey OCR capture to screenshot the captured target hwnd instead of whichever window is foreground when OCR starts.
+- Marked Phase 4 OCR context as good enough for now, with final UI direction reduced to a simple OCR enable/disable control and detailed OCR output kept as diagnostics.
 
 ## 2026-04-25
 

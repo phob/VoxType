@@ -5,8 +5,6 @@
 - Should VoxType show a transcript review overlay by default, or insert immediately by default?
 - Should the app be power-user-first or beginner-friendly-first?
 - Should dictionary learning be automatic, manual, or suggested?
-- How visible should OCR context be to users?
-- Should screen-aware dictation require an explicit screenshot hotkey, or should it happen automatically for active windows?
 
 ## Technical
 

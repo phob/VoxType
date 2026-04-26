@@ -181,3 +181,13 @@ VoxType should target Windows Media OCR as the preferred first OCR engine for Ph
 Reason:
 
 VoxType works with Windows screenshots, and local testing showed the native Windows OCR path is fast enough for the screen-aware dictation loop without introducing a managed Python runtime, large model downloads, or slow warm-up costs.
+
+## 2026-04-26: Treat Phase 4 OCR As Good Enough For Now
+
+Decision:
+
+Phase 4 OCR context is sufficient to move on after the initial Windows Media OCR, target-window screenshot, term extraction, prompt-context, post-processing, diagnostics, and dictionary-promotion work. The final user-facing OCR control should be a simple enable/disable setting, while raw OCR text, rejected terms, prompt previews, and correction diagnostics stay in a developer/debug view.
+
+Reason:
+
+OCR is tricky and will not perfectly fix every difficult visible word even when the word appears in the screenshot. The current rejection/filtering behavior is useful, and the feature now provides enough screen-aware context to keep, but higher-priority VoxType work should take precedence over deeper OCR tuning.

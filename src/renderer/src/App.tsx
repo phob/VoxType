@@ -8,12 +8,14 @@ import { eventToAccelerator } from "./hotkey-capture";
 import { type DictionaryEntry } from "../../../shared/dictionary";
 import { type HotkeyStatus } from "../../../shared/hotkeys";
 import { type LocalModel } from "../../../shared/models";
+import { type OcrPromptContext } from "../../../shared/ocr-context";
 import { type OcrResult } from "../../../shared/ocr";
 import { type WhisperRuntime } from "../../../shared/runtimes";
 import {
   type AppProfile,
   type AppSettings,
   type InsertionMode,
+  type OcrTermMode,
   type RecorderCaptureMode,
   type RecordingCoordinationMode
 } from "../../../shared/settings";
@@ -66,6 +68,8 @@ const devTabs: Array<{ id: DevTab; label: string }> = [
 export function App(): JSX.Element {
   const recorderRef = useRef<PcmRecorder | null>(null);
   const hotkeyTargetRef = useRef<ActiveWindowInfo | null>(null);
+  const hotkeyOcrContextRef = useRef<OcrPromptContext | null>(null);
+  const hotkeySessionIdRef = useRef<number | null>(null);
   const systemAudioMutedByVoxTypeRef = useRef(false);
   const recordingStopHotkeyRef = useRef<string | null>(null);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
@@ -99,12 +103,20 @@ export function App(): JSX.Element {
   const [screenshotMode, setScreenshotMode] = useState<ScreenshotCaptureMode>("activeWindow");
   const [latestScreenshot, setLatestScreenshot] = useState<ScreenshotCaptureResult | null>(null);
   const [latestOcrResult, setLatestOcrResult] = useState<OcrResult | null>(null);
+  const [latestOcrContext, setLatestOcrContext] = useState<OcrPromptContext | null>(null);
   const [playingTranscriptId, setPlayingTranscriptId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<DevTab>("dictation");
 
   const activeModel = state.models.find((model) => model.id === state.settings?.activeModelId);
   const latestTranscript = state.history[0];
   const currentTarget = insertionTarget ?? state.activeWindow;
+  const generatedWhisperPrompt = buildWhisperPromptPreview(
+    state.dictionary,
+    currentTarget?.processName ?? null,
+    latestOcrContext?.terms ?? []
+  );
+  const effectiveWhisperPrompt =
+    state.settings?.whisperPromptOverride.trim() || generatedWhisperPrompt;
   const appStatus = error ? "Error" : recording ? "Recording" : busyMessage ? busyMessage : "Ready";
 
   useEffect(() => {
@@ -130,16 +142,29 @@ export function App(): JSX.Element {
     const removeStop = window.voxtype.dictation.onHotkeyStop((payload) => {
       void handleHotkeyStop(payload);
     });
+    const removeOcrContext = window.voxtype.dictation.onOcrContext((payload) => {
+      if (hotkeySessionIdRef.current !== payload.sessionId) {
+        return;
+      }
+
+      hotkeyOcrContextRef.current = payload.ocrContext;
+      setLatestOcrContext(payload.ocrContext);
+    });
 
     void window.voxtype.dictation.getHotkeyState().then((hotkeyState) => {
       if (hotkeyState.recording) {
-        void handleHotkeyStart({ target: hotkeyState.target });
+        void handleHotkeyStart({
+          sessionId: hotkeyState.sessionId,
+          target: hotkeyState.target,
+          ocrContext: hotkeyState.ocrContext
+        });
       }
     });
 
     return () => {
       removeStart();
       removeStop();
+      removeOcrContext();
     };
   }, [activeModel?.status, state.settings?.insertionMode, recording]);
 
@@ -291,10 +316,18 @@ export function App(): JSX.Element {
 
   async function handleHotkeyStart(payload: DictationHotkeyPayload): Promise<void> {
     if (recording || recorderRef.current) {
+      if (hotkeySessionIdRef.current === payload.sessionId && payload.ocrContext) {
+        hotkeyOcrContextRef.current = payload.ocrContext;
+        setLatestOcrContext(payload.ocrContext);
+      }
+
       return;
     }
 
+    hotkeySessionIdRef.current = payload.sessionId;
     hotkeyTargetRef.current = payload.target;
+    hotkeyOcrContextRef.current = payload.ocrContext;
+    setLatestOcrContext(payload.ocrContext);
     const settings = await window.voxtype.settings.get();
     setState((current) => ({
       ...current,
@@ -309,13 +342,24 @@ export function App(): JSX.Element {
       hotkeyTargetRef.current = payload.target;
     }
 
-    await stopAndTranscribe({ pasteTarget: hotkeyTargetRef.current });
+    if (payload.ocrContext) {
+      hotkeyOcrContextRef.current = payload.ocrContext;
+      setLatestOcrContext(payload.ocrContext);
+    }
+
+    await stopAndTranscribe({
+      pasteTarget: hotkeyTargetRef.current,
+      ocrContext: hotkeyOcrContextRef.current
+    });
     await window.voxtype.dictation.setHotkeyRecording(false);
     hotkeyTargetRef.current = null;
+    hotkeyOcrContextRef.current = null;
+    hotkeySessionIdRef.current = null;
   }
 
   async function stopAndTranscribe(options?: {
     pasteTarget?: ActiveWindowInfo | null;
+    ocrContext?: OcrPromptContext | null;
   }): Promise<void> {
     if (!recorderRef.current) {
       return;
@@ -342,7 +386,8 @@ export function App(): JSX.Element {
       }
 
       const result = await window.voxtype.transcription.transcribeWav(recordingResult.wavBytes, {
-        processName: options?.pasteTarget?.processName
+        processName: options?.pasteTarget?.processName ?? hotkeyTargetRef.current?.processName,
+        ocrContext: options?.ocrContext ?? hotkeyOcrContextRef.current
       });
       if (unmuteError) {
         setError(unmuteError);
@@ -632,6 +677,48 @@ export function App(): JSX.Element {
     }
   }
 
+  async function saveOcrTerm(term: string): Promise<void> {
+    const preferred = term.trim();
+
+    if (!preferred) {
+      return;
+    }
+
+    setError(null);
+
+    try {
+      const dictionary = await window.voxtype.dictionary.add({
+        preferred,
+        category: "ocr",
+        appProcessName: latestOcrContext?.processName ?? null,
+        source: "ocr"
+      });
+      setState((current) => ({ ...current, dictionary }));
+    } catch (dictionaryError) {
+      setError(formatError(dictionaryError));
+    }
+  }
+
+  async function copyOcrRawText(): Promise<void> {
+    if (!latestOcrContext?.rawText) {
+      return;
+    }
+
+    await window.voxtype.insertion.copy(latestOcrContext.rawText);
+    setBusyMessage("Copied raw OCR text.");
+    window.setTimeout(() => setBusyMessage(null), 1800);
+  }
+
+  async function copyOcrTerms(): Promise<void> {
+    if (!latestOcrContext?.terms.length) {
+      return;
+    }
+
+    await window.voxtype.insertion.copy(latestOcrContext.terms.join(", "));
+    setBusyMessage("Copied OCR terms.");
+    window.setTimeout(() => setBusyMessage(null), 1800);
+  }
+
   async function playTranscriptAudio(entry: TranscriptEntry): Promise<void> {
     setError(null);
 
@@ -851,6 +938,18 @@ export function App(): JSX.Element {
             <section className="panel-block transcript-block">
               <h2>latestTranscript</h2>
               <pre>{latestTranscript?.text ?? "empty"}</pre>
+              <dl className="kv-grid">
+                <dt>dictionaryFixes</dt>
+                <dd>{latestTranscript?.correctionsApplied?.length ?? 0}</dd>
+                <dt>ocrFixes</dt>
+                <dd>{latestTranscript?.ocrCorrectionsApplied?.length ?? 0}</dd>
+              </dl>
+              <pre>
+                {[
+                  ...(latestTranscript?.correctionsApplied ?? []).map((item) => `dictionary: ${item}`),
+                  ...(latestTranscript?.ocrCorrectionsApplied ?? []).map((item) => `ocr: ${item}`)
+                ].join("\n") || "no corrections"}
+              </pre>
               {latestTranscript ? (
                 <div className="button-row">
                   <button onClick={() => void copyLatestTranscript()} type="button">
@@ -868,6 +967,30 @@ export function App(): JSX.Element {
                   </button>
                 </div>
               ) : null}
+            </section>
+
+            <section className="panel-block transcript-block">
+              <h2>whisperPrompt</h2>
+              <dl className="kv-grid">
+                <dt>mode</dt>
+                <dd>{state.settings?.whisperPromptOverride.trim() ? "custom" : "default"}</dd>
+                <dt>sent</dt>
+                <dd>{latestTranscript?.promptContext ? "yes" : "none"}</dd>
+              </dl>
+              <textarea
+                value={state.settings?.whisperPromptOverride || generatedWhisperPrompt}
+                onChange={(event) => void updateSettings({ whisperPromptOverride: event.target.value })}
+              />
+              <div className="button-row">
+                <button
+                  disabled={!state.settings?.whisperPromptOverride}
+                  onClick={() => void updateSettings({ whisperPromptOverride: "" })}
+                  type="button"
+                >
+                  Default
+                </button>
+              </div>
+              <pre>{latestTranscript?.promptContext ?? (effectiveWhisperPrompt || "empty")}</pre>
             </section>
 
             <section className="panel-block">
@@ -888,6 +1011,68 @@ export function App(): JSX.Element {
               </dl>
             </section>
 
+            <section className="panel-block transcript-block">
+              <h2>ocrContext</h2>
+              <dl className="kv-grid">
+                <dt>engine</dt>
+                <dd>{latestOcrContext?.engine ?? "none"}</dd>
+                <dt>target</dt>
+                <dd>{latestOcrContext?.processName ?? "none"}</dd>
+                <dt>mode</dt>
+                <dd>{latestOcrContext?.termMode ?? state.settings?.ocrTermMode ?? "balanced"}</dd>
+                <dt>lines</dt>
+                <dd>{latestOcrContext?.lineCount ?? 0}</dd>
+                <dt>rawChars</dt>
+                <dd>{latestOcrContext?.rawText.length ?? 0}</dd>
+                <dt>terms</dt>
+                <dd>{latestOcrContext?.terms.length ?? 0}</dd>
+                <dt>rejected</dt>
+                <dd>{latestOcrContext?.rejectedTerms.length ?? 0}</dd>
+              </dl>
+              <label className="dev-field">
+                <span>ocrTermMode</span>
+                <select
+                  value={state.settings?.ocrTermMode ?? "balanced"}
+                  onChange={(event) =>
+                    void updateSettings({ ocrTermMode: event.target.value as OcrTermMode })
+                  }
+                >
+                  <option value="strict">strict</option>
+                  <option value="balanced">balanced</option>
+                  <option value="broad">broad</option>
+                </select>
+              </label>
+              <h2>ocrRawText</h2>
+              <div className="button-row">
+                <button disabled={!latestOcrContext?.rawText} onClick={() => void copyOcrRawText()} type="button">
+                  CopyRaw
+                </button>
+                <button disabled={!latestOcrContext?.terms.length} onClick={() => void copyOcrTerms()} type="button">
+                  CopyTerms
+                </button>
+              </div>
+              <pre>{latestOcrContext?.rawText || "empty"}</pre>
+              <h2>ocrTerms</h2>
+              {latestOcrContext?.terms.length ? (
+                <div className="ocr-term-list">
+                  {latestOcrContext.terms.map((term) => (
+                    <button
+                      key={term}
+                      onClick={() => void saveOcrTerm(term)}
+                      type="button"
+                      title="Save OCR term to dictionary"
+                    >
+                      {term}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <pre>empty</pre>
+              )}
+              <h2>ocrRejected</h2>
+              <pre>{latestOcrContext?.rejectedTerms.join(", ") || "empty"}</pre>
+            </section>
+
             <section className="panel-block log-block">
               <h2>events</h2>
               <pre>
@@ -897,6 +1082,7 @@ export function App(): JSX.Element {
                   `target=${currentTarget?.processName ?? "none"}`,
                   `history=${state.history.length}`,
                   `dictionary=${state.dictionary.length}`,
+                  latestOcrContext ? `ocrTerms=${latestOcrContext.terms.length}` : null,
                   insertionTestResult ? `insertionTest=${insertionTestResult}` : null,
                   lastRecordingResult
                     ? `vad speech=${lastRecordingResult.vad.speechDetected} trimmed=${lastRecordingResult.vad.removedDurationMs}ms`
@@ -1601,4 +1787,45 @@ function formatDuration(milliseconds: number): string {
   }
 
   return `${(milliseconds / 1000).toFixed(1)} s`;
+}
+
+function buildWhisperPromptPreview(
+  dictionary: DictionaryEntry[],
+  processName: string | null,
+  ocrTerms: string[]
+): string {
+  const normalizedProcess = processName?.trim().toLowerCase() || null;
+  const dictionaryTerms = dictionary
+    .filter(
+      (entry) =>
+        entry.enabled &&
+        (!entry.appProcessName || !normalizedProcess || entry.appProcessName === normalizedProcess)
+    )
+    .map((entry) => entry.preferred);
+  const terms = uniqueTerms([...dictionaryTerms, ...ocrTerms]).slice(0, 160);
+
+  if (terms.length === 0) {
+    return "";
+  }
+
+  return `Relevant terms: ${terms.join(", ")}. Use these spellings when they are spoken.`;
+}
+
+function uniqueTerms(terms: string[]): string[] {
+  const seen = new Set<string>();
+  const unique: string[] = [];
+
+  for (const term of terms) {
+    const normalized = term.trim();
+    const key = normalized.toLowerCase();
+
+    if (!normalized || seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    unique.push(normalized);
+  }
+
+  return unique;
 }

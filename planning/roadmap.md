@@ -125,18 +125,20 @@ Later possibilities:
 
 ## Phase 4: OCR Context
 
-Goal: make VoxType screen-aware. Initial screenshot foundation started.
+Goal: make VoxType screen-aware. Initial implementation is good enough for now.
 
 Features:
 
-- Screenshot capture. Initial native helper command captures the full virtual screen or active foreground window to PNG, with Electron IPC and a renderer OCR preview panel.
+- Screenshot capture. Initial native helper command captures the full virtual screen, active foreground window, or a captured target hwnd to PNG, with Electron IPC and a renderer OCR preview panel.
 - OCR service boundary backed by Windows Media OCR through the native helper.
-- Region selection overlay.
+- Region selection overlay is skipped for now; active-window OCR is the intended first context source.
 - Local OCR through Windows Media OCR. Initial OCR tab can run OCR on captured screenshots and display recognized text and line results.
-- OCR term extraction.
-- Temporary OCR dictionary.
-- Add OCR terms to permanent dictionary.
-- Use OCR context in Whisper prompt and post-processing.
+- OCR term extraction. Initial conservative extraction is wired into global-hotkey dictation context and runs in the background after recording has already started. Global-hotkey OCR screenshots use the captured target hwnd rather than whichever window is foreground later.
+- Temporary OCR dictionary. Initial OCR context is held per dictation session and shown in the dictation debug UI.
+- Add OCR terms to permanent dictionary. Initial UI can save individual OCR terms as dictionary entries scoped to the detected process.
+- Use OCR context in Whisper prompt and post-processing. Initial implementation feeds extracted active-window OCR terms into the Whisper prompt and applies conservative OCR-term spelling corrections after ASR.
+- Final user-facing OCR UI should be simple: a setting/checkbox to enable or disable OCR context. The detailed OCR raw text, rejected terms, prompt, and correction diagnostics can remain in a developer/debug view.
+- Known limitation accepted for now: some difficult visible words still do not improve transcription correctly even when OCR detects them. Phase 4 is considered sufficient to move on because the rejection/filtering behavior is useful and higher-priority tasks remain.
 
 ## Phase 5: Polish And Power Features
 

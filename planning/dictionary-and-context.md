@@ -113,6 +113,10 @@ Prompt context should be:
 Initial implementation:
 
 - Before invoking `whisper.cpp`, VoxType builds a compact prompt from enabled relevant dictionary entries.
+- Global-hotkey dictation now captures active-window OCR context before VoxType takes focus, extracts a conservative ranked term list, and passes those terms into the same compact Whisper prompt path as dictionary entries.
+- The OCR context keeps raw recognized text, filtered relevant terms, and rejected candidate tokens so missed words can be diagnosed as OCR capture issues versus term-extraction filtering.
+- OCR term extraction has `strict`, `balanced`, and `broad` modes. `balanced` is the default so normal capitalized UI words can enter context without making the prompt as noisy as broad mode.
+- The dictation UI shows the generated/effective Whisper prompt, allows a custom prompt override, and has a Default button that clears the override and returns to the generated dictionary/OCR prompt.
 - The prompt is passed to `whisper.cpp` with `--prompt`.
 - App-scoped entries are included when their process matches the current dictation target.
 
@@ -132,8 +136,10 @@ The correction engine should be conservative. It should avoid replacing common w
 Initial implementation:
 
 - VoxType applies exact phrase replacements from enabled dictionary entries after ASR completes.
+- VoxType applies a narrow OCR-term correction pass after dictionary corrections, preferring visible spellings only when the transcript contains an obvious spoken or segmented form of an OCR term.
 - Corrections run before transcript history and insertion, so the user sees and inserts the corrected text.
-- Transcript history can retain raw text and applied correction notes when a correction changes the output.
+- Transcript history can retain raw text, dictionary correction notes, and OCR correction notes when a correction changes the output.
+- The dictation UI exposes OCR terms as buttons so useful screen-derived terms can be promoted into the permanent dictionary with source `ocr`.
 
 ## Correction Memory
 

@@ -1,3 +1,5 @@
+import { type OcrPromptContext } from "./ocr-context";
+
 export type ActiveWindowInfo = {
   hwnd: string;
   title: string;
@@ -66,10 +68,19 @@ export type CaptureSessionMuteState = {
 };
 
 export type DictationHotkeyPayload = {
+  sessionId: number;
   target: ActiveWindowInfo | null;
+  ocrContext: OcrPromptContext | null;
+};
+
+export type DictationOcrContextPayload = {
+  sessionId: number;
+  ocrContext: OcrPromptContext | null;
 };
 
 export type DictationHotkeyState = {
   recording: boolean;
+  sessionId: number;
   target: ActiveWindowInfo | null;
+  ocrContext: OcrPromptContext | null;
 };
