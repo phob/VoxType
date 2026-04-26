@@ -7,12 +7,14 @@ export const recorderCaptureModes = [
   "exclusiveCaptureRequired"
 ] as const;
 export const ocrTermModes = ["strict", "balanced", "broad"] as const;
+export const whisperRuntimePreferences = ["auto", "cpu", "cuda", "vulkan"] as const;
 
 export type InsertionMode = (typeof insertionModes)[number];
 export type WritingStyle = (typeof writingStyles)[number];
 export type RecordingCoordinationMode = (typeof recordingCoordinationModes)[number];
 export type RecorderCaptureMode = (typeof recorderCaptureModes)[number];
 export type OcrTermMode = (typeof ocrTermModes)[number];
+export type WhisperRuntimePreference = (typeof whisperRuntimePreferences)[number];
 
 export type AppProfile = {
   id: string;
@@ -32,6 +34,7 @@ export type AppSettings = {
   modelDirectory: string;
   activeModelId: string;
   whisperExecutablePath: string;
+  whisperRuntimeBackend: WhisperRuntimePreference;
   whisperPromptOverride: string;
   showWindowHotkey: string;
   dictationToggleHotkey: string;
@@ -42,6 +45,7 @@ export type AppSettings = {
   recordingStartHotkey: string;
   recordingStopHotkey: string;
   offlineMode: boolean;
+  developerModeEnabled: boolean;
   autoMuteSystemAudio: boolean;
   restoreClipboard: boolean;
   vadEnabled: boolean;
@@ -83,6 +87,13 @@ export function isOcrTermMode(value: unknown): value is OcrTermMode {
   return typeof value === "string" && ocrTermModes.includes(value as OcrTermMode);
 }
 
+export function isWhisperRuntimePreference(value: unknown): value is WhisperRuntimePreference {
+  return (
+    typeof value === "string" &&
+    whisperRuntimePreferences.includes(value as WhisperRuntimePreference)
+  );
+}
+
 export function sanitizeSettings(
   value: unknown,
   defaults: AppSettings
@@ -102,6 +113,9 @@ export function sanitizeSettings(
       typeof input.whisperExecutablePath === "string"
         ? input.whisperExecutablePath
         : defaults.whisperExecutablePath,
+    whisperRuntimeBackend: isWhisperRuntimePreference(input.whisperRuntimeBackend)
+      ? input.whisperRuntimeBackend
+      : defaults.whisperRuntimeBackend,
     whisperPromptOverride:
       typeof input.whisperPromptOverride === "string"
         ? input.whisperPromptOverride.slice(0, 2000)
@@ -137,6 +151,10 @@ export function sanitizeSettings(
         : defaults.recordingStopHotkey,
     offlineMode:
       typeof input.offlineMode === "boolean" ? input.offlineMode : defaults.offlineMode,
+    developerModeEnabled:
+      typeof input.developerModeEnabled === "boolean"
+        ? input.developerModeEnabled
+        : defaults.developerModeEnabled,
     autoMuteSystemAudio:
       typeof input.autoMuteSystemAudio === "boolean"
         ? input.autoMuteSystemAudio

@@ -18,6 +18,9 @@ Native Windows Helper
 ASR Worker
   local speech-to-text engines, model loading, streaming/batch transcription
 
+Hardware Capability Service
+  GPU detection, VRAM reporting, backend suitability, model/runtime compatibility
+
 OCR Worker
   local OCR engines, screenshot text extraction, context term extraction
 
@@ -107,15 +110,18 @@ Current foundation:
 - `src/shared/settings.ts` defines typed app settings and sanitization.
 - `src/main/settings-store.ts` stores settings as JSON under Electron's `app.getPath("userData")`.
 - `src/preload/index.ts` exposes settings read/update/reset methods to the renderer through IPC.
-- Initial settings include model directory, insertion mode, app profiles, offline mode, clipboard restoration, remote typing delay, remote typing chunk size, configurable hotkeys, optional automatic system-audio mute while recording, global recording-coordination mode and hotkeys, recorder capture mode, and Silero VAD trimming controls.
+- Initial settings include model directory, insertion mode, app profiles, offline mode, developer mode, clipboard restoration, remote typing delay, remote typing chunk size, configurable hotkeys, optional automatic system-audio mute while recording, global recording-coordination mode and hotkeys, recorder capture mode, and Silero VAD trimming controls.
+- The renderer now defaults to a release-style dictation home for ordinary users and keeps the prior dense diagnostic interface behind `developerModeEnabled`.
+- Recording shows a small always-on-top overlay window near the bottom of the active screen. The native helper emits live recording-level JSON events while capturing, Electron forwards them to the overlay, and the overlay switches from recording to transcribing before hiding at the end of transcription.
 - The dictation recorder starts native capture through `native/windows-helper record-wav <output.wav>`. The helper uses CPAL to open the default input device, chooses a native/default sample format and rate, converts to mono, resamples to 16 kHz with Rubato FFT resampling, optionally applies Silero VAD v4 through `vad-rs` plus Handy-style smoothing, and writes a 16-bit PCM WAV. Electron stops recording by closing the helper's stdin command stream, then reads the WAV bytes for the existing Whisper pipeline.
 - Native WAV encoding must preserve the sign of centered PCM samples. A prior writer bug multiplied negative float samples by `i16::MIN`, which turned them positive and made recordings sound heavily distorted.
 - The old browser `AudioWorkletNode` recorder and renderer VAD path have been removed. If native helper recording fails to start, dictation cancels instead of falling back to WebAudio.
 - Handy records differently from the original VoxType browser recorder: Handy uses native Rust/CPAL capture, native sample format selection, native worker-thread buffering, Rubato resampling, `vad-rs`, `silero_vad_v4.onnx`, 30 ms frames, and `SmoothedVad`. VoxType's recording path now follows that direction through the Windows helper.
 - `src/shared/models.ts` defines the initial Whisper model catalog.
 - `src/main/model-service.ts` downloads Whisper ggml models from the `ggerganov/whisper.cpp` Hugging Face repository into the configured model directory.
-- `src/shared/runtimes.ts` pins the first managed Windows runtime to official `ggml-org/whisper.cpp` `v1.8.4` `whisper-bin-x64.zip`.
-- `src/main/runtime-service.ts` downloads and extracts the managed CPU x64 `whisper.cpp` runtime into Electron's `userData` runtime directory.
+- `src/shared/runtimes.ts` defines the managed `whisper.cpp` runtime catalog: CPU x64, CUDA 12.4 x64, CUDA 11.8 x64, and a Vulkan custom-runtime slot. Official `ggml-org/whisper.cpp` `v1.8.4` release assets are used for CPU/CUDA downloads.
+- `src/main/runtime-service.ts` downloads and extracts managed `whisper.cpp` runtimes into Electron's `userData` runtime directory, lists installed runtimes, and selects an executable according to the user's `auto`/`cpu`/`cuda`/`vulkan` backend preference. A custom `whisperExecutablePath` still overrides managed runtime selection.
+- `src/main/hardware-service.ts` detects GPU capability for Phase 5 acceleration planning. It uses `nvidia-smi` when available for NVIDIA GPU name, VRAM, and driver details, falls back to Windows `Win32_VideoController` data, and reports CUDA/Vulkan suitability plus per-model VRAM fit through a renderer IPC surface.
 - `src/main/ocr-service.ts` owns OCR orchestration and currently delegates screenshot recognition to the Rust helper's Windows Media OCR command. This keeps Phase 4 local, native, and fast for active-window screenshots without managing a separate Python runtime or OCR model bundle. During global-hotkey dictation, the main process captures active-window OCR before VoxType takes focus, extracts conservative terms, and sends those terms through the renderer to the transcription prompt context.
 - `src/main/history-store.ts` persists recent transcript history under Electron's `userData` path.
 - Transcript history now stores successful transcription audio as WAV files under Electron's `userData` path and exposes them through IPC for playback. The saved audio is the processed WAV sent to Whisper, which makes VAD trimming issues audible from the history UI.

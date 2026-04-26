@@ -10,8 +10,6 @@
 
 - Should the native helper be written in Rust or C++?
 - Which Whisper model should be the default first-run recommendation?
-- Which accelerated `whisper.cpp` runtime should be added after CPU x64: Vulkan, CUDA, or both?
-- Should managed `whisper.cpp` runtimes be downloaded from official GitHub releases at first run, bundled into the installer, or mirrored with VoxType-owned checksums?
 - Should Silero VAD assets be bundled with the installer, downloaded on first use, or managed like the Whisper runtime with checksums?
 - Should VAD run in a renderer Web Worker through ONNX Runtime Web/WASM, or in a separate native/helper process through ONNX Runtime?
 - What should the default VAD silence-trimming values be for Windows dictation: threshold, minimum speech duration, pre-roll, trailing silence, and internal pause preservation?

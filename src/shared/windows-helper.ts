@@ -56,6 +56,18 @@ export type NativeRecordingResult = {
   speechFrames: number;
 };
 
+export type NativeRecordingLevel = {
+  rms: number;
+  peak: number;
+};
+
+export type RecordingOverlayState = {
+  visible: boolean;
+  mode: "recording" | "transcribing";
+  level: number;
+  message: string;
+};
+
 export type CaptureSessionMuteEntry = {
   sessionInstanceIdentifier: string;
   processId: number;

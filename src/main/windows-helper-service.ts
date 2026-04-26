@@ -6,6 +6,7 @@ import { promisify } from "node:util";
 import {
   type ActiveWindowInfo,
   type CaptureSessionMuteState,
+  type NativeRecordingLevel,
   type NativeRecordingOptions,
   type NativeRecordingResult,
   type WindowsMediaOcrResult,
@@ -231,7 +232,10 @@ export class WindowsHelperService {
     await runHelperWithStdin(helperPath, ["restore-capture-session"], JSON.stringify(state));
   }
 
-  async startRecording(options: NativeRecordingOptions): Promise<void> {
+  async startRecording(
+    options: NativeRecordingOptions,
+    onLevel?: (level: NativeRecordingLevel) => void
+  ): Promise<void> {
     if (this.recording) {
       throw new Error("Native recording is already active.");
     }
@@ -281,7 +285,12 @@ export class WindowsHelperService {
     const stdout: Buffer[] = [];
     const stderr: Buffer[] = [];
 
-    child.stdout.on("data", (chunk: Buffer) => stdout.push(chunk));
+    child.stdout.on("data", (chunk: Buffer) => {
+      stdout.push(chunk);
+      for (const level of parseRecordingLevelEvents(chunk.toString("utf8"))) {
+        onLevel?.(level);
+      }
+    });
     child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk));
     child.once("exit", (code) => {
       if (this.recording?.child === child && code !== null && code !== 0) {
@@ -435,7 +444,7 @@ function parseNativeRecordingMetadata(stdout: string): Omit<NativeRecordingResul
   const line = stdout
     .split(/\r?\n/)
     .map((item) => item.trim())
-    .filter(Boolean)
+    .filter((item) => Boolean(item) && !isRecordingLevelLine(item))
     .at(-1);
 
   if (!line) {
@@ -453,6 +462,31 @@ function parseNativeRecordingMetadata(stdout: string): Omit<NativeRecordingResul
       parsed.captureMode === "exclusiveCapture" ? "exclusiveCapture" : "sharedCapture",
     speechFrames: typeof parsed.speechFrames === "number" ? parsed.speechFrames : 0
   };
+}
+
+function parseRecordingLevelEvents(stdout: string): NativeRecordingLevel[] {
+  return stdout
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .filter(isRecordingLevelLine)
+    .map((line) => JSON.parse(line) as Record<string, unknown>)
+    .map((parsed) => ({
+      rms: typeof parsed.rms === "number" ? clamp01(parsed.rms) : 0,
+      peak: typeof parsed.peak === "number" ? clamp01(parsed.peak) : 0
+    }));
+}
+
+function isRecordingLevelLine(line: string): boolean {
+  try {
+    const parsed = JSON.parse(line) as Record<string, unknown>;
+    return parsed.type === "recordingLevel";
+  } catch {
+    return false;
+  }
+}
+
+function clamp01(value: number): number {
+  return Math.min(Math.max(value, 0), 1);
 }
 
 function nativeCaptureModeArg(mode: NativeRecordingOptions["captureMode"]): string | null {

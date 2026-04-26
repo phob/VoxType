@@ -1,7 +1,20 @@
 # Planning Changelog
 
+## 2026-04-27
+
+- Added managed CUDA runtime selection for official `whisper.cpp` v1.8.4 CUDA 12.4 and CUDA 11.8 Windows archives.
+- Added a backend preference direction for `auto`, `cpu`, `cuda`, and `vulkan`, with custom Vulkan runtime support until a managed Vulkan archive exists.
+- Clarified that custom `whisperExecutablePath` remains the highest-priority override above managed runtime selection.
+- Moved the dense current interface behind a developer mode switch and added a simpler default dictation home for release-readiness.
+- Added first-run NVIDIA CUDA auto-install as the next release-readiness direction.
+- Added an always-on-top recording/transcribing overlay with live input level updates from the native recorder.
+
 ## 2026-04-26
 
+- Made GPU acceleration the first Phase 5 priority, with automatic GPU/VRAM detection and per-model fit checks as the initial slice.
+- Added Whisper GPU research notes covering `whisper.cpp` CUDA/Vulkan/OpenVINO support, Python Whisper CUDA caveats, and Faster Whisper as a later optional runtime.
+- Added a hardware capability service to the architecture notes for detecting CUDA/Vulkan suitability and VRAM before recommending GPU Whisper runtimes.
+- Confirmed the local hardware detector reports the user's GPU as capable of hardware acceleration, making managed GPU runtime acquisition the next GPU work item.
 - Added Windows Media OCR as a native Rust-helper OCR provider/benchmark and fixed active-window screenshot offsets by using DWM extended frame bounds.
 - Removed the heavyweight OCR runtime path and made Windows Media OCR the Phase 4 OCR direction for screenshot-based context.
 - Wired global-hotkey dictation to capture active-window OCR context, extract conservative terms, and feed them into the Whisper prompt path.

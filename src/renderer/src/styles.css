@@ -18,6 +18,12 @@ body {
   background: #111418;
 }
 
+body:has(.recording-overlay) {
+  min-width: 0;
+  min-height: 0;
+  background: transparent;
+}
+
 button,
 input,
 select,
@@ -85,6 +91,142 @@ pre {
   white-space: pre-wrap;
 }
 
+.app-shell {
+  width: min(820px, calc(100vw - 32px));
+  margin: 24px auto;
+  color: #d7dce2;
+}
+
+.app-header,
+.dictation-home,
+.latest-card,
+.release-settings {
+  border: 1px solid #252b33;
+  border-radius: 6px;
+  background: #15191e;
+}
+
+.app-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  align-items: center;
+  padding: 18px;
+  margin-bottom: 14px;
+}
+
+.app-header p {
+  margin: 4px 0 0;
+  color: #9faab6;
+  font-size: 0.86rem;
+}
+
+.app-brand {
+  color: #f1f4f8;
+  font-size: 1.45rem;
+  font-weight: 750;
+}
+
+.dictation-home {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 18px;
+  align-items: center;
+  padding: 20px;
+}
+
+.dictation-status {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.dictation-status strong,
+.dictation-status span {
+  display: block;
+}
+
+.dictation-status strong {
+  color: #f1f4f8;
+  font-size: 1.2rem;
+}
+
+.dictation-status span {
+  color: #9faab6;
+  font-size: 0.86rem;
+}
+
+.primary-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.primary-actions button {
+  min-height: 36px;
+  padding: 0 14px;
+  font-size: 0.86rem;
+}
+
+.home-summary {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+
+.home-summary dt {
+  color: #808a96;
+  font-size: 0.72rem;
+}
+
+.home-summary dd {
+  min-width: 0;
+  margin: 2px 0 0;
+  overflow: hidden;
+  color: #d7dce2;
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.latest-card,
+.release-settings {
+  margin-top: 14px;
+  padding: 16px;
+}
+
+.section-title-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.section-title-row h2 {
+  margin: 0;
+  color: #f1f4f8;
+  font-size: 0.96rem;
+}
+
+.latest-card p {
+  min-height: 72px;
+  margin: 0;
+  padding: 12px;
+  border: 1px solid #252b33;
+  border-radius: 5px;
+  color: #d7dce2;
+  background: #111418;
+  line-height: 1.5;
+}
+
+.release-settings {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
 .dev-shell {
   width: min(1080px, calc(100vw - 24px));
   margin: 12px auto;
@@ -96,7 +238,7 @@ pre {
 
 .dev-toolbar {
   display: grid;
-  grid-template-columns: auto auto minmax(90px, 130px) auto auto minmax(90px, 1fr) auto auto;
+  grid-template-columns: auto auto minmax(90px, 130px) auto auto minmax(90px, 1fr) auto auto auto;
   gap: 8px;
   align-items: center;
   padding: 8px;
@@ -143,6 +285,60 @@ pre {
 
 .status-dot-recording {
   background: #ff6b6b;
+}
+
+.status-dot-transcribing {
+  background: #7cc7ff;
+}
+
+.recording-overlay {
+  display: grid;
+  gap: 10px;
+  width: 320px;
+  height: 74px;
+  padding: 12px 14px;
+  border: 1px solid rgb(75 86 99 / 0.82);
+  border-radius: 8px;
+  color: #f1f4f8;
+  background: rgb(17 20 24 / 0.92);
+  box-shadow: 0 18px 48px rgb(0 0 0 / 0.38);
+  backdrop-filter: blur(14px);
+}
+
+.overlay-status {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.overlay-status strong,
+.overlay-status span {
+  display: block;
+}
+
+.overlay-status strong {
+  font-size: 0.9rem;
+}
+
+.overlay-status span {
+  color: #aab4bf;
+  font-size: 0.72rem;
+}
+
+.overlay-meter {
+  overflow: hidden;
+  height: 8px;
+  border-radius: 999px;
+  background: #252b33;
+}
+
+.overlay-meter span {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #52b788, #f4d35e, #ff6b6b);
+  transition: width 80ms linear;
 }
 
 .inline-error {
@@ -411,8 +607,22 @@ td select {
   .dev-toolbar,
   .dictation-layout,
   .split-layout,
-  .settings-form {
+  .settings-form,
+  .dictation-home,
+  .home-summary {
     grid-template-columns: 1fr;
+  }
+
+  .app-shell {
+    width: 100%;
+    margin: 0;
+  }
+
+  .app-header,
+  .section-title-row,
+  .primary-actions {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .dictation-layout .transcript-block,

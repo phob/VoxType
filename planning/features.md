@@ -1,5 +1,12 @@
 # Features
 
+## Recording Overlay
+
+- Always-on-top recording overlay near the bottom of the active screen.
+- Shows recording state and live microphone input level while capturing audio.
+- Switches to a transcribing state after recording stops.
+- Hides automatically when transcription finishes or when recording startup/transcription fails.
+
 ## Core Features
 
 - Local speech-to-text.

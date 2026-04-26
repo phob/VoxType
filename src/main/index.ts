@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Menu, Tray, globalShortcut, ipcMain, nativeImage } from "electron";
+import { app, BrowserWindow, Menu, Tray, globalShortcut, ipcMain, nativeImage, screen } from "electron";
 import { join } from "node:path";
 import { type DictionaryCreateInput, type DictionaryPatch } from "../shared/dictionary";
 import { buildOcrPromptContext, type OcrPromptContext } from "../shared/ocr-context";
@@ -6,9 +6,11 @@ import { type AppProfile, type InsertionMode, type SettingsPatch } from "../shar
 import {
   type ActiveWindowInfo,
   type DictationHotkeyState,
-  type NativeRecordingOptions
+  type NativeRecordingOptions,
+  type RecordingOverlayState
 } from "../shared/windows-helper";
 import { DictionaryStore } from "./dictionary-store";
+import { HardwareService } from "./hardware-service";
 import { HistoryStore } from "./history-store";
 import { InsertionService } from "./insertion-service";
 import { ModelService } from "./model-service";
@@ -19,6 +21,13 @@ import { TranscriptionService } from "./transcription-service";
 import { WindowsHelperService } from "./windows-helper-service";
 
 let mainWindow: BrowserWindow | null = null;
+let overlayWindow: BrowserWindow | null = null;
+let overlayState: RecordingOverlayState = {
+  visible: false,
+  mode: "recording",
+  level: 0,
+  message: "Recording"
+};
 let tray: Tray | null = null;
 let dictationHotkeyState: DictationHotkeyState = {
   recording: false,
@@ -36,6 +45,7 @@ const dictionaryStore = new DictionaryStore();
 const historyStore = new HistoryStore();
 const modelService = new ModelService(settingsStore);
 const runtimeService = new RuntimeService();
+const hardwareService = new HardwareService();
 const windowsHelperService = new WindowsHelperService();
 const ocrService = new OcrService(windowsHelperService);
 const transcriptionService = new TranscriptionService(
@@ -175,6 +185,101 @@ async function toggleDictationHotkey(): Promise<void> {
   mainWindow?.webContents.send("dictation-hotkey-start", { sessionId, target, ocrContext: null });
 }
 
+function createOverlayWindow(): BrowserWindow {
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    return overlayWindow;
+  }
+
+  overlayWindow = new BrowserWindow({
+    width: 320,
+    height: 74,
+    frame: false,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    closable: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    focusable: false,
+    transparent: true,
+    show: false,
+    backgroundColor: "#00000000",
+    webPreferences: {
+      preload: join(__dirname, "../preload/index.mjs"),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: false
+    }
+  });
+  overlayWindow.setAlwaysOnTop(true, "screen-saver");
+  overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  overlayWindow.on("closed", () => {
+    overlayWindow = null;
+  });
+  overlayWindow.webContents.once("did-finish-load", () => {
+    sendOverlayState();
+  });
+
+  if (isDev && process.env.ELECTRON_RENDERER_URL) {
+    void overlayWindow.loadURL(`${process.env.ELECTRON_RENDERER_URL}?overlay=1`);
+  } else {
+    void overlayWindow.loadFile(join(__dirname, "../renderer/index.html"), {
+      query: { overlay: "1" }
+    });
+  }
+
+  return overlayWindow;
+}
+
+function positionOverlayWindow(): void {
+  const window = createOverlayWindow();
+  const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
+  const bounds = display.workArea;
+  const [width, height] = window.getSize();
+  const x = Math.round(bounds.x + (bounds.width - width) / 2);
+  const y = Math.round(bounds.y + bounds.height - height - 28);
+  window.setPosition(x, y, false);
+}
+
+function showOverlay(next: Partial<RecordingOverlayState>): void {
+  overlayState = {
+    ...overlayState,
+    ...next,
+    visible: true
+  };
+  const window = createOverlayWindow();
+  positionOverlayWindow();
+  window.showInactive();
+  sendOverlayState();
+}
+
+function updateOverlay(next: Partial<RecordingOverlayState>): void {
+  overlayState = {
+    ...overlayState,
+    ...next
+  };
+  sendOverlayState();
+}
+
+function hideOverlay(): void {
+  overlayState = {
+    ...overlayState,
+    visible: false,
+    level: 0
+  };
+  sendOverlayState();
+  overlayWindow?.hide();
+}
+
+function sendOverlayState(): void {
+  if (!overlayWindow || overlayWindow.isDestroyed()) {
+    return;
+  }
+
+  overlayWindow.webContents.send("recording-overlay-state", overlayState);
+}
+
 async function captureActiveWindowOcrContext(
   target: ActiveWindowInfo | null
 ): Promise<OcrPromptContext | null> {
@@ -246,7 +351,13 @@ ipcMain.handle("settings:reset", async () => {
 ipcMain.handle("models:list", () => modelService.list());
 ipcMain.handle("models:download", (_event, modelId: string) => modelService.download(modelId));
 ipcMain.handle("runtime:get-whisper", () => runtimeService.getWhisperRuntime());
-ipcMain.handle("runtime:install-whisper", () => runtimeService.installWhisperRuntime());
+ipcMain.handle("runtime:list-whisper", () => runtimeService.listWhisperRuntimes());
+ipcMain.handle("runtime:install-whisper", (_event, runtimeId?: string) =>
+  runtimeService.installWhisperRuntime(runtimeId)
+);
+ipcMain.handle("hardware:get-acceleration-report", () =>
+  hardwareService.getAccelerationReport()
+);
 ipcMain.handle(
   "ocr:recognize-screenshot",
   (_event, imagePath: string, mode: "screen" | "activeWindow") =>
@@ -329,11 +440,25 @@ ipcMain.handle("windows-helper:capture-screenshot", (_event, mode: "screen" | "a
   windowsHelperService.captureScreenshot(mode)
 );
 ipcMain.handle("windows-helper:start-recording", (_event, options: NativeRecordingOptions) =>
-  windowsHelperService.startRecording(options)
+  windowsHelperService.startRecording(options, (level) => {
+    updateOverlay({
+      level: Math.max(level.rms * 3, level.peak)
+    });
+  })
 );
 ipcMain.handle("windows-helper:stop-recording", () =>
   windowsHelperService.stopRecording()
 );
+ipcMain.handle("recording-overlay:show-recording", () => {
+  showOverlay({ mode: "recording", level: 0, message: "Recording" });
+});
+ipcMain.handle("recording-overlay:show-transcribing", () => {
+  showOverlay({ mode: "transcribing", level: 0, message: "Transcribing" });
+});
+ipcMain.handle("recording-overlay:hide", () => {
+  hideOverlay();
+});
+ipcMain.handle("recording-overlay:get-state", () => overlayState);
 
 app.whenReady().then(() => {
   createWindow();
@@ -348,6 +473,7 @@ app.whenReady().then(() => {
 });
 
 app.on("will-quit", () => {
+  overlayWindow?.destroy();
   globalShortcut.unregisterAll();
 });
 

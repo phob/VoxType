@@ -6,11 +6,12 @@ import {
 } from "./audio-recorder";
 import { eventToAccelerator } from "./hotkey-capture";
 import { type DictionaryEntry } from "../../../shared/dictionary";
+import { type HardwareAccelerationReport } from "../../../shared/hardware";
 import { type HotkeyStatus } from "../../../shared/hotkeys";
 import { type LocalModel } from "../../../shared/models";
 import { type OcrPromptContext } from "../../../shared/ocr-context";
 import { type OcrResult } from "../../../shared/ocr";
-import { type WhisperRuntime } from "../../../shared/runtimes";
+import { type WhisperRuntime, type WhisperRuntimePreference } from "../../../shared/runtimes";
 import {
   type AppProfile,
   type AppSettings,
@@ -23,6 +24,7 @@ import { type TranscriptEntry } from "../../../shared/transcripts";
 import {
   type ActiveWindowInfo,
   type DictationHotkeyPayload,
+  type RecordingOverlayState,
   type ScreenshotCaptureMode,
   type ScreenshotCaptureResult,
   type WindowsHelperStatus
@@ -31,9 +33,11 @@ import {
 type AppState = {
   models: LocalModel[];
   runtime: WhisperRuntime | null;
+  runtimes: WhisperRuntime[];
   settings: AppSettings | null;
   history: TranscriptEntry[];
   dictionary: DictionaryEntry[];
+  hardware: HardwareAccelerationReport | null;
   windowsHelper: WindowsHelperStatus | null;
   activeWindow: ActiveWindowInfo | null;
   hotkeys: HotkeyStatus | null;
@@ -65,7 +69,15 @@ const devTabs: Array<{ id: DevTab; label: string }> = [
   { id: "logs", label: "Logs" }
 ];
 
+const defaultOverlayState: RecordingOverlayState = {
+  visible: false,
+  mode: "recording",
+  level: 0,
+  message: "Recording"
+};
+
 export function App(): JSX.Element {
+  const isOverlay = new URLSearchParams(window.location.search).get("overlay") === "1";
   const recorderRef = useRef<PcmRecorder | null>(null);
   const hotkeyTargetRef = useRef<ActiveWindowInfo | null>(null);
   const hotkeyOcrContextRef = useRef<OcrPromptContext | null>(null);
@@ -78,9 +90,11 @@ export function App(): JSX.Element {
   const [state, setState] = useState<AppState>({
     models: [],
     runtime: null,
+    runtimes: [],
     settings: null,
     history: [],
     dictionary: [],
+    hardware: null,
     windowsHelper: null,
     activeWindow: null,
     hotkeys: null
@@ -106,6 +120,7 @@ export function App(): JSX.Element {
   const [latestOcrContext, setLatestOcrContext] = useState<OcrPromptContext | null>(null);
   const [playingTranscriptId, setPlayingTranscriptId] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<DevTab>("dictation");
+  const [overlayState, setOverlayState] = useState<RecordingOverlayState>(defaultOverlayState);
 
   const activeModel = state.models.find((model) => model.id === state.settings?.activeModelId);
   const latestTranscript = state.history[0];
@@ -118,8 +133,17 @@ export function App(): JSX.Element {
   const effectiveWhisperPrompt =
     state.settings?.whisperPromptOverride.trim() || generatedWhisperPrompt;
   const appStatus = error ? "Error" : recording ? "Recording" : busyMessage ? busyMessage : "Ready";
+  const activeRuntimeLabel = state.runtime
+    ? `${state.runtime.backend.toUpperCase()} · ${state.runtime.status}`
+    : "Runtime not ready";
 
   useEffect(() => {
+    if (isOverlay) {
+      void window.voxtype.recordingOverlay.getState().then(setOverlayState);
+      const removeOverlayState = window.voxtype.recordingOverlay.onState(setOverlayState);
+      return removeOverlayState;
+    }
+
     void refresh();
 
     return () => {
@@ -133,9 +157,13 @@ export function App(): JSX.Element {
         audioObjectUrlRef.current = null;
       }
     };
-  }, []);
+  }, [isOverlay]);
 
   useEffect(() => {
+    if (isOverlay) {
+      return;
+    }
+
     const removeStart = window.voxtype.dictation.onHotkeyStart((payload) => {
       void handleHotkeyStart(payload);
     });
@@ -166,9 +194,13 @@ export function App(): JSX.Element {
       removeStop();
       removeOcrContext();
     };
-  }, [activeModel?.status, state.settings?.insertionMode, recording]);
+  }, [activeModel?.status, state.settings?.insertionMode, recording, isOverlay]);
 
   useEffect(() => {
+    if (isOverlay) {
+      return;
+    }
+
     if (!capturingHotkey) {
       return;
     }
@@ -205,6 +237,8 @@ export function App(): JSX.Element {
       settings,
       models,
       runtime,
+      runtimes,
+      hardware,
       history,
       dictionary,
       windowsHelper,
@@ -215,6 +249,8 @@ export function App(): JSX.Element {
       window.voxtype.settings.get(),
       window.voxtype.models.list(),
       window.voxtype.runtime.getWhisper(),
+      window.voxtype.runtime.listWhisper(),
+      window.voxtype.hardware.getAccelerationReport(),
       window.voxtype.history.list(),
       window.voxtype.dictionary.list(),
       window.voxtype.windowsHelper.status(),
@@ -226,6 +262,8 @@ export function App(): JSX.Element {
       settings,
       models,
       runtime,
+      runtimes,
+      hardware,
       history,
       dictionary,
       windowsHelper,
@@ -254,7 +292,8 @@ export function App(): JSX.Element {
 
     try {
       const runtime = await window.voxtype.runtime.installWhisper();
-      setState((current) => ({ ...current, runtime }));
+      const runtimes = await window.voxtype.runtime.listWhisper();
+      setState((current) => ({ ...current, runtime, runtimes }));
     } catch (runtimeError) {
       setError(formatError(runtimeError));
     } finally {
@@ -286,6 +325,8 @@ export function App(): JSX.Element {
     }
 
     try {
+      await window.voxtype.recordingOverlay.showRecording();
+
       if (state.settings?.autoMuteSystemAudio) {
         await window.voxtype.windowsHelper.setSystemMute(true);
         systemAudioMutedByVoxTypeRef.current = true;
@@ -295,6 +336,7 @@ export function App(): JSX.Element {
       await startRecordingCoordination(state.settings);
       setRecording(true);
     } catch (recordingError) {
+      await window.voxtype.recordingOverlay.hide();
       const recorder = recorderRef.current;
       recorderRef.current = null;
       const recorderStopError = recorder
@@ -311,6 +353,32 @@ export function App(): JSX.Element {
           unmuteError
         )
       );
+    }
+  }
+
+  async function installSpecificRuntime(runtimeId: string): Promise<void> {
+    setError(null);
+    setBusyMessage("Installing whisper.cpp runtime...");
+
+    try {
+      const runtime = await window.voxtype.runtime.installWhisperRuntime(runtimeId);
+      const runtimes = await window.voxtype.runtime.listWhisper();
+      setState((current) => ({ ...current, runtime, runtimes }));
+    } catch (runtimeError) {
+      setError(formatError(runtimeError));
+    } finally {
+      setBusyMessage(null);
+    }
+  }
+
+  async function refreshHardware(): Promise<void> {
+    setError(null);
+
+    try {
+      const hardware = await window.voxtype.hardware.getAccelerationReport();
+      setState((current) => ({ ...current, hardware }));
+    } catch (hardwareError) {
+      setError(formatError(hardwareError));
     }
   }
 
@@ -371,6 +439,7 @@ export function App(): JSX.Element {
     try {
       const recordingResult = await recorderRef.current.stop();
       recorderRef.current = null;
+      await window.voxtype.recordingOverlay.showTranscribing();
       const coordinationError = await stopRecordingCoordination();
       const unmuteError = await unmuteSystemAudio();
       setLastRecordingResult(recordingResult);
@@ -420,6 +489,7 @@ export function App(): JSX.Element {
       const unmuteError = await unmuteSystemAudio();
       setError(joinErrors(joinErrors(formatError(transcriptionError), coordinationError), unmuteError));
     } finally {
+      await window.voxtype.recordingOverlay.hide();
       setBusyMessage(null);
     }
   }
@@ -776,6 +846,123 @@ export function App(): JSX.Element {
     setPlayingTranscriptId(null);
   }
 
+  if (isOverlay) {
+    return <RecordingOverlay state={overlayState} />;
+  }
+
+  if (!state.settings) {
+    return (
+      <main className="app-shell">
+        <header className="app-header">
+          <div>
+            <div className="app-brand">VoxType</div>
+            <p>Local dictation for Windows</p>
+          </div>
+        </header>
+        <section className="dictation-home">
+          <div className="dictation-status">
+            <span className="status-dot" />
+            <div>
+              <strong>Loading</strong>
+              <span>Preparing local dictation</span>
+            </div>
+          </div>
+        </section>
+      </main>
+    );
+  }
+
+  if (!state.settings.developerModeEnabled) {
+    return (
+      <main className="app-shell">
+        <header className="app-header">
+          <div>
+            <div className="app-brand">VoxType</div>
+            <p>Local dictation for Windows</p>
+          </div>
+          <button onClick={() => void updateSettings({ developerModeEnabled: true })} type="button">
+            Developer
+          </button>
+        </header>
+
+        {error ? (
+          <div className="inline-error">
+            <code>error</code>
+            <span>{error}</span>
+          </div>
+        ) : null}
+
+        <section className="dictation-home">
+          <div className="dictation-status">
+            <span className={recording ? "status-dot status-dot-recording" : "status-dot"} />
+            <div>
+              <strong>{appStatus}</strong>
+              <span>{recording ? "Listening now" : "Ready for push-to-talk dictation"}</span>
+            </div>
+          </div>
+
+          <div className="primary-actions">
+            <button
+              disabled={Boolean(busyMessage) || recording}
+              onClick={() => void startRecording()}
+              type="button"
+            >
+              Start Dictation
+            </button>
+            <button disabled={!recording} onClick={() => void stopAndTranscribe()} type="button">
+              Stop
+            </button>
+          </div>
+
+          <dl className="home-summary">
+            <dt>Hotkey</dt>
+            <dd>{state.settings.dictationToggleHotkey}</dd>
+            <dt>Model</dt>
+            <dd>{activeModel?.name ?? state.settings.activeModelId}</dd>
+            <dt>Runtime</dt>
+            <dd>{activeRuntimeLabel}</dd>
+            <dt>GPU</dt>
+            <dd>{state.hardware?.bestGpu?.name ?? "CPU fallback"}</dd>
+          </dl>
+        </section>
+
+        <section className="latest-card">
+          <div className="section-title-row">
+            <h2>Latest Transcript</h2>
+            <div className="button-row">
+              <button disabled={!latestTranscript} onClick={() => void copyLatestTranscript()} type="button">
+                Copy
+              </button>
+              <button disabled={!latestTranscript} onClick={() => void pasteLatestTranscript()} type="button">
+                Insert
+              </button>
+            </div>
+          </div>
+          <p>{latestTranscript?.text ?? "Your next dictation will appear here."}</p>
+        </section>
+
+        <section className="release-settings">
+          <label className="checkbox-field">
+            <input
+              checked={state.settings.vadEnabled}
+              type="checkbox"
+              onChange={(event) => void updateSettings({ vadEnabled: event.target.checked })}
+            />
+            Voice cleanup
+          </label>
+          <label className="checkbox-field">
+            <input
+              checked={state.settings.autoMuteSystemAudio}
+              type="checkbox"
+              onChange={(event) => void updateSettings({ autoMuteSystemAudio: event.target.checked })}
+            />
+            Mute system audio while recording
+          </label>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="dev-shell">
       <header className="dev-toolbar">
@@ -806,6 +993,9 @@ export function App(): JSX.Element {
         <code className="toolbar-code">{state.settings?.dictationToggleHotkey ?? "hotkey:none"}</code>
         <button onClick={() => void refreshActiveWindow()} type="button">
           Refresh
+        </button>
+        <button onClick={() => void updateSettings({ developerModeEnabled: false })} type="button">
+          ExitDev
         </button>
       </header>
 
@@ -1105,6 +1295,7 @@ export function App(): JSX.Element {
                     <th>id</th>
                     <th>name</th>
                     <th>size</th>
+                    <th>gpu fit</th>
                     <th>status</th>
                     <th>path</th>
                     <th>action</th>
@@ -1116,6 +1307,7 @@ export function App(): JSX.Element {
                       <td><code>{model.id}</code></td>
                       <td>{model.name}</td>
                       <td>{model.sizeLabel}</td>
+                      <td>{gpuFitLabel(state.hardware, model.id)}</td>
                       <td>{state.settings?.activeModelId === model.id ? "selected" : model.status}</td>
                       <td><code>{model.localPath}</code></td>
                       <td>
@@ -1139,32 +1331,123 @@ export function App(): JSX.Element {
             </section>
 
             <section className="panel-block">
-              <h2>runtime</h2>
+              <h2>gpu</h2>
+              <dl className="kv-grid">
+                <dt>mode</dt>
+                <dd>{state.settings?.whisperRuntimeBackend ?? "auto"}</dd>
+                <dt>backend</dt>
+                <dd>{state.hardware?.recommendedBackend ?? "unknown"}</dd>
+                <dt>usable</dt>
+                <dd>{state.hardware?.canUseGpuRuntime ? "yes" : "no"}</dd>
+                <dt>bestGpu</dt>
+                <dd>{state.hardware?.bestGpu?.name ?? "none"}</dd>
+                <dt>vram</dt>
+                <dd>{formatVram(state.hardware?.bestGpu?.dedicatedVramMb)}</dd>
+              </dl>
+              <div className="button-row">
+                <button onClick={() => void refreshHardware()} type="button">
+                  Detect
+                </button>
+              </div>
+              {state.settings ? (
+                <label className="dev-field">
+                  <span>whisperRuntimeBackend</span>
+                  <select
+                    value={state.settings.whisperRuntimeBackend}
+                    onChange={(event) =>
+                      void updateSettings({
+                        whisperRuntimeBackend: event.target.value as WhisperRuntimePreference
+                      })
+                    }
+                  >
+                    <option value="auto">auto</option>
+                    <option value="cpu">cpu</option>
+                    <option value="cuda">cuda</option>
+                    <option value="vulkan">vulkan</option>
+                  </select>
+                </label>
+              ) : null}
               <table>
+                <thead>
+                  <tr>
+                    <th>gpu</th>
+                    <th>vendor</th>
+                    <th>vram</th>
+                    <th>cuda</th>
+                    <th>vulkan</th>
+                    <th>source</th>
+                  </tr>
+                </thead>
                 <tbody>
-                  <tr>
-                    <th>name</th>
-                    <td>{state.runtime?.name ?? "none"}</td>
-                    <th>version</th>
-                    <td>{state.runtime?.version ?? "none"}</td>
-                    <th>status</th>
-                    <td>{state.runtime?.status ?? "none"}</td>
-                    <td>
-                      <button
-                        disabled={state.runtime?.status === "installed" || Boolean(busyMessage)}
-                        onClick={() => void installRuntime()}
-                        type="button"
-                      >
-                        Install
-                      </button>
-                    </td>
-                  </tr>
-                  <tr>
-                    <th>exe</th>
-                    <td colSpan={6}><code>{state.runtime?.executablePath ?? "none"}</code></td>
-                  </tr>
+                  {(state.hardware?.gpus ?? []).map((gpu) => (
+                    <tr key={`${gpu.source}-${gpu.name}`}>
+                      <td>{gpu.name}</td>
+                      <td>{gpu.vendor}</td>
+                      <td>{formatVram(gpu.dedicatedVramMb)}</td>
+                      <td>{gpu.supportsCuda ? "yes" : "no"}</td>
+                      <td>{gpu.supportsVulkan === null ? "unknown" : gpu.supportsVulkan ? "yes" : "no"}</td>
+                      <td>{gpu.source}</td>
+                    </tr>
+                  ))}
+                  {state.hardware?.gpus.length ? null : (
+                    <tr>
+                      <td colSpan={6}>No GPU detected yet.</td>
+                    </tr>
+                  )}
                 </tbody>
               </table>
+              <pre>{state.hardware?.notes.join("\n") ?? "Detect GPU capability to estimate Whisper acceleration."}</pre>
+            </section>
+
+            <section className="panel-block">
+              <h2>runtime</h2>
+              <table>
+                <thead>
+                  <tr>
+                    <th>name</th>
+                    <th>version</th>
+                    <th>backend</th>
+                    <th>status</th>
+                    <th>path</th>
+                    <th>action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {state.runtimes.map((runtime) => (
+                    <tr key={runtime.id}>
+                      <td>{runtime.name}</td>
+                      <td>{runtime.version}</td>
+                      <td>{runtime.backend}</td>
+                      <td>
+                        {state.runtime?.id === runtime.id ? `active:${runtime.status}` : runtime.status}
+                      </td>
+                      <td><code>{runtime.executablePath ?? runtime.notes}</code></td>
+                      <td>
+                        <button
+                          disabled={
+                            !runtime.managed ||
+                            runtime.status === "installed" ||
+                            Boolean(busyMessage)
+                          }
+                          onClick={() => void installSpecificRuntime(runtime.id)}
+                          type="button"
+                        >
+                          Install
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="button-row">
+                <button
+                  disabled={state.runtime?.status === "installed" || Boolean(busyMessage)}
+                  onClick={() => void installRuntime()}
+                  type="button"
+                >
+                  InstallAuto
+                </button>
+              </div>
             </section>
           </div>
         ) : null}
@@ -1475,6 +1758,22 @@ export function App(): JSX.Element {
                   onChange={(event) => void updateSettings({ whisperExecutablePath: event.target.value })}
                 />
               </label>
+              <label className="dev-field">
+                <span>whisperRuntimeBackend</span>
+                <select
+                  value={state.settings.whisperRuntimeBackend}
+                  onChange={(event) =>
+                    void updateSettings({
+                      whisperRuntimeBackend: event.target.value as WhisperRuntimePreference
+                    })
+                  }
+                >
+                  <option value="auto">auto</option>
+                  <option value="cpu">cpu</option>
+                  <option value="cuda">cuda</option>
+                  <option value="vulkan">vulkan</option>
+                </select>
+              </label>
               <label className="dev-field wide">
                 <span>modelDirectory</span>
                 <input
@@ -1638,6 +1937,16 @@ export function App(): JSX.Element {
               </label>
               <label className="checkbox-field">
                 <input
+                  checked={state.settings.developerModeEnabled}
+                  type="checkbox"
+                  onChange={(event) =>
+                    void updateSettings({ developerModeEnabled: event.target.checked })
+                  }
+                />
+                developerModeEnabled
+              </label>
+              <label className="checkbox-field">
+                <input
                   checked={state.settings.autoMuteSystemAudio}
                   type="checkbox"
                   onChange={(event) => void updateSettings({ autoMuteSystemAudio: event.target.checked })}
@@ -1718,6 +2027,31 @@ function formatError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function RecordingOverlay({ state }: { state: RecordingOverlayState }): JSX.Element {
+  const level = Math.round(Math.min(Math.max(state.level, 0), 1) * 100);
+
+  return (
+    <main className="recording-overlay">
+      <div className="overlay-status">
+        <span
+          className={
+            state.mode === "recording"
+              ? "status-dot status-dot-recording"
+              : "status-dot status-dot-transcribing"
+          }
+        />
+        <div>
+          <strong>{state.message}</strong>
+          <span>{state.mode === "recording" ? "Listening" : "Working locally"}</span>
+        </div>
+      </div>
+      <div className="overlay-meter" aria-label="Input gain">
+        <span style={{ width: `${level}%` }} />
+      </div>
+    </main>
+  );
+}
+
 function joinErrors(primary: string, secondary: string | null): string {
   return secondary ? `${primary} ${secondary}` : primary;
 }
@@ -1787,6 +2121,36 @@ function formatDuration(milliseconds: number): string {
   }
 
   return `${(milliseconds / 1000).toFixed(1)} s`;
+}
+
+function formatVram(vramMb: number | null | undefined): string {
+  if (typeof vramMb !== "number") {
+    return "unknown";
+  }
+
+  if (vramMb >= 1024) {
+    return `${(vramMb / 1024).toFixed(1)} GB`;
+  }
+
+  return `${vramMb} MB`;
+}
+
+function gpuFitLabel(report: HardwareAccelerationReport | null, modelId: string): string {
+  const fit = report?.modelFits.find((item) => item.modelId === modelId);
+
+  if (!fit) {
+    return "detect";
+  }
+
+  if (fit.status === "fits") {
+    return `fits (${formatVram(fit.requiredVramMb)})`;
+  }
+
+  if (fit.status === "low-vram") {
+    return `low (${formatVram(fit.requiredVramMb)})`;
+  }
+
+  return fit.status;
 }
 
 function buildWhisperPromptPreview(

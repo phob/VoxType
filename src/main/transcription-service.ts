@@ -37,7 +37,10 @@ export class TranscriptionService {
     const modelPath = join(settings.modelDirectory, model.fileName);
     const executable =
       settings.whisperExecutablePath.trim() ||
-      (await this.runtimeService.getExecutablePath({ allowInstall: !settings.offlineMode })) ||
+      (await this.runtimeService.getExecutablePath({
+        allowInstall: !settings.offlineMode,
+        preference: settings.whisperRuntimeBackend
+      })) ||
       "whisper-cli";
     const workDirectory = join(app.getPath("temp"), "voxtype");
     const id = randomUUID();

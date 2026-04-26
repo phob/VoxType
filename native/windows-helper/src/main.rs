@@ -347,7 +347,7 @@ mod windows_impl {
     use serde::{Deserialize, Serialize};
     use std::collections::{HashSet, VecDeque};
     use std::fs::File;
-    use std::io::{self, BufRead, BufReader, BufWriter};
+    use std::io::{self, BufRead, BufReader, BufWriter, Write};
     use std::mem::MaybeUninit;
     use std::path::Path;
     use std::ptr;
@@ -792,6 +792,7 @@ mod windows_impl {
         let mut samples = Vec::<f32>::new();
         let mut raw_samples = 0usize;
         let mut speech_frames = 0usize;
+        let mut level_meter = LevelMeter::new();
 
         while !stop_flag.load(Ordering::SeqCst) {
             match sample_rx.recv_timeout(Duration::from_millis(100)) {
@@ -804,6 +805,7 @@ mod windows_impl {
                         &mut samples,
                         &mut raw_samples,
                         &mut speech_frames,
+                        &mut level_meter,
                     );
                 }
                 Err(mpsc::RecvTimeoutError::Timeout) => {}
@@ -822,6 +824,7 @@ mod windows_impl {
                 &mut samples,
                 &mut raw_samples,
                 &mut speech_frames,
+                &mut level_meter,
             );
         }
 
@@ -882,6 +885,7 @@ mod windows_impl {
         let mut samples = Vec::<f32>::new();
         let mut raw_samples = 0usize;
         let mut speech_frames = 0usize;
+        let mut level_meter = LevelMeter::new();
 
         unsafe {
             let _com = ComGuard::new()?;
@@ -956,6 +960,7 @@ mod windows_impl {
                     &mut samples,
                     &mut raw_samples,
                     &mut speech_frames,
+                    &mut level_meter,
                 )?;
                 thread::sleep(Duration::from_millis(10));
             }
@@ -969,6 +974,7 @@ mod windows_impl {
                 &mut samples,
                 &mut raw_samples,
                 &mut speech_frames,
+                &mut level_meter,
             )?;
             audio_client.Stop().map_err(|error| error.to_string())?;
 
@@ -1015,6 +1021,7 @@ mod windows_impl {
         samples: &mut Vec<f32>,
         raw_samples: &mut usize,
         speech_frames: &mut usize,
+        level_meter: &mut LevelMeter,
     ) -> Result<(), String> {
         unsafe {
             let mut packet_size = capture_client
@@ -1039,6 +1046,7 @@ mod windows_impl {
                     samples,
                     raw_samples,
                     speech_frames,
+                    level_meter,
                 );
 
                 capture_client
@@ -1676,13 +1684,62 @@ mod windows_impl {
         samples: &mut Vec<f32>,
         raw_samples: &mut usize,
         speech_frames: &mut usize,
+        level_meter: &mut LevelMeter,
     ) {
+        level_meter.push(chunk);
         resampler.push(chunk, &mut |resampled| {
             *raw_samples += resampled.len();
             frame_emitter.push(resampled, &mut |frame| {
                 process_vad_frame(frame, vad.as_deref_mut(), samples, speech_frames);
             });
         });
+    }
+
+    struct LevelMeter {
+        last_emit: std::time::Instant,
+    }
+
+    impl LevelMeter {
+        fn new() -> Self {
+            Self {
+                last_emit: std::time::Instant::now() - Duration::from_millis(100),
+            }
+        }
+
+        fn push(&mut self, chunk: &[f32]) {
+            if chunk.is_empty() || self.last_emit.elapsed() < Duration::from_millis(80) {
+                return;
+            }
+
+            self.last_emit = std::time::Instant::now();
+            let rms = (chunk.iter().map(|sample| sample * sample).sum::<f32>()
+                / chunk.len() as f32)
+                .sqrt()
+                .clamp(0.0, 1.0);
+            let peak = chunk
+                .iter()
+                .map(|sample| sample.abs())
+                .fold(0.0_f32, f32::max)
+                .clamp(0.0, 1.0);
+
+            if let Ok(payload) = serde_json::to_string(&RecordingLevelResponse {
+                type_: "recordingLevel",
+                rms,
+                peak,
+            }) {
+                println!("{payload}");
+                let _ = io::stdout().flush();
+            }
+        }
+    }
+
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct RecordingLevelResponse {
+        #[serde(rename = "type")]
+        type_: &'static str,
+        rms: f32,
+        peak: f32,
     }
 
     fn process_vad_frame(

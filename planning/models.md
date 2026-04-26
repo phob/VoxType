@@ -22,6 +22,42 @@ Reasons:
 - Has practical CPU and GPU acceleration paths.
 - Can be prompted with context, even if it cannot truly learn new vocabulary at runtime.
 
+## GPU Acceleration Research And Direction
+
+Whisper can take advantage of GPUs, but only when the selected runtime is built for it.
+
+Current research findings:
+
+- `whisper.cpp` supports GPU acceleration through CUDA for NVIDIA GPUs and Vulkan as a cross-vendor GPU path. Its README also documents OpenVINO for Intel CPU/GPU acceleration and publishes practical memory figures for model sizes.
+- The current managed VoxType runtime is the official `whisper.cpp` Windows CPU x64 zip, so it should be treated as CPU-only until VoxType ships or downloads a GPU-enabled runtime.
+- OpenAI's Python Whisper can use CUDA through PyTorch when a CUDA-enabled PyTorch install is present, but that is not the preferred VoxType packaging path because VoxType is avoiding a Python/Torch runtime.
+- Faster Whisper/CTranslate2 is a strong later option for GPU performance and lower memory through quantization, but it remains an optional engine/runtime direction rather than replacing `whisper.cpp` for the current Phase 5 plan.
+
+Phase 5 GPU direction:
+
+- Add automatic GPU detection before runtime/model recommendations.
+- Detect NVIDIA CUDA capability through `nvidia-smi` when available.
+- Detect Windows display adapters and VRAM through Windows video-controller data as a broad fallback.
+- Prefer CUDA for NVIDIA GPUs through the official `whisper.cpp` CUDA 12.4 runtime, with CUDA 11.8 available for older driver stacks.
+- Support Vulkan as a selectable backend/custom runtime path because `ggml-org/whisper.cpp` v1.8.4 does not publish an official Windows Vulkan zip.
+- Keep CPU as the reliable fallback when no suitable GPU runtime exists, no GPU is present, VRAM is unknown/insufficient, or the user enables offline mode before the runtime is installed.
+- Show per-model VRAM fit in the model manager, with a safety margin above published/estimated model memory.
+
+Initial VRAM planning estimates:
+
+- `tiny`: about 273 MB model memory; VoxType should require roughly 785 MB including margin.
+- `base`: about 388 MB model memory; VoxType should require roughly 900 MB including margin.
+- `small`: about 852 MB model memory; VoxType should require roughly 1.4 GB including margin.
+- `medium`/`large-v3-turbo` class: about 2.1 GB model memory for medium-class models; VoxType should require roughly 2.6 GB or more including margin.
+- Full `large` class: about 3.9 GB model memory; VoxType should require roughly 4.4 GB or more including margin if added later.
+
+The implemented Phase 5 GPU slice adds hardware detection, per-model fit reporting, managed CPU/CUDA runtime downloads, a backend preference setting (`auto`, `cpu`, `cuda`, `vulkan`), and automatic runtime selection for transcription.
+
+Local validation:
+
+- On 2026-04-26, the detection path successfully identified the user's GPU as capable of hardware acceleration. This confirms the Phase 5 GPU path can proceed to managed GPU runtime acquisition and automatic runtime selection.
+- On 2026-04-27, CUDA was integrated through official `whisper.cpp` v1.8.4 CUDA 12.4 and 11.8 release archives. Vulkan was integrated as a selectable/custom executable backend pending a VoxType-owned or upstream Windows Vulkan binary.
+
 Initial model options:
 
 - `base`: smallest practical starting point.

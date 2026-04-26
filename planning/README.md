@@ -15,6 +15,7 @@ The core idea:
 ## Current Direction
 
 - Main ASR engine: Whisper, likely through `whisper.cpp`.
+- Current Phase 5 priority: GPU acceleration, starting with automatic GPU/VRAM detection and model fit checks before managed CUDA/Vulkan runtime selection.
 - Optional later ASR engine: Parakeet V3 or newer Parakeet models.
 - Main OS target: Windows.
 - App shell: Electron with TypeScript.

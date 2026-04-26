@@ -7,54 +7,76 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { promisify } from "node:util";
 import {
+  getRuntimeById,
   type WhisperRuntime,
+  type WhisperRuntimeBackend,
+  type WhisperRuntimeCatalogItem,
+  type WhisperRuntimePreference,
   whisperRuntimeCatalog
 } from "../shared/runtimes";
+import { HardwareService } from "./hardware-service";
 
 const execFileAsync = promisify(execFile);
 const executableCandidates = ["whisper-cli.exe", "main.exe"];
 
 export class RuntimeService {
-  private readonly runtimeDirectory: string;
+  private readonly runtimeRootDirectory: string;
+  private readonly hardwareService = new HardwareService();
 
   constructor() {
-    this.runtimeDirectory = join(
+    this.runtimeRootDirectory = join(
       app.getPath("userData"),
       "runtimes",
-      "whisper.cpp",
-      whisperRuntimeCatalog.version,
-      whisperRuntimeCatalog.id
+      "whisper.cpp"
     );
   }
 
   async getWhisperRuntime(): Promise<WhisperRuntime> {
-    const executablePath = await this.findExecutable();
-
-    return {
-      ...whisperRuntimeCatalog,
-      executablePath,
-      status: executablePath ? "installed" : "not-installed"
-    };
+    return this.getPreferredRuntime("auto");
   }
 
-  async installWhisperRuntime(): Promise<WhisperRuntime> {
+  async listWhisperRuntimes(): Promise<WhisperRuntime[]> {
+    return Promise.all(whisperRuntimeCatalog.map((runtime) => this.hydrateRuntime(runtime)));
+  }
+
+  async getPreferredRuntime(
+    preference: WhisperRuntimePreference
+  ): Promise<WhisperRuntime> {
+    const runtimes = await this.listWhisperRuntimes();
+    const selectedRuntime = await this.selectRuntime(runtimes, preference);
+
+    return selectedRuntime;
+  }
+
+  async installWhisperRuntime(runtimeId?: string): Promise<WhisperRuntime> {
     if (process.platform !== "win32") {
       throw new Error("Managed whisper.cpp runtime installation is currently Windows-only.");
     }
 
-    const archivePath = join(this.runtimeDirectory, whisperRuntimeCatalog.archiveName);
+    const runtime = runtimeId ? getRuntimeById(runtimeId) : await this.getInstallTarget("auto");
+
+    if (!runtime) {
+      throw new Error(`Unknown whisper.cpp runtime: ${runtimeId ?? "auto"}.`);
+    }
+
+    if (!runtime.managed || !runtime.archiveName || !runtime.url) {
+      throw new Error(`${runtime.name} is not available as a managed download yet.`);
+    }
+
+    const runtimeDirectory = this.getRuntimeDirectory(runtime);
+    const archivePath = join(runtimeDirectory, runtime.archiveName);
     const temporaryArchivePath = `${archivePath}.download`;
-    const extractDirectory = join(this.runtimeDirectory, "extract");
+    const extractDirectory = join(runtimeDirectory, "extract");
 
     await mkdir(dirname(archivePath), { recursive: true });
     await rm(extractDirectory, { recursive: true, force: true });
     await mkdir(extractDirectory, { recursive: true });
 
-    const response = await fetch(whisperRuntimeCatalog.url);
+    const response = await fetch(runtime.url);
 
     if (!response.ok || !response.body) {
       throw new Error(
-        `Failed to download ${whisperRuntimeCatalog.name}: ${response.status} ${response.statusText}`
+        `Failed to download ${runtime.name}: ${response.status} ${response.statusText}`
       );
     }
 
@@ -66,17 +88,20 @@ export class RuntimeService {
     await rename(temporaryArchivePath, archivePath);
     await this.expandArchive(archivePath, extractDirectory);
 
-    const runtime = await this.getWhisperRuntime();
+    const installedRuntime = await this.hydrateRuntime(runtime);
 
-    if (!runtime.executablePath) {
-      throw new Error("Installed whisper.cpp runtime, but no whisper-cli.exe was found.");
+    if (!installedRuntime.executablePath) {
+      throw new Error(`Installed ${runtime.name}, but no whisper-cli.exe was found.`);
     }
 
-    return runtime;
+    return installedRuntime;
   }
 
-  async getExecutablePath(options: { allowInstall: boolean }): Promise<string | null> {
-    const runtime = await this.getWhisperRuntime();
+  async getExecutablePath(options: {
+    allowInstall: boolean;
+    preference: WhisperRuntimePreference;
+  }): Promise<string | null> {
+    const runtime = await this.getPreferredRuntime(options.preference);
 
     if (runtime.executablePath) {
       return runtime.executablePath;
@@ -86,7 +111,79 @@ export class RuntimeService {
       return null;
     }
 
-    return (await this.installWhisperRuntime()).executablePath;
+    return (await this.installWhisperRuntime(runtime.id)).executablePath;
+  }
+
+  private async getInstallTarget(
+    preference: WhisperRuntimePreference
+  ): Promise<WhisperRuntimeCatalogItem | null> {
+    const runtime = await this.getPreferredRuntime(preference);
+    return getRuntimeById(runtime.id) ?? null;
+  }
+
+  private async selectRuntime(
+    runtimes: WhisperRuntime[],
+    preference: WhisperRuntimePreference
+  ): Promise<WhisperRuntime> {
+    if (preference !== "auto") {
+      return (
+        runtimes.find((runtime) => runtime.backend === preference && runtime.status !== "unavailable") ??
+        this.requireRuntime(runtimes, "cpu")
+      );
+    }
+
+    const hardware = await this.hardwareService.getAccelerationReport();
+    const preferredBackends: WhisperRuntimeBackend[] =
+      hardware.recommendedBackend === "cuda"
+        ? ["cuda", "cpu"]
+        : hardware.recommendedBackend === "vulkan"
+          ? ["vulkan", "cpu"]
+          : ["cpu"];
+
+    for (const backend of preferredBackends) {
+      const installedRuntime = runtimes.find(
+        (runtime) => runtime.backend === backend && runtime.status === "installed"
+      );
+
+      if (installedRuntime) {
+        return installedRuntime;
+      }
+    }
+
+    for (const backend of preferredBackends) {
+      const managedRuntime = runtimes.find(
+        (runtime) => runtime.backend === backend && runtime.managed
+      );
+
+      if (managedRuntime) {
+        return managedRuntime;
+      }
+    }
+
+    return this.requireRuntime(runtimes, "cpu");
+  }
+
+  private requireRuntime(
+    runtimes: WhisperRuntime[],
+    backend: WhisperRuntimeBackend
+  ): WhisperRuntime {
+    const runtime = runtimes.find((item) => item.backend === backend);
+
+    if (!runtime) {
+      throw new Error(`No ${backend} whisper.cpp runtime is configured.`);
+    }
+
+    return runtime;
+  }
+
+  private async hydrateRuntime(runtime: WhisperRuntimeCatalogItem): Promise<WhisperRuntime> {
+    const executablePath = await this.findExecutable(runtime);
+
+    return {
+      ...runtime,
+      executablePath,
+      status: executablePath ? "installed" : runtime.managed ? "not-installed" : "unavailable"
+    };
   }
 
   private async expandArchive(archivePath: string, destination: string): Promise<void> {
@@ -109,9 +206,11 @@ export class RuntimeService {
     });
   }
 
-  private async findExecutable(): Promise<string | null> {
+  private async findExecutable(runtime: WhisperRuntimeCatalogItem): Promise<string | null> {
+    const runtimeDirectory = this.getRuntimeDirectory(runtime);
+
     for (const candidate of executableCandidates) {
-      const found = await findFile(this.runtimeDirectory, candidate);
+      const found = await findFile(runtimeDirectory, candidate);
 
       if (found) {
         return found;
@@ -119,6 +218,10 @@ export class RuntimeService {
     }
 
     return null;
+  }
+
+  private getRuntimeDirectory(runtime: WhisperRuntimeCatalogItem): string {
+    return join(this.runtimeRootDirectory, runtime.version, runtime.id);
   }
 }
 

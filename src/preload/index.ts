@@ -4,6 +4,7 @@ import {
   type DictionaryEntry,
   type DictionaryPatch
 } from "../shared/dictionary";
+import { type HardwareAccelerationReport } from "../shared/hardware";
 import { type HotkeyStatus } from "../shared/hotkeys";
 import { type LocalModel } from "../shared/models";
 import { type OcrPromptContext } from "../shared/ocr-context";
@@ -22,6 +23,7 @@ import {
   type DictationHotkeyState,
   type NativeRecordingOptions,
   type NativeRecordingResult,
+  type RecordingOverlayState,
   type ScreenshotCaptureMode,
   type ScreenshotCaptureResult,
   type ActiveWindowInfo,
@@ -43,8 +45,15 @@ const voxtype = {
   },
   runtime: {
     getWhisper: () => ipcRenderer.invoke("runtime:get-whisper") as Promise<WhisperRuntime>,
+    listWhisper: () => ipcRenderer.invoke("runtime:list-whisper") as Promise<WhisperRuntime[]>,
     installWhisper: () =>
-      ipcRenderer.invoke("runtime:install-whisper") as Promise<WhisperRuntime>
+      ipcRenderer.invoke("runtime:install-whisper") as Promise<WhisperRuntime>,
+    installWhisperRuntime: (runtimeId: string) =>
+      ipcRenderer.invoke("runtime:install-whisper", runtimeId) as Promise<WhisperRuntime>
+  },
+  hardware: {
+    getAccelerationReport: () =>
+      ipcRenderer.invoke("hardware:get-acceleration-report") as Promise<HardwareAccelerationReport>
   },
   ocr: {
     recognizeScreenshot: (imagePath: string, mode: ScreenshotCaptureMode) =>
@@ -116,6 +125,20 @@ const voxtype = {
   },
   hotkeys: {
     status: () => ipcRenderer.invoke("hotkeys:status") as Promise<HotkeyStatus>
+  },
+  recordingOverlay: {
+    showRecording: () => ipcRenderer.invoke("recording-overlay:show-recording") as Promise<void>,
+    showTranscribing: () =>
+      ipcRenderer.invoke("recording-overlay:show-transcribing") as Promise<void>,
+    hide: () => ipcRenderer.invoke("recording-overlay:hide") as Promise<void>,
+    getState: () =>
+      ipcRenderer.invoke("recording-overlay:get-state") as Promise<RecordingOverlayState>,
+    onState: (callback: (state: RecordingOverlayState) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, state: RecordingOverlayState) =>
+        callback(state);
+      ipcRenderer.on("recording-overlay-state", listener);
+      return () => ipcRenderer.off("recording-overlay-state", listener);
+    }
   },
   appProfiles: {
     ensure: (windowInfo: ActiveWindowInfo | null) =>

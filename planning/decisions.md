@@ -191,3 +191,33 @@ Phase 4 OCR context is sufficient to move on after the initial Windows Media OCR
 Reason:
 
 OCR is tricky and will not perfectly fix every difficult visible word even when the word appears in the screenshot. The current rejection/filtering behavior is useful, and the feature now provides enough screen-aware context to keep, but higher-priority VoxType work should take precedence over deeper OCR tuning.
+
+## 2026-04-26: Make GPU Acceleration The First Phase 5 Priority
+
+Decision:
+
+Phase 5 should start with Whisper GPU acceleration planning and implementation. VoxType should first detect GPU capability and VRAM, then recommend or select CUDA/Vulkan-capable Whisper runtimes only when the user's hardware and selected model are suitable.
+
+Reason:
+
+Whisper can use GPUs when the runtime supports it, and `whisper.cpp` has practical CUDA and Vulkan paths. VoxType currently installs a CPU-only managed runtime, so the safe next step is hardware/VRAM detection and model compatibility reporting before adding automatic GPU runtime acquisition.
+
+## 2026-04-27: Use Managed CUDA And Custom Vulkan Runtime Selection
+
+Decision:
+
+VoxType should support GPU transcription through a runtime backend preference: `auto`, `cpu`, `cuda`, and `vulkan`. CUDA uses managed official `ggml-org/whisper.cpp` v1.8.4 Windows archives for CUDA 12.4 and CUDA 11.8. Vulkan is exposed as a selectable/custom runtime backend until VoxType ships a Vulkan build or upstream publishes a Windows Vulkan zip.
+
+Reason:
+
+The official `whisper.cpp` v1.8.4 release publishes CPU and CUDA Windows binaries, but no Windows Vulkan archive. This lets NVIDIA users get managed GPU acceleration now while preserving the cross-vendor Vulkan path without pretending there is an official downloadable runtime that does not exist.
+
+## 2026-04-27: Move Dense UI Behind Developer Mode
+
+Decision:
+
+The current dense VoxType interface should be treated as a developer/debug UI and hidden behind a persisted developer mode setting. The default app surface should become a simpler end-user dictation home.
+
+Reason:
+
+The current UI is useful for building and diagnosing models, OCR, insertion, and runtime behavior, but it exposes too many implementation details for release users. Hiding it preserves engineering velocity while making room for a calmer product UI.
