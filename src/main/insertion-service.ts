@@ -107,7 +107,8 @@ export class InsertionService {
     let pasteError: unknown = null;
 
     try {
-      await this.windowsHelperService.pasteText(text, options.pasteDelayMs);
+      clipboard.writeText(text);
+      await this.windowsHelperService.pasteText(options.pasteDelayMs);
     } catch (error) {
       pasteError = error;
     } finally {

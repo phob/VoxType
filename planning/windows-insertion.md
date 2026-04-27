@@ -29,6 +29,8 @@ Tradeoffs:
 
 Initial restore behavior:
 
+- VoxType writes transcript text to the clipboard from the Electron main process before asking the native helper to send the paste hotkey.
+- The native helper should not populate the clipboard for paste insertion; it only handles focus, delay, and `Ctrl+V`.
 - When `restoreClipboard` is enabled, VoxType snapshots clipboard contents before paste insertion.
 - VoxType restores common clipboard data after paste: plain text, HTML, RTF, and images.
 - Unusual Windows clipboard formats are restored on a best-effort basis through Electron raw buffers and may not always round-trip perfectly.
@@ -61,6 +63,7 @@ Initial implementation:
 Reason:
 
 - Windows Messaging did not work reliably for TeamViewer remote text transfer.
+- Electron clipboard writes match the working copy-to-clipboard path better than the helper's previous raw Win32 clipboard writer.
 - Plain clipboard paste can paste stale remote clipboard content when `Ctrl+V` is sent before TeamViewer has synchronized the local clipboard update.
 
 ### Keyboard Emulation

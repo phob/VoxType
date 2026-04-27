@@ -14,6 +14,7 @@
 - Implemented `windowsMessaging` as a selectable insertion mode with native helper `message-text` strategies for focused controls and remote-control character messages.
 - Added `remoteClipboard` insertion for TeamViewer/RDP-style targets with clipboard synchronization delay before paste and delayed clipboard restoration after paste.
 - Added a developer settings control for `remoteClipboardPasteDelayMs` to tune remote clipboard synchronization timing.
+- Moved paste insertion clipboard writes from the native helper to Electron so TeamViewer sees the same clipboard update path as manual copy.
 
 ## 2026-04-26
 

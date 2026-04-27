@@ -247,11 +247,7 @@ fn paste_text_from_stdin() -> Result<(), String> {
         })
         .transpose()?
         .unwrap_or(0);
-    let mut text = String::new();
-    io::stdin()
-        .read_to_string(&mut text)
-        .map_err(|error| error.to_string())?;
-    windows_impl::paste_text(&text, delay_ms)
+    windows_impl::paste_text(delay_ms)
 }
 
 #[cfg(not(windows))]
@@ -410,7 +406,7 @@ mod windows_impl {
     use windows::Graphics::Imaging::{BitmapAlphaMode, BitmapPixelFormat, SoftwareBitmap};
     use windows::Media::Ocr::OcrEngine;
     use windows::Storage::Streams::DataWriter;
-    use windows::Win32::Foundation::{CloseHandle, HANDLE, HWND, LPARAM, MAX_PATH, RECT, WPARAM};
+    use windows::Win32::Foundation::{CloseHandle, HWND, LPARAM, MAX_PATH, RECT, WPARAM};
     use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_EXTENDED_FRAME_BOUNDS};
     use windows::Win32::Graphics::Gdi::{
         BitBlt, CreateCompatibleBitmap, CreateCompatibleDC, DeleteDC, DeleteObject, GetDC,
@@ -430,10 +426,6 @@ mod windows_impl {
         CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, CLSCTX_ALL,
         COINIT_APARTMENTTHREADED,
     };
-    use windows::Win32::System::DataExchange::{
-        CloseClipboard, EmptyClipboard, OpenClipboard, SetClipboardData,
-    };
-    use windows::Win32::System::Memory::{GlobalAlloc, GlobalLock, GlobalUnlock, GMEM_MOVEABLE};
     use windows::Win32::System::Threading::{
         OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_WIN32,
         PROCESS_QUERY_LIMITED_INFORMATION,
@@ -450,7 +442,6 @@ mod windows_impl {
         SM_YVIRTUALSCREEN, SW_RESTORE, WM_CHAR,
     };
 
-    const CF_UNICODETEXT_FORMAT: u32 = 13;
     const EM_REPLACESEL: u32 = 0x00C2;
     const SEND_MESSAGE_TIMEOUT_MS: u32 = 250;
     const VOXTYPE_SAMPLE_RATE: usize = 16_000;
@@ -529,8 +520,7 @@ mod windows_impl {
         })
     }
 
-    pub fn paste_text(text: &str, delay_ms: u64) -> Result<(), String> {
-        set_clipboard_text(text)?;
+    pub fn paste_text(delay_ms: u64) -> Result<(), String> {
         if delay_ms > 0 {
             thread::sleep(Duration::from_millis(delay_ms));
         }
@@ -2245,39 +2235,6 @@ mod windows_impl {
         Ok(HWND(raw as *mut _))
     }
 
-    fn set_clipboard_text(text: &str) -> Result<(), String> {
-        let mut utf16: Vec<u16> = text.encode_utf16().collect();
-        utf16.push(0);
-        let byte_len = utf16.len() * std::mem::size_of::<u16>();
-
-        unsafe {
-            OpenClipboard(Some(HWND::default())).map_err(|error| error.to_string())?;
-            let clipboard = ClipboardGuard;
-
-            EmptyClipboard().map_err(|error| error.to_string())?;
-
-            let memory = GlobalAlloc(GMEM_MOVEABLE, byte_len).map_err(|error| error.to_string())?;
-            let locked = GlobalLock(memory);
-
-            if locked.is_null() {
-                return Err("Failed to lock clipboard memory.".to_string());
-            }
-
-            ptr::copy_nonoverlapping(utf16.as_ptr().cast::<u8>(), locked.cast::<u8>(), byte_len);
-
-            let _ = GlobalUnlock(memory);
-
-            if SetClipboardData(CF_UNICODETEXT_FORMAT, Some(HANDLE(memory.0))).is_err() {
-                return Err("Failed to set clipboard text.".to_string());
-            }
-
-            std::mem::forget(clipboard);
-            CloseClipboard().map_err(|error| error.to_string())?;
-        }
-
-        Ok(())
-    }
-
     fn send_ctrl_v() -> Result<(), String> {
         let mut inputs = [
             keyboard_input(VK_CONTROL, false),
@@ -2584,16 +2541,6 @@ mod windows_impl {
                     dwExtraInfo: 0,
                 },
             },
-        }
-    }
-
-    struct ClipboardGuard;
-
-    impl Drop for ClipboardGuard {
-        fn drop(&mut self) {
-            unsafe {
-                let _ = CloseClipboard();
-            }
         }
     }
 
