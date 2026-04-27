@@ -17,6 +17,7 @@ fn main() {
         "send-hotkey" => send_hotkey_from_arg(),
         "capture-screenshot" => capture_screenshot_from_args(),
         "ocr-image" => ocr_image_from_args(),
+        "message-targets" => message_targets_from_arg(),
         "mute-capture-session" => mute_capture_session_from_args(),
         "restore-capture-session" => restore_capture_session_from_stdin(),
         "record-wav" => record_wav_from_args(),
@@ -24,7 +25,7 @@ fn main() {
         "type-text" => type_text_from_stdin(),
         "message-text" => message_text_from_stdin(),
         "help" | "--help" | "-h" => {
-            println!("Usage: voxtype-windows-helper active-window | focus-window <hwnd> | set-system-mute <true|false> | send-hotkey <accelerator> | capture-screenshot <output.png> [--active-window | --hwnd <hwnd>] | ocr-image <input.png> | mute-capture-session <process-id> [process-name] | restore-capture-session | record-wav <output.wav> [--capture-mode shared|exclusive-preferred|exclusive-required] | paste-text | type-text [delay-ms] | message-text [focused-control|character-messages] [hwnd]");
+            println!("Usage: voxtype-windows-helper active-window | focus-window <hwnd> | set-system-mute <true|false> | send-hotkey <accelerator> | capture-screenshot <output.png> [--active-window | --hwnd <hwnd>] | ocr-image <input.png> | message-targets [hwnd] | mute-capture-session <process-id> [process-name] | restore-capture-session | record-wav <output.wav> [--capture-mode shared|exclusive-preferred|exclusive-required] | paste-text | type-text [delay-ms] | message-text [focused-control|character-messages] [hwnd]");
             Ok(())
         }
         _ => Err(format!("Unknown command: {command}")),
@@ -291,6 +292,22 @@ fn message_text_from_stdin() -> Result<(), String> {
 }
 
 #[cfg(windows)]
+fn message_targets_from_arg() -> Result<(), String> {
+    let hwnd = env::args().nth(2);
+    let targets = windows_impl::message_targets(hwnd.as_deref())?;
+    println!(
+        "{}",
+        serde_json::to_string(&targets).map_err(|error| error.to_string())?
+    );
+    Ok(())
+}
+
+#[cfg(not(windows))]
+fn message_targets_from_arg() -> Result<(), String> {
+    Err("message-targets is only supported on Windows.".to_string())
+}
+
+#[cfg(windows)]
 fn set_system_mute_from_arg() -> Result<(), String> {
     let muted = env::args()
         .nth(2)
@@ -379,7 +396,7 @@ mod windows_impl {
     use std::thread;
     use std::time::Duration;
     use vad_rs::Vad;
-    use windows::core::{Interface, GUID, PWSTR};
+    use windows::core::{Interface, BOOL, GUID, PWSTR};
     use windows::Globalization::Language;
     use windows::Graphics::Imaging::{BitmapAlphaMode, BitmapPixelFormat, SoftwareBitmap};
     use windows::Media::Ocr::OcrEngine;
@@ -417,11 +434,11 @@ mod windows_impl {
         VIRTUAL_KEY, VK_CONTROL, VK_LMENU, VK_LSHIFT, VK_LWIN, VK_V,
     };
     use windows::Win32::UI::WindowsAndMessaging::{
-        GetForegroundWindow, GetGUIThreadInfo, GetSystemMetrics, GetWindowRect,
-        GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId, IsIconic, PostMessageW,
-        SendMessageTimeoutW, SetForegroundWindow, ShowWindow, GUITHREADINFO, SMTO_ABORTIFHUNG,
-        SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN, SW_RESTORE,
-        WM_CHAR,
+        EnumChildWindows, GetClassNameW, GetForegroundWindow, GetGUIThreadInfo, GetSystemMetrics,
+        GetWindowRect, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId, IsChild,
+        IsIconic, IsWindowVisible, SendMessageTimeoutW, SetForegroundWindow, ShowWindow,
+        GUITHREADINFO, SMTO_ABORTIFHUNG, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN,
+        SM_YVIRTUALSCREEN, SW_RESTORE, WM_CHAR,
     };
 
     const CF_UNICODETEXT_FORMAT: u32 = 13;
@@ -460,6 +477,17 @@ mod windows_impl {
         text: String,
         confidence: Option<f32>,
         box_: Option<[i32; 4]>,
+    }
+
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct MessageTarget {
+        hwnd: String,
+        role: String,
+        class_name: String,
+        title: String,
+        process_id: u32,
+        visible: bool,
     }
 
     struct OcrImage {
@@ -527,6 +555,31 @@ mod windows_impl {
                 "message-text strategy must be focused-control or character-messages, got {unknown}."
             )),
         }
+    }
+
+    pub fn message_targets(target_hwnd: Option<&str>) -> Result<Vec<MessageTarget>, String> {
+        let foreground = unsafe { GetForegroundWindow() };
+        let focus = focused_message_window().ok();
+        let target = target_hwnd.map(parse_hwnd).transpose()?;
+        let mut targets = Vec::new();
+
+        if !foreground.0.is_null() {
+            push_message_target(&mut targets, foreground, "foreground");
+        }
+
+        if let Some(focus) = focus {
+            push_message_target(&mut targets, focus, "focus");
+        }
+
+        if let Some(target) = target {
+            push_message_target(&mut targets, target, "target");
+
+            for child in child_windows(target) {
+                push_message_target(&mut targets, child, "targetChild");
+            }
+        }
+
+        Ok(targets)
     }
 
     pub fn focus_window(hwnd: &str) -> Result<(), String> {
@@ -2257,11 +2310,7 @@ mod windows_impl {
     }
 
     fn post_character_messages(text: &str, target_hwnd: Option<&str>) -> Result<(), String> {
-        let hwnd = if let Some(target_hwnd) = target_hwnd {
-            parse_hwnd(target_hwnd)?
-        } else {
-            focused_message_window()?
-        };
+        let hwnd = character_message_target(target_hwnd)?;
 
         for unit in text.encode_utf16() {
             let normalized = if unit == b'\n' as u16 {
@@ -2269,13 +2318,36 @@ mod windows_impl {
             } else {
                 unit
             };
-            unsafe {
-                PostMessageW(Some(hwnd), WM_CHAR, WPARAM(normalized as usize), LPARAM(0))
-                    .map_err(|error| format!("WM_CHAR failed: {error}"))?;
-            }
+            send_message_timeout(
+                hwnd,
+                WM_CHAR,
+                WPARAM(normalized as usize),
+                LPARAM(0),
+                "WM_CHAR",
+            )?;
         }
 
         Ok(())
+    }
+
+    fn character_message_target(target_hwnd: Option<&str>) -> Result<HWND, String> {
+        let focus = focused_message_window().ok();
+        let target = target_hwnd.map(parse_hwnd).transpose()?;
+
+        if let Some(focus) = focus {
+            if target
+                .map(|target| hwnd_matches_or_is_child(target, focus))
+                .unwrap_or(true)
+            {
+                return Ok(focus);
+            }
+        }
+
+        if let Some(target) = target {
+            return deepest_visible_child(target).unwrap_or(Ok(target));
+        }
+
+        focused_message_window()
     }
 
     fn focused_message_window() -> Result<HWND, String> {
@@ -2322,6 +2394,58 @@ mod windows_impl {
         }
 
         Ok(())
+    }
+
+    fn hwnd_matches_or_is_child(parent: HWND, candidate: HWND) -> bool {
+        parent == candidate || unsafe { IsChild(parent, candidate).as_bool() }
+    }
+
+    fn deepest_visible_child(hwnd: HWND) -> Option<Result<HWND, String>> {
+        child_windows(hwnd)
+            .into_iter()
+            .rev()
+            .find(|child| unsafe { IsWindowVisible(*child).as_bool() })
+            .map(Ok)
+    }
+
+    fn child_windows(hwnd: HWND) -> Vec<HWND> {
+        unsafe extern "system" fn enum_child(hwnd: HWND, lparam: LPARAM) -> BOOL {
+            let children = &mut *(lparam.0 as *mut Vec<HWND>);
+            children.push(hwnd);
+            BOOL(1)
+        }
+
+        let mut children = Vec::new();
+        unsafe {
+            let _ = EnumChildWindows(
+                Some(hwnd),
+                Some(enum_child),
+                LPARAM((&mut children as *mut Vec<HWND>) as isize),
+            );
+        }
+        children
+    }
+
+    fn push_message_target(targets: &mut Vec<MessageTarget>, hwnd: HWND, role: &str) {
+        if targets
+            .iter()
+            .any(|target| target.hwnd == format_hwnd(hwnd))
+        {
+            return;
+        }
+
+        targets.push(MessageTarget {
+            hwnd: format_hwnd(hwnd),
+            role: role.to_string(),
+            class_name: get_class_name(hwnd),
+            title: get_window_title(hwnd),
+            process_id: get_process_id(hwnd),
+            visible: unsafe { IsWindowVisible(hwnd).as_bool() },
+        });
+    }
+
+    fn format_hwnd(hwnd: HWND) -> String {
+        format!("{:#x}", hwnd.0 as usize)
     }
 
     struct ParsedHotkey {
@@ -2489,6 +2613,17 @@ mod windows_impl {
 
         let mut buffer = vec![0u16; length as usize + 1];
         let copied = unsafe { GetWindowTextW(hwnd, &mut buffer) };
+
+        String::from_utf16_lossy(&buffer[..copied as usize])
+    }
+
+    fn get_class_name(hwnd: HWND) -> String {
+        let mut buffer = vec![0u16; 256];
+        let copied = unsafe { GetClassNameW(hwnd, &mut buffer) };
+
+        if copied <= 0 {
+            return String::new();
+        }
 
         String::from_utf16_lossy(&buffer[..copied as usize])
     }
