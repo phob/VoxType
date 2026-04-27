@@ -1,4 +1,4 @@
-export const insertionModes = ["clipboard", "keyboard", "chunked"] as const;
+export const insertionModes = ["clipboard", "keyboard", "chunked", "windowsMessaging"] as const;
 export const writingStyles = ["default", "chat", "professional"] as const;
 export const recordingCoordinationModes = ["none", "muteCaptureSession", "sendHotkey"] as const;
 export const recorderCaptureModes = [
@@ -310,7 +310,7 @@ function getProfileDefaults(processName: string): {
   if (["mstsc.exe", "teamviewer.exe", "anydesk.exe"].includes(processName)) {
     return {
       displayName: remoteDisplayName(processName),
-      insertionMode: "chunked",
+      insertionMode: "windowsMessaging",
       writingStyle: "default",
       recordingCoordinationMode: "none"
     };

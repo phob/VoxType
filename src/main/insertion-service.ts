@@ -67,6 +67,14 @@ export class InsertionService {
       return;
     }
 
+    if (mode === "windowsMessaging") {
+      await this.windowsHelperService.messageText(
+        text,
+        usesRemoteControlMessages(options?.processName) ? "character-messages" : "focused-control"
+      );
+      return;
+    }
+
     for (const chunk of chunkText(text, settings.remoteTypingChunkSize)) {
       await this.windowsHelperService.typeText(chunk, 0);
       await wait(settings.remoteTypingDelayMs);
@@ -159,6 +167,15 @@ function hasClipboardData(data: Electron.Data): boolean {
 
 function hasFormat(formats: string[], format: string): boolean {
   return formats.some((candidate) => candidate.toLowerCase() === format);
+}
+
+function usesRemoteControlMessages(processName?: string | null): boolean {
+  const normalized = processName?.trim().toLowerCase();
+  return (
+    normalized === "teamviewer.exe" ||
+    normalized === "anydesk.exe" ||
+    normalized === "mstsc.exe"
+  );
 }
 
 function wait(milliseconds: number): Promise<void> {

@@ -11,6 +11,7 @@
 - Clarified that the developer dictionary panel supports editing entries by clicking them.
 - Added TeamViewer insertion limitations and a future remote companion receiver option for cases where clipboard and keyboard forwarding are both unsafe.
 - Added Windows Messaging as a planned insertion strategy, including `EM_REPLACESEL`, `WM_SETTEXT`, and TeamViewer-focused `WM_CHAR`/`WM_UNICHAR` experiments.
+- Implemented `windowsMessaging` as a selectable insertion mode with native helper `message-text` strategies for focused controls and remote-control character messages.
 
 ## 2026-04-26
 

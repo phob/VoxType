@@ -1121,6 +1121,7 @@ export function App(): JSX.Element {
                       <option value="clipboard">clipboard</option>
                       <option value="keyboard">keyboard</option>
                       <option value="chunked">chunked</option>
+                      <option value="windowsMessaging">windowsMessaging</option>
                     </select>
                   </label>
                 </div>
@@ -1502,6 +1503,9 @@ export function App(): JSX.Element {
                 <button disabled={!insertionTarget || Boolean(busyMessage)} onClick={() => void runInsertionTest("chunked")} type="button">
                   TestChunked
                 </button>
+                <button disabled={!insertionTarget || Boolean(busyMessage)} onClick={() => void runInsertionTest("windowsMessaging")} type="button">
+                  TestMessaging
+                </button>
               </div>
             </section>
 
@@ -1548,6 +1552,7 @@ export function App(): JSX.Element {
                           <option value="clipboard">clipboard</option>
                           <option value="keyboard">keyboard</option>
                           <option value="chunked">chunked</option>
+                          <option value="windowsMessaging">windowsMessaging</option>
                         </select>
                       </td>
                       <td>
@@ -1835,6 +1840,7 @@ export function App(): JSX.Element {
                   <option value="clipboard">clipboard</option>
                   <option value="keyboard">keyboard</option>
                   <option value="chunked">chunked</option>
+                  <option value="windowsMessaging">windowsMessaging</option>
                 </select>
               </label>
               <label className="dev-field">
@@ -2134,6 +2140,10 @@ function insertionModeLabel(mode: InsertionMode): string {
 
   if (mode === "keyboard") {
     return "Unicode typing";
+  }
+
+  if (mode === "windowsMessaging") {
+    return "Windows Messaging";
   }
 
   return "chunked typing";

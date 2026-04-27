@@ -98,6 +98,13 @@ Known limitation:
 
 Send text through Win32 window messages instead of the clipboard or simulated keyboard input.
 
+Initial implementation:
+
+- VoxType exposes `windowsMessaging` as an insertion mode in global settings, app profiles, and the insertion test panel.
+- The native helper exposes `message-text focused-control`, which sends `EM_REPLACESEL` to the focused control.
+- The native helper exposes `message-text character-messages`, which posts `WM_CHAR` messages to the focused foreground target.
+- TeamViewer, AnyDesk, and Remote Desktop profiles default to `windowsMessaging`; VoxType uses character messages for these remote-control targets and focused-control replacement for other targets.
+
 Likely implementation paths:
 
 - Find the focused control or caret owner with foreground-window/thread inspection.

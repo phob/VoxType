@@ -22,8 +22,9 @@ fn main() {
         "record-wav" => record_wav_from_args(),
         "paste-text" => paste_text_from_stdin(),
         "type-text" => type_text_from_stdin(),
+        "message-text" => message_text_from_stdin(),
         "help" | "--help" | "-h" => {
-            println!("Usage: voxtype-windows-helper active-window | focus-window <hwnd> | set-system-mute <true|false> | send-hotkey <accelerator> | capture-screenshot <output.png> [--active-window | --hwnd <hwnd>] | ocr-image <input.png> | mute-capture-session <process-id> [process-name] | restore-capture-session | record-wav <output.wav> [--capture-mode shared|exclusive-preferred|exclusive-required] | paste-text | type-text [delay-ms]");
+            println!("Usage: voxtype-windows-helper active-window | focus-window <hwnd> | set-system-mute <true|false> | send-hotkey <accelerator> | capture-screenshot <output.png> [--active-window | --hwnd <hwnd>] | ocr-image <input.png> | mute-capture-session <process-id> [process-name] | restore-capture-session | record-wav <output.wav> [--capture-mode shared|exclusive-preferred|exclusive-required] | paste-text | type-text [delay-ms] | message-text [focused-control|character-messages]");
             Ok(())
         }
         _ => Err(format!("Unknown command: {command}")),
@@ -46,7 +47,8 @@ fn ocr_image_from_args() -> Result<(), String> {
     let result = windows_impl::recognize_image_text(&input_path)?;
     println!(
         "{}",
-        serde_json::to_string(&result).map_err(|error| format!("Could not serialize OCR result: {error}"))?
+        serde_json::to_string(&result)
+            .map_err(|error| format!("Could not serialize OCR result: {error}"))?
     );
     Ok(())
 }
@@ -271,6 +273,23 @@ fn type_text_from_stdin() -> Result<(), String> {
 }
 
 #[cfg(windows)]
+fn message_text_from_stdin() -> Result<(), String> {
+    let strategy = env::args()
+        .nth(2)
+        .unwrap_or_else(|| "focused-control".to_string());
+    let mut text = String::new();
+    io::stdin()
+        .read_to_string(&mut text)
+        .map_err(|error| error.to_string())?;
+    windows_impl::message_text(&text, &strategy)
+}
+
+#[cfg(not(windows))]
+fn message_text_from_stdin() -> Result<(), String> {
+    Err("message-text is only supported on Windows.".to_string())
+}
+
+#[cfg(windows)]
 fn set_system_mute_from_arg() -> Result<(), String> {
     let muted = env::args()
         .nth(2)
@@ -359,12 +378,12 @@ mod windows_impl {
     use std::thread;
     use std::time::Duration;
     use vad_rs::Vad;
+    use windows::core::{Interface, GUID, PWSTR};
     use windows::Globalization::Language;
     use windows::Graphics::Imaging::{BitmapAlphaMode, BitmapPixelFormat, SoftwareBitmap};
     use windows::Media::Ocr::OcrEngine;
     use windows::Storage::Streams::DataWriter;
-    use windows::core::{Interface, GUID, PWSTR};
-    use windows::Win32::Foundation::{CloseHandle, HANDLE, HWND, MAX_PATH, RECT};
+    use windows::Win32::Foundation::{CloseHandle, HANDLE, HWND, LPARAM, MAX_PATH, RECT, WPARAM};
     use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_EXTENDED_FRAME_BOUNDS};
     use windows::Win32::Graphics::Gdi::{
         BitBlt, CreateCompatibleBitmap, CreateCompatibleDC, DeleteDC, DeleteObject, GetDC,
@@ -397,12 +416,16 @@ mod windows_impl {
         VIRTUAL_KEY, VK_CONTROL, VK_LMENU, VK_LSHIFT, VK_LWIN, VK_V,
     };
     use windows::Win32::UI::WindowsAndMessaging::{
-        GetForegroundWindow, GetSystemMetrics, GetWindowRect, GetWindowTextLengthW, GetWindowTextW,
-        GetWindowThreadProcessId, IsIconic, SetForegroundWindow, ShowWindow, SM_CXVIRTUALSCREEN,
-        SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN, SW_RESTORE,
+        GetForegroundWindow, GetGUIThreadInfo, GetSystemMetrics, GetWindowRect,
+        GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId, IsIconic, PostMessageW,
+        SendMessageTimeoutW, SetForegroundWindow, ShowWindow, GUITHREADINFO, SMTO_ABORTIFHUNG,
+        SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN, SM_YVIRTUALSCREEN, SW_RESTORE,
+        WM_CHAR,
     };
 
     const CF_UNICODETEXT_FORMAT: u32 = 13;
+    const EM_REPLACESEL: u32 = 0x00C2;
+    const SEND_MESSAGE_TIMEOUT_MS: u32 = 250;
     const VOXTYPE_SAMPLE_RATE: usize = 16_000;
     const RESAMPLER_CHUNK_SIZE: usize = 1024;
     const VAD_FRAME_MS: usize = 30;
@@ -489,6 +512,16 @@ mod windows_impl {
         }
 
         Ok(())
+    }
+
+    pub fn message_text(text: &str, strategy: &str) -> Result<(), String> {
+        match strategy {
+            "focused-control" => replace_focused_selection(text),
+            "character-messages" => post_character_messages(text),
+            unknown => Err(format!(
+                "message-text strategy must be focused-control or character-messages, got {unknown}."
+            )),
+        }
     }
 
     pub fn focus_window(hwnd: &str) -> Result<(), String> {
@@ -2200,6 +2233,83 @@ mod windows_impl {
                 "SendInput sent {sent} of {} unicode events.",
                 inputs.len()
             ));
+        }
+
+        Ok(())
+    }
+
+    fn replace_focused_selection(text: &str) -> Result<(), String> {
+        let hwnd = focused_message_window()?;
+        let mut utf16: Vec<u16> = text.encode_utf16().collect();
+        utf16.push(0);
+        send_message_timeout(
+            hwnd,
+            EM_REPLACESEL,
+            WPARAM(1),
+            LPARAM(utf16.as_ptr() as isize),
+            "EM_REPLACESEL",
+        )
+    }
+
+    fn post_character_messages(text: &str) -> Result<(), String> {
+        let hwnd = focused_message_window()?;
+
+        for unit in text.encode_utf16() {
+            let normalized = if unit == b'\n' as u16 {
+                b'\r' as u16
+            } else {
+                unit
+            };
+            unsafe {
+                PostMessageW(Some(hwnd), WM_CHAR, WPARAM(normalized as usize), LPARAM(0))
+                    .map_err(|error| format!("WM_CHAR failed: {error}"))?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn focused_message_window() -> Result<HWND, String> {
+        unsafe {
+            let foreground = GetForegroundWindow();
+
+            if foreground.0.is_null() {
+                return Err("No foreground window is currently available.".to_string());
+            }
+
+            let mut info = GUITHREADINFO::default();
+            info.cbSize = std::mem::size_of::<GUITHREADINFO>() as u32;
+
+            if GetGUIThreadInfo(0, &mut info).is_ok() && !info.hwndFocus.0.is_null() {
+                return Ok(info.hwndFocus);
+            }
+
+            Ok(foreground)
+        }
+    }
+
+    fn send_message_timeout(
+        hwnd: HWND,
+        message: u32,
+        wparam: WPARAM,
+        lparam: LPARAM,
+        label: &str,
+    ) -> Result<(), String> {
+        let mut result = 0usize;
+        let status = unsafe {
+            SendMessageTimeoutW(
+                hwnd,
+                message,
+                wparam,
+                lparam,
+                SMTO_ABORTIFHUNG,
+                SEND_MESSAGE_TIMEOUT_MS,
+                Some(&mut result),
+            )
+        };
+
+        if status.0 == 0 {
+            return Err(format!("{label} failed or timed out."));
         }
 
         Ok(())
