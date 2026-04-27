@@ -22,14 +22,14 @@ export class SettingsStore {
     this.settingsPath = join(userDataPath, "settings.json");
     this.defaults = {
       modelDirectory: join(userDataPath, "models"),
-      activeModelId: "tiny.en",
+      activeModelId: "small",
       whisperExecutablePath: "",
       whisperRuntimeBackend: "auto",
       whisperPromptOverride: "",
       showWindowHotkey: "CommandOrControl+Shift+Space",
       dictationToggleHotkey: "CommandOrControl+Alt+Space",
       insertionMode: "clipboard",
-      recorderCaptureMode: "sharedCapture",
+      recorderCaptureMode: "exclusiveCapturePreferred",
       ocrTermMode: "balanced",
       recordingCoordinationMode: "none",
       recordingStartHotkey: "",
@@ -112,6 +112,7 @@ export class SettingsStore {
       | "recordingCoordinationMode"
       | "recordingStartHotkey"
       | "recordingStopHotkey"
+      | "postTranscriptionHotkey"
     >
   ): Promise<AppSettings> {
     const settings = await this.get();
@@ -131,6 +132,7 @@ export class SettingsStore {
               recordingCoordinationMode: patch.recordingCoordinationMode,
               recordingStartHotkey: patch.recordingStartHotkey,
               recordingStopHotkey: patch.recordingStopHotkey,
+              postTranscriptionHotkey: patch.postTranscriptionHotkey,
               updatedAt: new Date().toISOString()
             }
           : profile

@@ -221,3 +221,23 @@ The current dense VoxType interface should be treated as a developer/debug UI an
 Reason:
 
 The current UI is useful for building and diagnosing models, OCR, insertion, and runtime behavior, but it exposes too many implementation details for release users. Hiding it preserves engineering velocity while making room for a calmer product UI.
+
+## 2026-04-27: Keep The Main UI Setup-Focused
+
+Decision:
+
+The default VoxType UI should be organized around General, Hotkeys, and Models tabs. It should not include an in-app record button because recording is triggered from outside the app through global hotkeys and target-app workflows. Advanced settings and diagnostics should remain in developer mode.
+
+Reason:
+
+Release users need to set up models, hotkeys, and a small number of product-level preferences, but they should not have to understand runtime internals or press buttons inside VoxType during normal dictation.
+
+## 2026-04-27: Default To Capable Behavior With Internal Fallbacks
+
+Decision:
+
+User-facing defaults should choose the strongest practical behavior when a fallback exists. VAD should be enabled by default, recording coordination should prefer `exclusiveCapturePreferred`, and model/runtime selection should prefer the highest-quality compatible option before falling back automatically.
+
+Reason:
+
+VoxType should feel like it chooses the best local dictation path for the user instead of asking them to tune implementation settings up front. Fallbacks are still important, but they should make the product more resilient rather than adding setup burden.

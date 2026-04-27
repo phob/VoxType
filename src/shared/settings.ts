@@ -32,6 +32,7 @@ export type AppProfile = {
   recordingCoordinationMode: RecordingCoordinationMode;
   recordingStartHotkey: string;
   recordingStopHotkey: string;
+  postTranscriptionHotkey: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -238,6 +239,7 @@ export function createAppProfile(input: {
     recordingCoordinationMode: defaults.recordingCoordinationMode,
     recordingStartHotkey: defaults.recordingStartHotkey ?? "",
     recordingStopHotkey: defaults.recordingStopHotkey ?? "",
+    postTranscriptionHotkey: "",
     createdAt: now,
     updatedAt: now
   };
@@ -288,6 +290,8 @@ function sanitizeAppProfiles(value: unknown): AppProfile[] {
         typeof item.recordingStartHotkey === "string" ? item.recordingStartHotkey : "",
       recordingStopHotkey:
         typeof item.recordingStopHotkey === "string" ? item.recordingStopHotkey : "",
+      postTranscriptionHotkey:
+        typeof item.postTranscriptionHotkey === "string" ? item.postTranscriptionHotkey : "",
       createdAt:
         typeof item.createdAt === "string" && item.createdAt.trim()
           ? item.createdAt

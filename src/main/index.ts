@@ -73,6 +73,8 @@ function createWindow(): void {
     minHeight: 620,
     title: "VoxType",
     icon: getAppIconPath(),
+    frame: false,
+    autoHideMenuBar: true,
     backgroundColor: "#101114",
     show: false,
     webPreferences: {
@@ -85,6 +87,15 @@ function createWindow(): void {
 
   mainWindow.once("ready-to-show", () => {
     mainWindow?.show();
+  });
+
+  mainWindow.on("closed", () => {
+    mainWindow = null;
+
+    if (overlayWindow && !overlayState.visible) {
+      overlayWindow.destroy();
+      overlayWindow = null;
+    }
   });
 
   if (isDev && process.env.ELECTRON_RENDERER_URL) {
@@ -269,7 +280,12 @@ function hideOverlay(): void {
     level: 0
   };
   sendOverlayState();
-  overlayWindow?.hide();
+  overlayWindow?.destroy();
+  overlayWindow = null;
+}
+
+function getFocusedWindow(): BrowserWindow | null {
+  return BrowserWindow.getFocusedWindow() ?? mainWindow;
 }
 
 function sendOverlayState(): void {
@@ -337,6 +353,25 @@ function getHotkeyStatus(): {
 }
 
 ipcMain.handle("app:get-version", () => app.getVersion());
+ipcMain.handle("window:minimize", () => {
+  getFocusedWindow()?.minimize();
+});
+ipcMain.handle("window:maximize", () => {
+  const window = getFocusedWindow();
+
+  if (!window) {
+    return;
+  }
+
+  if (window.isMaximized()) {
+    window.unmaximize();
+  } else {
+    window.maximize();
+  }
+});
+ipcMain.handle("window:close", () => {
+  getFocusedWindow()?.close();
+});
 ipcMain.handle("settings:get", () => settingsStore.get());
 ipcMain.handle("settings:update", async (_event, patch: SettingsPatch) => {
   const settings = await settingsStore.update(patch);
@@ -350,6 +385,7 @@ ipcMain.handle("settings:reset", async () => {
 });
 ipcMain.handle("models:list", () => modelService.list());
 ipcMain.handle("models:download", (_event, modelId: string) => modelService.download(modelId));
+ipcMain.handle("models:delete", (_event, modelId: string) => modelService.delete(modelId));
 ipcMain.handle("runtime:get-whisper", () => runtimeService.getWhisperRuntime());
 ipcMain.handle("runtime:list-whisper", () => runtimeService.listWhisperRuntimes());
 ipcMain.handle("runtime:install-whisper", (_event, runtimeId?: string) =>
@@ -398,6 +434,7 @@ ipcMain.handle(
 );
 ipcMain.handle("history:list", () => historyStore.list());
 ipcMain.handle("history:audio", (_event, entryId: string) => historyStore.readAudio(entryId));
+ipcMain.handle("history:cleanup", () => historyStore.cleanup());
 ipcMain.handle("dictionary:list", () => dictionaryStore.list());
 ipcMain.handle("dictionary:add", (_event, input: DictionaryCreateInput) =>
   dictionaryStore.add(input)
@@ -485,6 +522,7 @@ ipcMain.handle("recording-overlay:hide", () => {
 ipcMain.handle("recording-overlay:get-state", () => overlayState);
 
 app.whenReady().then(() => {
+  Menu.setApplicationMenu(null);
   createWindow();
   createTray();
   void registerConfiguredHotkeys();

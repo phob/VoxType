@@ -68,6 +68,10 @@ Initial model options:
 
 Exact model names, quantization levels, and download sources should be pinned later with checksums.
 
+The Models tab should include Whisper multilingual models and every available non-English/language-specific Whisper variant that VoxType can reasonably download and run. English-only Whisper variants can still be shown for users who only dictate English, but they should not crowd out the multilingual/non-English choices.
+
+Default model selection should prefer the highest-quality model that fits the user's detected hardware and installed runtime, with automatic fallback to smaller models or CPU runtime when necessary.
+
 ## Whisper Dictionary Limitation
 
 Whisper cannot simply add new vocabulary like a traditional dictionary where the model learns the word. VoxType should compensate with:
@@ -216,6 +220,7 @@ The app needs a model manager with:
 - model compatibility checks
 - CPU/GPU backend selection where available
 - offline mode after install
+- destructive deletion confirmation that changes Delete to Confirm for three seconds, then reverts if not clicked again
 
 Each model entry should show:
 

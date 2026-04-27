@@ -19,6 +19,14 @@
 - Added TeamViewer toolbar clipboard actions as the next remote insertion direction: one-time Send Clipboard and Paste clipboard as keystrokes.
 - Parked TeamViewer toolbar automation and Windows Messaging for remote dictation; `chunked` remains the default for TeamViewer, AnyDesk, and Remote Desktop.
 - Moved remote application defaults back to `chunked` typing while keeping `remoteClipboard` available for manual testing.
+- Added developer diagnostics for the Windows helper executable build timestamp and a latest-transcript re-transcribe action that reuses saved audio.
+- Normalized `whisper-cli` text output so segment line breaks do not leak into the final visible transcript.
+- Defined the default release UI around General, Hotkeys, and Models tabs, with no in-app record button and dense controls kept in developer mode.
+- Clarified main UI defaults: VAD enabled by default, `exclusiveCapturePreferred` as the preferred exposed capture mode, and highest-quality compatible model/runtime choices with automatic fallback.
+- Added Models tab requirements for multilingual/non-English Whisper variants and a three-second two-click Confirm delete flow.
+- Added a release History tab direction for the 10 latest transcriptions with saved audio playback and cleanup of older entries.
+- Promoted Profiles to a release UI tab and clarified which remaining dev surfaces should eventually become user-facing.
+- Added per-profile post-transcription hotkeys for app-specific submit/send behavior after inserted dictation.
 
 ## 2026-04-26
 

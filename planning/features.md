@@ -25,9 +25,40 @@
 - Local OCR from screenshot.
 - Custom dictionary.
 - OCR-derived temporary dictionary.
-- Dictation history.
+- Dictation history with saved audio for the 10 latest transcriptions and cleanup for older entries.
 - Per-app profiles.
 - Offline mode.
+
+## Main User Interface
+
+The default release UI should stay intentionally small and focused on setup, not day-to-day recording controls.
+
+Primary tabs:
+
+- General: only essential user-facing behavior such as OCR context enablement, VAD enablement, microphone/capture mode, offline/privacy preferences, and insertion defaults.
+- Hotkeys: dedicated configuration for global dictation and window/show hotkeys.
+- Models: local model catalog, installed status, downloads, activation, hardware fit, and deletion.
+- Profiles: detected app profiles with user-facing insertion method and writing style controls.
+- History: latest transcriptions with saved audio playback and cleanup for older entries.
+
+User-facing surfaces still worth promoting from developer mode:
+
+- Dictionary: saved words, correction entries, and app-scoped vocabulary affect transcription quality directly and should become a simple user tab later.
+- Setup/Status: runtime, model, hotkey, and helper health should be summarized in friendly language when something blocks dictation.
+- Formatting/Dictation mode: once the transcript consistency layer exists, writing style should move beyond profiles into simple per-use or per-profile modes.
+
+Developer-only surfaces that should remain hidden:
+
+- Raw OCR text, rejected OCR terms, prompt previews, helper paths, runtime executable paths, detailed VAD thresholds, insertion test tools, and low-level logs.
+
+UI principles:
+
+- Do not show a record button in the main app. VoxType recording is driven from outside the app through global hotkeys and target-app workflows.
+- Do not expose advanced implementation settings in the default UI. Keep dense settings, diagnostics, raw OCR, runtime paths, prompt previews, and low-level tuning behind developer mode.
+- Prefer safe, high-quality defaults. When a setting has an automatic fallback path, default to the strongest/highest-quality practical setting and let the app fall back internally when needed.
+- Enable VAD by default because silence trimming is part of the expected dictation quality path.
+- Use `exclusiveCapturePreferred` as the default recording coordination mode when exposing capture type, so VoxType tries exclusive microphone capture but can fall back clearly when Windows or the device does not allow it.
+- Keep any user-facing General settings phrased as product behavior rather than implementation details.
 
 ## Standout Features
 
@@ -123,6 +154,7 @@ Initial profile behavior:
 
 - Profiles are created automatically from detected target apps.
 - Users can change a profile's insertion method and writing style directly in the UI.
+- Users can configure a per-profile post-transcription hotkey that is sent after VoxType inserts text, useful for apps where Enter submits the composed text.
 - Saved writing styles are ready for later local formatting/post-processing.
 
 ### Confidence-Aware Review
@@ -203,3 +235,4 @@ VoxType should tell the user what it sees:
 - Show model size and requirements.
 - Show source/license.
 - Offline-ready status.
+- Use a two-click destructive delete flow: the first click changes Delete to Confirm, and Confirm is visible for only three seconds.

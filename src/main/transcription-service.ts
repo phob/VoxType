@@ -74,8 +74,9 @@ export class TranscriptionService {
       const { stdout } = await execFileAsync(executable, args);
 
       const rawText = (await readTextOutput(outputTextPath, stdout)).trim();
+      const normalizedText = normalizeTranscriptText(rawText);
       const correction = await this.dictionaryStore.applyCorrections(
-        rawText,
+        normalizedText,
         context?.processName
       );
       const ocrCorrection = applyOcrTermCorrections(
@@ -131,6 +132,16 @@ function formatWhisperError(error: unknown, executable: string): string {
     "Install/build whisper.cpp and set the whisper executable path in VoxType settings.",
     detail
   ].join(" ");
+}
+
+function normalizeTranscriptText(text: string): string {
+  return text
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim();
 }
 
 function applyOcrTermCorrections(text: string, terms: string[]): {

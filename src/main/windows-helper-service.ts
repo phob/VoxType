@@ -1,6 +1,6 @@
 import { app } from "electron";
 import { type ChildProcessWithoutNullStreams, execFile, spawn } from "node:child_process";
-import { access, mkdir, readFile, rm } from "node:fs/promises";
+import { access, mkdir, readFile, rm, stat } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import {
@@ -29,10 +29,14 @@ export class WindowsHelperService {
 
   async getStatus(): Promise<WindowsHelperStatus> {
     const helperPath = await this.resolveHelperPath();
+    const helperStats = helperPath ? await stat(helperPath).catch(() => null) : null;
 
     return {
       available: Boolean(helperPath),
       helperPath,
+      helperModifiedAt: helperStats?.mtime.toISOString() ?? null,
+      helperCreatedAt: helperStats?.birthtime.toISOString() ?? null,
+      helperSizeBytes: helperStats?.size ?? null,
       error: helperPath ? null : "Windows helper executable was not found."
     };
   }

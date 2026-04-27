@@ -11,6 +11,9 @@ export type ActiveWindowInfo = {
 export type WindowsHelperStatus = {
   available: boolean;
   helperPath: string | null;
+  helperModifiedAt: string | null;
+  helperCreatedAt: string | null;
+  helperSizeBytes: number | null;
   error: string | null;
 };
 

@@ -30,6 +30,8 @@ import {
   type WindowsHelperStatus
 } from "../../../shared/windows-helper";
 
+const voxtypeLogoUrl = new URL("../../../resources/icons/voxtype-logo-transparent.png", import.meta.url).href;
+
 type AppState = {
   models: LocalModel[];
   runtime: WhisperRuntime | null;
@@ -43,6 +45,7 @@ type AppState = {
   hotkeys: HotkeyStatus | null;
 };
 
+type ReleaseTab = "general" | "hotkeys" | "models" | "profiles" | "history";
 type DevTab =
   | "dictation"
   | "models"
@@ -86,6 +89,7 @@ export function App(): JSX.Element {
   const recordingStopHotkeyRef = useRef<string | null>(null);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
   const audioObjectUrlRef = useRef<string | null>(null);
+  const modelDeleteTimerRef = useRef<number | null>(null);
   const [version, setVersion] = useState<string>("0.1.0");
   const [state, setState] = useState<AppState>({
     models: [],
@@ -120,7 +124,10 @@ export function App(): JSX.Element {
   const [latestOcrResult, setLatestOcrResult] = useState<OcrResult | null>(null);
   const [latestOcrContext, setLatestOcrContext] = useState<OcrPromptContext | null>(null);
   const [playingTranscriptId, setPlayingTranscriptId] = useState<string | null>(null);
+  const [releaseTab, setReleaseTab] = useState<ReleaseTab>("general");
   const [activeTab, setActiveTab] = useState<DevTab>("dictation");
+  const [confirmingDeleteModelId, setConfirmingDeleteModelId] = useState<string | null>(null);
+  const [capturingProfileHotkey, setCapturingProfileHotkey] = useState<string | null>(null);
   const [overlayState, setOverlayState] = useState<RecordingOverlayState>(defaultOverlayState);
 
   const activeModel = state.models.find((model) => model.id === state.settings?.activeModelId);
@@ -156,6 +163,10 @@ export function App(): JSX.Element {
       if (audioObjectUrlRef.current) {
         URL.revokeObjectURL(audioObjectUrlRef.current);
         audioObjectUrlRef.current = null;
+      }
+
+      if (modelDeleteTimerRef.current !== null) {
+        window.clearTimeout(modelDeleteTimerRef.current);
       }
     };
   }, [isOverlay]);
@@ -202,7 +213,7 @@ export function App(): JSX.Element {
       return;
     }
 
-    if (!capturingHotkey) {
+    if (!capturingHotkey && !capturingProfileHotkey) {
       return;
     }
 
@@ -212,6 +223,10 @@ export function App(): JSX.Element {
 
       if (event.key === "Escape") {
         setCapturingHotkey(null);
+        if (capturingProfileHotkey) {
+          void updateProfileHotkey(capturingProfileHotkey, "");
+        }
+        setCapturingProfileHotkey(null);
         return;
       }
 
@@ -221,8 +236,16 @@ export function App(): JSX.Element {
         return;
       }
 
-      void updateSettings({ [capturingHotkey]: accelerator });
-      setCapturingHotkey(null);
+      if (capturingProfileHotkey) {
+        void updateProfileHotkey(capturingProfileHotkey, accelerator);
+        setCapturingProfileHotkey(null);
+        return;
+      }
+
+      if (capturingHotkey) {
+        void updateSettings({ [capturingHotkey]: accelerator });
+        setCapturingHotkey(null);
+      }
     }
 
     window.addEventListener("keydown", handleKeyDown, { capture: true });
@@ -230,7 +253,7 @@ export function App(): JSX.Element {
     return () => {
       window.removeEventListener("keydown", handleKeyDown, { capture: true });
     };
-  }, [capturingHotkey]);
+  }, [capturingHotkey, capturingProfileHotkey, state.settings?.appProfiles]);
 
   async function refresh(): Promise<void> {
     const [
@@ -312,6 +335,41 @@ export function App(): JSX.Element {
       setState((current) => ({ ...current, models, settings }));
     } catch (downloadError) {
       setError(formatError(downloadError));
+    } finally {
+      setBusyMessage(null);
+    }
+  }
+
+  async function deleteModel(modelId: string): Promise<void> {
+    if (confirmingDeleteModelId !== modelId) {
+      setConfirmingDeleteModelId(modelId);
+
+      if (modelDeleteTimerRef.current !== null) {
+        window.clearTimeout(modelDeleteTimerRef.current);
+      }
+
+      modelDeleteTimerRef.current = window.setTimeout(() => {
+        setConfirmingDeleteModelId((current) => (current === modelId ? null : current));
+        modelDeleteTimerRef.current = null;
+      }, 3000);
+      return;
+    }
+
+    setError(null);
+    setBusyMessage("Deleting model...");
+
+    if (modelDeleteTimerRef.current !== null) {
+      window.clearTimeout(modelDeleteTimerRef.current);
+      modelDeleteTimerRef.current = null;
+    }
+
+    try {
+      const models = await window.voxtype.models.delete(modelId);
+      const settings = await window.voxtype.settings.get();
+      setState((current) => ({ ...current, models, settings }));
+      setConfirmingDeleteModelId(null);
+    } catch (deleteError) {
+      setError(formatError(deleteError));
     } finally {
       setBusyMessage(null);
     }
@@ -495,6 +553,7 @@ export function App(): JSX.Element {
           options.pasteTarget.hwnd,
           options.pasteTarget.processName
         );
+        await sendProfilePostTranscriptionHotkey(options.pasteTarget.processName);
       }
       const [runtime, history, dictionary] = await Promise.all([
         window.voxtype.runtime.getWhisper(),
@@ -572,14 +631,70 @@ export function App(): JSX.Element {
       return;
     }
 
+    await insertTranscript(latestTranscript);
+  }
+
+  async function insertTranscript(entry: TranscriptEntry): Promise<void> {
     setError(null);
 
     try {
-      await window.voxtype.insertion.insertActive(latestTranscript.text);
+      await window.voxtype.insertion.insertActive(entry.text);
       setBusyMessage("Inserted transcript into the active app.");
       window.setTimeout(() => setBusyMessage(null), 1800);
     } catch (pasteError) {
       setError(formatError(pasteError));
+    }
+  }
+
+  async function copyTranscript(entry: TranscriptEntry): Promise<void> {
+    await window.voxtype.insertion.copy(entry.text);
+    setBusyMessage("Copied transcript to clipboard.");
+    window.setTimeout(() => setBusyMessage(null), 1800);
+  }
+
+  async function cleanupHistory(): Promise<void> {
+    setError(null);
+
+    try {
+      const history = await window.voxtype.history.cleanup();
+      setState((current) => ({ ...current, history }));
+      setBusyMessage("Cleaned up old history.");
+      window.setTimeout(() => setBusyMessage(null), 1800);
+    } catch (cleanupError) {
+      setError(formatError(cleanupError));
+    }
+  }
+
+  async function transcribeLatestTranscript(): Promise<void> {
+    if (!latestTranscript?.audioFileName) {
+      return;
+    }
+
+    setError(null);
+    setBusyMessage("Transcribing saved audio...");
+
+    try {
+      const audioBytes = await window.voxtype.history.audio(latestTranscript.id);
+      const result = await window.voxtype.transcription.transcribeWav(audioBytes, {
+        processName: currentTarget?.processName ?? hotkeyTargetRef.current?.processName,
+        ocrContext: latestOcrContext ?? hotkeyOcrContextRef.current
+      });
+      const [runtime, history, dictionary] = await Promise.all([
+        window.voxtype.runtime.getWhisper(),
+        window.voxtype.history.list(),
+        window.voxtype.dictionary.list()
+      ]);
+
+      setState((current) => ({
+        ...current,
+        runtime,
+        dictionary,
+        history: history.length > 0 ? history : [result.entry, ...current.history]
+      }));
+    } catch (transcriptionError) {
+      setError(formatError(transcriptionError));
+    } finally {
+      setBusyMessage(null);
     }
   }
 
@@ -598,6 +713,26 @@ export function App(): JSX.Element {
       const windowsHelper = await window.voxtype.windowsHelper.status();
       setState((current) => ({ ...current, windowsHelper }));
       setError(formatError(activeWindowError));
+    }
+  }
+
+  async function addCurrentAppProfile(): Promise<void> {
+    setError(null);
+    setBusyMessage("Detecting current app...");
+
+    try {
+      const [windowsHelper, activeWindow] = await Promise.all([
+        window.voxtype.windowsHelper.status(),
+        window.voxtype.windowsHelper.activeWindow()
+      ]);
+      await window.voxtype.appProfiles.ensure(activeWindow);
+      const settings = await window.voxtype.settings.get();
+      setState((current) => ({ ...current, windowsHelper, activeWindow, settings }));
+      setBusyMessage(`Added ${activeWindow.processName}.`);
+      window.setTimeout(() => setBusyMessage(null), 1800);
+    } catch (profileError) {
+      setError(formatError(profileError));
+      setBusyMessage(null);
     }
   }
 
@@ -705,14 +840,61 @@ export function App(): JSX.Element {
 
   async function updateAppProfile(
     profile: AppProfile,
-    patch: Partial<Pick<AppProfile, "insertionMode" | "writingStyle">>
+    patch: Partial<
+      Pick<
+        AppProfile,
+        | "insertionMode"
+        | "writingStyle"
+        | "recordingCoordinationMode"
+        | "recordingStartHotkey"
+        | "recordingStopHotkey"
+        | "postTranscriptionHotkey"
+      >
+    >
   ): Promise<void> {
     const nextProfile = {
       insertionMode: patch.insertionMode ?? profile.insertionMode,
-      writingStyle: patch.writingStyle ?? profile.writingStyle
+      writingStyle: patch.writingStyle ?? profile.writingStyle,
+      recordingCoordinationMode:
+        patch.recordingCoordinationMode ?? profile.recordingCoordinationMode,
+      recordingStartHotkey: patch.recordingStartHotkey ?? profile.recordingStartHotkey,
+      recordingStopHotkey: patch.recordingStopHotkey ?? profile.recordingStopHotkey,
+      postTranscriptionHotkey:
+        patch.postTranscriptionHotkey ?? profile.postTranscriptionHotkey
     };
     const settings = await window.voxtype.appProfiles.update(profile.processName, nextProfile);
     setState((current) => ({ ...current, settings }));
+  }
+
+  async function updateProfileHotkey(processName: string, accelerator: string): Promise<void> {
+    const profile = state.settings?.appProfiles.find((item) => item.processName === processName);
+
+    if (!profile) {
+      return;
+    }
+
+    await updateAppProfile(profile, { postTranscriptionHotkey: accelerator });
+  }
+
+  async function sendProfilePostTranscriptionHotkey(
+    processName: string | null | undefined
+  ): Promise<void> {
+    if (!processName) {
+      return;
+    }
+
+    const normalizedProcess = processName.toLowerCase();
+    const profile = state.settings?.appProfiles.find(
+      (item) => item.processName === normalizedProcess
+    );
+    const hotkey = profile?.postTranscriptionHotkey.trim();
+
+    if (!hotkey) {
+      return;
+    }
+
+    await wait(120);
+    await window.voxtype.windowsHelper.sendHotkey(hotkey);
   }
 
   function clearDictionaryForm(): void {
@@ -897,6 +1079,7 @@ export function App(): JSX.Element {
   if (!state.settings) {
     return (
       <main className="app-shell">
+        <WindowTitleBar title="VoxType" />
         <header className="app-header">
           <div>
             <div className="app-brand">VoxType</div>
@@ -918,97 +1101,399 @@ export function App(): JSX.Element {
 
   if (!state.settings.developerModeEnabled) {
     return (
-      <main className="app-shell">
-        <header className="app-header">
-          <div>
-            <div className="app-brand">VoxType</div>
-            <p>Local dictation for Windows</p>
-          </div>
-          <button onClick={() => void updateSettings({ developerModeEnabled: true })} type="button">
-            Developer
+      <main className="app-shell release-shell">
+        <WindowTitleBar title="VoxType" />
+        <aside className="release-sidebar" aria-label="Main navigation">
+          <div className="release-sidebar-spacer" />
+          <nav className="release-nav">
+            {([
+              ["general", "Home", "⌂"],
+              ["hotkeys", "Hotkeys", "⌨"],
+              ["models", "Models", "◇"],
+              ["profiles", "Profiles", "♙"],
+              ["history", "History", "↺"]
+            ] as Array<[ReleaseTab, string, string]>).map(([tab, label, icon]) => (
+              <button
+                className={releaseTab === tab ? "active" : ""}
+                key={tab}
+                onClick={() => setReleaseTab(tab)}
+                type="button"
+              >
+                <span className="release-nav-icon" aria-hidden="true">
+                  {icon}
+                </span>
+                <span>{label}</span>
+              </button>
+            ))}
+          </nav>
+          <button
+            className="release-settings-link"
+            onClick={() => setReleaseTab("general")}
+            type="button"
+          >
+            <span className="release-nav-icon" aria-hidden="true">
+              ⚙
+            </span>
+            <span>Settings</span>
+            <span className="release-settings-dot" aria-hidden="true" />
           </button>
-        </header>
+        </aside>
 
-        {error ? (
-          <div className="inline-error">
-            <code>error</code>
-            <span>{error}</span>
-          </div>
-        ) : null}
-
-        <section className="dictation-home">
-          <div className="dictation-status">
-            <span className={recording ? "status-dot status-dot-recording" : "status-dot"} />
-            <div>
-              <strong>{appStatus}</strong>
-              <span>{recording ? "Listening now" : "Ready for push-to-talk dictation"}</span>
+        <div className="release-main">
+          <header className="release-hero">
+            <div className="release-hero-copy">
+              <h1>VoxType</h1>
+              <p>Local dictation for Windows</p>
             </div>
-          </div>
-
-          <div className="primary-actions">
             <button
-              disabled={Boolean(busyMessage) || recording}
-              onClick={() => void startRecording()}
+              className="developer-button"
+              onClick={() => void updateSettings({ developerModeEnabled: true })}
               type="button"
             >
-              Start Dictation
+              <span aria-hidden="true">&lt;/&gt;</span>
+              <span>Developer</span>
             </button>
-            <button disabled={!recording} onClick={() => void stopAndTranscribe()} type="button">
-              Stop
-            </button>
-          </div>
+            <div className="release-wave" aria-hidden="true">
+              <span />
+              <span />
+              <span />
+            </div>
+            <div className="release-logo-orb" aria-hidden="true">
+              <img alt="" src={voxtypeLogoUrl} />
+            </div>
+          </header>
 
-          <dl className="home-summary">
-            <dt>Hotkey</dt>
-            <dd>{state.settings.dictationToggleHotkey}</dd>
-            <dt>Model</dt>
-            <dd>{activeModel?.name ?? state.settings.activeModelId}</dd>
-            <dt>Runtime</dt>
-            <dd>{activeRuntimeLabel}</dd>
-            <dt>GPU</dt>
-            <dd>{state.hardware?.bestGpu?.name ?? "CPU fallback"}</dd>
-          </dl>
-        </section>
+          {error ? (
+            <div className="inline-error release-error">
+              <code>error</code>
+              <span>{error}</span>
+            </div>
+          ) : null}
 
-        <section className="latest-card">
-          <div className="section-title-row">
-            <h2>Latest Transcript</h2>
-            <div className="button-row">
-              <button disabled={!latestTranscript} onClick={() => void copyLatestTranscript()} type="button">
-                Copy
-              </button>
-              <button disabled={!latestTranscript} onClick={() => void pasteLatestTranscript()} type="button">
-                Insert
+          <section className="dictation-home release-status-card">
+            <div className="dictation-status">
+              <span className={recording ? "status-dot status-dot-recording" : "status-dot"} />
+              <div>
+                <strong>{appStatus}</strong>
+                <span>
+                  {recording
+                    ? "Listening from the global hotkey"
+                    : `Use ${state.settings.dictationToggleHotkey} from any app`}
+                </span>
+              </div>
+            </div>
+
+            <dl className="home-summary">
+              <div>
+                <dt>Hotkey</dt>
+                <dd>{state.settings.dictationToggleHotkey}</dd>
+              </div>
+              <div>
+                <dt>Runtime</dt>
+                <dd>{activeRuntimeLabel}</dd>
+              </div>
+              <div>
+                <dt>Model</dt>
+                <dd>{activeModel?.name ?? state.settings.activeModelId}</dd>
+              </div>
+              <div>
+                <dt>GPU</dt>
+                <dd>{state.hardware?.bestGpu?.name ?? "CPU fallback"}</dd>
+              </div>
+            </dl>
+
+            <div className="system-card">
+              <div className="system-shield" aria-hidden="true">
+                ✓
+              </div>
+              <strong>System</strong>
+              <span>All systems go</span>
+            </div>
+          </section>
+
+          {releaseTab === "general" ? (
+            <div className="release-dashboard-grid">
+            <section className="release-panel settings-panel">
+              <div className="release-panel-title">
+                <span aria-hidden="true">⚙</span>
+                <h2>General Settings</h2>
+              </div>
+              <div className="settings-list">
+                <label className="setting-row">
+                  <span>
+                    <strong>Offline mode</strong>
+                    <small>Only use assets already installed on this computer.</small>
+                  </span>
+                  <input
+                    checked={state.settings.offlineMode}
+                    type="checkbox"
+                    onChange={(event) => void updateSettings({ offlineMode: event.target.checked })}
+                  />
+                </label>
+                <label className="setting-row">
+                  <span>
+                    <strong>Restore clipboard</strong>
+                    <small>Put the previous clipboard back after pasting dictation.</small>
+                  </span>
+                  <input
+                    checked={state.settings.restoreClipboard}
+                    type="checkbox"
+                    onChange={(event) => void updateSettings({ restoreClipboard: event.target.checked })}
+                  />
+                </label>
+                <label className="setting-row">
+                  <span>
+                    <strong>Mute system audio</strong>
+                    <small>Reduce speaker bleed while VoxType is listening.</small>
+                  </span>
+                  <input
+                    checked={state.settings.autoMuteSystemAudio}
+                    type="checkbox"
+                    onChange={(event) => void updateSettings({ autoMuteSystemAudio: event.target.checked })}
+                  />
+                </label>
+              </div>
+            </section>
+            <section className="release-panel quick-actions-panel">
+              <div className="release-panel-title">
+                <span aria-hidden="true">ϟ</span>
+                <h2>Quick Actions</h2>
+              </div>
+              <div className="quick-actions-list">
+                {([
+                  ["hotkeys", "Open Hotkeys", "⌨"],
+                  ["models", "Manage Models", "◇"],
+                  ["history", "View History", "↺"],
+                  ["profiles", "Create Profile", "♙"]
+                ] as Array<[ReleaseTab, string, string]>).map(([tab, label, icon]) => (
+                  <button key={tab} onClick={() => setReleaseTab(tab)} type="button">
+                    <span className="quick-action-icon" aria-hidden="true">
+                      {icon}
+                    </span>
+                    <span>{label}</span>
+                    <span aria-hidden="true">→</span>
+                  </button>
+                ))}
+              </div>
+            </section>
+            </div>
+          ) : null}
+
+          {releaseTab === "hotkeys" ? (
+            <section className="release-panel">
+              <div className="release-panel-title">
+                <span aria-hidden="true">⌨</span>
+                <h2>Hotkeys</h2>
+              </div>
+              <div className="settings-list">
+                <label className="setting-row">
+                  <span>
+                    <strong>Dictation</strong>
+                    <small>Starts and stops dictation from the active app.</small>
+                  </span>
+                  <button onClick={() => setCapturingHotkey("dictationToggleHotkey")} type="button">
+                    {capturingHotkey === "dictationToggleHotkey"
+                      ? "Press keys..."
+                      : state.settings.dictationToggleHotkey}
+                  </button>
+                </label>
+                <label className="setting-row">
+                  <span>
+                    <strong>Show VoxType</strong>
+                    <small>Brings the setup window back when you need it.</small>
+                  </span>
+                  <button onClick={() => setCapturingHotkey("showWindowHotkey")} type="button">
+                    {capturingHotkey === "showWindowHotkey"
+                      ? "Press keys..."
+                      : state.settings.showWindowHotkey}
+                  </button>
+                </label>
+                <div className="result-row">
+                  <code>registered</code>
+                  <span>
+                    dictation={state.hotkeys?.dictationToggleHotkey ?? "none"} show=
+                    {state.hotkeys?.showWindowHotkey ?? "none"}
+                  </span>
+                </div>
+              </div>
+            </section>
+          ) : null}
+
+        {releaseTab === "models" ? (
+          <section className="release-panel">
+            <div className="release-panel-title">
+              <span aria-hidden="true">◇</span>
+              <h2>Models</h2>
+            </div>
+            <div className="model-list">
+              {state.models.map((model) => (
+                <article className="model-row" key={model.id}>
+                  <div>
+                    <strong>{model.name}</strong>
+                    <span>
+                      {model.language} · {model.sizeLabel} · {gpuFitLabel(state.hardware, model.id)}
+                    </span>
+                    <small>{model.description}</small>
+                  </div>
+                  <div className="model-actions">
+                    <button
+                      disabled={state.settings.activeModelId === model.id}
+                      onClick={() => void updateSettings({ activeModelId: model.id })}
+                      type="button"
+                    >
+                      {state.settings.activeModelId === model.id ? "Active" : "Use"}
+                    </button>
+                    <button
+                      disabled={model.status === "downloaded" || Boolean(busyMessage)}
+                      onClick={() => void downloadModel(model.id)}
+                      type="button"
+                    >
+                      {model.status === "downloaded" ? "Installed" : "Download"}
+                    </button>
+                    <button
+                      className={confirmingDeleteModelId === model.id ? "danger-button" : ""}
+                      disabled={model.status !== "downloaded" || Boolean(busyMessage)}
+                      onClick={() => void deleteModel(model.id)}
+                      type="button"
+                    >
+                      {confirmingDeleteModelId === model.id ? "Confirm" : "Delete"}
+                    </button>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
+        {releaseTab === "profiles" ? (
+          <section className="release-panel">
+            <div className="section-title-row">
+              <h2>App Profiles</h2>
+              <button disabled={Boolean(busyMessage)} onClick={() => void addCurrentAppProfile()} type="button">
+                Add Current App
               </button>
             </div>
-          </div>
-          <p>{latestTranscript?.text ?? "Your next dictation will appear here."}</p>
-        </section>
+            <div className="profile-list">
+              {state.settings.appProfiles.length ? (
+                state.settings.appProfiles.map((profile) => (
+                  <article className="profile-row" key={profile.id}>
+                    <div className="profile-heading">
+                      <strong>{profile.displayName}</strong>
+                      <span>{profile.processName}</span>
+                    </div>
+                    <label className="profile-control">
+                      <span>Insert with</span>
+                      <select
+                        value={profile.insertionMode}
+                        onChange={(event) =>
+                          void updateAppProfile(profile, {
+                            insertionMode: event.target.value as InsertionMode
+                          })
+                        }
+                      >
+                        <option value="clipboard">Clipboard paste</option>
+                        <option value="keyboard">Direct typing</option>
+                        <option value="chunked">Remote-safe typing</option>
+                        <option value="remoteClipboard">Remote clipboard</option>
+                      </select>
+                    </label>
+                    <label className="profile-control">
+                      <span>Writing style</span>
+                      <select
+                        value={profile.writingStyle}
+                        onChange={(event) =>
+                          void updateAppProfile(profile, {
+                            writingStyle: event.target.value as AppProfile["writingStyle"]
+                          })
+                        }
+                      >
+                        <option value="default">Default</option>
+                        <option value="chat">Chat</option>
+                        <option value="professional">Professional</option>
+                      </select>
+                    </label>
+                    <label className="profile-control">
+                      <span>Send after insert</span>
+                      <button
+                        onClick={() => setCapturingProfileHotkey(profile.processName)}
+                        onContextMenu={(event) => {
+                          event.preventDefault();
+                          void updateAppProfile(profile, { postTranscriptionHotkey: "" });
+                        }}
+                        title="Click to capture a hotkey. Press Escape while capturing or right-click to clear."
+                        type="button"
+                      >
+                        {capturingProfileHotkey === profile.processName
+                          ? "Press keys..."
+                          : profile.postTranscriptionHotkey || "None"}
+                      </button>
+                    </label>
+                  </article>
+                ))
+              ) : (
+                <p className="empty-state">Profiles appear after VoxType sees an app during dictation.</p>
+              )}
+            </div>
+          </section>
+        ) : null}
 
-        <section className="release-settings">
-          <label className="checkbox-field">
-            <input
-              checked={state.settings.vadEnabled}
-              type="checkbox"
-              onChange={(event) => void updateSettings({ vadEnabled: event.target.checked })}
-            />
-            Voice cleanup
-          </label>
-          <label className="checkbox-field">
-            <input
-              checked={state.settings.autoMuteSystemAudio}
-              type="checkbox"
-              onChange={(event) => void updateSettings({ autoMuteSystemAudio: event.target.checked })}
-            />
-            Mute system audio while recording
-          </label>
-        </section>
+        {releaseTab === "history" ? (
+          <section className="release-panel">
+            <div className="section-title-row">
+              <h2>Latest Transcriptions</h2>
+              <button disabled={state.history.length === 0} onClick={() => void cleanupHistory()} type="button">
+                Cleanup
+              </button>
+            </div>
+            <div className="history-list">
+              {state.history.length ? (
+                state.history.slice(0, 10).map((entry) => (
+                  <article className="history-row" key={entry.id}>
+                    <div>
+                      <strong>{formatTimestamp(entry.createdAt)}</strong>
+                      <p>{entry.text}</p>
+                      <small>
+                        {entry.modelId} · {formatDuration(entry.durationMs)}
+                        {entry.audioFileName ? " · audio saved" : ""}
+                      </small>
+                    </div>
+                    <div className="history-actions">
+                      <button onClick={() => void copyTranscript(entry)} type="button">
+                        Copy
+                      </button>
+                      <button onClick={() => void insertTranscript(entry)} type="button">
+                        Insert
+                      </button>
+                      <button
+                        disabled={!entry.audioFileName}
+                        onClick={() => void playTranscriptAudio(entry)}
+                        type="button"
+                      >
+                        {playingTranscriptId === entry.id ? "Stop" : "Play"}
+                      </button>
+                    </div>
+                  </article>
+                ))
+              ) : (
+                <p className="empty-state">No transcriptions yet.</p>
+              )}
+            </div>
+          </section>
+        ) : null}
+
+        </div>
+        <footer className="release-footer">
+          <span>VoxType {version}</span>
+          <strong>Stable</strong>
+          <span>Made with ♡ for privacy-first productivity</span>
+        </footer>
       </main>
     );
   }
 
   return (
     <main className="dev-shell">
+      <WindowTitleBar title="VoxType Dev" />
       <header className="dev-toolbar">
         <div className="app-title">VoxType Dev</div>
         <div className="toolbar-status">
@@ -1162,6 +1647,12 @@ export function App(): JSX.Element {
                 <dd>{state.runtime ? `${state.runtime.version} ${state.runtime.backend}` : "none"}</dd>
                 <dt>helper</dt>
                 <dd>{state.windowsHelper?.available ? "available" : "unavailable"}</dd>
+                <dt>helperBuild</dt>
+                <dd title={state.windowsHelper?.helperModifiedAt ?? undefined}>
+                  {formatTimestamp(state.windowsHelper?.helperModifiedAt)}
+                </dd>
+                <dt>helperSize</dt>
+                <dd>{formatBytes(state.windowsHelper?.helperSizeBytes)}</dd>
                 <dt>captureMode</dt>
                 <dd>{lastRecordingResult?.captureMode ?? state.settings?.recorderCaptureMode ?? "none"}</dd>
                 <dt>target</dt>
@@ -1193,6 +1684,13 @@ export function App(): JSX.Element {
                   </button>
                   <button onClick={() => void pasteLatestTranscript()} type="button">
                     Insert
+                  </button>
+                  <button
+                    disabled={!latestTranscript.audioFileName || Boolean(busyMessage)}
+                    onClick={() => void transcribeLatestTranscript()}
+                    type="button"
+                  >
+                    Transcribe
                   </button>
                   <button
                     disabled={!latestTranscript.audioFileName}
@@ -1367,6 +1865,14 @@ export function App(): JSX.Element {
                             type="button"
                           >
                             Download
+                          </button>
+                          <button
+                            className={confirmingDeleteModelId === model.id ? "danger-button" : ""}
+                            disabled={model.status !== "downloaded" || Boolean(busyMessage)}
+                            onClick={() => void deleteModel(model.id)}
+                            type="button"
+                          >
+                            {confirmingDeleteModelId === model.id ? "Confirm" : "Delete"}
                           </button>
                         </div>
                       </td>
@@ -2128,6 +2634,74 @@ export function App(): JSX.Element {
 
 function formatError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function WindowTitleBar({ title }: { title: string }): JSX.Element {
+  return (
+    <div className="window-titlebar">
+      <div className="window-titlebar-brand">
+        <img alt="" className="window-titlebar-mark" src={voxtypeLogoUrl} />
+        <span>{title}</span>
+      </div>
+      <div className="window-controls">
+        <button
+          aria-label="Minimize"
+          onClick={() => void window.voxtype.window.minimize()}
+          title="Minimize"
+          type="button"
+        >
+          <span aria-hidden="true">-</span>
+        </button>
+        <button
+          aria-label="Maximize"
+          onClick={() => void window.voxtype.window.maximize()}
+          title="Maximize"
+          type="button"
+        >
+          <span aria-hidden="true">□</span>
+        </button>
+        <button
+          aria-label="Close"
+          className="window-close-button"
+          onClick={() => void window.voxtype.window.close()}
+          title="Close"
+          type="button"
+        >
+          <span aria-hidden="true">x</span>
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function formatTimestamp(value: string | null | undefined): string {
+  if (!value) {
+    return "none";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  return date.toLocaleString();
+}
+
+function formatBytes(value: number | null | undefined): string {
+  if (typeof value !== "number") {
+    return "none";
+  }
+
+  if (value < 1024) {
+    return `${value} B`;
+  }
+
+  if (value < 1024 * 1024) {
+    return `${(value / 1024).toFixed(1)} KB`;
+  }
+
+  return `${(value / 1024 / 1024).toFixed(1)} MB`;
 }
 
 function RecordingOverlay({ state }: { state: RecordingOverlayState }): JSX.Element {

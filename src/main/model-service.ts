@@ -56,6 +56,30 @@ export class ModelService {
 
     return this.list();
   }
+
+  async delete(modelId: string): Promise<LocalModel[]> {
+    const model = getModelById(modelId);
+
+    if (!model) {
+      throw new Error(`Unknown model: ${modelId}`);
+    }
+
+    const settings = await this.settingsStore.get();
+    const destination = join(settings.modelDirectory, model.fileName);
+
+    await rm(destination, { force: true });
+    await rm(`${destination}.download`, { force: true });
+
+    if (settings.activeModelId === model.id) {
+      const remainingModels = await this.list();
+      const nextActiveModel =
+        remainingModels.find((item) => item.id !== model.id && item.status === "downloaded")?.id ??
+        "small";
+      await this.settingsStore.update({ activeModelId: nextActiveModel });
+    }
+
+    return this.list();
+  }
 }
 
 async function getFileSize(path: string): Promise<number> {

@@ -3,6 +3,8 @@ import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { type TranscriptEntry } from "../shared/transcripts";
 
+const historyLimit = 10;
+
 export class HistoryStore {
   private readonly historyPath: string;
   private readonly audioDirectory: string;
@@ -24,6 +26,7 @@ export class HistoryStore {
       const file = await readFile(this.historyPath, "utf8");
       const parsed = JSON.parse(file);
       this.entries = Array.isArray(parsed) ? parsed.filter(isTranscriptEntry) : [];
+      await this.prune();
     } catch {
       this.entries = [];
       await this.save();
@@ -35,14 +38,21 @@ export class HistoryStore {
   async add(entry: TranscriptEntry): Promise<TranscriptEntry[]> {
     const entries = await this.list();
     const nextEntries = [entry, ...entries];
-    const keptEntries = nextEntries.slice(0, 50);
-    const droppedEntries = nextEntries.slice(50);
+    const keptEntries = nextEntries.slice(0, historyLimit);
+    const droppedEntries = nextEntries.slice(historyLimit);
 
     this.entries = keptEntries;
     await this.save();
     await Promise.all(droppedEntries.map((droppedEntry) => this.removeAudio(droppedEntry)));
 
     return this.entries;
+  }
+
+  async cleanup(): Promise<TranscriptEntry[]> {
+    await this.list();
+    await this.prune();
+
+    return this.entries ?? [];
   }
 
   async saveAudio(entryId: string, audioBytes: Uint8Array): Promise<string> {
@@ -69,6 +79,23 @@ export class HistoryStore {
   private async save(): Promise<void> {
     await mkdir(dirname(this.historyPath), { recursive: true });
     await writeFile(this.historyPath, `${JSON.stringify(this.entries ?? [], null, 2)}\n`, "utf8");
+  }
+
+  private async prune(): Promise<void> {
+    const entries = [...(this.entries ?? [])].sort(
+      (first, second) =>
+        new Date(second.createdAt).getTime() - new Date(first.createdAt).getTime()
+    );
+    const keptEntries = entries.slice(0, historyLimit);
+    const droppedEntries = entries.slice(historyLimit);
+
+    if (droppedEntries.length === 0 && keptEntries.length === (this.entries ?? []).length) {
+      return;
+    }
+
+    this.entries = keptEntries;
+    await this.save();
+    await Promise.all(droppedEntries.map((droppedEntry) => this.removeAudio(droppedEntry)));
   }
 
   private async removeAudio(entry: TranscriptEntry): Promise<void> {

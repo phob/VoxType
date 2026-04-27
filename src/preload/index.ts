@@ -32,6 +32,11 @@ import {
 
 const voxtype = {
   getVersion: () => ipcRenderer.invoke("app:get-version") as Promise<string>,
+  window: {
+    minimize: () => ipcRenderer.invoke("window:minimize") as Promise<void>,
+    maximize: () => ipcRenderer.invoke("window:maximize") as Promise<void>,
+    close: () => ipcRenderer.invoke("window:close") as Promise<void>
+  },
   settings: {
     get: () => ipcRenderer.invoke("settings:get") as Promise<AppSettings>,
     update: (patch: SettingsPatch) =>
@@ -41,7 +46,9 @@ const voxtype = {
   models: {
     list: () => ipcRenderer.invoke("models:list") as Promise<LocalModel[]>,
     download: (modelId: string) =>
-      ipcRenderer.invoke("models:download", modelId) as Promise<LocalModel[]>
+      ipcRenderer.invoke("models:download", modelId) as Promise<LocalModel[]>,
+    delete: (modelId: string) =>
+      ipcRenderer.invoke("models:delete", modelId) as Promise<LocalModel[]>
   },
   runtime: {
     getWhisper: () => ipcRenderer.invoke("runtime:get-whisper") as Promise<WhisperRuntime>,
@@ -80,7 +87,8 @@ const voxtype = {
   },
   history: {
     list: () => ipcRenderer.invoke("history:list") as Promise<TranscriptEntry[]>,
-    audio: (entryId: string) => ipcRenderer.invoke("history:audio", entryId) as Promise<Uint8Array>
+    audio: (entryId: string) => ipcRenderer.invoke("history:audio", entryId) as Promise<Uint8Array>,
+    cleanup: () => ipcRenderer.invoke("history:cleanup") as Promise<TranscriptEntry[]>
   },
   dictionary: {
     list: () => ipcRenderer.invoke("dictionary:list") as Promise<DictionaryEntry[]>,
@@ -153,7 +161,15 @@ const voxtype = {
       ipcRenderer.invoke("app-profiles:ensure", windowInfo) as Promise<AppProfile | null>,
     update: (
       processName: string,
-      patch: Pick<AppProfile, "insertionMode" | "writingStyle">
+      patch: Pick<
+        AppProfile,
+        | "insertionMode"
+        | "writingStyle"
+        | "recordingCoordinationMode"
+        | "recordingStartHotkey"
+        | "recordingStopHotkey"
+        | "postTranscriptionHotkey"
+      >
     ) => ipcRenderer.invoke("app-profiles:update", processName, patch) as Promise<AppSettings>
   },
   windowsHelper: {
