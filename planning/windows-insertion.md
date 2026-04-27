@@ -90,6 +90,56 @@ Initial implementation:
 - Chunk size and delay are controlled by local settings.
 - This is the first remote-safe mode for RDP, TeamViewer, and other targets that may drop very fast input.
 
+Known limitation:
+
+- TeamViewer and similar remote-control tools may treat injected Unicode input as keyboard activity instead of committed text. With layouts such as US-International, this can trigger dead-key or shortcut-like behavior on the remote side. Remote profiles may need a separate layout-safe scan-code typing mode, a companion receiver running on the remote machine, or a no-auto-insert review mode when clipboard and typing are both unsafe.
+
+### Windows Messaging
+
+Send text through Win32 window messages instead of the clipboard or simulated keyboard input.
+
+Likely implementation paths:
+
+- Find the focused control or caret owner with foreground-window/thread inspection.
+- For standard Win32 edit and rich edit controls, send `EM_REPLACESEL` to insert at the caret or replace the current selection.
+- For full replacement in compatible controls, send `WM_SETTEXT`.
+- For remote-control windows such as TeamViewer, test posting Unicode character messages such as `WM_CHAR` or `WM_UNICHAR` to the TeamViewer viewport, because the remote-control app may forward those as text without involving the local keyboard layout.
+
+Benefits:
+
+- Does not disturb clipboard contents or clipboard file transfers.
+- Does not depend on the current keyboard layout in the same way as scan-code or virtual-key typing.
+- Can be faster and cleaner than chunked keyboard simulation when the target accepts text messages.
+
+Limitations:
+
+- Works best with classic Windows controls; browser, Electron, Qt, WPF, UWP, terminal, and remote-control surfaces vary widely.
+- Cannot send messages from a lower-integrity process into a higher-integrity/elevated target because of UIPI.
+- `SendMessage` can block if the target thread hangs, so use timeout-based calls for reliability testing.
+- It needs an insertion test panel because success is highly target-specific.
+
+### Remote Companion Receiver
+
+A future remote-safe insertion option is a small VoxType receiver running on the target machine, but this is not viable for customer systems where VoxType cannot install software.
+
+Flow:
+
+1. VoxType transcribes locally.
+2. The local app sends the final text to the paired receiver over a local network, tunnel, or remote-session-accessible channel.
+3. The receiver inserts text locally on the target machine using clipboard paste, UI Automation, or local keyboard input.
+
+Benefits:
+
+- Avoids disturbing the local clipboard during remote file transfers.
+- Avoids TeamViewer keyboard layout translation problems.
+- Lets the remote machine choose the safest local insertion method.
+
+Tradeoffs:
+
+- Requires installing and pairing a helper on the remote machine.
+- Needs authentication and clear local-only/network privacy controls.
+- Not useful when the user cannot run software on the remote system.
+
 ### UI Automation
 
 Use Windows UI Automation where available to set or inspect text fields.

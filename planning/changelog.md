@@ -8,6 +8,9 @@
 - Moved the dense current interface behind a developer mode switch and added a simpler default dictation home for release-readiness.
 - Added first-run NVIDIA CUDA auto-install as the next release-readiness direction.
 - Added an always-on-top recording/transcribing overlay with live input level updates from the native recorder.
+- Clarified that the developer dictionary panel supports editing entries by clicking them.
+- Added TeamViewer insertion limitations and a future remote companion receiver option for cases where clipboard and keyboard forwarding are both unsafe.
+- Added Windows Messaging as a planned insertion strategy, including `EM_REPLACESEL`, `WM_SETTEXT`, and TeamViewer-focused `WM_CHAR`/`WM_UNICHAR` experiments.
 
 ## 2026-04-26
 

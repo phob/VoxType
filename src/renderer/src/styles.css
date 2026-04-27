@@ -590,6 +590,18 @@ td {
   color: #d7dce2;
 }
 
+tbody tr {
+  cursor: pointer;
+}
+
+tbody tr:hover {
+  background: #1d232b;
+}
+
+tbody tr.selected-row {
+  background: #22312f;
+}
+
 td code {
   display: block;
   overflow: hidden;

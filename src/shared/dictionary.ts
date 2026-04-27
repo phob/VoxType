@@ -53,7 +53,7 @@ export function normalizeDictionaryCreateInput(
 }
 
 export function normalizeDictionaryPatch(patch: DictionaryPatch): DictionaryPatch {
-  return {
+  return omitUndefined({
     ...patch,
     preferred: patch.preferred?.trim(),
     matches: patch.matches
@@ -64,7 +64,7 @@ export function normalizeDictionaryPatch(patch: DictionaryPatch): DictionaryPatc
       patch.appProcessName === undefined
         ? undefined
         : normalizeNullableString(patch.appProcessName)
-  };
+  });
 }
 
 function isDictionaryEntry(value: unknown): value is DictionaryEntry {
@@ -98,4 +98,10 @@ function normalizeNullableString(value: string | null | undefined): string | nul
 
 function uniqueStrings(values: string[]): string[] {
   return [...new Set(values)];
+}
+
+function omitUndefined<T extends Record<string, unknown>>(value: T): Partial<T> {
+  return Object.fromEntries(
+    Object.entries(value).filter(([, entryValue]) => entryValue !== undefined)
+  ) as Partial<T>;
 }

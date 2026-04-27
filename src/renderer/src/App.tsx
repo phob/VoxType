@@ -112,6 +112,7 @@ export function App(): JSX.Element {
   const [dictionaryMatches, setDictionaryMatches] = useState("");
   const [dictionaryCategory, setDictionaryCategory] = useState("general");
   const [dictionaryAppProcess, setDictionaryAppProcess] = useState("");
+  const [editingDictionaryEntryId, setEditingDictionaryEntryId] = useState<string | null>(null);
   const [fixLastText, setFixLastText] = useState("");
   const [lastRecordingResult, setLastRecordingResult] = useState<PcmRecordingResult | null>(null);
   const [screenshotMode, setScreenshotMode] = useState<ScreenshotCaptureMode>("activeWindow");
@@ -692,22 +693,40 @@ export function App(): JSX.Element {
     setState((current) => ({ ...current, settings }));
   }
 
-  async function addDictionaryEntry(): Promise<void> {
+  function clearDictionaryForm(): void {
+    setDictionaryPreferred("");
+    setDictionaryMatches("");
+    setDictionaryCategory("general");
+    setDictionaryAppProcess("");
+    setEditingDictionaryEntryId(null);
+  }
+
+  function selectDictionaryEntry(entry: DictionaryEntry): void {
+    setDictionaryPreferred(entry.preferred);
+    setDictionaryMatches(entry.matches.join("\n"));
+    setDictionaryCategory(entry.category);
+    setDictionaryAppProcess(entry.appProcessName ?? "");
+    setEditingDictionaryEntryId(entry.id);
+  }
+
+  async function saveDictionaryEntry(): Promise<void> {
     setError(null);
 
     try {
-      const dictionary = await window.voxtype.dictionary.add({
+      const entryInput = {
         preferred: dictionaryPreferred,
         matches: splitMatches(dictionaryMatches),
         category: dictionaryCategory || "general",
-        appProcessName: dictionaryAppProcess || null,
-        source: "user"
-      });
+        appProcessName: dictionaryAppProcess || null
+      };
+      const dictionary = editingDictionaryEntryId
+        ? await window.voxtype.dictionary.update(editingDictionaryEntryId, entryInput)
+        : await window.voxtype.dictionary.add({
+            ...entryInput,
+            source: "user"
+          });
       setState((current) => ({ ...current, dictionary }));
-      setDictionaryPreferred("");
-      setDictionaryMatches("");
-      setDictionaryCategory("general");
-      setDictionaryAppProcess("");
+      clearDictionaryForm();
     } catch (dictionaryError) {
       setError(formatError(dictionaryError));
     }
@@ -723,6 +742,9 @@ export function App(): JSX.Element {
   async function removeDictionaryEntry(entry: DictionaryEntry): Promise<void> {
     const dictionary = await window.voxtype.dictionary.remove(entry.id);
     setState((current) => ({ ...current, dictionary }));
+    if (editingDictionaryEntryId === entry.id) {
+      clearDictionaryForm();
+    }
   }
 
   async function learnFixLastDictation(): Promise<void> {
@@ -1557,7 +1579,7 @@ export function App(): JSX.Element {
         {activeTab === "dictionary" ? (
           <div className="split-layout">
             <section className="panel-block">
-              <h2>entry</h2>
+              <h2>{editingDictionaryEntryId ? "editEntry" : "entry"}</h2>
               <div className="form-grid">
                 <label className="dev-field">
                   <span>preferred</span>
@@ -1584,9 +1606,14 @@ export function App(): JSX.Element {
                 </label>
               </div>
               <div className="button-row">
-                <button disabled={!dictionaryPreferred.trim()} onClick={() => void addDictionaryEntry()} type="button">
-                  Save
+                <button disabled={!dictionaryPreferred.trim()} onClick={() => void saveDictionaryEntry()} type="button">
+                  {editingDictionaryEntryId ? "Update" : "Save"}
                 </button>
+                {editingDictionaryEntryId ? (
+                  <button onClick={clearDictionaryForm} type="button">
+                    New
+                  </button>
+                ) : null}
               </div>
 
               <h2>fixLatest</h2>
@@ -1622,7 +1649,11 @@ export function App(): JSX.Element {
                 <tbody>
                   {state.dictionary.length ? (
                     state.dictionary.map((entry) => (
-                      <tr key={entry.id}>
+                      <tr
+                        className={editingDictionaryEntryId === entry.id ? "selected-row" : undefined}
+                        key={entry.id}
+                        onClick={() => selectDictionaryEntry(entry)}
+                      >
                         <td>{entry.preferred}</td>
                         <td>{entry.source}</td>
                         <td>{entry.category}</td>
@@ -1630,10 +1661,22 @@ export function App(): JSX.Element {
                         <td>{String(entry.enabled)}</td>
                         <td>
                           <div className="table-actions">
-                            <button onClick={() => void toggleDictionaryEntry(entry)} type="button">
+                            <button
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void toggleDictionaryEntry(entry);
+                              }}
+                              type="button"
+                            >
                               {entry.enabled ? "Disable" : "Enable"}
                             </button>
-                            <button onClick={() => void removeDictionaryEntry(entry)} type="button">
+                            <button
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                void removeDictionaryEntry(entry);
+                              }}
+                              type="button"
+                            >
                               Delete
                             </button>
                           </div>
@@ -2198,6 +2241,10 @@ function uniqueTerms(terms: string[]): string[] {
   const unique: string[] = [];
 
   for (const term of terms) {
+    if (typeof term !== "string") {
+      continue;
+    }
+
     const normalized = term.trim();
     const key = normalized.toLowerCase();
 

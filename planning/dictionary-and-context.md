@@ -51,7 +51,7 @@ Initial implementation:
 
 - Dictionary entries are stored locally in Electron `userData` as `dictionary.json`.
 - Entries include preferred text, misheard phrases, category, source, enabled state, and optional app process scope.
-- The renderer includes a dictionary panel for adding, disabling, and deleting entries.
+- The renderer includes a dictionary panel for adding, editing by clicking entries, disabling, and deleting entries.
 - Entries can be scoped to app profiles so corrections can be global or app-specific.
 
 ```json

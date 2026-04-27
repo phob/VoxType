@@ -20,6 +20,8 @@
 - Clipboard paste insertion.
 - Direct keyboard typing insertion.
 - Chunked remote-safe typing.
+- Windows Messaging insertion for compatible fields and TeamViewer-like targets where clipboard and keyboard simulation are unsafe.
+- Optional remote companion receiver for TeamViewer-like sessions where clipboard and keyboard forwarding are unsafe.
 - Local OCR from screenshot.
 - Custom dictionary.
 - OCR-derived temporary dictionary.
