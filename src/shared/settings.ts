@@ -322,7 +322,7 @@ function getProfileDefaults(processName: string): {
   if (["mstsc.exe", "teamviewer.exe", "anydesk.exe"].includes(processName)) {
     return {
       displayName: remoteDisplayName(processName),
-      insertionMode: "remoteClipboard",
+      insertionMode: "chunked",
       writingStyle: "default",
       recordingCoordinationMode: "none"
     };
@@ -409,7 +409,7 @@ function sanitizeProfileInsertionMode(
     insertionMode === "windowsMessaging" &&
     ["mstsc.exe", "teamviewer.exe", "anydesk.exe"].includes(processName)
   ) {
-    return "remoteClipboard";
+    return "chunked";
   }
 
   return insertionMode;

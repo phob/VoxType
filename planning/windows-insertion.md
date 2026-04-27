@@ -55,7 +55,7 @@ Flow:
 Initial implementation:
 
 - VoxType exposes `remoteClipboard` as an insertion mode.
-- TeamViewer, AnyDesk, and Remote Desktop profiles default to `remoteClipboard`.
+- `remoteClipboard` remains available for manual testing, but remote-control profiles no longer default to it.
 - The native helper accepts `paste-text <delay-ms>` so paste can happen after a clipboard-settle delay.
 - VoxType exposes `remoteClipboardPasteDelayMs` in the developer settings tab so TeamViewer/RDP clipboard synchronization can be tuned per machine.
 - VoxType defaults to a 450 ms pre-paste delay and uses a 1500 ms post-paste restore delay for remote clipboard insertion.
@@ -79,7 +79,7 @@ Decision:
 
 - Do not make TeamViewer toolbar automation the default remote insertion path.
 - `Paste clipboard as keystrokes` is not meaningfully better than VoxType's own keyboard injection path for normal dictation because it still types characters into the remote session.
-- `Send Clipboard` may remain an experiment, but the main remote default should stay `remoteClipboard`.
+- `Send Clipboard` may remain an experiment, but the main remote default should stay `chunked` typing.
 - Keep TeamViewer toolbar automation parked unless `remoteClipboard` cannot be made reliable enough and there is a stable command or UI Automation hook.
 
 ### Keyboard Emulation
@@ -147,7 +147,7 @@ Initial implementation:
 - VoxType exposes `windowsMessaging` as an insertion mode in global settings, app profiles, and the insertion test panel.
 - The native helper exposes `message-text focused-control`, which sends `EM_REPLACESEL` to the focused control.
 - The native helper exposes `message-text character-messages`, which posts `WM_CHAR` messages to the focused foreground target.
-- Windows Messaging remains experimental. TeamViewer, AnyDesk, and Remote Desktop now default to `remoteClipboard`; VoxType still uses character messages for these remote-control targets when `windowsMessaging` is selected manually.
+- Windows Messaging remains experimental. TeamViewer, AnyDesk, and Remote Desktop now default to `chunked`; VoxType still uses character messages for these remote-control targets when `windowsMessaging` is selected manually.
 - Windows Messaging should not be expanded for TeamViewer unless a concrete compatible target behavior is found.
 
 Likely implementation paths:
@@ -237,7 +237,7 @@ Initial implementation:
 - Profiles are stored in local settings and are visible/editable in the renderer.
 - Each profile currently stores app display name, process name/path, insertion mode, and writing style.
 - Browser defaults, including Chrome, use clipboard insertion and chat writing style.
-- Remote Desktop, TeamViewer, and AnyDesk defaults use remote clipboard insertion.
+- Remote Desktop, TeamViewer, and AnyDesk defaults use chunked typing.
 - Terminal defaults, including Windows Terminal, Command Prompt, and PowerShell, use direct Unicode typing.
 - Outlook defaults to clipboard insertion and professional writing style.
 - Writing style is saved now so later formatting can use profile-specific behavior such as chat-style browser replies or professional Outlook grammar.
