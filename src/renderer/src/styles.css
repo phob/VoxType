@@ -119,11 +119,11 @@ body:has(.recording-overlay) {
   font-weight: 700;
 }
 
-.window-controls button span {
-  display: grid;
-  place-items: center;
-  width: 100%;
-  height: 100%;
+.window-controls button .release-icon-svg {
+  width: 17px;
+  height: 17px;
+  margin: auto;
+  stroke-width: 2;
 }
 
 .window-controls button:hover {
@@ -300,6 +300,13 @@ pre {
   line-height: 1;
 }
 
+.release-icon-svg {
+  display: block;
+  width: 22px;
+  height: 22px;
+  vector-effect: non-scaling-stroke;
+}
+
 .release-settings-link {
   margin-top: auto;
 }
@@ -366,6 +373,12 @@ pre {
   color: #c8ced8;
   background: rgb(19 24 35 / 0.84);
   font-size: 0.88rem;
+}
+
+.developer-button .release-icon-svg {
+  width: 18px;
+  height: 18px;
+  color: #aab4c5;
 }
 
 .release-wave {
@@ -532,6 +545,12 @@ pre {
   box-shadow: 0 0 28px rgb(55 215 160 / 0.42);
 }
 
+.system-shield .release-icon-svg {
+  width: 28px;
+  height: 28px;
+  stroke-width: 2.1;
+}
+
 .release-dashboard-grid {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(260px, 0.47fr);
@@ -564,6 +583,11 @@ pre {
 
 .release-panel-title span {
   font-size: 1.1rem;
+}
+
+.release-panel-title .release-icon-svg {
+  width: 21px;
+  height: 21px;
 }
 
 .release-shell .setting-row {
@@ -647,6 +671,12 @@ pre {
   font-size: 1.16rem;
 }
 
+.quick-actions-list button > .release-icon-svg:last-child {
+  width: 18px;
+  height: 18px;
+  color: #8e98ab;
+}
+
 .release-footer {
   grid-column: 1 / -1;
   display: grid;
@@ -671,6 +701,19 @@ pre {
 
 .release-footer span:last-child {
   justify-self: end;
+}
+
+.release-footer-love {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+}
+
+.release-footer-love .release-icon-svg {
+  width: 15px;
+  height: 15px;
+  color: #a26bff;
+  fill: none;
 }
 
 .release-error {

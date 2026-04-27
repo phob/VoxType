@@ -12,6 +12,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "lucide-react": "^1.11.0",
     "react": "latest",
     "react-dom": "latest"
   },

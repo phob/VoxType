@@ -1,5 +1,22 @@
 import { useEffect, useRef, useState } from "react";
 import {
+  ArrowRight,
+  Box,
+  Code2,
+  Heart,
+  History,
+  Home,
+  Keyboard,
+  Minus,
+  Settings,
+  ShieldCheck,
+  Square,
+  UserPlus,
+  X,
+  Zap,
+  type LucideIcon
+} from "lucide-react";
+import {
   startNativePcmRecorder,
   type PcmRecorder,
   type PcmRecordingResult
@@ -46,6 +63,31 @@ type AppState = {
 };
 
 type ReleaseTab = "general" | "hotkeys" | "models" | "profiles" | "history";
+type ReleaseIconName =
+  | "home"
+  | "keyboard"
+  | "box"
+  | "user"
+  | "history"
+  | "settings"
+  | "code"
+  | "bolt"
+  | "arrowRight"
+  | "shield";
+
+const releaseIcons: Record<ReleaseIconName, LucideIcon> = {
+  home: Home,
+  keyboard: Keyboard,
+  box: Box,
+  user: UserPlus,
+  history: History,
+  settings: Settings,
+  code: Code2,
+  bolt: Zap,
+  arrowRight: ArrowRight,
+  shield: ShieldCheck
+};
+
 type DevTab =
   | "dictation"
   | "models"
@@ -1107,12 +1149,12 @@ export function App(): JSX.Element {
           <div className="release-sidebar-spacer" />
           <nav className="release-nav">
             {([
-              ["general", "Home", "⌂"],
-              ["hotkeys", "Hotkeys", "⌨"],
-              ["models", "Models", "◇"],
-              ["profiles", "Profiles", "♙"],
-              ["history", "History", "↺"]
-            ] as Array<[ReleaseTab, string, string]>).map(([tab, label, icon]) => (
+              ["general", "Home", "home"],
+              ["hotkeys", "Hotkeys", "keyboard"],
+              ["models", "Models", "box"],
+              ["profiles", "Profiles", "user"],
+              ["history", "History", "history"]
+            ] as Array<[ReleaseTab, string, ReleaseIconName]>).map(([tab, label, icon]) => (
               <button
                 className={releaseTab === tab ? "active" : ""}
                 key={tab}
@@ -1120,7 +1162,7 @@ export function App(): JSX.Element {
                 type="button"
               >
                 <span className="release-nav-icon" aria-hidden="true">
-                  {icon}
+                  <ReleaseIcon name={icon} />
                 </span>
                 <span>{label}</span>
               </button>
@@ -1132,7 +1174,7 @@ export function App(): JSX.Element {
             type="button"
           >
             <span className="release-nav-icon" aria-hidden="true">
-              ⚙
+              <ReleaseIcon name="settings" />
             </span>
             <span>Settings</span>
             <span className="release-settings-dot" aria-hidden="true" />
@@ -1150,7 +1192,7 @@ export function App(): JSX.Element {
               onClick={() => void updateSettings({ developerModeEnabled: true })}
               type="button"
             >
-              <span aria-hidden="true">&lt;/&gt;</span>
+              <ReleaseIcon name="code" decorative />
               <span>Developer</span>
             </button>
             <div className="release-wave" aria-hidden="true">
@@ -1204,7 +1246,7 @@ export function App(): JSX.Element {
 
             <div className="system-card">
               <div className="system-shield" aria-hidden="true">
-                ✓
+                <ReleaseIcon name="shield" decorative />
               </div>
               <strong>System</strong>
               <span>All systems go</span>
@@ -1215,7 +1257,7 @@ export function App(): JSX.Element {
             <div className="release-dashboard-grid">
             <section className="release-panel settings-panel">
               <div className="release-panel-title">
-                <span aria-hidden="true">⚙</span>
+                <ReleaseIcon name="settings" decorative />
                 <h2>General Settings</h2>
               </div>
               <div className="settings-list">
@@ -1256,22 +1298,22 @@ export function App(): JSX.Element {
             </section>
             <section className="release-panel quick-actions-panel">
               <div className="release-panel-title">
-                <span aria-hidden="true">ϟ</span>
+                <ReleaseIcon name="bolt" decorative />
                 <h2>Quick Actions</h2>
               </div>
               <div className="quick-actions-list">
                 {([
-                  ["hotkeys", "Open Hotkeys", "⌨"],
-                  ["models", "Manage Models", "◇"],
-                  ["history", "View History", "↺"],
-                  ["profiles", "Create Profile", "♙"]
-                ] as Array<[ReleaseTab, string, string]>).map(([tab, label, icon]) => (
+                  ["hotkeys", "Open Hotkeys", "keyboard"],
+                  ["models", "Manage Models", "box"],
+                  ["history", "View History", "history"],
+                  ["profiles", "Create Profile", "user"]
+                ] as Array<[ReleaseTab, string, ReleaseIconName]>).map(([tab, label, icon]) => (
                   <button key={tab} onClick={() => setReleaseTab(tab)} type="button">
                     <span className="quick-action-icon" aria-hidden="true">
-                      {icon}
+                      <ReleaseIcon name={icon} />
                     </span>
                     <span>{label}</span>
-                    <span aria-hidden="true">→</span>
+                    <ReleaseIcon name="arrowRight" decorative />
                   </button>
                 ))}
               </div>
@@ -1282,7 +1324,7 @@ export function App(): JSX.Element {
           {releaseTab === "hotkeys" ? (
             <section className="release-panel">
               <div className="release-panel-title">
-                <span aria-hidden="true">⌨</span>
+                <ReleaseIcon name="keyboard" decorative />
                 <h2>Hotkeys</h2>
               </div>
               <div className="settings-list">
@@ -1322,7 +1364,7 @@ export function App(): JSX.Element {
         {releaseTab === "models" ? (
           <section className="release-panel">
             <div className="release-panel-title">
-              <span aria-hidden="true">◇</span>
+              <ReleaseIcon name="box" decorative />
               <h2>Models</h2>
             </div>
             <div className="model-list">
@@ -1485,7 +1527,9 @@ export function App(): JSX.Element {
         <footer className="release-footer">
           <span>VoxType {version}</span>
           <strong>Stable</strong>
-          <span>Made with ♡ for privacy-first productivity</span>
+          <span className="release-footer-love">
+            Made with <Heart aria-hidden="true" className="release-icon-svg" /> for privacy-first productivity
+          </span>
         </footer>
       </main>
     );
@@ -2650,7 +2694,7 @@ function WindowTitleBar({ title }: { title: string }): JSX.Element {
           title="Minimize"
           type="button"
         >
-          <span aria-hidden="true">-</span>
+          <Minus aria-hidden="true" className="release-icon-svg" />
         </button>
         <button
           aria-label="Maximize"
@@ -2658,7 +2702,7 @@ function WindowTitleBar({ title }: { title: string }): JSX.Element {
           title="Maximize"
           type="button"
         >
-          <span aria-hidden="true">□</span>
+          <Square aria-hidden="true" className="release-icon-svg" />
         </button>
         <button
           aria-label="Close"
@@ -2667,10 +2711,30 @@ function WindowTitleBar({ title }: { title: string }): JSX.Element {
           title="Close"
           type="button"
         >
-          <span aria-hidden="true">x</span>
+          <X aria-hidden="true" className="release-icon-svg" />
         </button>
       </div>
     </div>
+  );
+}
+
+function ReleaseIcon({
+  name,
+  decorative = false
+}: {
+  name: ReleaseIconName;
+  decorative?: boolean;
+}): JSX.Element {
+  const Icon = releaseIcons[name];
+
+  return (
+    <Icon
+      aria-hidden={decorative ? "true" : undefined}
+      className="release-icon-svg"
+      focusable="false"
+      role={decorative ? undefined : "img"}
+      strokeWidth={1.8}
+    />
   );
 }
 
