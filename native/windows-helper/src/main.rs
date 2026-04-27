@@ -24,7 +24,7 @@ fn main() {
         "type-text" => type_text_from_stdin(),
         "message-text" => message_text_from_stdin(),
         "help" | "--help" | "-h" => {
-            println!("Usage: voxtype-windows-helper active-window | focus-window <hwnd> | set-system-mute <true|false> | send-hotkey <accelerator> | capture-screenshot <output.png> [--active-window | --hwnd <hwnd>] | ocr-image <input.png> | mute-capture-session <process-id> [process-name] | restore-capture-session | record-wav <output.wav> [--capture-mode shared|exclusive-preferred|exclusive-required] | paste-text | type-text [delay-ms] | message-text [focused-control|character-messages]");
+            println!("Usage: voxtype-windows-helper active-window | focus-window <hwnd> | set-system-mute <true|false> | send-hotkey <accelerator> | capture-screenshot <output.png> [--active-window | --hwnd <hwnd>] | ocr-image <input.png> | mute-capture-session <process-id> [process-name] | restore-capture-session | record-wav <output.wav> [--capture-mode shared|exclusive-preferred|exclusive-required] | paste-text | type-text [delay-ms] | message-text [focused-control|character-messages] [hwnd]");
             Ok(())
         }
         _ => Err(format!("Unknown command: {command}")),
@@ -277,11 +277,12 @@ fn message_text_from_stdin() -> Result<(), String> {
     let strategy = env::args()
         .nth(2)
         .unwrap_or_else(|| "focused-control".to_string());
+    let hwnd = env::args().nth(3);
     let mut text = String::new();
     io::stdin()
         .read_to_string(&mut text)
         .map_err(|error| error.to_string())?;
-    windows_impl::message_text(&text, &strategy)
+    windows_impl::message_text(&text, &strategy, hwnd.as_deref())
 }
 
 #[cfg(not(windows))]
@@ -514,10 +515,14 @@ mod windows_impl {
         Ok(())
     }
 
-    pub fn message_text(text: &str, strategy: &str) -> Result<(), String> {
+    pub fn message_text(
+        text: &str,
+        strategy: &str,
+        target_hwnd: Option<&str>,
+    ) -> Result<(), String> {
         match strategy {
             "focused-control" => replace_focused_selection(text),
-            "character-messages" => post_character_messages(text),
+            "character-messages" => post_character_messages(text, target_hwnd),
             unknown => Err(format!(
                 "message-text strategy must be focused-control or character-messages, got {unknown}."
             )),
@@ -2251,8 +2256,12 @@ mod windows_impl {
         )
     }
 
-    fn post_character_messages(text: &str) -> Result<(), String> {
-        let hwnd = focused_message_window()?;
+    fn post_character_messages(text: &str, target_hwnd: Option<&str>) -> Result<(), String> {
+        let hwnd = if let Some(target_hwnd) = target_hwnd {
+            parse_hwnd(target_hwnd)?
+        } else {
+            focused_message_window()?
+        };
 
         for unit in text.encode_utf16() {
             let normalized = if unit == b'\n' as u16 {

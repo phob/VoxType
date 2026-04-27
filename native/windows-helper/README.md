@@ -41,4 +41,5 @@ Send text through Win32 window messages without using the clipboard or keyboard 
 ```powershell
 "hello from VoxType" | cargo run --manifest-path native/windows-helper/Cargo.toml -- message-text focused-control
 "remote text" | cargo run --manifest-path native/windows-helper/Cargo.toml -- message-text character-messages
+"remote text" | cargo run --manifest-path native/windows-helper/Cargo.toml -- message-text character-messages 0x123456
 ```

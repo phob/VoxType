@@ -8,6 +8,7 @@ const CLIPBOARD_RESTORE_DELAY_MS = 250;
 
 type InsertOptions = {
   mode?: InsertionMode;
+  hwnd?: string | null;
   processName?: string | null;
 };
 
@@ -41,7 +42,7 @@ export class InsertionService {
   ): Promise<void> {
     await this.windowsHelperService.focusWindow(hwnd);
     await wait(FOCUS_SETTLE_DELAY_MS);
-    await this.insertText(text, options);
+    await this.insertText(text, { ...options, hwnd });
   }
 
   async pasteIntoActiveApp(text: string): Promise<void> {
@@ -70,7 +71,8 @@ export class InsertionService {
     if (mode === "windowsMessaging") {
       await this.windowsHelperService.messageText(
         text,
-        usesRemoteControlMessages(options?.processName) ? "character-messages" : "focused-control"
+        usesRemoteControlMessages(options?.processName) ? "character-messages" : "focused-control",
+        options?.hwnd
       );
       return;
     }

@@ -84,7 +84,8 @@ export class WindowsHelperService {
 
   async messageText(
     text: string,
-    strategy: "focused-control" | "character-messages"
+    strategy: "focused-control" | "character-messages",
+    hwnd?: string | null
   ): Promise<void> {
     const helperPath = await this.resolveHelperPath();
 
@@ -94,7 +95,13 @@ export class WindowsHelperService {
       );
     }
 
-    await runHelperWithStdin(helperPath, ["message-text", strategy], text);
+    const args = ["message-text", strategy];
+
+    if (hwnd) {
+      args.push(hwnd);
+    }
+
+    await runHelperWithStdin(helperPath, args, text);
   }
 
   async focusWindow(hwnd: string): Promise<void> {
