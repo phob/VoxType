@@ -1,16 +1,24 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ArrowRight,
   Box,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  Clipboard,
   Code2,
-  Heart,
+  Download,
+  FileText,
   History,
   Home,
   Keyboard,
   Minus,
+  MoreVertical,
+  Play,
   Settings,
   ShieldCheck,
   Square,
+  Trash2,
   UserPlus,
   X,
   Zap,
@@ -63,6 +71,7 @@ type AppState = {
 };
 
 type ReleaseTab = "general" | "hotkeys" | "models" | "profiles" | "history";
+type ReleaseModelFilter = "all" | "installed" | "available";
 type ReleaseIconName =
   | "home"
   | "keyboard"
@@ -102,6 +111,25 @@ type HotkeyCaptureTarget =
   | "showWindowHotkey"
   | "recordingStartHotkey"
   | "recordingStopHotkey";
+
+type SelectOption<T extends string> = {
+  label: string;
+  meta?: string;
+  value: T;
+};
+
+const insertionModeOptions: Array<SelectOption<InsertionMode>> = [
+  { label: "Clipboard paste", value: "clipboard" },
+  { label: "Direct typing", value: "keyboard" },
+  { label: "Remote-safe typing", value: "chunked" },
+  { label: "Remote clipboard", value: "remoteClipboard" }
+];
+
+const writingStyleOptions: Array<SelectOption<AppProfile["writingStyle"]>> = [
+  { label: "Default", value: "default" },
+  { label: "Chat", value: "chat" },
+  { label: "Professional", value: "professional" }
+];
 
 const devTabs: Array<{ id: DevTab; label: string }> = [
   { id: "dictation", label: "Dictation" },
@@ -167,6 +195,7 @@ export function App(): JSX.Element {
   const [latestOcrContext, setLatestOcrContext] = useState<OcrPromptContext | null>(null);
   const [playingTranscriptId, setPlayingTranscriptId] = useState<string | null>(null);
   const [releaseTab, setReleaseTab] = useState<ReleaseTab>("general");
+  const [releaseModelFilter, setReleaseModelFilter] = useState<ReleaseModelFilter>("all");
   const [activeTab, setActiveTab] = useState<DevTab>("dictation");
   const [confirmingDeleteModelId, setConfirmingDeleteModelId] = useState<string | null>(null);
   const [capturingProfileHotkey, setCapturingProfileHotkey] = useState<string | null>(null);
@@ -186,6 +215,17 @@ export function App(): JSX.Element {
   const activeRuntimeLabel = state.runtime
     ? `${state.runtime.backend.toUpperCase()} · ${state.runtime.status}`
     : "Runtime not ready";
+  const releaseModels = state.models.filter((model) => {
+    if (releaseModelFilter === "installed") {
+      return model.status === "downloaded";
+    }
+
+    if (releaseModelFilter === "available") {
+      return model.status !== "downloaded";
+    }
+
+    return true;
+  });
 
   useEffect(() => {
     if (isOverlay) {
@@ -1168,17 +1208,29 @@ export function App(): JSX.Element {
               </button>
             ))}
           </nav>
-          <button
-            className="release-settings-link"
-            onClick={() => setReleaseTab("general")}
-            type="button"
-          >
-            <span className="release-nav-icon" aria-hidden="true">
-              <ReleaseIcon name="settings" />
-            </span>
-            <span>Settings</span>
-            <span className="release-settings-dot" aria-hidden="true" />
-          </button>
+          <div className="release-sidebar-bottom">
+            <button
+              className="release-settings-link"
+              onClick={() => setReleaseTab("general")}
+              type="button"
+            >
+              <span className="release-nav-icon" aria-hidden="true">
+                <ReleaseIcon name="settings" />
+              </span>
+              <span>Settings</span>
+            </button>
+            <aside className="sidebar-system-card" aria-label="System status">
+              <div className="sidebar-system-head">
+                <span className={recording ? "status-dot status-dot-recording" : "status-dot"} />
+                <strong>{recording ? "Listening" : appStatus}</strong>
+                <p>{error ? "Attention needed" : "All systems go"}</p>
+              </div>
+              <div className="sidebar-system-foot">
+                <span>VoxType {version}</span>
+                <strong>Stable</strong>
+              </div>
+            </aside>
+          </div>
         </aside>
 
         <div className="release-main">
@@ -1195,14 +1247,6 @@ export function App(): JSX.Element {
               <ReleaseIcon name="code" decorative />
               <span>Developer</span>
             </button>
-            <div className="release-wave" aria-hidden="true">
-              <span />
-              <span />
-              <span />
-            </div>
-            <div className="release-logo-orb" aria-hidden="true">
-              <img alt="" src={voxtypeLogoUrl} />
-            </div>
           </header>
 
           {error ? (
@@ -1211,55 +1255,40 @@ export function App(): JSX.Element {
               <span>{error}</span>
             </div>
           ) : null}
-
-          <section className="dictation-home release-status-card">
-            <div className="dictation-status">
-              <span className={recording ? "status-dot status-dot-recording" : "status-dot"} />
-              <div>
-                <strong>{appStatus}</strong>
-                <span>
-                  {recording
-                    ? "Listening from the global hotkey"
-                    : `Use ${state.settings.dictationToggleHotkey} from any app`}
-                </span>
-              </div>
+          {busyMessage ? (
+            <div className="release-toast" role="status">
+              <CheckCircle2 aria-hidden="true" className="release-icon-svg" />
+              <span>{busyMessage}</span>
             </div>
-
-            <dl className="home-summary">
-              <div>
-                <dt>Hotkey</dt>
-                <dd>{state.settings.dictationToggleHotkey}</dd>
-              </div>
-              <div>
-                <dt>Runtime</dt>
-                <dd>{activeRuntimeLabel}</dd>
-              </div>
-              <div>
-                <dt>Model</dt>
-                <dd>{activeModel?.name ?? state.settings.activeModelId}</dd>
-              </div>
-              <div>
-                <dt>GPU</dt>
-                <dd>{state.hardware?.bestGpu?.name ?? "CPU fallback"}</dd>
-              </div>
-            </dl>
-
-            <div className="system-card">
-              <div className="system-shield" aria-hidden="true">
-                <ReleaseIcon name="shield" decorative />
-              </div>
-              <strong>System</strong>
-              <span>All systems go</span>
-            </div>
-          </section>
+          ) : null}
 
           {releaseTab === "general" ? (
-            <div className="release-dashboard-grid">
+            <div className="release-home-stack">
+            <section className="release-panel release-summary-panel">
+              <dl className="home-summary">
+                <div>
+                  <dt>Hotkey</dt>
+                  <dd>{state.settings.dictationToggleHotkey}</dd>
+                </div>
+                <div>
+                  <dt>Runtime</dt>
+                  <dd>{activeRuntimeLabel}</dd>
+                </div>
+                <div>
+                  <dt>Model</dt>
+                  <dd>{activeModel?.name ?? state.settings.activeModelId}</dd>
+                </div>
+                <div>
+                  <dt>GPU</dt>
+                  <dd>{state.hardware?.bestGpu?.name ?? "CPU fallback"}</dd>
+                </div>
+              </dl>
+              <button className="test-hotkey-button" onClick={() => setCapturingHotkey("dictationToggleHotkey")} type="button">
+                <ReleaseIcon name="keyboard" decorative />
+                <span>{capturingHotkey === "dictationToggleHotkey" ? "Press keys" : "Test hotkey"}</span>
+              </button>
+            </section>
             <section className="release-panel settings-panel">
-              <div className="release-panel-title">
-                <ReleaseIcon name="settings" decorative />
-                <h2>General Settings</h2>
-              </div>
               <div className="settings-list">
                 <label className="setting-row">
                   <span>
@@ -1296,26 +1325,29 @@ export function App(): JSX.Element {
                 </label>
               </div>
             </section>
-            <section className="release-panel quick-actions-panel">
-              <div className="release-panel-title">
-                <ReleaseIcon name="bolt" decorative />
-                <h2>Quick Actions</h2>
+            <section className="release-panel recent-history-panel">
+              <div className="section-title-row">
+                <h2>Recent history</h2>
+                <button className="ghost-link-button" onClick={() => setReleaseTab("history")} type="button">
+                  <span>View all history</span>
+                  <ReleaseIcon name="arrowRight" decorative />
+                </button>
               </div>
-              <div className="quick-actions-list">
-                {([
-                  ["hotkeys", "Open Hotkeys", "keyboard"],
-                  ["models", "Manage Models", "box"],
-                  ["history", "View History", "history"],
-                  ["profiles", "Create Profile", "user"]
-                ] as Array<[ReleaseTab, string, ReleaseIconName]>).map(([tab, label, icon]) => (
-                  <button key={tab} onClick={() => setReleaseTab(tab)} type="button">
-                    <span className="quick-action-icon" aria-hidden="true">
-                      <ReleaseIcon name={icon} />
-                    </span>
-                    <span>{label}</span>
-                    <ReleaseIcon name="arrowRight" decorative />
-                  </button>
-                ))}
+              <div className="recent-history-list">
+                {state.history.length ? (
+                  state.history.slice(0, 2).map((entry) => (
+                    <article className="recent-history-row" key={entry.id}>
+                      <FileText aria-hidden="true" className="release-icon-svg" />
+                      <p>{entry.text}</p>
+                      <time>{formatRelativeTimestamp(entry.createdAt)}</time>
+                      <button aria-label="Transcript actions" type="button">
+                        <MoreVertical aria-hidden="true" className="release-icon-svg" />
+                      </button>
+                    </article>
+                  ))
+                ) : (
+                  <p className="empty-state">No transcriptions yet.</p>
+                )}
               </div>
             </section>
             </div>
@@ -1333,7 +1365,11 @@ export function App(): JSX.Element {
                     <strong>Dictation</strong>
                     <small>Starts and stops dictation from the active app.</small>
                   </span>
-                  <button onClick={() => setCapturingHotkey("dictationToggleHotkey")} type="button">
+                  <button
+                    className="release-command-button"
+                    onClick={() => setCapturingHotkey("dictationToggleHotkey")}
+                    type="button"
+                  >
                     {capturingHotkey === "dictationToggleHotkey"
                       ? "Press keys..."
                       : state.settings.dictationToggleHotkey}
@@ -1344,18 +1380,23 @@ export function App(): JSX.Element {
                     <strong>Show VoxType</strong>
                     <small>Brings the setup window back when you need it.</small>
                   </span>
-                  <button onClick={() => setCapturingHotkey("showWindowHotkey")} type="button">
+                  <button
+                    className="release-command-button"
+                    onClick={() => setCapturingHotkey("showWindowHotkey")}
+                    type="button"
+                  >
                     {capturingHotkey === "showWindowHotkey"
                       ? "Press keys..."
                       : state.settings.showWindowHotkey}
                   </button>
                 </label>
-                <div className="result-row">
-                  <code>registered</code>
-                  <span>
-                    dictation={state.hotkeys?.dictationToggleHotkey ?? "none"} show=
-                    {state.hotkeys?.showWindowHotkey ?? "none"}
-                  </span>
+                <div className="release-status-strip">
+                  <ReleaseStatusBadge tone={state.hotkeys?.dictationToggleHotkey ? "ready" : "disabled"}>
+                    Dictation {state.hotkeys?.dictationToggleHotkey ? "registered" : "not registered"}
+                  </ReleaseStatusBadge>
+                  <ReleaseStatusBadge tone={state.hotkeys?.showWindowHotkey ? "ready" : "disabled"}>
+                    Show window {state.hotkeys?.showWindowHotkey ? "registered" : "not registered"}
+                  </ReleaseStatusBadge>
                 </div>
               </div>
             </section>
@@ -1363,22 +1404,42 @@ export function App(): JSX.Element {
 
         {releaseTab === "models" ? (
           <section className="release-panel">
-            <div className="release-panel-title">
-              <ReleaseIcon name="box" decorative />
-              <h2>Models</h2>
+            <div className="release-panel-heading">
+              <div className="release-panel-title">
+                <ReleaseIcon name="box" decorative />
+                <h2>Models</h2>
+              </div>
+              <div className="release-segmented" role="group" aria-label="Model filter">
+                {(["all", "installed", "available"] as ReleaseModelFilter[]).map((filter) => (
+                  <button
+                    className={releaseModelFilter === filter ? "active" : ""}
+                    key={filter}
+                    onClick={() => setReleaseModelFilter(filter)}
+                    type="button"
+                  >
+                    {filter[0].toUpperCase() + filter.slice(1)}
+                  </button>
+                ))}
+              </div>
             </div>
             <div className="model-list">
-              {state.models.map((model) => (
+              {releaseModels.map((model) => (
                 <article className="model-row" key={model.id}>
                   <div>
                     <strong>{model.name}</strong>
-                    <span>
-                      {model.language} · {model.sizeLabel} · {gpuFitLabel(state.hardware, model.id)}
-                    </span>
+                    <div className="release-chip-row">
+                      <ReleaseChip>{model.language}</ReleaseChip>
+                      <ReleaseChip>{model.sizeLabel}</ReleaseChip>
+                      <ReleaseChip tone={model.status === "downloaded" ? "success" : "neutral"}>
+                        {model.status === "downloaded" ? "Installed" : "Available"}
+                      </ReleaseChip>
+                      <ReleaseChip tone="accent">{gpuFitLabel(state.hardware, model.id)}</ReleaseChip>
+                    </div>
                     <small>{model.description}</small>
                   </div>
                   <div className="model-actions">
                     <button
+                      className="release-secondary-button"
                       disabled={state.settings.activeModelId === model.id}
                       onClick={() => void updateSettings({ activeModelId: model.id })}
                       type="button"
@@ -1386,23 +1447,34 @@ export function App(): JSX.Element {
                       {state.settings.activeModelId === model.id ? "Active" : "Use"}
                     </button>
                     <button
+                      className="release-primary-button"
                       disabled={model.status === "downloaded" || Boolean(busyMessage)}
                       onClick={() => void downloadModel(model.id)}
                       type="button"
                     >
+                      {model.status !== "downloaded" ? (
+                        <Download aria-hidden="true" className="release-icon-svg" />
+                      ) : null}
                       {model.status === "downloaded" ? "Installed" : "Download"}
                     </button>
                     <button
-                      className={confirmingDeleteModelId === model.id ? "danger-button" : ""}
+                      className={
+                        confirmingDeleteModelId === model.id
+                          ? "release-destructive-button"
+                          : "release-icon-button"
+                      }
                       disabled={model.status !== "downloaded" || Boolean(busyMessage)}
+                      aria-label={confirmingDeleteModelId === model.id ? `Confirm delete ${model.name}` : `Delete ${model.name}`}
+                      data-tooltip={confirmingDeleteModelId === model.id ? "Confirm delete" : "Delete model"}
                       onClick={() => void deleteModel(model.id)}
                       type="button"
                     >
-                      {confirmingDeleteModelId === model.id ? "Confirm" : "Delete"}
+                      {confirmingDeleteModelId === model.id ? "Confirm" : <Trash2 aria-hidden="true" className="release-icon-svg" />}
                     </button>
                   </div>
                 </article>
               ))}
+              {!releaseModels.length ? <p className="empty-state">No models match this filter.</p> : null}
             </div>
           </section>
         ) : null}
@@ -1411,7 +1483,13 @@ export function App(): JSX.Element {
           <section className="release-panel">
             <div className="section-title-row">
               <h2>App Profiles</h2>
-              <button disabled={Boolean(busyMessage)} onClick={() => void addCurrentAppProfile()} type="button">
+              <button
+                className="release-primary-button"
+                disabled={Boolean(busyMessage)}
+                onClick={() => void addCurrentAppProfile()}
+                type="button"
+              >
+                <UserPlus aria-hidden="true" className="release-icon-svg" />
                 Add Current App
               </button>
             </div>
@@ -1423,40 +1501,36 @@ export function App(): JSX.Element {
                       <strong>{profile.displayName}</strong>
                       <span>{profile.processName}</span>
                     </div>
-                    <label className="profile-control">
+                    <div className="profile-control">
                       <span>Insert with</span>
-                      <select
+                      <ReleaseSelect
+                        ariaLabel={`Insertion mode for ${profile.displayName}`}
+                        options={insertionModeOptions}
                         value={profile.insertionMode}
-                        onChange={(event) =>
+                        onChange={(value) =>
                           void updateAppProfile(profile, {
-                            insertionMode: event.target.value as InsertionMode
+                            insertionMode: value
                           })
                         }
-                      >
-                        <option value="clipboard">Clipboard paste</option>
-                        <option value="keyboard">Direct typing</option>
-                        <option value="chunked">Remote-safe typing</option>
-                        <option value="remoteClipboard">Remote clipboard</option>
-                      </select>
-                    </label>
-                    <label className="profile-control">
+                      />
+                    </div>
+                    <div className="profile-control">
                       <span>Writing style</span>
-                      <select
+                      <ReleaseSelect
+                        ariaLabel={`Writing style for ${profile.displayName}`}
+                        options={writingStyleOptions}
                         value={profile.writingStyle}
-                        onChange={(event) =>
+                        onChange={(value) =>
                           void updateAppProfile(profile, {
-                            writingStyle: event.target.value as AppProfile["writingStyle"]
+                            writingStyle: value
                           })
                         }
-                      >
-                        <option value="default">Default</option>
-                        <option value="chat">Chat</option>
-                        <option value="professional">Professional</option>
-                      </select>
-                    </label>
+                      />
+                    </div>
                     <label className="profile-control">
                       <span>Send after insert</span>
                       <button
+                        className="release-command-button"
                         onClick={() => setCapturingProfileHotkey(profile.processName)}
                         onContextMenu={(event) => {
                           event.preventDefault();
@@ -1483,7 +1557,12 @@ export function App(): JSX.Element {
           <section className="release-panel">
             <div className="section-title-row">
               <h2>Latest Transcriptions</h2>
-              <button disabled={state.history.length === 0} onClick={() => void cleanupHistory()} type="button">
+              <button
+                className="release-secondary-button"
+                disabled={state.history.length === 0}
+                onClick={() => void cleanupHistory()}
+                type="button"
+              >
                 Cleanup
               </button>
             </div>
@@ -1500,18 +1579,33 @@ export function App(): JSX.Element {
                       </small>
                     </div>
                     <div className="history-actions">
-                      <button onClick={() => void copyTranscript(entry)} type="button">
-                        Copy
-                      </button>
-                      <button onClick={() => void insertTranscript(entry)} type="button">
-                        Insert
+                      <button
+                        aria-label="Copy transcript"
+                        className="release-icon-button"
+                        data-tooltip="Copy"
+                        onClick={() => void copyTranscript(entry)}
+                        type="button"
+                      >
+                        <Clipboard aria-hidden="true" className="release-icon-svg" />
                       </button>
                       <button
+                        aria-label="Insert transcript"
+                        className="release-icon-button"
+                        data-tooltip="Insert"
+                        onClick={() => void insertTranscript(entry)}
+                        type="button"
+                      >
+                        <ArrowRight aria-hidden="true" className="release-icon-svg" />
+                      </button>
+                      <button
+                        aria-label={playingTranscriptId === entry.id ? "Stop audio" : "Play audio"}
+                        className="release-icon-button"
+                        data-tooltip={playingTranscriptId === entry.id ? "Stop audio" : "Play audio"}
                         disabled={!entry.audioFileName}
                         onClick={() => void playTranscriptAudio(entry)}
                         type="button"
                       >
-                        {playingTranscriptId === entry.id ? "Stop" : "Play"}
+                        <Play aria-hidden="true" className="release-icon-svg" />
                       </button>
                     </div>
                   </article>
@@ -1524,13 +1618,6 @@ export function App(): JSX.Element {
         ) : null}
 
         </div>
-        <footer className="release-footer">
-          <span>VoxType {version}</span>
-          <strong>Stable</strong>
-          <span className="release-footer-love">
-            Made with <Heart aria-hidden="true" className="release-icon-svg" /> for privacy-first productivity
-          </span>
-        </footer>
       </main>
     );
   }
@@ -2738,6 +2825,88 @@ function ReleaseIcon({
   );
 }
 
+function ReleaseSelect<T extends string>({
+  ariaLabel,
+  onChange,
+  options,
+  value
+}: {
+  ariaLabel: string;
+  onChange: (value: T) => void;
+  options: Array<SelectOption<T>>;
+  value: T;
+}): JSX.Element {
+  const [open, setOpen] = useState(false);
+  const selectedOption = options.find((option) => option.value === value) ?? options[0];
+
+  return (
+    <div className="release-select" onBlur={() => setOpen(false)}>
+      <button
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        aria-label={ariaLabel}
+        className={open ? "release-select-trigger open" : "release-select-trigger"}
+        onClick={() => setOpen((current) => !current)}
+        type="button"
+      >
+        <span>{selectedOption?.label ?? value}</span>
+        <ChevronDown aria-hidden="true" className="release-icon-svg" />
+      </button>
+      {open ? (
+        <div className="release-select-menu" role="listbox">
+          {options.map((option) => {
+            const selected = option.value === value;
+
+            return (
+              <button
+                aria-selected={selected}
+                className={selected ? "selected" : ""}
+                key={option.value}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  onChange(option.value);
+                  setOpen(false);
+                }}
+                role="option"
+                type="button"
+              >
+                <span>{option.label}</span>
+                {option.meta ? <small>{option.meta}</small> : null}
+                {selected ? <Check aria-hidden="true" className="release-icon-svg" /> : null}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function ReleaseChip({
+  children,
+  tone = "neutral"
+}: {
+  children: ReactNode;
+  tone?: "accent" | "neutral" | "success" | "warning";
+}): JSX.Element {
+  return <span className={`release-chip release-chip-${tone}`}>{children}</span>;
+}
+
+function ReleaseStatusBadge({
+  children,
+  tone
+}: {
+  children: ReactNode;
+  tone: "disabled" | "error" | "processing" | "ready";
+}): JSX.Element {
+  return (
+    <span className={`release-status-badge release-status-badge-${tone}`}>
+      <span aria-hidden="true" />
+      {children}
+    </span>
+  );
+}
+
 function formatTimestamp(value: string | null | undefined): string {
   if (!value) {
     return "none";
@@ -2750,6 +2919,33 @@ function formatTimestamp(value: string | null | undefined): string {
   }
 
   return date.toLocaleString();
+}
+
+function formatRelativeTimestamp(value: string | null | undefined): string {
+  if (!value) {
+    return "";
+  }
+
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return value;
+  }
+
+  const now = new Date();
+  const sameDay = date.toDateString() === now.toDateString();
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+
+  if (sameDay) {
+    return `Today, ${date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+  }
+
+  if (date.toDateString() === yesterday.toDateString()) {
+    return `Yesterday, ${date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}`;
+  }
+
+  return date.toLocaleDateString([], { month: "short", day: "numeric" });
 }
 
 function formatBytes(value: number | null | undefined): string {

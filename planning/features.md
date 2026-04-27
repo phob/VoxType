@@ -55,6 +55,8 @@ UI principles:
 
 - Do not show a record button in the main app. VoxType recording is driven from outside the app through global hotkeys and target-app workflows.
 - Do not expose advanced implementation settings in the default UI. Keep dense settings, diagnostics, raw OCR, runtime paths, prompt previews, and low-level tuning behind developer mode.
+- Use the release component-system language for the default UI: compact cyan-accent buttons, icon buttons, inputs, chips, toggles, tabs, segmented controls, status badges, toast/tooltip styling, and card surfaces. The main user status summary stays in the lower-left sidebar rather than inside the primary status card.
+- Keep release UI primitives reusable across pages: dropdowns should use the custom release select when the native menu cannot match the design language; icon buttons should expose tooltips; model/status metadata should use chips and badges rather than ad hoc inline text.
 - Prefer safe, high-quality defaults. When a setting has an automatic fallback path, default to the strongest/highest-quality practical setting and let the app fall back internally when needed.
 - Enable VAD by default because silence trimming is part of the expected dictation quality path.
 - Use `exclusiveCapturePreferred` as the default recording coordination mode when exposing capture type, so VoxType tries exclusive microphone capture but can fall back clearly when Windows or the device does not allow it.

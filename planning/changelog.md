@@ -27,6 +27,8 @@
 - Added a release History tab direction for the 10 latest transcriptions with saved audio playback and cleanup of older entries.
 - Promoted Profiles to a release UI tab and clarified which remaining dev surfaces should eventually become user-facing.
 - Added per-profile post-transcription hotkeys for app-specific submit/send behavior after inserted dictation.
+- Updated the release UI direction to use the cyan component-system language and place the friendly system status summary in the lower-left sidebar.
+- Applied the release component-system language across Hotkeys, Models, Profiles, and History with reusable dropdowns, chips, status badges, icon buttons, toast, tooltip, and segmented-control patterns.
 
 ## 2026-04-26
 
