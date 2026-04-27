@@ -13,6 +13,7 @@
 - Added Windows Messaging as a planned insertion strategy, including `EM_REPLACESEL`, `WM_SETTEXT`, and TeamViewer-focused `WM_CHAR`/`WM_UNICHAR` experiments.
 - Implemented `windowsMessaging` as a selectable insertion mode with native helper `message-text` strategies for focused controls and remote-control character messages.
 - Added `remoteClipboard` insertion for TeamViewer/RDP-style targets with clipboard synchronization delay before paste and delayed clipboard restoration after paste.
+- Added a developer settings control for `remoteClipboardPasteDelayMs` to tune remote clipboard synchronization timing.
 
 ## 2026-04-26
 

@@ -5,7 +5,6 @@ import { WindowsHelperService } from "./windows-helper-service";
 
 const FOCUS_SETTLE_DELAY_MS = 120;
 const CLIPBOARD_RESTORE_DELAY_MS = 250;
-const REMOTE_CLIPBOARD_PASTE_DELAY_MS = 450;
 const REMOTE_CLIPBOARD_RESTORE_DELAY_MS = 1500;
 
 type InsertOptions = {
@@ -70,7 +69,7 @@ export class InsertionService {
 
     if (mode === "remoteClipboard") {
       await this.pasteWithClipboardRestore(text, settings.restoreClipboard, {
-        pasteDelayMs: REMOTE_CLIPBOARD_PASTE_DELAY_MS,
+        pasteDelayMs: settings.remoteClipboardPasteDelayMs,
         restoreDelayMs: REMOTE_CLIPBOARD_RESTORE_DELAY_MS
       });
       return;

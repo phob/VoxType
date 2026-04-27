@@ -55,7 +55,8 @@ Initial implementation:
 - VoxType exposes `remoteClipboard` as an insertion mode.
 - TeamViewer, AnyDesk, and Remote Desktop profiles default to `remoteClipboard`.
 - The native helper accepts `paste-text <delay-ms>` so paste can happen after a clipboard-settle delay.
-- VoxType currently uses a 450 ms pre-paste delay and a 1500 ms post-paste restore delay for remote clipboard insertion.
+- VoxType exposes `remoteClipboardPasteDelayMs` in the developer settings tab so TeamViewer/RDP clipboard synchronization can be tuned per machine.
+- VoxType defaults to a 450 ms pre-paste delay and uses a 1500 ms post-paste restore delay for remote clipboard insertion.
 
 Reason:
 

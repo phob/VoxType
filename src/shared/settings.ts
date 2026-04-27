@@ -61,6 +61,7 @@ export type AppSettings = {
   vadPreSpeechPadMs: number;
   vadRedemptionMs: number;
   vadPreservedPauseMs: number;
+  remoteClipboardPasteDelayMs: number;
   remoteTypingDelayMs: number;
   remoteTypingChunkSize: number;
   appProfiles: AppProfile[];
@@ -199,6 +200,11 @@ export function sanitizeSettings(
       Number.isFinite(input.vadPreservedPauseMs)
         ? clamp(Math.round(input.vadPreservedPauseMs), 0, 2000)
         : defaults.vadPreservedPauseMs,
+    remoteClipboardPasteDelayMs:
+      typeof input.remoteClipboardPasteDelayMs === "number" &&
+      Number.isFinite(input.remoteClipboardPasteDelayMs)
+        ? clamp(Math.round(input.remoteClipboardPasteDelayMs), 0, 5000)
+        : defaults.remoteClipboardPasteDelayMs,
     remoteTypingDelayMs:
       typeof input.remoteTypingDelayMs === "number" &&
       Number.isFinite(input.remoteTypingDelayMs)

@@ -1865,6 +1865,21 @@ export function App(): JSX.Element {
                 </select>
               </label>
               <label className="dev-field">
+                <span>remoteClipboardPasteDelayMs</span>
+                <input
+                  min={0}
+                  max={5000}
+                  step={50}
+                  type="number"
+                  value={state.settings.remoteClipboardPasteDelayMs}
+                  onChange={(event) =>
+                    void updateSettings({
+                      remoteClipboardPasteDelayMs: Number(event.target.value)
+                    })
+                  }
+                />
+              </label>
+              <label className="dev-field">
                 <span>recordingCoordinationMode</span>
                 <select
                   value={state.settings.recordingCoordinationMode}
