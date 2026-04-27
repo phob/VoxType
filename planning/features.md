@@ -18,6 +18,7 @@
 - Automatic silence trimming.
 - Recording coordination for apps that also use the microphone.
 - Clipboard paste insertion.
+- Remote clipboard paste insertion with a TeamViewer/RDP synchronization delay.
 - Direct keyboard typing insertion.
 - Chunked remote-safe typing.
 - Windows Messaging insertion for compatible fields and TeamViewer-like targets where clipboard and keyboard simulation are unsafe.

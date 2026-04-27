@@ -38,6 +38,30 @@ Focus behavior:
 - Target-window insertion should not change the window's maximized state.
 - The native helper should only call `SW_RESTORE` when a captured target window is minimized.
 
+### Remote Clipboard Paste
+
+Clipboard paste with timing tuned for remote-control tools.
+
+Flow:
+
+1. Save current clipboard if configured.
+2. Set clipboard to transcript.
+3. Wait briefly so TeamViewer/RDP/AnyDesk can synchronize the new clipboard content.
+4. Send paste hotkey.
+5. Wait longer before restoring the prior clipboard so the remote paste does not race clipboard restoration.
+
+Initial implementation:
+
+- VoxType exposes `remoteClipboard` as an insertion mode.
+- TeamViewer, AnyDesk, and Remote Desktop profiles default to `remoteClipboard`.
+- The native helper accepts `paste-text <delay-ms>` so paste can happen after a clipboard-settle delay.
+- VoxType currently uses a 450 ms pre-paste delay and a 1500 ms post-paste restore delay for remote clipboard insertion.
+
+Reason:
+
+- Windows Messaging did not work reliably for TeamViewer remote text transfer.
+- Plain clipboard paste can paste stale remote clipboard content when `Ctrl+V` is sent before TeamViewer has synchronized the local clipboard update.
+
 ### Keyboard Emulation
 
 Use Windows keyboard injection, likely through `SendInput`.
@@ -103,7 +127,7 @@ Initial implementation:
 - VoxType exposes `windowsMessaging` as an insertion mode in global settings, app profiles, and the insertion test panel.
 - The native helper exposes `message-text focused-control`, which sends `EM_REPLACESEL` to the focused control.
 - The native helper exposes `message-text character-messages`, which posts `WM_CHAR` messages to the focused foreground target.
-- TeamViewer, AnyDesk, and Remote Desktop profiles default to `windowsMessaging`; VoxType uses character messages for these remote-control targets and focused-control replacement for other targets.
+- Windows Messaging remains experimental. TeamViewer, AnyDesk, and Remote Desktop now default to `remoteClipboard`; VoxType still uses character messages for these remote-control targets when `windowsMessaging` is selected manually.
 
 Likely implementation paths:
 

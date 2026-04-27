@@ -1119,6 +1119,7 @@ export function App(): JSX.Element {
                       }
                     >
                       <option value="clipboard">clipboard</option>
+                      <option value="remoteClipboard">remoteClipboard</option>
                       <option value="keyboard">keyboard</option>
                       <option value="chunked">chunked</option>
                       <option value="windowsMessaging">windowsMessaging</option>
@@ -1497,6 +1498,9 @@ export function App(): JSX.Element {
                 <button disabled={!insertionTarget || Boolean(busyMessage)} onClick={() => void runInsertionTest("clipboard")} type="button">
                   TestClipboard
                 </button>
+                <button disabled={!insertionTarget || Boolean(busyMessage)} onClick={() => void runInsertionTest("remoteClipboard")} type="button">
+                  TestRemoteClipboard
+                </button>
                 <button disabled={!insertionTarget || Boolean(busyMessage)} onClick={() => void runInsertionTest("keyboard")} type="button">
                   TestKeyboard
                 </button>
@@ -1550,6 +1554,7 @@ export function App(): JSX.Element {
                           }
                         >
                           <option value="clipboard">clipboard</option>
+                          <option value="remoteClipboard">remoteClipboard</option>
                           <option value="keyboard">keyboard</option>
                           <option value="chunked">chunked</option>
                           <option value="windowsMessaging">windowsMessaging</option>
@@ -1838,6 +1843,7 @@ export function App(): JSX.Element {
                   }
                 >
                   <option value="clipboard">clipboard</option>
+                  <option value="remoteClipboard">remoteClipboard</option>
                   <option value="keyboard">keyboard</option>
                   <option value="chunked">chunked</option>
                   <option value="windowsMessaging">windowsMessaging</option>
@@ -2136,6 +2142,10 @@ function pngBytesToDataUrl(bytes: Uint8Array): string {
 function insertionModeLabel(mode: InsertionMode): string {
   if (mode === "clipboard") {
     return "clipboard paste";
+  }
+
+  if (mode === "remoteClipboard") {
+    return "remote clipboard paste";
   }
 
   if (mode === "keyboard") {

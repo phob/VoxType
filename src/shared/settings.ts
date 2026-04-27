@@ -1,4 +1,10 @@
-export const insertionModes = ["clipboard", "keyboard", "chunked", "windowsMessaging"] as const;
+export const insertionModes = [
+  "clipboard",
+  "remoteClipboard",
+  "keyboard",
+  "chunked",
+  "windowsMessaging"
+] as const;
 export const writingStyles = ["default", "chat", "professional"] as const;
 export const recordingCoordinationModes = ["none", "muteCaptureSession", "sendHotkey"] as const;
 export const recorderCaptureModes = [
@@ -267,7 +273,7 @@ function sanitizeAppProfiles(value: unknown): AppProfile[] {
           : displayNameFromProcess(processName),
       processName,
       processPath: typeof item.processPath === "string" ? item.processPath : null,
-      insertionMode: isInsertionMode(item.insertionMode) ? item.insertionMode : "clipboard",
+      insertionMode: sanitizeProfileInsertionMode(processName, item.insertionMode),
       writingStyle: isWritingStyle(item.writingStyle) ? item.writingStyle : "default",
       recordingCoordinationMode: isRecordingCoordinationMode(item.recordingCoordinationMode)
         ? item.recordingCoordinationMode
@@ -310,7 +316,7 @@ function getProfileDefaults(processName: string): {
   if (["mstsc.exe", "teamviewer.exe", "anydesk.exe"].includes(processName)) {
     return {
       displayName: remoteDisplayName(processName),
-      insertionMode: "windowsMessaging",
+      insertionMode: "remoteClipboard",
       writingStyle: "default",
       recordingCoordinationMode: "none"
     };
@@ -383,6 +389,24 @@ function remoteDisplayName(processName: string): string {
   };
 
   return names[processName] ?? displayNameFromProcess(processName);
+}
+
+function sanitizeProfileInsertionMode(
+  processName: string,
+  insertionMode: unknown
+): InsertionMode {
+  if (!isInsertionMode(insertionMode)) {
+    return "clipboard";
+  }
+
+  if (
+    insertionMode === "windowsMessaging" &&
+    ["mstsc.exe", "teamviewer.exe", "anydesk.exe"].includes(processName)
+  ) {
+    return "remoteClipboard";
+  }
+
+  return insertionMode;
 }
 
 function terminalDisplayName(processName: string): string {

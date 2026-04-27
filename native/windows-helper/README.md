@@ -27,6 +27,7 @@ Paste text into the foreground app:
 
 ```powershell
 "hello from VoxType" | cargo run --manifest-path native/windows-helper/Cargo.toml -- paste-text
+"delayed remote paste" | cargo run --manifest-path native/windows-helper/Cargo.toml -- paste-text 450
 ```
 
 Type Unicode text into the foreground app without depending on the active Windows keyboard layout:

@@ -5,6 +5,8 @@ import { WindowsHelperService } from "./windows-helper-service";
 
 const FOCUS_SETTLE_DELAY_MS = 120;
 const CLIPBOARD_RESTORE_DELAY_MS = 250;
+const REMOTE_CLIPBOARD_PASTE_DELAY_MS = 450;
+const REMOTE_CLIPBOARD_RESTORE_DELAY_MS = 1500;
 
 type InsertOptions = {
   mode?: InsertionMode;
@@ -59,7 +61,18 @@ export class InsertionService {
     const mode = options?.mode ?? profile?.insertionMode ?? settings.insertionMode;
 
     if (mode === "clipboard") {
-      await this.pasteWithClipboardRestore(text, settings.restoreClipboard);
+      await this.pasteWithClipboardRestore(text, settings.restoreClipboard, {
+        pasteDelayMs: 0,
+        restoreDelayMs: CLIPBOARD_RESTORE_DELAY_MS
+      });
+      return;
+    }
+
+    if (mode === "remoteClipboard") {
+      await this.pasteWithClipboardRestore(text, settings.restoreClipboard, {
+        pasteDelayMs: REMOTE_CLIPBOARD_PASTE_DELAY_MS,
+        restoreDelayMs: REMOTE_CLIPBOARD_RESTORE_DELAY_MS
+      });
       return;
     }
 
@@ -85,18 +98,22 @@ export class InsertionService {
 
   private async pasteWithClipboardRestore(
     text: string,
-    restoreClipboard: boolean
+    restoreClipboard: boolean,
+    options: {
+      pasteDelayMs: number;
+      restoreDelayMs: number;
+    }
   ): Promise<void> {
     const snapshot = restoreClipboard ? captureClipboard() : null;
     let pasteError: unknown = null;
 
     try {
-      await this.windowsHelperService.pasteText(text);
+      await this.windowsHelperService.pasteText(text, options.pasteDelayMs);
     } catch (error) {
       pasteError = error;
     } finally {
       if (snapshot) {
-        await wait(CLIPBOARD_RESTORE_DELAY_MS);
+        await wait(options.restoreDelayMs);
         restoreClipboardSnapshot(snapshot);
       }
     }

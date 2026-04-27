@@ -238,11 +238,20 @@ fn focus_window_from_arg() -> Result<(), String> {
 
 #[cfg(windows)]
 fn paste_text_from_stdin() -> Result<(), String> {
+    let delay_ms = env::args()
+        .nth(2)
+        .map(|value| {
+            value
+                .parse::<u64>()
+                .map_err(|error| format!("Invalid delay-ms '{value}': {error}"))
+        })
+        .transpose()?
+        .unwrap_or(0);
     let mut text = String::new();
     io::stdin()
         .read_to_string(&mut text)
         .map_err(|error| error.to_string())?;
-    windows_impl::paste_text(&text)
+    windows_impl::paste_text(&text, delay_ms)
 }
 
 #[cfg(not(windows))]
@@ -520,8 +529,11 @@ mod windows_impl {
         })
     }
 
-    pub fn paste_text(text: &str) -> Result<(), String> {
+    pub fn paste_text(text: &str, delay_ms: u64) -> Result<(), String> {
         set_clipboard_text(text)?;
+        if delay_ms > 0 {
+            thread::sleep(Duration::from_millis(delay_ms));
+        }
         send_ctrl_v()
     }
 

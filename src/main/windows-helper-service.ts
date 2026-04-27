@@ -58,7 +58,7 @@ export class WindowsHelperService {
     return parsed;
   }
 
-  async pasteText(text: string): Promise<void> {
+  async pasteText(text: string, pasteDelayMs = 0): Promise<void> {
     const helperPath = await this.resolveHelperPath();
 
     if (!helperPath) {
@@ -67,7 +67,7 @@ export class WindowsHelperService {
       );
     }
 
-    await runHelperWithStdin(helperPath, ["paste-text"], text);
+    await runHelperWithStdin(helperPath, ["paste-text", String(pasteDelayMs)], text);
   }
 
   async typeText(text: string, delayMs: number): Promise<void> {
