@@ -372,6 +372,28 @@ export function App(): JSX.Element {
     }
   }
 
+  async function setupFirstRunCuda(): Promise<void> {
+    setError(null);
+    setBusyMessage("Setting up CUDA runtime...");
+
+    try {
+      const result = await window.voxtype.runtime.setupFirstRunCuda();
+      const runtimes = await window.voxtype.runtime.listWhisper();
+      setState((current) => ({
+        ...current,
+        runtime: result.runtime,
+        runtimes,
+        settings: result.settings,
+        hardware: result.hardware
+      }));
+      setInsertionTestResult(result.message);
+    } catch (runtimeError) {
+      setError(formatError(runtimeError));
+    } finally {
+      setBusyMessage(null);
+    }
+  }
+
   async function refreshHardware(): Promise<void> {
     setError(null);
 
@@ -1371,6 +1393,17 @@ export function App(): JSX.Element {
               <div className="button-row">
                 <button onClick={() => void refreshHardware()} type="button">
                   Detect
+                </button>
+                <button
+                  disabled={
+                    Boolean(busyMessage) ||
+                    state.hardware?.recommendedBackend !== "cuda" ||
+                    (state.runtime?.backend === "cuda" && state.runtime.status === "installed")
+                  }
+                  onClick={() => void setupFirstRunCuda()}
+                  type="button"
+                >
+                  SetupCuda
                 </button>
               </div>
               {state.settings ? (

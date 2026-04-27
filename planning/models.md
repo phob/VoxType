@@ -57,6 +57,7 @@ Local validation:
 
 - On 2026-04-26, the detection path successfully identified the user's GPU as capable of hardware acceleration. This confirms the Phase 5 GPU path can proceed to managed GPU runtime acquisition and automatic runtime selection.
 - On 2026-04-27, CUDA was integrated through official `whisper.cpp` v1.8.4 CUDA 12.4 and 11.8 release archives. Vulkan was integrated as a selectable/custom executable backend pending a VoxType-owned or upstream Windows Vulkan binary.
+- On 2026-04-27, a first-run CUDA setup action was added to detect a suitable NVIDIA GPU, choose CUDA 12.4 or CUDA 11.8 from the driver version, install the managed runtime, and leave backend selection on `auto`.
 
 Initial model options:
 

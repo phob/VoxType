@@ -148,7 +148,7 @@ Features:
 
 - GPU acceleration as the first Phase 5 priority. Initial implementation adds automatic GPU/VRAM detection, per-model fit checks, CPU/CUDA managed runtime downloads, backend preference selection, and Vulkan custom-runtime support.
 - Release-ready UI separation: the dense current interface is now treated as a developer UI behind a developer/debug switch, while the default app surface should become a simple end-user dictation home.
-- First-run NVIDIA setup: when a capable NVIDIA GPU is detected, VoxType should automatically download/select the appropriate managed CUDA `whisper.cpp` runtime so end users do not need to choose CUDA 12.4 vs 11.8 manually.
+- First-run NVIDIA setup: the developer UI now has a CUDA setup action that detects a capable NVIDIA GPU, chooses CUDA 12.4 or CUDA 11.8 from the driver version, installs the managed `whisper.cpp` runtime, and keeps backend selection on `auto`.
 - Dictation modes.
 - Confidence review.
 - Local formatting engine.

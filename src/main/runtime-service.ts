@@ -97,6 +97,16 @@ export class RuntimeService {
     return installedRuntime;
   }
 
+  async getFirstRunCudaRuntimeTarget(): Promise<WhisperRuntimeCatalogItem | null> {
+    const hardware = await this.hardwareService.getAccelerationReport();
+
+    if (hardware.recommendedBackend !== "cuda") {
+      return null;
+    }
+
+    return this.getCudaRuntimeForDriver(hardware.bestGpu?.driverVersion);
+  }
+
   async getExecutablePath(options: {
     allowInstall: boolean;
     preference: WhisperRuntimePreference;
@@ -119,6 +129,16 @@ export class RuntimeService {
   ): Promise<WhisperRuntimeCatalogItem | null> {
     const runtime = await this.getPreferredRuntime(preference);
     return getRuntimeById(runtime.id) ?? null;
+  }
+
+  private getCudaRuntimeForDriver(driverVersion?: string): WhisperRuntimeCatalogItem | null {
+    const majorDriverVersion = parseDriverMajorVersion(driverVersion);
+    const preferredRuntimeId =
+      majorDriverVersion !== null && majorDriverVersion < 551
+        ? "whisper.cpp-cuda-11.8-x64"
+        : "whisper.cpp-cuda-12.4-x64";
+
+    return getRuntimeById(preferredRuntimeId) ?? null;
   }
 
   private async selectRuntime(
@@ -249,4 +269,14 @@ async function findFile(directory: string, fileName: string): Promise<string | n
   }
 
   return null;
+}
+
+function parseDriverMajorVersion(driverVersion?: string): number | null {
+  if (!driverVersion) {
+    return null;
+  }
+
+  const [major] = driverVersion.split(".");
+  const parsed = Number.parseInt(major, 10);
+  return Number.isFinite(parsed) ? parsed : null;
 }

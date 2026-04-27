@@ -7,6 +7,7 @@
 - Clarified that custom `whisperExecutablePath` remains the highest-priority override above managed runtime selection.
 - Moved the dense current interface behind a developer mode switch and added a simpler default dictation home for release-readiness.
 - Added first-run NVIDIA CUDA auto-install as the next release-readiness direction.
+- Implemented first-run CUDA setup in the developer runtime UI, including NVIDIA detection, CUDA 12.4/11.8 runtime selection, managed install, and `auto` backend selection.
 - Added an always-on-top recording/transcribing overlay with live input level updates from the native recorder.
 - Clarified that the developer dictionary panel supports editing entries by clicking them.
 - Added TeamViewer insertion limitations and a future remote companion receiver option for cases where clipboard and keyboard forwarding are both unsafe.

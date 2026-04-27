@@ -355,6 +355,30 @@ ipcMain.handle("runtime:list-whisper", () => runtimeService.listWhisperRuntimes(
 ipcMain.handle("runtime:install-whisper", (_event, runtimeId?: string) =>
   runtimeService.installWhisperRuntime(runtimeId)
 );
+ipcMain.handle("runtime:setup-first-run-cuda", async () => {
+  const target = await runtimeService.getFirstRunCudaRuntimeTarget();
+
+  if (!target) {
+    return {
+      runtime: await runtimeService.getPreferredRuntime("auto"),
+      settings: await settingsStore.get(),
+      hardware: await hardwareService.getAccelerationReport(),
+      installed: false,
+      message: "No suitable NVIDIA CUDA runtime was detected. CPU remains the fallback."
+    };
+  }
+
+  const runtime = await runtimeService.installWhisperRuntime(target.id);
+  const settings = await settingsStore.update({ whisperRuntimeBackend: "auto" });
+
+  return {
+    runtime,
+    settings,
+    hardware: await hardwareService.getAccelerationReport(),
+    installed: true,
+    message: `Installed ${runtime.name}.`
+  };
+});
 ipcMain.handle("hardware:get-acceleration-report", () =>
   hardwareService.getAccelerationReport()
 );

@@ -49,7 +49,15 @@ const voxtype = {
     installWhisper: () =>
       ipcRenderer.invoke("runtime:install-whisper") as Promise<WhisperRuntime>,
     installWhisperRuntime: (runtimeId: string) =>
-      ipcRenderer.invoke("runtime:install-whisper", runtimeId) as Promise<WhisperRuntime>
+      ipcRenderer.invoke("runtime:install-whisper", runtimeId) as Promise<WhisperRuntime>,
+    setupFirstRunCuda: () =>
+      ipcRenderer.invoke("runtime:setup-first-run-cuda") as Promise<{
+        runtime: WhisperRuntime;
+        settings: AppSettings;
+        hardware: HardwareAccelerationReport;
+        installed: boolean;
+        message: string;
+      }>
   },
   hardware: {
     getAccelerationReport: () =>
