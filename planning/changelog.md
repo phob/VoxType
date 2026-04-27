@@ -15,6 +15,8 @@
 - Added `remoteClipboard` insertion for TeamViewer/RDP-style targets with clipboard synchronization delay before paste and delayed clipboard restoration after paste.
 - Added a developer settings control for `remoteClipboardPasteDelayMs` to tune remote clipboard synchronization timing.
 - Moved paste insertion clipboard writes from the native helper to Electron so TeamViewer sees the same clipboard update path as manual copy.
+- Added TeamViewer toolbar clipboard actions as the next remote insertion direction: one-time Send Clipboard and Paste clipboard as keystrokes.
+- Parked TeamViewer toolbar automation and Windows Messaging for remote dictation; `remoteClipboard` remains the default for TeamViewer, AnyDesk, and Remote Desktop.
 
 ## 2026-04-26
 

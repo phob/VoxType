@@ -66,6 +66,22 @@ Reason:
 - Electron clipboard writes match the working copy-to-clipboard path better than the helper's previous raw Win32 clipboard writer.
 - Plain clipboard paste can paste stale remote clipboard content when `Ctrl+V` is sent before TeamViewer has synchronized the local clipboard update.
 
+### TeamViewer Clipboard Actions
+
+TeamViewer exposes local session toolbar actions that transfer clipboard text without relying on ordinary automatic clipboard sync timing.
+
+Relevant TeamViewer actions:
+
+- `Send Clipboard` / one-time send to remote: transfers the current controller clipboard to the remote device clipboard once.
+- `Paste clipboard as keystrokes`: TeamViewer reads the local clipboard and types it on the remote side using its own simulated input path, without sharing clipboard contents through clipboard synchronization.
+
+Decision:
+
+- Do not make TeamViewer toolbar automation the default remote insertion path.
+- `Paste clipboard as keystrokes` is not meaningfully better than VoxType's own keyboard injection path for normal dictation because it still types characters into the remote session.
+- `Send Clipboard` may remain an experiment, but the main remote default should stay `remoteClipboard`.
+- Keep TeamViewer toolbar automation parked unless `remoteClipboard` cannot be made reliable enough and there is a stable command or UI Automation hook.
+
 ### Keyboard Emulation
 
 Use Windows keyboard injection, likely through `SendInput`.
@@ -132,6 +148,7 @@ Initial implementation:
 - The native helper exposes `message-text focused-control`, which sends `EM_REPLACESEL` to the focused control.
 - The native helper exposes `message-text character-messages`, which posts `WM_CHAR` messages to the focused foreground target.
 - Windows Messaging remains experimental. TeamViewer, AnyDesk, and Remote Desktop now default to `remoteClipboard`; VoxType still uses character messages for these remote-control targets when `windowsMessaging` is selected manually.
+- Windows Messaging should not be expanded for TeamViewer unless a concrete compatible target behavior is found.
 
 Likely implementation paths:
 
@@ -220,7 +237,7 @@ Initial implementation:
 - Profiles are stored in local settings and are visible/editable in the renderer.
 - Each profile currently stores app display name, process name/path, insertion mode, and writing style.
 - Browser defaults, including Chrome, use clipboard insertion and chat writing style.
-- Remote Desktop, TeamViewer, and AnyDesk defaults use chunked typing.
+- Remote Desktop, TeamViewer, and AnyDesk defaults use remote clipboard insertion.
 - Terminal defaults, including Windows Terminal, Command Prompt, and PowerShell, use direct Unicode typing.
 - Outlook defaults to clipboard insertion and professional writing style.
 - Writing style is saved now so later formatting can use profile-specific behavior such as chat-style browser replies or professional Outlook grammar.
