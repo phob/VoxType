@@ -202,8 +202,8 @@ function createOverlayWindow(): BrowserWindow {
   }
 
   overlayWindow = new BrowserWindow({
-    width: 320,
-    height: 40,
+    width: 150,
+    height: 24,
     frame: false,
     resizable: false,
     movable: false,

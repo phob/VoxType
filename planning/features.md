@@ -4,6 +4,7 @@
 
 - Always-on-top recording overlay near the bottom of the active screen.
 - Shows recording state and live microphone input level while capturing audio.
+- Uses a compact, slower canvas vertical-bar gain timeline that grows from a flat silent baseline and switches through green, yellow, and red peak zones.
 - Switches to a transcribing state after recording stops.
 - Hides automatically when transcription finishes or when recording startup/transcription fails.
 

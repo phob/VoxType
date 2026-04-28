@@ -3137,46 +3137,259 @@ function formatBytes(value: number | null | undefined): string {
 }
 
 function RecordingOverlay({ state }: { state: RecordingOverlayState }): JSX.Element {
-  const [levels, setLevels] = useState<number[]>([]);
-  const [peakCeiling, setPeakCeiling] = useState(0.08);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const oscillatorGainRef = useRef<GainNode | null>(null);
+  const meterHistoryRef = useRef<number[]>([]);
+  const meterSampleAtRef = useRef(0);
+  const animationFrameRef = useRef<number | null>(null);
+  const levelRef = useRef(0);
   const clampedLevel = Math.min(Math.max(state.level, 0), 1);
 
   useEffect(() => {
     if (state.mode !== "recording") {
-      setLevels([]);
-      setPeakCeiling(0.08);
+      meterHistoryRef.current = [];
+      meterSampleAtRef.current = 0;
       return;
     }
 
-    setPeakCeiling((current) => Math.max(current, clampedLevel, 0.08));
-    setLevels((current) => {
-      const previous = current.at(-1) ?? clampedLevel;
-      const smoothed = previous + (clampedLevel - previous) * 0.42;
-      return [...current.slice(-63), smoothed];
-    });
+    const previous = levelRef.current;
+    levelRef.current = previous + (clampedLevel - previous) * 0.34;
+
+    if (oscillatorGainRef.current) {
+      oscillatorGainRef.current.gain.setTargetAtTime(
+        levelRef.current,
+        audioContextRef.current?.currentTime ?? 0,
+        0.035
+      );
+    }
   }, [clampedLevel, state.mode]);
+
+  useEffect(() => {
+    if (state.mode !== "recording") {
+      return undefined;
+    }
+
+    const AudioContextCtor =
+      window.AudioContext ??
+      (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+
+    if (!AudioContextCtor) {
+      return undefined;
+    }
+
+    const audioContext = new AudioContextCtor();
+    const analyser = audioContext.createAnalyser();
+    const oscillator = audioContext.createOscillator();
+    const oscillatorGain = audioContext.createGain();
+    const muteGain = audioContext.createGain();
+
+    analyser.fftSize = 512;
+    analyser.smoothingTimeConstant = 0.78;
+    oscillator.frequency.value = 110;
+    oscillatorGain.gain.value = 0;
+    muteGain.gain.value = 0;
+
+    oscillator.connect(oscillatorGain);
+    oscillatorGain.connect(analyser);
+    analyser.connect(muteGain);
+    muteGain.connect(audioContext.destination);
+    oscillator.start();
+
+    audioContextRef.current = audioContext;
+    analyserRef.current = analyser;
+    oscillatorGainRef.current = oscillatorGain;
+
+    if (audioContext.state === "suspended") {
+      void audioContext.resume();
+    }
+
+    return () => {
+      if (animationFrameRef.current !== null) {
+        window.cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+
+      oscillator.stop();
+      oscillator.disconnect();
+      oscillatorGain.disconnect();
+      analyser.disconnect();
+      muteGain.disconnect();
+      void audioContext.close();
+      analyserRef.current = null;
+      oscillatorGainRef.current = null;
+      audioContextRef.current = null;
+    };
+  }, [state.mode]);
+
+  useEffect(() => {
+    if (state.mode !== "recording") {
+      return undefined;
+    }
+
+    const canvas = canvasRef.current;
+
+    if (!canvas) {
+      return undefined;
+    }
+
+    const context = canvas.getContext("2d");
+
+    if (!context) {
+      return undefined;
+    }
+
+    const data = new Uint8Array(512);
+
+    function draw(timestamp = window.performance.now()): void {
+      const rect = canvas.getBoundingClientRect();
+      const scale = window.devicePixelRatio || 1;
+      const width = Math.max(1, Math.floor(rect.width * scale));
+      const height = Math.max(1, Math.floor(rect.height * scale));
+
+      if (canvas.width !== width || canvas.height !== height) {
+        canvas.width = width;
+        canvas.height = height;
+      }
+
+      const analyser = analyserRef.current;
+      let energy = levelRef.current;
+
+      if (analyser) {
+        analyser.getByteTimeDomainData(data);
+        let sum = 0;
+
+        for (const value of data) {
+          const centered = (value - 128) / 128;
+          sum += centered * centered;
+        }
+
+        energy = Math.max(energy, Math.sqrt(sum / data.length) * 1.7);
+      }
+
+      const normalized = Math.min(Math.max(energy * 1.75, 0), 1);
+      const history = meterHistoryRef.current;
+      const barWidth = Math.max(2, Math.round(3 * scale));
+      const gap = Math.max(2, Math.round(3 * scale));
+      const maxBars = Math.max(1, Math.floor(width / (barWidth + gap)));
+
+      if (timestamp - meterSampleAtRef.current >= 110) {
+        history.push(normalized);
+        meterHistoryRef.current = history.slice(-maxBars);
+        meterSampleAtRef.current = timestamp;
+      }
+
+      paintMeter(context, meterHistoryRef.current, width, height, barWidth, gap, scale);
+      animationFrameRef.current = window.requestAnimationFrame(draw);
+    }
+
+    draw();
+
+    return () => {
+      if (animationFrameRef.current !== null) {
+        window.cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+    };
+  }, [state.mode]);
 
   return (
     <main className="recording-overlay">
       {state.mode === "recording" ? (
-        <div className="overlay-timeline" aria-label="Input gain timeline">
-          {levels.map((level, index) => (
-            <span
-              key={`${index}-${level.toFixed(3)}`}
-              style={{
-                height:
-                  level < 0.01
-                    ? "0"
-                    : `${Math.max(8, Math.min(100, Math.round((level / peakCeiling) * 100)))}%`
-              }}
-            />
-          ))}
-        </div>
+        <canvas
+          ref={canvasRef}
+          aria-label="Input gain timeline"
+          className="overlay-meter-canvas"
+        />
       ) : (
         <div className="overlay-transcribing">Transcribing</div>
       )}
     </main>
   );
+}
+
+function paintMeter(
+  context: CanvasRenderingContext2D,
+  levels: number[],
+  width: number,
+  height: number,
+  barWidth: number,
+  gap: number,
+  scale: number
+): void {
+  const baselineHeight = Math.max(2, Math.round(2 * scale));
+  const paddingX = Math.round(2 * scale);
+  const paddingTop = Math.round(1 * scale);
+  const paddingBottom = Math.round(2 * scale);
+  const meterHeight = height - paddingTop - paddingBottom;
+  const baselineY = height - paddingBottom;
+
+  context.clearRect(0, 0, width, height);
+  context.fillStyle = "rgba(12, 15, 18, 0.82)";
+  context.fillRect(0, 0, width, height);
+
+  const gridColor = "rgba(255, 255, 255, 0.08)";
+  context.strokeStyle = gridColor;
+  context.lineWidth = Math.max(1, scale);
+
+  for (const threshold of [0.36, 0.7]) {
+    const y = baselineY - meterHeight * threshold;
+    context.beginPath();
+    context.moveTo(paddingX, y);
+    context.lineTo(width - paddingX, y);
+    context.stroke();
+  }
+
+  const totalStep = barWidth + gap;
+  const startX = width - paddingX - levels.length * totalStep;
+
+  levels.forEach((level, index) => {
+    const x = startX + index * totalStep;
+    const quiet = level < 0.018;
+    const shaped = Math.pow(level, 0.58);
+    const dynamicHeight = quiet ? baselineHeight : Math.max(baselineHeight, meterHeight * shaped);
+    const y = baselineY - dynamicHeight;
+
+    context.fillStyle = meterColor(level);
+    roundRect(context, x, y, barWidth, dynamicHeight, Math.max(2, barWidth / 2));
+    context.fill();
+  });
+}
+
+function meterColor(level: number): string {
+  if (level > 0.78) {
+    return "#ff5c5c";
+  }
+
+  if (level > 0.46) {
+    return "#ffc857";
+  }
+
+  return "#32e38f";
+}
+
+function roundRect(
+  context: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number
+): void {
+  const clampedRadius = Math.min(radius, width / 2, height / 2);
+
+  context.beginPath();
+  context.moveTo(x + clampedRadius, y);
+  context.lineTo(x + width - clampedRadius, y);
+  context.quadraticCurveTo(x + width, y, x + width, y + clampedRadius);
+  context.lineTo(x + width, y + height - clampedRadius);
+  context.quadraticCurveTo(x + width, y + height, x + width - clampedRadius, y + height);
+  context.lineTo(x + clampedRadius, y + height);
+  context.quadraticCurveTo(x, y + height, x, y + height - clampedRadius);
+  context.lineTo(x, y + clampedRadius);
+  context.quadraticCurveTo(x, y, x + clampedRadius, y);
+  context.closePath();
 }
 
 function joinErrors(primary: string, secondary: string | null): string {
