@@ -4,6 +4,13 @@ All notable user-facing changes to VoxType will be documented in this file.
 
 This file is maintained by Release Please from Conventional Commits. Internal planning updates live in `planning/changelog.md`.
 
+## [0.3.1](https://github.com/phob/VoxType/compare/voxtype-v0.3.0...voxtype-v0.3.1) (2026-04-28)
+
+
+### Bug Fixes
+
+* **ci:** disable electron-builder publishing ([126f26c](https://github.com/phob/VoxType/commit/126f26c18d07744fbd3f4ab61cf256685f84e8c8))
+
 ## [0.3.0](https://github.com/phob/VoxType/compare/voxtype-v0.2.0...voxtype-v0.3.0) (2026-04-28)
 
 
