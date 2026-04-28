@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ArrowRight,
+  BookOpen,
   Box,
   Check,
   CheckCircle2,
@@ -70,12 +71,14 @@ type AppState = {
   hotkeys: HotkeyStatus | null;
 };
 
-type ReleaseTab = "general" | "hotkeys" | "models" | "profiles" | "history";
+type ReleaseTab = "general" | "hotkeys" | "models" | "profiles" | "dictionary" | "history";
 type ReleaseModelFilter = "all" | "installed" | "available";
 type ReleaseIconName =
   | "home"
   | "keyboard"
   | "box"
+  | "book"
+  | "file"
   | "user"
   | "history"
   | "settings"
@@ -88,6 +91,8 @@ const releaseIcons: Record<ReleaseIconName, LucideIcon> = {
   home: Home,
   keyboard: Keyboard,
   box: Box,
+  book: BookOpen,
+  file: FileText,
   user: UserPlus,
   history: History,
   settings: Settings,
@@ -226,6 +231,9 @@ export function App(): JSX.Element {
 
     return true;
   });
+  const savedDictionaryTerms = new Set(
+    state.dictionary.map((entry) => entry.preferred.trim().toLowerCase()).filter(Boolean)
+  );
 
   useEffect(() => {
     if (isOverlay) {
@@ -1193,6 +1201,7 @@ export function App(): JSX.Element {
               ["hotkeys", "Hotkeys", "keyboard"],
               ["models", "Models", "box"],
               ["profiles", "Profiles", "user"],
+              ["dictionary", "Dictionary", "book"],
               ["history", "History", "history"]
             ] as Array<[ReleaseTab, string, ReleaseIconName]>).map(([tab, label, icon]) => (
               <button
@@ -1327,7 +1336,10 @@ export function App(): JSX.Element {
             </section>
             <section className="release-panel recent-history-panel">
               <div className="section-title-row">
-                <h2>Recent history</h2>
+                <div className="release-panel-title">
+                  <ReleaseIcon name="history" decorative />
+                  <h2>Recent history</h2>
+                </div>
                 <button className="ghost-link-button" onClick={() => setReleaseTab("history")} type="button">
                   <span>View all history</span>
                   <ReleaseIcon name="arrowRight" decorative />
@@ -1481,8 +1493,11 @@ export function App(): JSX.Element {
 
         {releaseTab === "profiles" ? (
           <section className="release-panel">
-            <div className="section-title-row">
-              <h2>App Profiles</h2>
+            <div className="release-panel-heading">
+              <div className="release-panel-title">
+                <ReleaseIcon name="user" decorative />
+                <h2>App Profiles</h2>
+              </div>
               <button
                 className="release-primary-button"
                 disabled={Boolean(busyMessage)}
@@ -1553,10 +1568,167 @@ export function App(): JSX.Element {
           </section>
         ) : null}
 
+        {releaseTab === "dictionary" ? (
+          <div className="release-dictionary-layout">
+            <section className="release-panel release-dictionary-form-panel">
+              <div className="release-panel-title">
+                <ReleaseIcon name="book" decorative />
+                <h2>{editingDictionaryEntryId ? "Edit Entry" : "Dictionary"}</h2>
+              </div>
+              <div className="release-form-grid">
+                <label className="release-field">
+                  <span>Word or phrase</span>
+                  <input
+                    value={dictionaryPreferred}
+                    onChange={(event) => setDictionaryPreferred(event.target.value)}
+                  />
+                </label>
+                <label className="release-field">
+                  <span>Misheard as</span>
+                  <textarea
+                    rows={4}
+                    value={dictionaryMatches}
+                    onChange={(event) => setDictionaryMatches(event.target.value)}
+                  />
+                </label>
+                <label className="release-field">
+                  <span>Category</span>
+                  <input
+                    value={dictionaryCategory}
+                    onChange={(event) => setDictionaryCategory(event.target.value)}
+                  />
+                </label>
+                <label className="release-field">
+                  <span>Scope</span>
+                  <select
+                    value={dictionaryAppProcess}
+                    onChange={(event) => setDictionaryAppProcess(event.target.value)}
+                  >
+                    <option value="">All apps</option>
+                    {state.settings.appProfiles.map((profile) => (
+                      <option key={profile.id} value={profile.processName}>
+                        {profile.displayName}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <div className="release-form-actions">
+                <button
+                  className="release-primary-button"
+                  disabled={!dictionaryPreferred.trim()}
+                  onClick={() => void saveDictionaryEntry()}
+                  type="button"
+                >
+                  {editingDictionaryEntryId ? "Update" : "Add"}
+                </button>
+                {editingDictionaryEntryId ? (
+                  <button className="release-secondary-button" onClick={clearDictionaryForm} type="button">
+                    New
+                  </button>
+                ) : null}
+              </div>
+            </section>
+
+            <section className="release-panel release-ocr-terms-panel">
+              <div className="section-title-row">
+                <div className="release-panel-title">
+                  <ReleaseIcon name="file" decorative />
+                  <h2>Latest OCR Terms</h2>
+                </div>
+                <ReleaseChip tone={latestOcrContext?.terms.length ? "accent" : "neutral"}>
+                  {latestOcrContext?.terms.length ?? 0}
+                </ReleaseChip>
+              </div>
+              {latestOcrContext?.terms.length ? (
+                <div className="release-ocr-term-list">
+                  {latestOcrContext.terms.slice(0, 48).map((term) => {
+                    const saved = savedDictionaryTerms.has(term.trim().toLowerCase());
+
+                    return (
+                      <button
+                        className={saved ? "saved" : ""}
+                        disabled={saved}
+                        key={term}
+                        onClick={() => void saveOcrTerm(term)}
+                        title={saved ? "Already in dictionary" : "Add to dictionary"}
+                        type="button"
+                      >
+                        {saved ? <Check aria-hidden="true" className="release-icon-svg" /> : null}
+                        <span>{term}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="empty-state">No OCR terms captured yet.</p>
+              )}
+            </section>
+
+            <section className="release-panel release-dictionary-list-panel">
+              <div className="section-title-row">
+                <div className="release-panel-title">
+                  <ReleaseIcon name="book" decorative />
+                  <h2>Saved Entries</h2>
+                </div>
+                <ReleaseChip>{state.dictionary.length}</ReleaseChip>
+              </div>
+              <div className="dictionary-entry-list">
+                {state.dictionary.length ? (
+                  state.dictionary.map((entry) => (
+                    <article
+                      className={
+                        editingDictionaryEntryId === entry.id
+                          ? "dictionary-entry-row selected"
+                          : "dictionary-entry-row"
+                      }
+                      key={entry.id}
+                    >
+                      <button
+                        className="dictionary-entry-main"
+                        onClick={() => selectDictionaryEntry(entry)}
+                        type="button"
+                      >
+                        <strong>{entry.preferred}</strong>
+                        <span>
+                          {entry.category} · {entry.source} · {entry.appProcessName ?? "all apps"}
+                        </span>
+                      </button>
+                      <div className="dictionary-entry-actions">
+                        <button
+                          className="release-secondary-button"
+                          onClick={() => void toggleDictionaryEntry(entry)}
+                          type="button"
+                        >
+                          {entry.enabled ? "On" : "Off"}
+                        </button>
+                        <button
+                          aria-label={`Delete ${entry.preferred}`}
+                          className="release-icon-button"
+                          data-tooltip="Delete"
+                          onClick={() => void removeDictionaryEntry(entry)}
+                          type="button"
+                        >
+                          <Trash2 aria-hidden="true" className="release-icon-svg" />
+                        </button>
+                      </div>
+                    </article>
+                  ))
+                ) : (
+                  <p className="empty-state">No dictionary entries yet.</p>
+                )}
+              </div>
+            </section>
+          </div>
+        ) : null}
+
         {releaseTab === "history" ? (
           <section className="release-panel">
-            <div className="section-title-row">
-              <h2>Latest Transcriptions</h2>
+            <div className="release-panel-heading">
+              <div className="release-panel-title">
+                <ReleaseIcon name="history" decorative />
+                <h2>Latest Transcriptions</h2>
+              </div>
               <button
                 className="release-secondary-button"
                 disabled={state.history.length === 0}

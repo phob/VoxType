@@ -167,6 +167,8 @@ Initial implementation:
 
 ## Dictionary UI Ideas
 
+- The non-developer frontend includes a Dictionary tab for adding, editing, disabling, and deleting local dictionary entries.
+- The Dictionary tab shows the latest OCR terms as clickable chips so visible terms can be promoted into the permanent dictionary without entering developer mode.
 - Add word manually.
 - Add selected text to dictionary.
 - Add all OCR terms from screenshot.
