@@ -25,6 +25,7 @@ export class SettingsStore {
       activeModelId: "small",
       whisperExecutablePath: "",
       whisperRuntimeBackend: "auto",
+      whisperLanguage: "auto",
       whisperPromptOverride: "",
       showWindowHotkey: "CommandOrControl+Shift+Space",
       dictationToggleHotkey: "CommandOrControl+Alt+Space",
@@ -35,6 +36,7 @@ export class SettingsStore {
       recordingStartHotkey: "",
       recordingStopHotkey: "",
       offlineMode: false,
+      startMinimized: false,
       developerModeEnabled: false,
       autoMuteSystemAudio: false,
       restoreClipboard: true,
@@ -113,6 +115,7 @@ export class SettingsStore {
       | "recordingStartHotkey"
       | "recordingStopHotkey"
       | "postTranscriptionHotkey"
+      | "whisperLanguage"
     >
   ): Promise<AppSettings> {
     const settings = await this.get();
@@ -133,9 +136,25 @@ export class SettingsStore {
               recordingStartHotkey: patch.recordingStartHotkey,
               recordingStopHotkey: patch.recordingStopHotkey,
               postTranscriptionHotkey: patch.postTranscriptionHotkey,
+              whisperLanguage: patch.whisperLanguage,
               updatedAt: new Date().toISOString()
             }
           : profile
+      )
+    });
+  }
+
+  async removeAppProfile(processName: string): Promise<AppSettings> {
+    const settings = await this.get();
+    const existing = findAppProfile(settings.appProfiles, processName);
+
+    if (!existing) {
+      return settings;
+    }
+
+    return this.update({
+      appProfiles: settings.appProfiles.filter(
+        (profile) => profile.processName !== existing.processName
       )
     });
   }

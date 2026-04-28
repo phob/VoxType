@@ -53,6 +53,8 @@ Initial VRAM planning estimates:
 
 The implemented Phase 5 GPU slice adds hardware detection, per-model fit reporting, managed CPU/CUDA runtime downloads, a backend preference setting (`auto`, `cpu`, `cuda`, `vulkan`), and automatic runtime selection for transcription.
 
+VoxType exposes Whisper language selection as a normal user setting. The global default is `auto`; choosing a concrete language passes `--language <code>` to `whisper-cli`. App profiles can override this with a specific language or keep `inherit` to follow the global setting.
+
 Local validation:
 
 - On 2026-04-26, the detection path successfully identified the user's GPU as capable of hardware acceleration. This confirms the Phase 5 GPU path can proceed to managed GPU runtime acquisition and automatic runtime selection.

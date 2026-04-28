@@ -46,4 +46,5 @@ Raw ideas go here before they become planned features.
 - Add Parakeet V3 as optional fast engine.
 - Add newer Parakeet Unified model for English low-latency mode if useful.
 - Add faster-whisper/CTranslate2 for users with NVIDIA GPUs.
+- Explore Microsoft VibeVoice-ASR as an optional long-form ASR engine for diarized, timestamped, hotword-guided transcription, likely through a Python/Transformers or vLLM worker rather than the current `whisper.cpp` runtime path.
 - Add local LLM for formatting, not as required STT.

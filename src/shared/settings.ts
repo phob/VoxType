@@ -14,6 +14,22 @@ export const recorderCaptureModes = [
 ] as const;
 export const ocrTermModes = ["strict", "balanced", "broad"] as const;
 export const whisperRuntimePreferences = ["auto", "cpu", "cuda", "vulkan"] as const;
+export const whisperLanguages = [
+  "auto",
+  "en",
+  "de",
+  "fr",
+  "es",
+  "it",
+  "pt",
+  "nl",
+  "pl",
+  "ru",
+  "ja",
+  "ko",
+  "zh"
+] as const;
+export const profileWhisperLanguages = ["inherit", ...whisperLanguages] as const;
 
 export type InsertionMode = (typeof insertionModes)[number];
 export type WritingStyle = (typeof writingStyles)[number];
@@ -21,6 +37,8 @@ export type RecordingCoordinationMode = (typeof recordingCoordinationModes)[numb
 export type RecorderCaptureMode = (typeof recorderCaptureModes)[number];
 export type OcrTermMode = (typeof ocrTermModes)[number];
 export type WhisperRuntimePreference = (typeof whisperRuntimePreferences)[number];
+export type WhisperLanguage = (typeof whisperLanguages)[number];
+export type ProfileWhisperLanguage = (typeof profileWhisperLanguages)[number];
 
 export type AppProfile = {
   id: string;
@@ -33,6 +51,7 @@ export type AppProfile = {
   recordingStartHotkey: string;
   recordingStopHotkey: string;
   postTranscriptionHotkey: string;
+  whisperLanguage: ProfileWhisperLanguage;
   createdAt: string;
   updatedAt: string;
 };
@@ -42,6 +61,7 @@ export type AppSettings = {
   activeModelId: string;
   whisperExecutablePath: string;
   whisperRuntimeBackend: WhisperRuntimePreference;
+  whisperLanguage: WhisperLanguage;
   whisperPromptOverride: string;
   showWindowHotkey: string;
   dictationToggleHotkey: string;
@@ -52,6 +72,7 @@ export type AppSettings = {
   recordingStartHotkey: string;
   recordingStopHotkey: string;
   offlineMode: boolean;
+  startMinimized: boolean;
   developerModeEnabled: boolean;
   autoMuteSystemAudio: boolean;
   restoreClipboard: boolean;
@@ -102,6 +123,17 @@ export function isWhisperRuntimePreference(value: unknown): value is WhisperRunt
   );
 }
 
+export function isWhisperLanguage(value: unknown): value is WhisperLanguage {
+  return typeof value === "string" && whisperLanguages.includes(value as WhisperLanguage);
+}
+
+export function isProfileWhisperLanguage(value: unknown): value is ProfileWhisperLanguage {
+  return (
+    typeof value === "string" &&
+    profileWhisperLanguages.includes(value as ProfileWhisperLanguage)
+  );
+}
+
 export function sanitizeSettings(
   value: unknown,
   defaults: AppSettings
@@ -124,6 +156,9 @@ export function sanitizeSettings(
     whisperRuntimeBackend: isWhisperRuntimePreference(input.whisperRuntimeBackend)
       ? input.whisperRuntimeBackend
       : defaults.whisperRuntimeBackend,
+    whisperLanguage: isWhisperLanguage(input.whisperLanguage)
+      ? input.whisperLanguage
+      : defaults.whisperLanguage,
     whisperPromptOverride:
       typeof input.whisperPromptOverride === "string"
         ? input.whisperPromptOverride.slice(0, 2000)
@@ -159,6 +194,10 @@ export function sanitizeSettings(
         : defaults.recordingStopHotkey,
     offlineMode:
       typeof input.offlineMode === "boolean" ? input.offlineMode : defaults.offlineMode,
+    startMinimized:
+      typeof input.startMinimized === "boolean"
+        ? input.startMinimized
+        : defaults.startMinimized,
     developerModeEnabled:
       typeof input.developerModeEnabled === "boolean"
         ? input.developerModeEnabled
@@ -240,6 +279,7 @@ export function createAppProfile(input: {
     recordingStartHotkey: defaults.recordingStartHotkey ?? "",
     recordingStopHotkey: defaults.recordingStopHotkey ?? "",
     postTranscriptionHotkey: "",
+    whisperLanguage: defaults.whisperLanguage,
     createdAt: now,
     updatedAt: now
   };
@@ -292,6 +332,9 @@ function sanitizeAppProfiles(value: unknown): AppProfile[] {
         typeof item.recordingStopHotkey === "string" ? item.recordingStopHotkey : "",
       postTranscriptionHotkey:
         typeof item.postTranscriptionHotkey === "string" ? item.postTranscriptionHotkey : "",
+      whisperLanguage: isProfileWhisperLanguage(item.whisperLanguage)
+        ? item.whisperLanguage
+        : "inherit",
       createdAt:
         typeof item.createdAt === "string" && item.createdAt.trim()
           ? item.createdAt
@@ -313,13 +356,15 @@ function getProfileDefaults(processName: string): {
   recordingCoordinationMode: RecordingCoordinationMode;
   recordingStartHotkey?: string;
   recordingStopHotkey?: string;
+  whisperLanguage: ProfileWhisperLanguage;
 } {
   if (["chrome.exe", "msedge.exe", "firefox.exe", "brave.exe"].includes(processName)) {
     return {
       displayName: browserDisplayName(processName),
       insertionMode: "clipboard",
       writingStyle: "chat",
-      recordingCoordinationMode: "none"
+      recordingCoordinationMode: "none",
+      whisperLanguage: "inherit"
     };
   }
 
@@ -328,7 +373,8 @@ function getProfileDefaults(processName: string): {
       displayName: remoteDisplayName(processName),
       insertionMode: "chunked",
       writingStyle: "default",
-      recordingCoordinationMode: "none"
+      recordingCoordinationMode: "none",
+      whisperLanguage: "inherit"
     };
   }
 
@@ -341,7 +387,8 @@ function getProfileDefaults(processName: string): {
       displayName: terminalDisplayName(processName),
       insertionMode: "keyboard",
       writingStyle: "default",
-      recordingCoordinationMode: "none"
+      recordingCoordinationMode: "none",
+      whisperLanguage: "inherit"
     };
   }
 
@@ -350,7 +397,8 @@ function getProfileDefaults(processName: string): {
       displayName: "Outlook",
       insertionMode: "clipboard",
       writingStyle: "professional",
-      recordingCoordinationMode: "none"
+      recordingCoordinationMode: "none",
+      whisperLanguage: "inherit"
     };
   }
 
@@ -359,14 +407,16 @@ function getProfileDefaults(processName: string): {
       displayName: discordDisplayName(processName),
       insertionMode: "clipboard",
       writingStyle: "chat",
-      recordingCoordinationMode: "none"
+      recordingCoordinationMode: "none",
+      whisperLanguage: "inherit"
     };
   }
 
   return {
     insertionMode: "clipboard",
     writingStyle: "default",
-    recordingCoordinationMode: "none"
+    recordingCoordinationMode: "none",
+    whisperLanguage: "inherit"
   };
 }
 

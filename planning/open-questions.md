@@ -8,20 +8,24 @@
 
 ## Technical
 
-- Should the native helper be written in Rust or C++?
 - Which Whisper model should be the default first-run recommendation?
-- Should Silero VAD assets be bundled with the installer, downloaded on first use, or managed like the Whisper runtime with checksums?
-- Should VAD run in a renderer Web Worker through ONNX Runtime Web/WASM, or in a separate native/helper process through ONNX Runtime?
-- What should the default VAD silence-trimming values be for Windows dictation: threshold, minimum speech duration, pre-roll, trailing silence, and internal pause preservation?
 - Should Discord be detected and offered a guided setup for the global recording coordination hotkey?
 - Should VoxType eventually add per-app recording coordination profiles, or is a global hotkey fallback enough alongside WASAPI exclusive capture?
 - Should VoxType expose which exclusive hardware format was selected for diagnostics?
 - What screenshot cases, languages, or UI layouts would justify adding a heavier OCR engine beyond Windows Media OCR?
 - How should model downloads be hosted and verified?
 - Should inference workers communicate with Electron through stdio, named pipes, local HTTP, or another IPC mechanism?
+- Is VibeVoice-ASR practical for VoxType's local Windows dictation loop given its Python/Transformers/vLLM deployment path, 7B/8B-class BF16 model size, and long-form orientation?
 - How should VoxType detect and handle elevated target apps?
 - How much transcript history should be stored by default?
 - Should system-audio mute restore the previous mute state instead of always unmuting after VoxType finishes recording?
+
+Resolved before first GitHub release:
+
+- Native helper language is Rust.
+- Silero VAD runs inside the Rust Windows helper, not in the renderer.
+- The Silero VAD asset is bundled with the installer as an Electron extra resource.
+- Initial VAD trimming defaults are implemented and can be tuned later from developer settings.
 
 ## UX
 

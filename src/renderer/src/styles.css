@@ -207,6 +207,19 @@ pre {
   margin: 0 auto 24px;
   padding-top: 54px;
   color: #d7dce2;
+  animation: app-start-fade 180ms ease-out both;
+}
+
+@keyframes app-start-fade {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 .release-shell {
@@ -945,21 +958,51 @@ pre {
 }
 
 .profile-row {
-  grid-template-columns: minmax(0, 1fr) minmax(150px, 0.36fr) minmax(150px, 0.36fr) minmax(150px, 0.36fr);
+  grid-template-columns: minmax(0, 1fr) auto;
+  min-height: 54px;
+  padding: 6px 8px;
 }
 
-.profile-control {
+.profile-row-main {
   display: grid;
-  gap: 5px;
+  grid-template-columns: minmax(160px, 0.7fr) minmax(0, 1fr);
+  gap: 12px;
+  align-items: center;
+  min-width: 0;
+  min-height: 40px;
+  padding: 0 4px;
+  border: 0;
+  color: inherit;
+  background: transparent;
+  text-align: left;
+}
+
+.profile-row-main:hover:not(:disabled) {
+  border-color: transparent;
+  background: transparent;
+}
+
+.profile-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
   min-width: 0;
 }
 
-.profile-control select {
-  width: 100%;
-}
-
-.profile-control button {
-  width: 100%;
+.profile-summary span {
+  overflow: hidden;
+  max-width: 170px;
+  min-height: 24px;
+  padding: 4px 8px;
+  border: 1px solid rgb(75 91 107 / 0.36);
+  border-radius: 5px;
+  color: #b9c4d1;
+  background: rgb(13 22 29 / 0.62);
+  font-size: 0.72rem;
+  line-height: 1.1;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .release-select {
@@ -1906,11 +1949,24 @@ td select {
   font-size: 0.72rem;
 }
 
-.sidebar-system-foot strong {
+.sidebar-system-foot button {
   padding: 4px 8px;
+  border: 0;
   border-radius: 5px;
   color: #23d6cf;
   background: rgb(35 214 207 / 0.12);
+  font: inherit;
+  font-weight: 750;
+}
+
+.sidebar-system-foot button:not(:disabled) {
+  cursor: pointer;
+}
+
+.sidebar-system-foot button.update-available {
+  color: #ffcf99;
+  background: rgb(255 143 57 / 0.16);
+  box-shadow: 0 0 0 1px rgb(255 143 57 / 0.38) inset;
 }
 
 .release-main {
@@ -2295,18 +2351,25 @@ td select {
 
 .release-dictionary-layout {
   display: grid;
-  grid-template-columns: minmax(280px, 0.42fr) minmax(0, 1fr);
-  gap: 14px;
+  grid-template-columns: minmax(0, 1fr) minmax(270px, 0.4fr);
+  gap: 12px;
+  align-items: start;
 }
 
-.release-dictionary-form-panel,
 .release-ocr-terms-panel {
   align-self: start;
 }
 
 .release-dictionary-list-panel {
-  grid-column: 2;
-  grid-row: 1 / span 2;
+  min-width: 0;
+}
+
+.release-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .release-form-grid {
@@ -2326,6 +2389,11 @@ td select {
   font-weight: 650;
 }
 
+.release-field .release-command-button {
+  width: 100%;
+  justify-self: stretch;
+}
+
 .release-form-actions {
   display: flex;
   gap: 8px;
@@ -2333,10 +2401,19 @@ td select {
   margin-top: 14px;
 }
 
+.release-form-split {
+  display: grid;
+  grid-template-columns: minmax(0, 0.7fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
 .release-ocr-term-list {
   display: flex;
   flex-wrap: wrap;
   gap: 7px;
+  max-height: 430px;
+  overflow: auto;
+  padding-right: 2px;
 }
 
 .release-ocr-term-list button {
@@ -2379,6 +2456,9 @@ td select {
 .dictionary-entry-list {
   display: grid;
   gap: 8px;
+  max-height: 530px;
+  overflow: auto;
+  padding-right: 2px;
 }
 
 .dictionary-entry-row {
@@ -2431,6 +2511,63 @@ td select {
   align-items: center;
 }
 
+.release-modal-backdrop {
+  position: fixed;
+  z-index: 20;
+  inset: 49px 0 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(3 8 12 / 0.58);
+  backdrop-filter: blur(6px);
+}
+
+.release-modal {
+  width: min(560px, calc(100vw - 48px));
+  padding: 16px;
+  border: 1px solid rgb(75 91 107 / 0.56);
+  border-radius: 8px;
+  background:
+    linear-gradient(180deg, rgb(21 32 41 / 0.98), rgb(11 19 25 / 0.98)),
+    #0d161d;
+  box-shadow: 0 24px 70px rgb(0 0 0 / 0.42);
+}
+
+.release-modal-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.release-modal textarea {
+  min-height: 64px;
+  resize: vertical;
+}
+
+.profile-modal {
+  width: min(620px, calc(100vw - 48px));
+}
+
+.profile-modal-meta {
+  display: grid;
+  gap: 4px;
+  margin: -6px 0 14px;
+  padding: 9px 10px;
+  border: 1px solid rgb(75 91 107 / 0.3);
+  border-radius: 5px;
+  background: rgb(8 14 19 / 0.46);
+}
+
+.profile-modal-meta span {
+  overflow: hidden;
+  color: #9faab6;
+  font-size: 0.74rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .release-footer {
   display: none;
 }
@@ -2481,13 +2618,17 @@ td select {
   .history-row,
   .history-actions,
   .release-dictionary-layout,
-  .dictionary-entry-row {
+  .dictionary-entry-row,
+  .release-form-split {
     grid-template-columns: 1fr;
   }
 
-  .release-dictionary-list-panel {
-    grid-column: auto;
-    grid-row: auto;
+  .profile-row-main {
+    grid-template-columns: 1fr;
+  }
+
+  .profile-summary {
+    justify-content: flex-start;
   }
 
   .dictation-layout .transcript-block,

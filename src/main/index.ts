@@ -18,6 +18,7 @@ import { OcrService } from "./ocr-service";
 import { RuntimeService } from "./runtime-service";
 import { SettingsStore } from "./settings-store";
 import { TranscriptionService } from "./transcription-service";
+import { UpdateService } from "./update-service";
 import { WindowsHelperService } from "./windows-helper-service";
 
 let mainWindow: BrowserWindow | null = null;
@@ -48,6 +49,7 @@ const runtimeService = new RuntimeService();
 const hardwareService = new HardwareService();
 const windowsHelperService = new WindowsHelperService();
 const ocrService = new OcrService(windowsHelperService);
+const updateService = new UpdateService();
 const transcriptionService = new TranscriptionService(
   settingsStore,
   historyStore,
@@ -71,6 +73,8 @@ function createWindow(): void {
     height: 760,
     minWidth: 900,
     minHeight: 620,
+    resizable: false,
+    maximizable: false,
     title: "VoxType",
     icon: getAppIconPath(),
     frame: false,
@@ -86,7 +90,16 @@ function createWindow(): void {
   });
 
   mainWindow.once("ready-to-show", () => {
-    mainWindow?.show();
+    void (async () => {
+      const settings = await settingsStore.get();
+
+      if (settings.startMinimized) {
+        mainWindow?.hide();
+        return;
+      }
+
+      mainWindow?.show();
+    })();
   });
 
   mainWindow.on("closed", () => {
@@ -110,11 +123,12 @@ function createTray(): void {
   const icon = nativeImage.createFromPath(getAppIconPath());
   tray = new Tray(icon);
   tray.setToolTip("VoxType");
+  tray.on("double-click", showMainWindow);
   tray.setContextMenu(
     Menu.buildFromTemplate([
       {
         label: "Show VoxType",
-        click: () => mainWindow?.show()
+        click: showMainWindow
       },
       {
         label: "Quit",
@@ -134,6 +148,7 @@ function showMainWindow(): void {
     mainWindow.restore();
   }
 
+  mainWindow.setSkipTaskbar(false);
   mainWindow.show();
   mainWindow.focus();
 }
@@ -353,21 +368,21 @@ function getHotkeyStatus(): {
 }
 
 ipcMain.handle("app:get-version", () => app.getVersion());
-ipcMain.handle("window:minimize", () => {
-  getFocusedWindow()?.minimize();
+ipcMain.handle("app:get-info", () => {
+  const version = app.getVersion();
+  const isDeveloperBuild = !app.isPackaged;
+
+  return {
+    isDeveloperBuild,
+    version,
+    versionLabel: isDeveloperBuild ? `${version}-dev` : version
+  };
 });
-ipcMain.handle("window:maximize", () => {
-  const window = getFocusedWindow();
-
-  if (!window) {
-    return;
-  }
-
-  if (window.isMaximized()) {
-    window.unmaximize();
-  } else {
-    window.maximize();
-  }
+ipcMain.handle("app:update-status", () => updateService.getStatus());
+ipcMain.handle("app:check-for-updates", () => updateService.check());
+ipcMain.handle("app:install-update", () => updateService.install());
+ipcMain.handle("window:minimize", () => {
+  mainWindow?.hide();
 });
 ipcMain.handle("window:close", () => {
   getFocusedWindow()?.close();
@@ -487,9 +502,21 @@ ipcMain.handle(
   (
     _event,
     processName: string,
-    patch: Pick<AppProfile, "insertionMode" | "writingStyle">
+    patch: Pick<
+      AppProfile,
+      | "insertionMode"
+      | "writingStyle"
+      | "recordingCoordinationMode"
+      | "recordingStartHotkey"
+      | "recordingStopHotkey"
+      | "postTranscriptionHotkey"
+      | "whisperLanguage"
+    >
   ) =>
     settingsStore.updateAppProfile(processName, patch)
+);
+ipcMain.handle("app-profiles:remove", (_event, processName: string) =>
+  settingsStore.removeAppProfile(processName)
 );
 ipcMain.handle("windows-helper:set-system-mute", (_event, muted: boolean) =>
   windowsHelperService.setSystemMute(muted)

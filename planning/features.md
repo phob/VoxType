@@ -14,6 +14,7 @@
 - Local model downloads and activation.
 - Global hotkeys.
 - Tray app.
+- Start minimized option that launches VoxType as a tray icon without showing the main window; double-clicking the tray icon opens the main window.
 - Push-to-talk and toggle dictation.
 - Voice activity detection.
 - Automatic silence trimming.
@@ -55,6 +56,9 @@ Developer-only surfaces that should remain hidden:
 UI principles:
 
 - Do not show a record button in the main app. VoxType recording is driven from outside the app through global hotkeys and target-app workflows.
+- Show developer builds with a `-dev` version suffix in the lower-left system card; installed builds use the plain release version and hide the Developer entry point.
+- Keep the main window fixed-size with no maximize control, and fade the UI in on startup.
+- Expose Start minimized as a simple General setting for users who want VoxType to launch as a tray icon; double-clicking that icon opens the main window.
 - Do not expose advanced implementation settings in the default UI. Keep dense settings, diagnostics, raw OCR, runtime paths, prompt previews, and low-level tuning behind developer mode.
 - Use the release component-system language for the default UI: compact cyan-accent buttons, icon buttons, inputs, chips, toggles, tabs, segmented controls, status badges, toast/tooltip styling, and card surfaces. The main user status summary stays in the lower-left sidebar rather than inside the primary status card.
 - Keep release UI primitives reusable across pages: dropdowns should use the custom release select when the native menu cannot match the design language; icon buttons should expose tooltips; model/status metadata should use chips and badges rather than ad hoc inline text.
@@ -156,7 +160,9 @@ Examples:
 Initial profile behavior:
 
 - Profiles are created automatically from detected target apps.
-- Users can change a profile's insertion method and writing style directly in the UI.
+- Profiles appear as compact rows in the release UI; clicking a row opens a profile settings modal so future per-app settings can be added without making the list dense.
+- Users can remove app profiles from the list or from the profile settings modal.
+- Users can change a profile's insertion method, writing style, and language override in the profile settings modal.
 - Users can configure a per-profile post-transcription hotkey that is sent after VoxType inserts text, useful for apps where Enter submits the composed text.
 - Saved writing styles are ready for later local formatting/post-processing.
 

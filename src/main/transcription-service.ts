@@ -6,6 +6,7 @@ import { join } from "node:path";
 import { promisify } from "node:util";
 import { getModelById } from "../shared/models";
 import { type OcrPromptContext } from "../shared/ocr-context";
+import { findAppProfile } from "../shared/settings";
 import { type TranscriptEntry, type TranscriptionResult } from "../shared/transcripts";
 import { DictionaryStore } from "./dictionary-store";
 import { HistoryStore } from "./history-store";
@@ -29,6 +30,11 @@ export class TranscriptionService {
     const startedAt = Date.now();
     const settings = await this.settingsStore.get();
     const model = getModelById(settings.activeModelId);
+    const profile = findAppProfile(settings.appProfiles, context?.processName ?? null);
+    const whisperLanguage =
+      profile?.whisperLanguage && profile.whisperLanguage !== "inherit"
+        ? profile.whisperLanguage
+        : settings.whisperLanguage;
 
     if (!model) {
       throw new Error(`Unknown active model: ${settings.activeModelId}`);
@@ -65,6 +71,10 @@ export class TranscriptionService {
 
     if (promptContext) {
       args.push("--prompt", promptContext);
+    }
+
+    if (whisperLanguage !== "auto") {
+      args.push("--language", whisperLanguage);
     }
 
     await mkdir(workDirectory, { recursive: true });

@@ -17,6 +17,7 @@ import {
   type SettingsPatch
 } from "../shared/settings";
 import { type TranscriptEntry, type TranscriptionResult } from "../shared/transcripts";
+import { type UpdateStatus } from "../shared/updates";
 import {
   type DictationOcrContextPayload,
   type DictationHotkeyPayload,
@@ -32,9 +33,19 @@ import {
 
 const voxtype = {
   getVersion: () => ipcRenderer.invoke("app:get-version") as Promise<string>,
+  getAppInfo: () =>
+    ipcRenderer.invoke("app:get-info") as Promise<{
+      isDeveloperBuild: boolean;
+      version: string;
+      versionLabel: string;
+    }>,
+  updates: {
+    status: () => ipcRenderer.invoke("app:update-status") as Promise<UpdateStatus>,
+    check: () => ipcRenderer.invoke("app:check-for-updates") as Promise<UpdateStatus>,
+    install: () => ipcRenderer.invoke("app:install-update") as Promise<UpdateStatus>
+  },
   window: {
     minimize: () => ipcRenderer.invoke("window:minimize") as Promise<void>,
-    maximize: () => ipcRenderer.invoke("window:maximize") as Promise<void>,
     close: () => ipcRenderer.invoke("window:close") as Promise<void>
   },
   settings: {
@@ -169,8 +180,11 @@ const voxtype = {
         | "recordingStartHotkey"
         | "recordingStopHotkey"
         | "postTranscriptionHotkey"
+        | "whisperLanguage"
       >
-    ) => ipcRenderer.invoke("app-profiles:update", processName, patch) as Promise<AppSettings>
+    ) => ipcRenderer.invoke("app-profiles:update", processName, patch) as Promise<AppSettings>,
+    remove: (processName: string) =>
+      ipcRenderer.invoke("app-profiles:remove", processName) as Promise<AppSettings>
   },
   windowsHelper: {
     status: () =>

@@ -146,16 +146,40 @@ Added after the initial Electron scaffold:
 - `.release-please-manifest.json`
 - `.github/workflows/release-please.yml`
 - `.github/PULL_REQUEST_TEMPLATE.md`
+- Windows installer packaging in `.github/workflows/release-please.yml`, triggered only when Release Please creates a GitHub Release.
 
 Optional future additions:
 
 - commit helper or commit message template
 - `commitlint` once the project wants stricter enforcement
-- build/package workflow that attaches Windows installers to GitHub Releases
+- signed-installer workflow once a code-signing certificate/path is chosen
 
-Current bootstrap version is `0.1.0` in `package.json` and `.release-please-manifest.json`.
+Current bootstrap version is `0.2.0` in `package.json` and `.release-please-manifest.json`.
 
 After this setup is merged to `main`, future release-relevant commits should use Conventional Commits so Release Please can open release PRs.
+
+## Release Artifact Automation
+
+When a Release Please PR is merged, the `release-please` workflow should:
+
+1. Let Release Please create the tag and GitHub Release.
+2. If `release_created` is true, run a Windows packaging job against the created tag.
+3. Build the Rust Windows helper in release mode.
+4. Run the Electron/Vite production build.
+5. Package a Windows x64 NSIS installer with `electron-builder`.
+6. Upload the generated setup executable, blockmap, and update metadata to the GitHub Release.
+
+The initial installer is unsigned. `signAndEditExecutable` is disabled to avoid local unsigned packaging failures from electron-builder's Windows code-signing helper cache. A future signed-installer pass should restore executable metadata/signing once a code-signing path is chosen.
+
+## In-App Update Flow
+
+The non-developer sidebar footer doubles as the update affordance:
+
+- `Stable` means the installed version matches the latest GitHub Release or no installable release was found.
+- `Update` appears in orange when the latest GitHub Release has a newer `VoxType-Setup-*-x64.exe` asset.
+- Clicking `Update` downloads the installer into the app's user-data update cache, starts it with NSIS silent mode (`/S`), and immediately quits the running VoxType process so the installer can replace the executable.
+
+This first updater path intentionally uses the same GitHub Release artifacts produced by Release Please packaging instead of a separate update feed.
 
 ## Relationship To Planning Changelog
 
@@ -168,14 +192,35 @@ Do not mix them.
 
 ## First Release Bootstrap
 
-The repo starts with `0.1.0`.
+The first public GitHub release candidate is `0.2.0`.
 
 Recommended approach:
 
-1. Merge the Release Please setup.
-2. Tag the initial baseline as `v0.1.0` if a clean starting release marker is desired.
+1. Merge the Release Please setup and first-release README/planning cleanup.
+2. Use the existing `0.2.0` package/manifest version as the first public release baseline.
 3. Use Conventional Commits for future release-relevant work.
 4. Let Release Please open release PRs for later versions.
+
+## First GitHub Release Scope
+
+The first GitHub release should present VoxType as an early Windows-first, local-first dictation app with:
+
+- global-hotkey dictation
+- local Whisper transcription through managed `whisper.cpp` runtimes
+- native Windows microphone capture and Silero VAD
+- active-window insertion through clipboard paste, Unicode typing, chunked typing, and remote-safe profiles
+- local OCR-assisted context and dictionary support
+- release UI separated from developer diagnostics
+- unsigned Windows x64 NSIS installer artifacts attached to the GitHub Release
+
+## Known First-Release Limitations
+
+- The Windows installer is unsigned, so Windows SmartScreen may warn users.
+- Auto-update depends on GitHub Release installer assets and is intentionally simple for the first release.
+- OCR context is best-effort and may not improve every difficult term even when text is visible on screen.
+- Remote insertion behavior varies by app and remote-control tool; TeamViewer/RDP-style targets may need profile tuning.
+- There is no first-run onboarding wizard yet.
+- Developer diagnostics still exist for troubleshooting but should remain hidden in installed builds.
 
 ## Troubleshooting
 

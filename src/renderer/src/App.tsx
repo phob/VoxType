@@ -16,9 +16,9 @@ import {
   Minus,
   MoreVertical,
   Play,
+  Plus,
   Settings,
   ShieldCheck,
-  Square,
   Trash2,
   UserPlus,
   X,
@@ -43,10 +43,13 @@ import {
   type AppSettings,
   type InsertionMode,
   type OcrTermMode,
+  type ProfileWhisperLanguage,
   type RecorderCaptureMode,
-  type RecordingCoordinationMode
+  type RecordingCoordinationMode,
+  type WhisperLanguage
 } from "../../../shared/settings";
 import { type TranscriptEntry } from "../../../shared/transcripts";
+import { type UpdateStatus } from "../../../shared/updates";
 import {
   type ActiveWindowInfo,
   type DictationHotkeyPayload,
@@ -136,6 +139,27 @@ const writingStyleOptions: Array<SelectOption<AppProfile["writingStyle"]>> = [
   { label: "Professional", value: "professional" }
 ];
 
+const whisperLanguageOptions: Array<SelectOption<WhisperLanguage>> = [
+  { label: "Auto", value: "auto" },
+  { label: "English", meta: "EN", value: "en" },
+  { label: "German", meta: "DE", value: "de" },
+  { label: "French", meta: "FR", value: "fr" },
+  { label: "Spanish", meta: "ES", value: "es" },
+  { label: "Italian", meta: "IT", value: "it" },
+  { label: "Portuguese", meta: "PT", value: "pt" },
+  { label: "Dutch", meta: "NL", value: "nl" },
+  { label: "Polish", meta: "PL", value: "pl" },
+  { label: "Russian", meta: "RU", value: "ru" },
+  { label: "Japanese", meta: "JA", value: "ja" },
+  { label: "Korean", meta: "KO", value: "ko" },
+  { label: "Chinese", meta: "ZH", value: "zh" }
+];
+
+const profileWhisperLanguageOptions: Array<SelectOption<ProfileWhisperLanguage>> = [
+  { label: "Inherit", value: "inherit" },
+  ...whisperLanguageOptions
+];
+
 const devTabs: Array<{ id: DevTab; label: string }> = [
   { id: "dictation", label: "Dictation" },
   { id: "models", label: "Models" },
@@ -165,7 +189,10 @@ export function App(): JSX.Element {
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
   const audioObjectUrlRef = useRef<string | null>(null);
   const modelDeleteTimerRef = useRef<number | null>(null);
+  const checkedForUpdatesRef = useRef(false);
   const [version, setVersion] = useState<string>("0.1.0");
+  const [isDeveloperBuild, setIsDeveloperBuild] = useState(true);
+  const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
   const [state, setState] = useState<AppState>({
     models: [],
     runtime: null,
@@ -192,6 +219,7 @@ export function App(): JSX.Element {
   const [dictionaryCategory, setDictionaryCategory] = useState("general");
   const [dictionaryAppProcess, setDictionaryAppProcess] = useState("");
   const [editingDictionaryEntryId, setEditingDictionaryEntryId] = useState<string | null>(null);
+  const [dictionaryModalOpen, setDictionaryModalOpen] = useState(false);
   const [fixLastText, setFixLastText] = useState("");
   const [lastRecordingResult, setLastRecordingResult] = useState<PcmRecordingResult | null>(null);
   const [screenshotMode, setScreenshotMode] = useState<ScreenshotCaptureMode>("activeWindow");
@@ -204,9 +232,16 @@ export function App(): JSX.Element {
   const [activeTab, setActiveTab] = useState<DevTab>("dictation");
   const [confirmingDeleteModelId, setConfirmingDeleteModelId] = useState<string | null>(null);
   const [capturingProfileHotkey, setCapturingProfileHotkey] = useState<string | null>(null);
+  const [selectedProfileProcessName, setSelectedProfileProcessName] = useState<string | null>(
+    null
+  );
   const [overlayState, setOverlayState] = useState<RecordingOverlayState>(defaultOverlayState);
 
   const activeModel = state.models.find((model) => model.id === state.settings?.activeModelId);
+  const selectedProfile =
+    state.settings?.appProfiles.find(
+      (profile) => profile.processName === selectedProfileProcessName
+    ) ?? null;
   const latestTranscript = state.history[0];
   const currentTarget = insertionTarget ?? state.activeWindow;
   const generatedWhisperPrompt = buildWhisperPromptPreview(
@@ -234,6 +269,19 @@ export function App(): JSX.Element {
   const savedDictionaryTerms = new Set(
     state.dictionary.map((entry) => entry.preferred.trim().toLowerCase()).filter(Boolean)
   );
+  const updateButtonLabel =
+    updateStatus?.state === "downloading"
+      ? "Downloading"
+      : updateStatus?.state === "installing"
+        ? "Installing"
+        : updateStatus?.available
+          ? "Update"
+          : "Stable";
+  const updateButtonDisabled =
+    updateStatus?.state === "checking" ||
+    updateStatus?.state === "downloading" ||
+    updateStatus?.state === "installing" ||
+    !updateStatus?.available;
 
   useEffect(() => {
     if (isOverlay) {
@@ -299,6 +347,15 @@ export function App(): JSX.Element {
   }, [activeModel?.status, state.settings?.insertionMode, recording, isOverlay]);
 
   useEffect(() => {
+    if (isOverlay || !state.settings || checkedForUpdatesRef.current) {
+      return;
+    }
+
+    checkedForUpdatesRef.current = true;
+    void checkForUpdates();
+  }, [isOverlay, state.settings]);
+
+  useEffect(() => {
     if (isOverlay) {
       return;
     }
@@ -347,7 +404,8 @@ export function App(): JSX.Element {
 
   async function refresh(): Promise<void> {
     const [
-      appVersion,
+      appInfo,
+      updates,
       settings,
       models,
       runtime,
@@ -359,7 +417,8 @@ export function App(): JSX.Element {
       hotkeys
     ] =
       await Promise.all([
-      window.voxtype.getVersion(),
+      window.voxtype.getAppInfo(),
+      window.voxtype.updates.status(),
       window.voxtype.settings.get(),
       window.voxtype.models.list(),
       window.voxtype.runtime.getWhisper(),
@@ -371,7 +430,9 @@ export function App(): JSX.Element {
       window.voxtype.hotkeys.status()
     ]);
 
-    setVersion(appVersion);
+    setVersion(appInfo.versionLabel);
+    setIsDeveloperBuild(appInfo.isDeveloperBuild);
+    setUpdateStatus(updates);
     setState({
       settings,
       models,
@@ -398,6 +459,37 @@ export function App(): JSX.Element {
       window.voxtype.hotkeys.status()
     ]);
     setState((current) => ({ ...current, settings, models, hotkeys }));
+  }
+
+  async function checkForUpdates(): Promise<void> {
+    try {
+      const updates = await window.voxtype.updates.check();
+      setUpdateStatus(updates);
+    } catch (updateError) {
+      setUpdateStatus((current) =>
+        current
+          ? { ...current, state: "error", error: formatError(updateError), available: false }
+          : null
+      );
+    }
+  }
+
+  async function installUpdate(): Promise<void> {
+    setError(null);
+    setBusyMessage("Downloading update...");
+
+    try {
+      const updates = await window.voxtype.updates.install();
+      setUpdateStatus(updates);
+
+      if (updates.state === "installing") {
+        setBusyMessage("Starting update installer...");
+      }
+    } catch (updateError) {
+      setError(formatError(updateError));
+    } finally {
+      setBusyMessage(null);
+    }
   }
 
   async function installRuntime(): Promise<void> {
@@ -939,6 +1031,7 @@ export function App(): JSX.Element {
         | "recordingStartHotkey"
         | "recordingStopHotkey"
         | "postTranscriptionHotkey"
+        | "whisperLanguage"
       >
     >
   ): Promise<void> {
@@ -950,10 +1043,29 @@ export function App(): JSX.Element {
       recordingStartHotkey: patch.recordingStartHotkey ?? profile.recordingStartHotkey,
       recordingStopHotkey: patch.recordingStopHotkey ?? profile.recordingStopHotkey,
       postTranscriptionHotkey:
-        patch.postTranscriptionHotkey ?? profile.postTranscriptionHotkey
+        patch.postTranscriptionHotkey ?? profile.postTranscriptionHotkey,
+      whisperLanguage: patch.whisperLanguage ?? profile.whisperLanguage
     };
     const settings = await window.voxtype.appProfiles.update(profile.processName, nextProfile);
     setState((current) => ({ ...current, settings }));
+  }
+
+  async function removeAppProfile(profile: AppProfile): Promise<void> {
+    const settings = await window.voxtype.appProfiles.remove(profile.processName);
+    setState((current) => ({ ...current, settings }));
+
+    if (selectedProfileProcessName === profile.processName) {
+      setSelectedProfileProcessName(null);
+    }
+
+    if (capturingProfileHotkey === profile.processName) {
+      setCapturingProfileHotkey(null);
+    }
+  }
+
+  function closeProfileModal(): void {
+    setSelectedProfileProcessName(null);
+    setCapturingProfileHotkey(null);
   }
 
   async function updateProfileHotkey(processName: string, accelerator: string): Promise<void> {
@@ -1003,7 +1115,29 @@ export function App(): JSX.Element {
     setEditingDictionaryEntryId(entry.id);
   }
 
-  async function saveDictionaryEntry(): Promise<void> {
+  function openNewDictionaryModal(): void {
+    clearDictionaryForm();
+    setDictionaryModalOpen(true);
+  }
+
+  function openEditDictionaryModal(entry: DictionaryEntry): void {
+    selectDictionaryEntry(entry);
+    setDictionaryModalOpen(true);
+  }
+
+  function closeDictionaryModal(): void {
+    setDictionaryModalOpen(false);
+    clearDictionaryForm();
+  }
+
+  async function saveDictionaryEntryFromModal(): Promise<void> {
+    const saved = await saveDictionaryEntry();
+    if (saved) {
+      setDictionaryModalOpen(false);
+    }
+  }
+
+  async function saveDictionaryEntry(): Promise<boolean> {
     setError(null);
 
     try {
@@ -1021,8 +1155,10 @@ export function App(): JSX.Element {
           });
       setState((current) => ({ ...current, dictionary }));
       clearDictionaryForm();
+      return true;
     } catch (dictionaryError) {
       setError(formatError(dictionaryError));
+      return false;
     }
   }
 
@@ -1189,7 +1325,7 @@ export function App(): JSX.Element {
     );
   }
 
-  if (!state.settings.developerModeEnabled) {
+  if (!state.settings.developerModeEnabled || !isDeveloperBuild) {
     return (
       <main className="app-shell release-shell">
         <WindowTitleBar title="VoxType" />
@@ -1235,8 +1371,20 @@ export function App(): JSX.Element {
                 <p>{error ? "Attention needed" : "All systems go"}</p>
               </div>
               <div className="sidebar-system-foot">
-                <span>VoxType {version}</span>
-                <strong>Stable</strong>
+                <span>{version}</span>
+                <button
+                  className={updateStatus?.available ? "update-available" : ""}
+                  disabled={updateButtonDisabled}
+                  onClick={() => void installUpdate()}
+                  title={
+                    updateStatus?.available && updateStatus.latestVersion
+                      ? `Install VoxType ${updateStatus.latestVersion}`
+                      : updateStatus?.error ?? "VoxType is up to date"
+                  }
+                  type="button"
+                >
+                  {updateButtonLabel}
+                </button>
               </div>
             </aside>
           </div>
@@ -1248,14 +1396,16 @@ export function App(): JSX.Element {
               <h1>VoxType</h1>
               <p>Local dictation for Windows</p>
             </div>
-            <button
-              className="developer-button"
-              onClick={() => void updateSettings({ developerModeEnabled: true })}
-              type="button"
-            >
-              <ReleaseIcon name="code" decorative />
-              <span>Developer</span>
-            </button>
+            {isDeveloperBuild ? (
+              <button
+                className="developer-button"
+                onClick={() => void updateSettings({ developerModeEnabled: true })}
+                type="button"
+              >
+                <ReleaseIcon name="code" decorative />
+                <span>Developer</span>
+              </button>
+            ) : null}
           </header>
 
           {error ? (
@@ -1292,13 +1442,21 @@ export function App(): JSX.Element {
                   <dd>{state.hardware?.bestGpu?.name ?? "CPU fallback"}</dd>
                 </div>
               </dl>
-              <button className="test-hotkey-button" onClick={() => setCapturingHotkey("dictationToggleHotkey")} type="button">
-                <ReleaseIcon name="keyboard" decorative />
-                <span>{capturingHotkey === "dictationToggleHotkey" ? "Press keys" : "Test hotkey"}</span>
-              </button>
             </section>
             <section className="release-panel settings-panel">
               <div className="settings-list">
+                <label className="setting-row">
+                  <span>
+                    <strong>Language</strong>
+                    <small>Auto-detect or force Whisper to listen for one language.</small>
+                  </span>
+                  <ReleaseSelect
+                    ariaLabel="Whisper language"
+                    options={whisperLanguageOptions}
+                    value={state.settings.whisperLanguage}
+                    onChange={(value) => void updateSettings({ whisperLanguage: value })}
+                  />
+                </label>
                 <label className="setting-row">
                   <span>
                     <strong>Offline mode</strong>
@@ -1308,6 +1466,17 @@ export function App(): JSX.Element {
                     checked={state.settings.offlineMode}
                     type="checkbox"
                     onChange={(event) => void updateSettings({ offlineMode: event.target.checked })}
+                  />
+                </label>
+                <label className="setting-row">
+                  <span>
+                    <strong>Start minimized</strong>
+                    <small>Start as a tray icon; double-click it to open VoxType.</small>
+                  </span>
+                  <input
+                    checked={state.settings.startMinimized}
+                    type="checkbox"
+                    onChange={(event) => void updateSettings({ startMinimized: event.target.checked })}
                   />
                 </label>
                 <label className="setting-row">
@@ -1512,121 +1681,212 @@ export function App(): JSX.Element {
               {state.settings.appProfiles.length ? (
                 state.settings.appProfiles.map((profile) => (
                   <article className="profile-row" key={profile.id}>
-                    <div className="profile-heading">
-                      <strong>{profile.displayName}</strong>
-                      <span>{profile.processName}</span>
-                    </div>
-                    <div className="profile-control">
-                      <span>Insert with</span>
-                      <ReleaseSelect
-                        ariaLabel={`Insertion mode for ${profile.displayName}`}
-                        options={insertionModeOptions}
-                        value={profile.insertionMode}
-                        onChange={(value) =>
-                          void updateAppProfile(profile, {
-                            insertionMode: value
-                          })
-                        }
-                      />
-                    </div>
-                    <div className="profile-control">
-                      <span>Writing style</span>
-                      <ReleaseSelect
-                        ariaLabel={`Writing style for ${profile.displayName}`}
-                        options={writingStyleOptions}
-                        value={profile.writingStyle}
-                        onChange={(value) =>
-                          void updateAppProfile(profile, {
-                            writingStyle: value
-                          })
-                        }
-                      />
-                    </div>
-                    <label className="profile-control">
-                      <span>Send after insert</span>
-                      <button
-                        className="release-command-button"
-                        onClick={() => setCapturingProfileHotkey(profile.processName)}
-                        onContextMenu={(event) => {
-                          event.preventDefault();
-                          void updateAppProfile(profile, { postTranscriptionHotkey: "" });
-                        }}
-                        title="Click to capture a hotkey. Press Escape while capturing or right-click to clear."
-                        type="button"
-                      >
-                        {capturingProfileHotkey === profile.processName
-                          ? "Press keys..."
-                          : profile.postTranscriptionHotkey || "None"}
-                      </button>
-                    </label>
+                    <button
+                      className="profile-row-main"
+                      onClick={() => setSelectedProfileProcessName(profile.processName)}
+                      type="button"
+                    >
+                      <span className="profile-heading">
+                        <strong>{profile.displayName}</strong>
+                        <span>{profile.processName}</span>
+                      </span>
+                      <span className="profile-summary">
+                        <span>{insertionModeLabel(profile.insertionMode)}</span>
+                        <span>{writingStyleLabel(profile.writingStyle)}</span>
+                        <span>{profileWhisperLanguageLabel(profile.whisperLanguage)}</span>
+                        <span>{profile.postTranscriptionHotkey || "No send key"}</span>
+                      </span>
+                    </button>
+                    <button
+                      aria-label={`Remove ${profile.displayName} profile`}
+                      className="release-icon-button"
+                      data-tooltip="Remove profile"
+                      disabled={Boolean(busyMessage)}
+                      onClick={() => void removeAppProfile(profile)}
+                      type="button"
+                    >
+                      <Trash2 aria-hidden="true" className="release-icon-svg" />
+                    </button>
                   </article>
                 ))
               ) : (
                 <p className="empty-state">Profiles appear after VoxType sees an app during dictation.</p>
               )}
             </div>
+
+            {selectedProfile ? (
+              <div
+                aria-modal="true"
+                className="release-modal-backdrop"
+                onMouseDown={(event) => {
+                  if (event.target === event.currentTarget) {
+                    closeProfileModal();
+                  }
+                }}
+                role="dialog"
+              >
+                <section className="release-modal profile-modal">
+                  <div className="release-modal-header">
+                    <div className="release-panel-title">
+                      <ReleaseIcon name="user" decorative />
+                      <h2>{selectedProfile.displayName}</h2>
+                    </div>
+                    <button
+                      aria-label="Close profile settings"
+                      className="release-icon-button"
+                      data-tooltip="Close"
+                      onClick={closeProfileModal}
+                      type="button"
+                    >
+                      <X aria-hidden="true" className="release-icon-svg" />
+                    </button>
+                  </div>
+
+                  <div className="profile-modal-meta">
+                    <span>{selectedProfile.processName}</span>
+                    {selectedProfile.processPath ? <span>{selectedProfile.processPath}</span> : null}
+                  </div>
+
+                  <div className="release-form-grid">
+                    <div className="release-field">
+                      <span>Insert with</span>
+                      <ReleaseSelect
+                        ariaLabel={`Insertion mode for ${selectedProfile.displayName}`}
+                        options={insertionModeOptions}
+                        value={selectedProfile.insertionMode}
+                        onChange={(value) =>
+                          void updateAppProfile(selectedProfile, {
+                            insertionMode: value
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="release-field">
+                      <span>Writing style</span>
+                      <ReleaseSelect
+                        ariaLabel={`Writing style for ${selectedProfile.displayName}`}
+                        options={writingStyleOptions}
+                        value={selectedProfile.writingStyle}
+                        onChange={(value) =>
+                          void updateAppProfile(selectedProfile, {
+                            writingStyle: value
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="release-field">
+                      <span>Language</span>
+                      <ReleaseSelect
+                        ariaLabel={`Language for ${selectedProfile.displayName}`}
+                        options={profileWhisperLanguageOptions}
+                        value={selectedProfile.whisperLanguage}
+                        onChange={(value) =>
+                          void updateAppProfile(selectedProfile, {
+                            whisperLanguage: value
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="release-field">
+                      <span>Send after insert</span>
+                      <button
+                        className="release-command-button"
+                        onClick={() => setCapturingProfileHotkey(selectedProfile.processName)}
+                        onContextMenu={(event) => {
+                          event.preventDefault();
+                          void updateAppProfile(selectedProfile, { postTranscriptionHotkey: "" });
+                        }}
+                        title="Click to capture a hotkey. Press Escape while capturing or right-click to clear."
+                        type="button"
+                      >
+                        {capturingProfileHotkey === selectedProfile.processName
+                          ? "Press keys..."
+                          : selectedProfile.postTranscriptionHotkey || "None"}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="release-form-actions">
+                    <button
+                      className="release-destructive-button"
+                      disabled={Boolean(busyMessage)}
+                      onClick={() => void removeAppProfile(selectedProfile)}
+                      type="button"
+                    >
+                      <Trash2 aria-hidden="true" className="release-icon-svg" />
+                      Remove
+                    </button>
+                    <button className="release-primary-button" onClick={closeProfileModal} type="button">
+                      Done
+                    </button>
+                  </div>
+                </section>
+              </div>
+            ) : null}
           </section>
         ) : null}
 
         {releaseTab === "dictionary" ? (
           <div className="release-dictionary-layout">
-            <section className="release-panel release-dictionary-form-panel">
-              <div className="release-panel-title">
-                <ReleaseIcon name="book" decorative />
-                <h2>{editingDictionaryEntryId ? "Edit Entry" : "Dictionary"}</h2>
-              </div>
-              <div className="release-form-grid">
-                <label className="release-field">
-                  <span>Word or phrase</span>
-                  <input
-                    value={dictionaryPreferred}
-                    onChange={(event) => setDictionaryPreferred(event.target.value)}
-                  />
-                </label>
-                <label className="release-field">
-                  <span>Misheard as</span>
-                  <textarea
-                    rows={4}
-                    value={dictionaryMatches}
-                    onChange={(event) => setDictionaryMatches(event.target.value)}
-                  />
-                </label>
-                <label className="release-field">
-                  <span>Category</span>
-                  <input
-                    value={dictionaryCategory}
-                    onChange={(event) => setDictionaryCategory(event.target.value)}
-                  />
-                </label>
-                <label className="release-field">
-                  <span>Scope</span>
-                  <select
-                    value={dictionaryAppProcess}
-                    onChange={(event) => setDictionaryAppProcess(event.target.value)}
-                  >
-                    <option value="">All apps</option>
-                    {state.settings.appProfiles.map((profile) => (
-                      <option key={profile.id} value={profile.processName}>
-                        {profile.displayName}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              <div className="release-form-actions">
-                <button
-                  className="release-primary-button"
-                  disabled={!dictionaryPreferred.trim()}
-                  onClick={() => void saveDictionaryEntry()}
-                  type="button"
-                >
-                  {editingDictionaryEntryId ? "Update" : "Add"}
-                </button>
-                {editingDictionaryEntryId ? (
-                  <button className="release-secondary-button" onClick={clearDictionaryForm} type="button">
-                    New
+            <section className="release-panel release-dictionary-list-panel">
+              <div className="release-panel-heading">
+                <div className="release-panel-title">
+                  <ReleaseIcon name="book" decorative />
+                  <h2>Saved Entries</h2>
+                </div>
+                <div className="release-panel-actions">
+                  <ReleaseChip>{state.dictionary.length}</ReleaseChip>
+                  <button className="release-primary-button" onClick={openNewDictionaryModal} type="button">
+                    <Plus aria-hidden="true" className="release-icon-svg" />
+                    Add Entry
                   </button>
-                ) : null}
+                </div>
+              </div>
+
+              <div className="dictionary-entry-list">
+                {state.dictionary.length ? (
+                  state.dictionary.map((entry) => (
+                    <article
+                      className={
+                        editingDictionaryEntryId === entry.id
+                          ? "dictionary-entry-row selected"
+                          : "dictionary-entry-row"
+                      }
+                      key={entry.id}
+                    >
+                      <button
+                        className="dictionary-entry-main"
+                        onClick={() => openEditDictionaryModal(entry)}
+                        type="button"
+                      >
+                        <strong>{entry.preferred}</strong>
+                        <span>
+                          {entry.category} · {entry.source} · {entry.appProcessName ?? "all apps"}
+                        </span>
+                      </button>
+                      <div className="dictionary-entry-actions">
+                        <button
+                          className="release-secondary-button"
+                          onClick={() => void toggleDictionaryEntry(entry)}
+                          type="button"
+                        >
+                          {entry.enabled ? "On" : "Off"}
+                        </button>
+                        <button
+                          aria-label={`Delete ${entry.preferred}`}
+                          className="release-icon-button"
+                          data-tooltip="Delete"
+                          onClick={() => void removeDictionaryEntry(entry)}
+                          type="button"
+                        >
+                          <Trash2 aria-hidden="true" className="release-icon-svg" />
+                        </button>
+                      </div>
+                    </article>
+                  ))
+                ) : (
+                  <p className="empty-state">No dictionary entries yet.</p>
+                )}
               </div>
             </section>
 
@@ -1665,60 +1925,91 @@ export function App(): JSX.Element {
               )}
             </section>
 
-            <section className="release-panel release-dictionary-list-panel">
-              <div className="section-title-row">
-                <div className="release-panel-title">
-                  <ReleaseIcon name="book" decorative />
-                  <h2>Saved Entries</h2>
-                </div>
-                <ReleaseChip>{state.dictionary.length}</ReleaseChip>
-              </div>
-              <div className="dictionary-entry-list">
-                {state.dictionary.length ? (
-                  state.dictionary.map((entry) => (
-                    <article
-                      className={
-                        editingDictionaryEntryId === entry.id
-                          ? "dictionary-entry-row selected"
-                          : "dictionary-entry-row"
-                      }
-                      key={entry.id}
+            {dictionaryModalOpen ? (
+              <div
+                aria-modal="true"
+                className="release-modal-backdrop"
+                onMouseDown={(event) => {
+                  if (event.target === event.currentTarget) {
+                    closeDictionaryModal();
+                  }
+                }}
+                role="dialog"
+              >
+                <section className="release-modal">
+                  <div className="release-modal-header">
+                    <div className="release-panel-title">
+                      <ReleaseIcon name="book" decorative />
+                      <h2>{editingDictionaryEntryId ? "Edit Entry" : "Add Entry"}</h2>
+                    </div>
+                    <button
+                      aria-label="Close dictionary entry"
+                      className="release-icon-button"
+                      data-tooltip="Close"
+                      onClick={closeDictionaryModal}
+                      type="button"
                     >
-                      <button
-                        className="dictionary-entry-main"
-                        onClick={() => selectDictionaryEntry(entry)}
-                        type="button"
-                      >
-                        <strong>{entry.preferred}</strong>
-                        <span>
-                          {entry.category} · {entry.source} · {entry.appProcessName ?? "all apps"}
-                        </span>
-                      </button>
-                      <div className="dictionary-entry-actions">
-                        <button
-                          className="release-secondary-button"
-                          onClick={() => void toggleDictionaryEntry(entry)}
-                          type="button"
+                      <X aria-hidden="true" className="release-icon-svg" />
+                    </button>
+                  </div>
+
+                  <div className="release-form-grid">
+                    <label className="release-field">
+                      <span>Word or phrase</span>
+                      <input
+                        autoFocus
+                        value={dictionaryPreferred}
+                        onChange={(event) => setDictionaryPreferred(event.target.value)}
+                      />
+                    </label>
+                    <label className="release-field">
+                      <span>Misheard as</span>
+                      <textarea
+                        rows={2}
+                        value={dictionaryMatches}
+                        onChange={(event) => setDictionaryMatches(event.target.value)}
+                      />
+                    </label>
+                    <div className="release-form-split">
+                      <label className="release-field">
+                        <span>Category</span>
+                        <input
+                          value={dictionaryCategory}
+                          onChange={(event) => setDictionaryCategory(event.target.value)}
+                        />
+                      </label>
+                      <label className="release-field">
+                        <span>Scope</span>
+                        <select
+                          value={dictionaryAppProcess}
+                          onChange={(event) => setDictionaryAppProcess(event.target.value)}
                         >
-                          {entry.enabled ? "On" : "Off"}
-                        </button>
-                        <button
-                          aria-label={`Delete ${entry.preferred}`}
-                          className="release-icon-button"
-                          data-tooltip="Delete"
-                          onClick={() => void removeDictionaryEntry(entry)}
-                          type="button"
-                        >
-                          <Trash2 aria-hidden="true" className="release-icon-svg" />
-                        </button>
-                      </div>
-                    </article>
-                  ))
-                ) : (
-                  <p className="empty-state">No dictionary entries yet.</p>
-                )}
+                          <option value="">All apps</option>
+                          {state.settings.appProfiles.map((profile) => (
+                            <option key={profile.id} value={profile.processName}>
+                              {profile.displayName}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                  </div>
+                  <div className="release-form-actions">
+                    <button className="release-secondary-button" onClick={closeDictionaryModal} type="button">
+                      Cancel
+                    </button>
+                    <button
+                      className="release-primary-button"
+                      disabled={!dictionaryPreferred.trim()}
+                      onClick={() => void saveDictionaryEntryFromModal()}
+                      type="button"
+                    >
+                      {editingDictionaryEntryId ? "Update" : "Add"}
+                    </button>
+                  </div>
+                </section>
               </div>
-            </section>
+            ) : null}
           </div>
         ) : null}
 
@@ -2377,6 +2668,7 @@ export function App(): JSX.Element {
                   <th>path</th>
                   <th>insertion</th>
                   <th>style</th>
+                  <th>language</th>
                 </tr>
               </thead>
               <tbody>
@@ -2416,11 +2708,27 @@ export function App(): JSX.Element {
                           <option value="professional">professional</option>
                         </select>
                       </td>
+                      <td>
+                        <select
+                          value={profile.whisperLanguage}
+                          onChange={(event) =>
+                            void updateAppProfile(profile, {
+                              whisperLanguage: event.target.value as ProfileWhisperLanguage
+                            })
+                          }
+                        >
+                          {profileWhisperLanguageOptions.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.value}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
-                    <td colSpan={5}>empty</td>
+                    <td colSpan={6}>empty</td>
                   </tr>
                 )}
               </tbody>
@@ -2669,6 +2977,21 @@ export function App(): JSX.Element {
                   <option value="vulkan">vulkan</option>
                 </select>
               </label>
+              <label className="dev-field">
+                <span>whisperLanguage</span>
+                <select
+                  value={state.settings.whisperLanguage}
+                  onChange={(event) =>
+                    void updateSettings({ whisperLanguage: event.target.value as WhisperLanguage })
+                  }
+                >
+                  {whisperLanguageOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.value}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label className="dev-field wide">
                 <span>modelDirectory</span>
                 <input
@@ -2849,6 +3172,14 @@ export function App(): JSX.Element {
               </label>
               <label className="checkbox-field">
                 <input
+                  checked={state.settings.startMinimized}
+                  type="checkbox"
+                  onChange={(event) => void updateSettings({ startMinimized: event.target.checked })}
+                />
+                startMinimized
+              </label>
+              <label className="checkbox-field">
+                <input
                   checked={state.settings.developerModeEnabled}
                   type="checkbox"
                   onChange={(event) =>
@@ -2948,20 +3279,12 @@ function WindowTitleBar({ title }: { title: string }): JSX.Element {
       </div>
       <div className="window-controls">
         <button
-          aria-label="Minimize"
+          aria-label="Hide window"
           onClick={() => void window.voxtype.window.minimize()}
-          title="Minimize"
+          title="Hide window"
           type="button"
         >
           <Minus aria-hidden="true" className="release-icon-svg" />
-        </button>
-        <button
-          aria-label="Maximize"
-          onClick={() => void window.voxtype.window.maximize()}
-          title="Maximize"
-          type="button"
-        >
-          <Square aria-hidden="true" className="release-icon-svg" />
         </button>
         <button
           aria-label="Close"
@@ -3436,6 +3759,18 @@ function writingStyleLabel(style: AppProfile["writingStyle"]): string {
   }
 
   return "default style";
+}
+
+function profileWhisperLanguageLabel(language: ProfileWhisperLanguage): string {
+  if (language === "inherit") {
+    return "inherit language";
+  }
+
+  if (language === "auto") {
+    return "auto language";
+  }
+
+  return language.toUpperCase();
 }
 
 function profileForWindow(

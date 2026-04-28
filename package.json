@@ -8,8 +8,58 @@
   "scripts": {
     "dev": "electron-vite dev",
     "build": "tsc --noEmit && electron-vite build",
+    "build:native:release": "cargo build --manifest-path native/windows-helper/Cargo.toml --release",
+    "dist:win": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win nsis --x64",
+    "release:win": "npm run build:native:release && npm run dist:win",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit"
+  },
+  "build": {
+    "appId": "com.voxtype.app",
+    "productName": "VoxType",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/icons",
+        "to": "icons"
+      },
+      {
+        "from": "resources/models/silero_vad_v4.onnx",
+        "to": "models/silero_vad_v4.onnx"
+      },
+      {
+        "from": "native/windows-helper/target/release/voxtype-windows-helper.exe",
+        "to": "native/voxtype-windows-helper.exe"
+      }
+    ],
+    "win": {
+      "icon": "resources/icons/voxtype.ico",
+      "signAndEditExecutable": false,
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "VoxType"
+    },
+    "artifactName": "${productName}-Setup-${version}-${arch}.${ext}"
   },
   "dependencies": {
     "lucide-react": "^1.11.0",
@@ -22,7 +72,9 @@
     "@types/react": "latest",
     "@types/react-dom": "latest",
     "@vitejs/plugin-react": "^5.2.0",
+    "cross-env": "^10.1.0",
     "electron": "latest",
+    "electron-builder": "^26.8.1",
     "electron-vite": "^5.0.0",
     "typescript": "latest",
     "vite": "^7.3.2"

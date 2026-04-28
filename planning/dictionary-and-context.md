@@ -52,6 +52,7 @@ Initial implementation:
 - Dictionary entries are stored locally in Electron `userData` as `dictionary.json`.
 - Entries include preferred text, misheard phrases, category, source, enabled state, and optional app process scope.
 - The renderer includes a dictionary panel for adding, editing by clicking entries, disabling, and deleting entries.
+- The non-developer dictionary page keeps saved entries and latest OCR terms as the primary view; add/edit actions open a compact modal so the page fits the normal VoxType window without exposing large edit fields inline.
 - Entries can be scoped to app profiles so corrections can be global or app-specific.
 
 ```json
@@ -169,6 +170,7 @@ Initial implementation:
 
 - The non-developer frontend includes a Dictionary tab for adding, editing, disabling, and deleting local dictionary entries.
 - The Dictionary tab shows the latest OCR terms as clickable chips so visible terms can be promoted into the permanent dictionary without entering developer mode.
+- Add and edit forms should stay in modal dialogs on the non-developer page; the page itself should focus on scanning saved entries and recent OCR terms.
 - Add word manually.
 - Add selected text to dictionary.
 - Add all OCR terms from screenshot.

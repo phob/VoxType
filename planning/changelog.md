@@ -30,6 +30,21 @@
 - Updated the release UI direction to use the cyan component-system language and place the friendly system status summary in the lower-left sidebar.
 - Applied the release component-system language across Hotkeys, Models, Profiles, and History with reusable dropdowns, chips, status badges, icon buttons, toast, tooltip, and segmented-control patterns.
 
+## 2026-04-28
+
+- Added Microsoft VibeVoice-ASR as a future optional long-form ASR engine idea and captured the open question around Windows-local practicality.
+- Reworked the recording overlay direction around a compact, slower canvas vertical-bar input gain timeline with a silent baseline and green/yellow/red peak zones.
+- Added the release artifact automation direction: Release Please-created releases should trigger a Windows NSIS packaging job that uploads installer artifacts to the GitHub Release.
+- Clarified the non-developer Dictionary page direction: saved entries and OCR terms are the main view, while add/edit entry forms open in compact modal dialogs.
+- Added user-facing Whisper language selection with a global `auto` default, per-profile `inherit` default, and concrete language overrides passed to `whisper-cli`.
+- Added the in-app update direction: the Stable badge becomes an orange Update action when a newer GitHub Release installer is available, downloads the NSIS setup, launches it silently, and quits VoxType.
+- Clarified that release app profiles should stay compact and open into a settings modal that can grow with future per-profile controls, including profile removal.
+- Added developer-build detection to show a `-dev` version suffix and hide the Developer button in installed builds.
+- Added fixed-size main window behavior with no maximize control and a subtle startup UI fade-in.
+- Changed Start minimized and the titlebar minimize control to hide the main window to the tray/task icon instead of using Windows minimize, while keeping the talking overlay independent.
+- Added tray icon double-click restore behavior for opening the main window from hidden startup mode.
+- Cleaned up first GitHub release planning by removing duplicate artifact workflow direction, updating the bootstrap version to `0.2.0`, pruning resolved open questions, and adding known first-release limitations.
+
 ## 2026-04-26
 
 - Made GPU acceleration the first Phase 5 priority, with automatic GPU/VRAM detection and per-model fit checks as the initial slice.
