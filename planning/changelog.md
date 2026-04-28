@@ -44,6 +44,9 @@
 - Changed Start minimized and the titlebar minimize control to hide the main window to the tray/task icon instead of using Windows minimize, while keeping the talking overlay independent.
 - Added tray icon double-click restore behavior for opening the main window from hidden startup mode.
 - Cleaned up first GitHub release planning by removing duplicate artifact workflow direction, updating the bootstrap version to `0.2.0`, pruning resolved open questions, and adding known first-release limitations.
+- Added release planning for aligning the Rust Windows helper version with the app package version starting from the `0.3.1` public release line.
+- Added packaged app identity guidance so installed Windows builds use the VoxType executable/app name instead of Electron where Windows shell surfaces support it.
+- Added SHA256 checksum generation and upload for Windows release artifacts while installers remain unsigned.
 
 ## 2026-04-26
 

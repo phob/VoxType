@@ -58,6 +58,8 @@ const transcriptionService = new TranscriptionService(
 );
 const insertionService = new InsertionService(windowsHelperService, settingsStore);
 
+app.setName("VoxType");
+
 if (process.platform === "win32") {
   app.setAppUserModelId("com.voxtype.app");
 }

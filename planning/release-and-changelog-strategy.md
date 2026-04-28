@@ -158,6 +158,12 @@ Current bootstrap version is `0.2.0` in `package.json` and `.release-please-mani
 
 After this setup is merged to `main`, future release-relevant commits should use Conventional Commits so Release Please can open release PRs.
 
+## Version Alignment
+
+The Electron package version and the Rust Windows helper version should stay aligned for public releases.
+
+After the first public release, `native/windows-helper/Cargo.toml` and the helper package entry in `native/windows-helper/Cargo.lock` should use the same version as `package.json` and `.release-please-manifest.json`. Release Please is configured to update those Rust helper files through `extra-files`, so a future release such as `0.4.0` should update both the app package and the helper package to `0.4.0` in the release PR.
+
 ## Release Artifact Automation
 
 When a Release Please PR is merged, the `release-please` workflow should:
@@ -167,9 +173,12 @@ When a Release Please PR is merged, the `release-please` workflow should:
 3. Build the Rust Windows helper in release mode.
 4. Run the Electron/Vite production build.
 5. Package a Windows x64 NSIS installer with `electron-builder`.
-6. Upload the generated setup executable, blockmap, and update metadata to the GitHub Release.
+6. Generate `SHA256SUMS.txt` for the setup executable, blockmap, and update metadata.
+7. Upload the generated setup executable, blockmap, update metadata, and checksum manifest to the GitHub Release.
 
-The initial installer is unsigned. `signAndEditExecutable` is disabled to avoid local unsigned packaging failures from electron-builder's Windows code-signing helper cache. A future signed-installer pass should restore executable metadata/signing once a code-signing path is chosen.
+The initial installer is unsigned. `signAndEditExecutable` is disabled to avoid local unsigned packaging failures from electron-builder's Windows code-signing helper cache. Until signing is justified, GitHub Releases should include `SHA256SUMS.txt` so users can verify downloaded installer artifacts. A future signed-installer pass should restore executable metadata/signing once a code-signing path is chosen.
+
+Packaged Windows builds should use `VoxType.exe` as the executable name and set Electron's app name to `VoxType`, so installed builds show the VoxType identity in Windows shell surfaces such as Task Manager. Development runs may still show Electron because they are launched through Electron's development executable.
 
 ## In-App Update Flow
 
@@ -192,12 +201,12 @@ Do not mix them.
 
 ## First Release Bootstrap
 
-The first public GitHub release candidate is `0.2.0`.
+The first public GitHub release is `0.3.1`.
 
 Recommended approach:
 
 1. Merge the Release Please setup and first-release README/planning cleanup.
-2. Use the existing `0.2.0` package/manifest version as the first public release baseline.
+2. Keep existing GitHub releases and tags so changelog compare links and Release Please history remain intact.
 3. Use Conventional Commits for future release-relevant work.
 4. Let Release Please open release PRs for later versions.
 
@@ -216,6 +225,7 @@ The first GitHub release should present VoxType as an early Windows-first, local
 ## Known First-Release Limitations
 
 - The Windows installer is unsigned, so Windows SmartScreen may warn users.
+- GitHub Releases include SHA256 checksums as the first trust/verification layer while the installer remains unsigned.
 - Auto-update depends on GitHub Release installer assets and is intentionally simple for the first release.
 - OCR context is best-effort and may not improve every difficult term even when text is visible on screen.
 - Remote insertion behavior varies by app and remote-control tool; TeamViewer/RDP-style targets may need profile tuning.

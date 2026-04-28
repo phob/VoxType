@@ -6,9 +6,18 @@
       "package-name": "voxtype",
       "changelog-path": "CHANGELOG.md",
       "extra-files": [
-        "package-lock.json"
+        "package-lock.json",
+        {
+          "type": "toml",
+          "path": "native/windows-helper/Cargo.toml",
+          "jsonpath": "$.package.version"
+        },
+        {
+          "type": "toml",
+          "path": "native/windows-helper/Cargo.lock",
+          "jsonpath": "$.package[?(@.name=='voxtype-windows-helper')].version"
+        }
       ]
     }
   }
 }
-

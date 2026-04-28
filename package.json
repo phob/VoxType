@@ -17,6 +17,7 @@
   "build": {
     "appId": "com.voxtype.app",
     "productName": "VoxType",
+    "executableName": "VoxType",
     "directories": {
       "output": "release"
     },

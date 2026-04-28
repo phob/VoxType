@@ -45,12 +45,30 @@ jobs:
 
       - run: npm run release:win
 
+      - name: Generate SHA256 checksums
+        shell: pwsh
+        run: |
+          $artifacts = Get-ChildItem -Path release\* -File -Include *.exe,*.blockmap,*.yml,*.yaml
+
+          if (-not $artifacts) {
+            throw "No release artifacts were produced."
+          }
+
+          $checksumPath = Join-Path (Resolve-Path release) "SHA256SUMS.txt"
+          $artifacts |
+            Sort-Object Name |
+            ForEach-Object {
+              $hash = Get-FileHash -Algorithm SHA256 -LiteralPath $_.FullName
+              "$($hash.Hash.ToLowerInvariant())  $($_.Name)"
+            } |
+            Set-Content -Path $checksumPath -Encoding utf8
+
       - name: Upload installer artifacts to GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         shell: pwsh
         run: |
-          $artifacts = Get-ChildItem -Path release\* -File -Include *.exe,*.blockmap,*.yml,*.yaml
+          $artifacts = Get-ChildItem -Path release\* -File -Include *.exe,*.blockmap,*.yml,*.yaml,*.txt
 
           if (-not $artifacts) {
             throw "No release artifacts were produced."
@@ -67,3 +85,4 @@ jobs:
             release/*.blockmap
             release/*.yml
             release/*.yaml
+            release/*.txt
