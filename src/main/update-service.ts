@@ -149,7 +149,7 @@ function releaseToCandidate(release: GitHubRelease): UpdateCandidate | null {
 }
 
 function versionFromTag(tag: string | undefined): string | null {
-  const normalized = tag?.trim().replace(/^v/i, "");
+  const normalized = tag?.trim().replace(/^voxtype-/i, "").replace(/^v/i, "");
   return normalized && /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(normalized)
     ? normalized
     : null;
@@ -184,6 +184,8 @@ function fetchJson<T>(url: string): Promise<T> {
       {
         headers: {
           Accept: "application/vnd.github+json",
+          "Cache-Control": "no-cache",
+          Pragma: "no-cache",
           "User-Agent": "VoxType-Updater"
         }
       },
