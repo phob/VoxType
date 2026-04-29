@@ -251,3 +251,13 @@ User-facing defaults should choose the strongest practical behavior when a fallb
 Reason:
 
 VoxType should feel like it chooses the best local dictation path for the user instead of asking them to tune implementation settings up front. Fallbacks are still important, but they should make the product more resilient rather than adding setup burden.
+
+## 2026-04-29: Separate Home Startup Controls From Settings
+
+Decision:
+
+The release UI should keep common startup controls on Home, including Start with Windows and Start minimized, while moving lower-frequency behavior toggles such as offline mode, clipboard restoration, and system-audio muting to a dedicated Settings page.
+
+Reason:
+
+Automatic startup affects whether VoxType is ready for daily dictation and belongs in the main setup flow. Offline mode, clipboard restoration, and audio muting are important but less frequently changed, so they fit better behind the existing Settings entry point.

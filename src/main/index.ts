@@ -2,7 +2,12 @@ import { app, BrowserWindow, Menu, Tray, globalShortcut, ipcMain, nativeImage, s
 import { join } from "node:path";
 import { type DictionaryCreateInput, type DictionaryPatch } from "../shared/dictionary";
 import { buildOcrPromptContext, type OcrPromptContext } from "../shared/ocr-context";
-import { type AppProfile, type InsertionMode, type SettingsPatch } from "../shared/settings";
+import {
+  type AppProfile,
+  type AppSettings,
+  type InsertionMode,
+  type SettingsPatch
+} from "../shared/settings";
 import {
   type ActiveWindowInfo,
   type DictationHotkeyState,
@@ -67,6 +72,17 @@ if (process.platform === "win32") {
 function getAppIconPath(): string {
   const resourcesRoot = app.isPackaged ? process.resourcesPath : join(app.getAppPath(), "resources");
   return join(resourcesRoot, "icons", "voxtype.ico");
+}
+
+function applyStartupSettings(settings: AppSettings): void {
+  if (process.platform !== "win32") {
+    return;
+  }
+
+  app.setLoginItemSettings({
+    openAtLogin: settings.startWithWindows,
+    openAsHidden: settings.startMinimized
+  });
 }
 
 function createWindow(): void {
@@ -392,11 +408,13 @@ ipcMain.handle("window:close", () => {
 ipcMain.handle("settings:get", () => settingsStore.get());
 ipcMain.handle("settings:update", async (_event, patch: SettingsPatch) => {
   const settings = await settingsStore.update(patch);
+  applyStartupSettings(settings);
   await registerConfiguredHotkeys();
   return settings;
 });
 ipcMain.handle("settings:reset", async () => {
   const settings = await settingsStore.reset();
+  applyStartupSettings(settings);
   await registerConfiguredHotkeys();
   return settings;
 });
@@ -552,6 +570,7 @@ ipcMain.handle("recording-overlay:get-state", () => overlayState);
 
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
+  void settingsStore.get().then(applyStartupSettings);
   createWindow();
   createTray();
   void registerConfiguredHotkeys();

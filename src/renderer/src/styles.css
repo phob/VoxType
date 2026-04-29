@@ -296,7 +296,8 @@ pre {
   background: rgb(255 255 255 / 0.05);
 }
 
-.release-nav button.active {
+.release-nav button.active,
+.release-settings-link.active {
   color: #f5f7fb;
   border-color: rgb(120 136 162 / 0.16);
   background: linear-gradient(135deg, rgb(63 71 96 / 0.78), rgb(28 36 52 / 0.92));
@@ -1826,7 +1827,8 @@ td select {
   font-size: 0.86rem;
 }
 
-.release-nav button.active {
+.release-nav button.active,
+.release-settings-link.active {
   color: #f5f7fb;
   border-color: transparent;
   border-left: 2px solid #23d6cf;
@@ -1838,7 +1840,8 @@ td select {
   color: #9aa8b8;
 }
 
-.release-nav button.active .release-nav-icon {
+.release-nav button.active .release-nav-icon,
+.release-settings-link.active .release-nav-icon {
   color: #23d6cf;
 }
 
