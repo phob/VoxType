@@ -173,7 +173,8 @@ function isNewerVersion(candidate: string, current: string): boolean {
 }
 
 function parseVersion(version: string): [number, number, number] {
-  const [major = "0", minor = "0", patch = "0"] = version.replace(/^v/i, "").split(/[.+-]/)[0].split(".");
+  const stableVersion = version.replace(/^voxtype-/i, "").replace(/^v/i, "").replace(/[-+].*$/, "");
+  const [major = "0", minor = "0", patch = "0"] = stableVersion.split(".");
   return [Number(major) || 0, Number(minor) || 0, Number(patch) || 0];
 }
 
