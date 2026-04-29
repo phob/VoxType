@@ -11,9 +11,9 @@
     "build:native:release": "cargo build --manifest-path native/windows-helper/Cargo.toml --release",
     "dist:win": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win nsis --x64 --publish never",
     "release:win": "npm run build:native:release && npm run dist:win",
+    "release:version": "node scripts/sync-release-version.mjs",
     "preview": "electron-vite preview",
-    "typecheck": "tsc --noEmit",
-    "prepare": "husky"
+    "typecheck": "tsc --noEmit"
   },
   "build": {
     "appId": "com.voxtype.app",
@@ -69,8 +69,6 @@
     "react-dom": "latest"
   },
   "devDependencies": {
-    "@commitlint/cli": "^20.5.2",
-    "@commitlint/config-conventional": "^20.5.0",
     "@swc/core": "^1.15.5",
     "@types/node": "latest",
     "@types/react": "latest",
@@ -80,7 +78,6 @@
     "electron": "latest",
     "electron-builder": "^26.8.1",
     "electron-vite": "^5.0.0",
-    "husky": "^9.1.7",
     "typescript": "latest",
     "vite": "^7.3.2"
   }
