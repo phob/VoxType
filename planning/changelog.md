@@ -3,6 +3,7 @@
 ## 2026-04-29
 
 - Clarified that the release Dictionary page should show every latest OCR term in a bounded, scrollable side panel.
+- Made the release sidebar Stable pill a manual update-check action with a cooldown to prevent repeated clicks.
 - Added an open release-strategy question about whether VoxType should keep Release Please/Conventional Commits or switch to a T3-style tag-driven workflow.
 - Replaced the Release Please/Conventional Commits release plan with a stable-only manual GitHub Actions release workflow using GitHub generated notes grouped by PR labels.
 - Updated agent/release planning guidance so public release notes come from PR titles and labels rather than commit messages.
