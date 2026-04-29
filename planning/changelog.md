@@ -6,6 +6,7 @@
 - Split the release UI Settings entry into a real Settings page and kept Start with Windows/Start minimized on Home.
 - Added Windows login startup as an accepted settings behavior backed by Electron main-process startup integration.
 - Made the release sidebar Stable pill a manual update-check action with a cooldown to prevent repeated clicks.
+- Added hold-to-dictate planning, including the native helper release-detection approach.
 - Added an open release-strategy question about whether VoxType should keep Release Please/Conventional Commits or switch to a T3-style tag-driven workflow.
 - Replaced the Release Please/Conventional Commits release plan with a stable-only manual GitHub Actions release workflow using GitHub generated notes grouped by PR labels.
 - Updated agent/release planning guidance so public release notes come from PR titles and labels rather than commit messages.

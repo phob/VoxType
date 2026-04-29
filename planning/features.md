@@ -17,6 +17,7 @@
 - Start minimized option that launches VoxType as a tray icon without showing the main window; double-clicking the tray icon opens the main window.
 - Start with Windows option that registers VoxType to launch automatically when the user signs in.
 - Push-to-talk and toggle dictation.
+- Hold-to-dictate hotkey that records only while the configured key combination remains physically held.
 - Voice activity detection.
 - Automatic silence trimming.
 - Recording coordination for apps that also use the microphone.

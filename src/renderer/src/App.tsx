@@ -123,6 +123,7 @@ type DevTab =
   | "logs";
 type HotkeyCaptureTarget =
   | "dictationToggleHotkey"
+  | "dictationHoldHotkey"
   | "showWindowHotkey"
   | "recordingStartHotkey"
   | "recordingStopHotkey";
@@ -1634,6 +1635,21 @@ export function App(): JSX.Element {
                 </label>
                 <label className="setting-row">
                   <span>
+                    <strong>Hold to dictate</strong>
+                    <small>Records only while this key combination is held down.</small>
+                  </span>
+                  <button
+                    className="release-command-button"
+                    onClick={() => setCapturingHotkey("dictationHoldHotkey")}
+                    type="button"
+                  >
+                    {capturingHotkey === "dictationHoldHotkey"
+                      ? "Press keys..."
+                      : state.settings.dictationHoldHotkey || "Unset"}
+                  </button>
+                </label>
+                <label className="setting-row">
+                  <span>
                     <strong>Show VoxType</strong>
                     <small>Brings the setup window back when you need it.</small>
                   </span>
@@ -1650,6 +1666,9 @@ export function App(): JSX.Element {
                 <div className="release-status-strip">
                   <ReleaseStatusBadge tone={state.hotkeys?.dictationToggleHotkey ? "ready" : "disabled"}>
                     Dictation {state.hotkeys?.dictationToggleHotkey ? "registered" : "not registered"}
+                  </ReleaseStatusBadge>
+                  <ReleaseStatusBadge tone={state.hotkeys?.dictationHoldHotkey ? "ready" : "disabled"}>
+                    Hold {state.hotkeys?.dictationHoldHotkey ? "registered" : "not registered"}
                   </ReleaseStatusBadge>
                   <ReleaseStatusBadge tone={state.hotkeys?.showWindowHotkey ? "ready" : "disabled"}>
                     Show window {state.hotkeys?.showWindowHotkey ? "registered" : "not registered"}
@@ -3156,6 +3175,14 @@ export function App(): JSX.Element {
                   {capturingHotkey === "dictationToggleHotkey"
                     ? "capture..."
                     : state.settings.dictationToggleHotkey}
+                </button>
+              </label>
+              <label className="dev-field">
+                <span>dictationHoldHotkey</span>
+                <button onClick={() => setCapturingHotkey("dictationHoldHotkey")} type="button">
+                  {capturingHotkey === "dictationHoldHotkey"
+                    ? "capture..."
+                    : state.settings.dictationHoldHotkey || "unset"}
                 </button>
               </label>
               <label className="dev-field">

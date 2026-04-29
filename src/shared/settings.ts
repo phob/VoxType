@@ -65,6 +65,7 @@ export type AppSettings = {
   whisperPromptOverride: string;
   showWindowHotkey: string;
   dictationToggleHotkey: string;
+  dictationHoldHotkey: string;
   insertionMode: InsertionMode;
   recorderCaptureMode: RecorderCaptureMode;
   ocrTermMode: OcrTermMode;
@@ -173,6 +174,10 @@ export function sanitizeSettings(
       input.dictationToggleHotkey.trim().length > 0
         ? input.dictationToggleHotkey
         : defaults.dictationToggleHotkey,
+    dictationHoldHotkey:
+      typeof input.dictationHoldHotkey === "string"
+        ? input.dictationHoldHotkey
+        : defaults.dictationHoldHotkey,
     insertionMode: isInsertionMode(input.insertionMode)
       ? input.insertionMode
       : defaults.insertionMode,
