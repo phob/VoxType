@@ -1,6 +1,6 @@
 {
   "name": "voxtype",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Windows-first local speech-to-text app.",
   "private": true,
   "author": "VoxType",
