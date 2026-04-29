@@ -57,7 +57,10 @@ export class TranscriptionService {
       context?.processName,
       context?.ocrContext?.terms
     );
-    const promptContext = settings.whisperPromptOverride.trim() || generatedPromptContext;
+    const promptContext = combinePromptContext(
+      generatedPromptContext,
+      settings.whisperPromptOverride
+    );
     const args = [
       "-m",
       modelPath,
@@ -152,6 +155,28 @@ function normalizeTranscriptText(text: string): string {
     .join(" ")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+function combinePromptContext(
+  generatedPromptContext: string | null,
+  promptOverride: string
+): string | null {
+  const generated = generatedPromptContext?.trim() ?? "";
+  const custom = promptOverride.trim();
+
+  if (!generated) {
+    return custom || null;
+  }
+
+  if (!custom) {
+    return generated;
+  }
+
+  if (custom.includes(generated)) {
+    return custom;
+  }
+
+  return `${generated} ${custom}`;
 }
 
 function applyOcrTermCorrections(text: string, terms: string[]): {

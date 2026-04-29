@@ -249,8 +249,10 @@ export function App(): JSX.Element {
     currentTarget?.processName ?? null,
     latestOcrContext?.terms ?? []
   );
-  const effectiveWhisperPrompt =
-    state.settings?.whisperPromptOverride.trim() || generatedWhisperPrompt;
+  const effectiveWhisperPrompt = combineWhisperPromptPreview(
+    generatedWhisperPrompt,
+    state.settings?.whisperPromptOverride ?? ""
+  );
   const appStatus = error ? "Error" : recording ? "Recording" : busyMessage ? busyMessage : "Ready";
   const activeRuntimeLabel = state.runtime
     ? `${state.runtime.backend.toUpperCase()} · ${state.runtime.status}`
@@ -3856,6 +3858,25 @@ function buildWhisperPromptPreview(
   }
 
   return `Relevant terms: ${terms.join(", ")}. Use these spellings when they are spoken.`;
+}
+
+function combineWhisperPromptPreview(generatedPrompt: string, promptOverride: string): string {
+  const generated = generatedPrompt.trim();
+  const custom = promptOverride.trim();
+
+  if (!generated) {
+    return custom;
+  }
+
+  if (!custom) {
+    return generated;
+  }
+
+  if (custom.includes(generated)) {
+    return custom;
+  }
+
+  return `${generated} ${custom}`;
 }
 
 function uniqueTerms(terms: string[]): string[] {
