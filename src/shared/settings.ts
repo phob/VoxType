@@ -166,12 +166,11 @@ export function sanitizeSettings(
         ? input.whisperPromptOverride.slice(0, 2000)
         : defaults.whisperPromptOverride,
     showWindowHotkey:
-      typeof input.showWindowHotkey === "string" && input.showWindowHotkey.trim().length > 0
+      typeof input.showWindowHotkey === "string"
         ? input.showWindowHotkey
         : defaults.showWindowHotkey,
     dictationToggleHotkey:
-      typeof input.dictationToggleHotkey === "string" &&
-      input.dictationToggleHotkey.trim().length > 0
+      typeof input.dictationToggleHotkey === "string"
         ? input.dictationToggleHotkey
         : defaults.dictationToggleHotkey,
     dictationHoldHotkey:

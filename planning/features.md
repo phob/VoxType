@@ -13,6 +13,8 @@
 - Local speech-to-text.
 - Local model downloads and activation.
 - Global hotkeys.
+- Hotkey controls can be cleared by right-clicking the hotkey button, which also unregisters the corresponding global shortcut.
+- Hotkey capture rejects key combinations that are already assigned to another VoxType hotkey.
 - Tray app.
 - Start minimized option that launches VoxType as a tray icon without showing the main window; double-clicking the tray icon opens the main window.
 - Start with Windows option that registers VoxType to launch automatically when the user signs in.

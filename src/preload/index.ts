@@ -151,7 +151,9 @@ const voxtype = {
     }
   },
   hotkeys: {
-    status: () => ipcRenderer.invoke("hotkeys:status") as Promise<HotkeyStatus>
+    status: () => ipcRenderer.invoke("hotkeys:status") as Promise<HotkeyStatus>,
+    suspend: () => ipcRenderer.invoke("hotkeys:suspend") as Promise<HotkeyStatus>,
+    resume: () => ipcRenderer.invoke("hotkeys:resume") as Promise<HotkeyStatus>
   },
   recordingOverlay: {
     showRecording: () => ipcRenderer.invoke("recording-overlay:show-recording") as Promise<void>,

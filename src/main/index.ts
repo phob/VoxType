@@ -388,21 +388,7 @@ async function captureActiveWindowOcrContext(
 
 async function registerConfiguredHotkeys(): Promise<void> {
   const settings = await settingsStore.get();
-
-  if (registeredShowWindowHotkey) {
-    globalShortcut.unregister(registeredShowWindowHotkey);
-    registeredShowWindowHotkey = null;
-  }
-
-  if (registeredDictationHotkey) {
-    globalShortcut.unregister(registeredDictationHotkey);
-    registeredDictationHotkey = null;
-  }
-
-  if (registeredDictationHoldHotkey) {
-    globalShortcut.unregister(registeredDictationHoldHotkey);
-    registeredDictationHoldHotkey = null;
-  }
+  unregisterConfiguredHotkeys();
 
   if (settings.showWindowHotkey.trim()) {
     const registered = globalShortcut.register(settings.showWindowHotkey, showMainWindow);
@@ -428,6 +414,23 @@ async function registerConfiguredHotkeys(): Promise<void> {
       void holdDictationHotkey();
     });
     registeredDictationHoldHotkey = registered ? settings.dictationHoldHotkey : null;
+  }
+}
+
+function unregisterConfiguredHotkeys(): void {
+  if (registeredShowWindowHotkey) {
+    globalShortcut.unregister(registeredShowWindowHotkey);
+    registeredShowWindowHotkey = null;
+  }
+
+  if (registeredDictationHotkey) {
+    globalShortcut.unregister(registeredDictationHotkey);
+    registeredDictationHotkey = null;
+  }
+
+  if (registeredDictationHoldHotkey) {
+    globalShortcut.unregister(registeredDictationHoldHotkey);
+    registeredDictationHoldHotkey = null;
   }
 }
 
@@ -566,6 +569,14 @@ ipcMain.handle("dictation:set-hotkey-recording", (_event, recording: boolean) =>
   return dictationHotkeyState;
 });
 ipcMain.handle("hotkeys:status", () => getHotkeyStatus());
+ipcMain.handle("hotkeys:suspend", () => {
+  unregisterConfiguredHotkeys();
+  return getHotkeyStatus();
+});
+ipcMain.handle("hotkeys:resume", async () => {
+  await registerConfiguredHotkeys();
+  return getHotkeyStatus();
+});
 ipcMain.handle("windows-helper:status", () => windowsHelperService.getStatus());
 ipcMain.handle("windows-helper:active-window", async () => {
   const activeWindow = await windowsHelperService.getActiveWindow();
