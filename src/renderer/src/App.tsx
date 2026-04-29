@@ -184,6 +184,7 @@ const defaultOverlayState: RecordingOverlayState = {
   level: 0,
   message: "Recording"
 };
+const manualUpdateCheckCooldownSeconds = 30;
 
 export function App(): JSX.Element {
   const isOverlay = new URLSearchParams(window.location.search).get("overlay") === "1";
@@ -200,6 +201,7 @@ export function App(): JSX.Element {
   const [version, setVersion] = useState<string>("0.1.0");
   const [isDeveloperBuild, setIsDeveloperBuild] = useState(true);
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
+  const [manualUpdateCooldownSeconds, setManualUpdateCooldownSeconds] = useState(0);
   const [state, setState] = useState<AppState>({
     models: [],
     runtime: null,
@@ -279,18 +281,22 @@ export function App(): JSX.Element {
     state.dictionary.map((entry) => entry.preferred.trim().toLowerCase()).filter(Boolean)
   );
   const updateButtonLabel =
-    updateStatus?.state === "downloading"
+    updateStatus?.state === "checking"
+      ? "Checking"
+      : updateStatus?.state === "downloading"
       ? "Downloading"
       : updateStatus?.state === "installing"
         ? "Installing"
         : updateStatus?.available
           ? "Update"
-          : "Stable";
+          : manualUpdateCooldownSeconds > 0
+            ? `${manualUpdateCooldownSeconds}s`
+            : "Stable";
   const updateButtonDisabled =
     updateStatus?.state === "checking" ||
     updateStatus?.state === "downloading" ||
     updateStatus?.state === "installing" ||
-    !updateStatus?.available;
+    (!updateStatus?.available && manualUpdateCooldownSeconds > 0);
 
   useEffect(() => {
     if (isOverlay) {
@@ -363,6 +369,20 @@ export function App(): JSX.Element {
     checkedForUpdatesRef.current = true;
     void checkForUpdates();
   }, [isOverlay, state.settings]);
+
+  useEffect(() => {
+    if (manualUpdateCooldownSeconds <= 0) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setManualUpdateCooldownSeconds((current) => Math.max(0, current - 1));
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [manualUpdateCooldownSeconds]);
 
   useEffect(() => {
     if (isOverlay) {
@@ -470,7 +490,15 @@ export function App(): JSX.Element {
     setState((current) => ({ ...current, settings, models, hotkeys }));
   }
 
-  async function checkForUpdates(): Promise<void> {
+  async function checkForUpdates(options: { manual?: boolean } = {}): Promise<void> {
+    if (options.manual) {
+      if (updateStatus?.state === "checking" || manualUpdateCooldownSeconds > 0) {
+        return;
+      }
+
+      setManualUpdateCooldownSeconds(manualUpdateCheckCooldownSeconds);
+    }
+
     try {
       const updates = await window.voxtype.updates.check();
       setUpdateStatus(updates);
@@ -499,6 +527,15 @@ export function App(): JSX.Element {
     } finally {
       setBusyMessage(null);
     }
+  }
+
+  async function handleUpdateButtonClick(): Promise<void> {
+    if (updateStatus?.available) {
+      await installUpdate();
+      return;
+    }
+
+    await checkForUpdates({ manual: true });
   }
 
   async function installRuntime(): Promise<void> {
@@ -1386,11 +1423,13 @@ export function App(): JSX.Element {
                 <button
                   className={updateStatus?.available ? "update-available" : ""}
                   disabled={updateButtonDisabled}
-                  onClick={() => void installUpdate()}
+                  onClick={() => void handleUpdateButtonClick()}
                   title={
                     updateStatus?.available && updateStatus.latestVersion
                       ? `Install VoxType ${updateStatus.latestVersion}`
-                      : updateStatus?.error ?? "VoxType is up to date"
+                      : manualUpdateCooldownSeconds > 0
+                        ? `Check again in ${manualUpdateCooldownSeconds} seconds`
+                        : updateStatus?.error ?? "Check for updates"
                   }
                   type="button"
                 >
