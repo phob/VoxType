@@ -4,6 +4,14 @@ All notable user-facing changes to VoxType will be documented in this file.
 
 This file is maintained by Release Please from Conventional Commits. Internal planning updates live in `planning/changelog.md`.
 
+## [0.3.2](https://github.com/phob/VoxType/compare/voxtype-v0.3.1...voxtype-v0.3.2) (2026-04-29)
+
+
+### Bug Fixes
+
+* **ci:** upload release checksums ([0db0df7](https://github.com/phob/VoxType/commit/0db0df7e924108c04d1408bfb6f77f445af2ced9))
+* **whisper:** combine generated and override prompts ([30956c3](https://github.com/phob/VoxType/commit/30956c358aa0d8c35f3910c3fd68d30af10703be))
+
 ## [0.3.1](https://github.com/phob/VoxType/compare/voxtype-v0.3.0...voxtype-v0.3.1) (2026-04-28)
 
 
