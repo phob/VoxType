@@ -188,7 +188,6 @@ jobs:
             release-assets/*.exe
             release-assets/*.blockmap
             release-assets/*.yml
-            release-assets/*.yaml
             release-assets/*.txt
           fail_on_unmatched_files: true
 
@@ -206,6 +205,5 @@ jobs:
             release-assets/*.exe
             release-assets/*.blockmap
             release-assets/*.yml
-            release-assets/*.yaml
             release-assets/*.txt
           fail_on_unmatched_files: true
