@@ -30,6 +30,7 @@
 - Dictation history with saved audio for the 10 latest transcriptions and cleanup for older entries.
 - Per-app profiles.
 - Offline mode.
+- Manual update check from the sidebar Stable/Update pill, with a short cooldown to prevent repeated update checks.
 
 ## Main User Interface
 
