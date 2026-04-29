@@ -74,7 +74,14 @@ type AppState = {
   hotkeys: HotkeyStatus | null;
 };
 
-type ReleaseTab = "general" | "hotkeys" | "models" | "profiles" | "dictionary" | "history";
+type ReleaseTab =
+  | "general"
+  | "hotkeys"
+  | "models"
+  | "profiles"
+  | "dictionary"
+  | "history"
+  | "settings";
 type ReleaseModelFilter = "all" | "installed" | "available";
 type ReleaseIconName =
   | "home"
@@ -1357,8 +1364,10 @@ export function App(): JSX.Element {
           </nav>
           <div className="release-sidebar-bottom">
             <button
-              className="release-settings-link"
-              onClick={() => setReleaseTab("general")}
+              className={
+                releaseTab === "settings" ? "release-settings-link active" : "release-settings-link"
+              }
+              onClick={() => setReleaseTab("settings")}
               type="button"
             >
               <span className="release-nav-icon" aria-hidden="true">
@@ -1461,13 +1470,15 @@ export function App(): JSX.Element {
                 </label>
                 <label className="setting-row">
                   <span>
-                    <strong>Offline mode</strong>
-                    <small>Only use assets already installed on this computer.</small>
+                    <strong>Start with Windows</strong>
+                    <small>Register VoxType to launch automatically when you sign in.</small>
                   </span>
                   <input
-                    checked={state.settings.offlineMode}
+                    checked={state.settings.startWithWindows}
                     type="checkbox"
-                    onChange={(event) => void updateSettings({ offlineMode: event.target.checked })}
+                    onChange={(event) =>
+                      void updateSettings({ startWithWindows: event.target.checked })
+                    }
                   />
                 </label>
                 <label className="setting-row">
@@ -1479,28 +1490,6 @@ export function App(): JSX.Element {
                     checked={state.settings.startMinimized}
                     type="checkbox"
                     onChange={(event) => void updateSettings({ startMinimized: event.target.checked })}
-                  />
-                </label>
-                <label className="setting-row">
-                  <span>
-                    <strong>Restore clipboard</strong>
-                    <small>Put the previous clipboard back after pasting dictation.</small>
-                  </span>
-                  <input
-                    checked={state.settings.restoreClipboard}
-                    type="checkbox"
-                    onChange={(event) => void updateSettings({ restoreClipboard: event.target.checked })}
-                  />
-                </label>
-                <label className="setting-row">
-                  <span>
-                    <strong>Mute system audio</strong>
-                    <small>Reduce speaker bleed while VoxType is listening.</small>
-                  </span>
-                  <input
-                    checked={state.settings.autoMuteSystemAudio}
-                    type="checkbox"
-                    onChange={(event) => void updateSettings({ autoMuteSystemAudio: event.target.checked })}
                   />
                 </label>
               </div>
@@ -1534,6 +1523,52 @@ export function App(): JSX.Element {
               </div>
             </section>
             </div>
+          ) : null}
+
+          {releaseTab === "settings" ? (
+            <section className="release-panel settings-panel">
+              <div className="section-title-row">
+                <div className="release-panel-title">
+                  <ReleaseIcon name="settings" decorative />
+                  <h2>Settings</h2>
+                </div>
+              </div>
+              <div className="settings-list">
+                <label className="setting-row">
+                  <span>
+                    <strong>Offline mode</strong>
+                    <small>Only use assets already installed on this computer.</small>
+                  </span>
+                  <input
+                    checked={state.settings.offlineMode}
+                    type="checkbox"
+                    onChange={(event) => void updateSettings({ offlineMode: event.target.checked })}
+                  />
+                </label>
+                <label className="setting-row">
+                  <span>
+                    <strong>Restore clipboard</strong>
+                    <small>Put the previous clipboard back after pasting dictation.</small>
+                  </span>
+                  <input
+                    checked={state.settings.restoreClipboard}
+                    type="checkbox"
+                    onChange={(event) => void updateSettings({ restoreClipboard: event.target.checked })}
+                  />
+                </label>
+                <label className="setting-row">
+                  <span>
+                    <strong>Mute system audio</strong>
+                    <small>Reduce speaker bleed while VoxType is listening.</small>
+                  </span>
+                  <input
+                    checked={state.settings.autoMuteSystemAudio}
+                    type="checkbox"
+                    onChange={(event) => void updateSettings({ autoMuteSystemAudio: event.target.checked })}
+                  />
+                </label>
+              </div>
+            </section>
           ) : null}
 
           {releaseTab === "hotkeys" ? (

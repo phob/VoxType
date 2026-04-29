@@ -15,6 +15,7 @@
 - Global hotkeys.
 - Tray app.
 - Start minimized option that launches VoxType as a tray icon without showing the main window; double-clicking the tray icon opens the main window.
+- Start with Windows option that registers VoxType to launch automatically when the user signs in.
 - Push-to-talk and toggle dictation.
 - Voice activity detection.
 - Automatic silence trimming.
@@ -35,9 +36,10 @@
 
 The default release UI should stay intentionally small and focused on setup, not day-to-day recording controls.
 
-Primary tabs:
+Primary surfaces:
 
-- General: only essential user-facing behavior such as OCR context enablement, VAD enablement, microphone/capture mode, offline/privacy preferences, and insertion defaults.
+- Home: essential setup status plus frequently used startup controls such as language, Start with Windows, and Start minimized.
+- Settings: lower-frequency behavior toggles such as offline mode, clipboard restoration, and muting system audio during recording.
 - Hotkeys: dedicated configuration for global dictation and window/show hotkeys.
 - Models: local model catalog, installed status, downloads, activation, hardware fit, and deletion.
 - Profiles: detected app profiles with user-facing insertion method and writing style controls.

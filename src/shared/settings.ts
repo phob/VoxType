@@ -73,6 +73,7 @@ export type AppSettings = {
   recordingStopHotkey: string;
   offlineMode: boolean;
   startMinimized: boolean;
+  startWithWindows: boolean;
   developerModeEnabled: boolean;
   autoMuteSystemAudio: boolean;
   restoreClipboard: boolean;
@@ -198,6 +199,10 @@ export function sanitizeSettings(
       typeof input.startMinimized === "boolean"
         ? input.startMinimized
         : defaults.startMinimized,
+    startWithWindows:
+      typeof input.startWithWindows === "boolean"
+        ? input.startWithWindows
+        : defaults.startWithWindows,
     developerModeEnabled:
       typeof input.developerModeEnabled === "boolean"
         ? input.developerModeEnabled

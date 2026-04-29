@@ -37,6 +37,7 @@ export class SettingsStore {
       recordingStopHotkey: "",
       offlineMode: false,
       startMinimized: false,
+      startWithWindows: false,
       developerModeEnabled: false,
       autoMuteSystemAudio: false,
       restoreClipboard: true,
