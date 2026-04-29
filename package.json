@@ -3,17 +3,19 @@
   "version": "0.3.2",
   "description": "Windows-first local speech-to-text app.",
   "private": true,
+  "author": "VoxType",
   "main": "out/main/index.js",
   "type": "module",
   "scripts": {
     "dev": "electron-vite dev",
     "build": "tsc --noEmit && electron-vite build",
     "build:native:release": "cargo build --manifest-path native/windows-helper/Cargo.toml --release",
-    "dist:win": "npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win nsis --x64 --publish never",
+    "dist:win": "npm run verify:packaging && npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win nsis --x64 --publish never",
     "release:win": "npm run build:native:release && npm run dist:win",
     "release:version": "node scripts/sync-release-version.mjs",
     "preview": "electron-vite preview",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "verify:packaging": "node scripts/verify-packaging-config.mjs"
   },
   "build": {
     "appId": "com.voxtype.app",
@@ -42,7 +44,6 @@
     ],
     "win": {
       "icon": "resources/icons/voxtype.ico",
-      "signAndEditExecutable": false,
       "target": [
         {
           "target": "nsis",

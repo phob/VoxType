@@ -116,6 +116,23 @@ jobs:
 
       - run: npm run release:win
 
+      - name: verify packaged Windows metadata
+        shell: pwsh
+        run: |
+          $exePath = "release\win-unpacked\VoxType.exe"
+          if (-not (Test-Path $exePath)) {
+            throw "Packaged executable was not found at $exePath."
+          }
+
+          $versionInfo = (Get-Item $exePath).VersionInfo
+          if ($versionInfo.FileDescription -ne "VoxType") {
+            throw "Expected FileDescription to be VoxType, got '$($versionInfo.FileDescription)'."
+          }
+
+          if ($versionInfo.ProductName -ne "VoxType") {
+            throw "Expected ProductName to be VoxType, got '$($versionInfo.ProductName)'."
+          }
+
       - name: collect release artifacts
         shell: pwsh
         run: |
