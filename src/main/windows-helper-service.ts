@@ -156,6 +156,24 @@ export class WindowsHelperService {
     });
   }
 
+  async waitForHotkeyRelease(accelerator: string): Promise<void> {
+    const helperPath = await this.resolveHelperPath();
+
+    if (!helperPath) {
+      throw new Error(
+        "Windows helper executable was not found. Build it with `cargo build --manifest-path native/windows-helper/Cargo.toml`."
+      );
+    }
+
+    if (!accelerator.trim()) {
+      throw new Error("Hold hotkey is empty.");
+    }
+
+    await execFileAsync(helperPath, ["wait-hotkey-release", accelerator], {
+      windowsHide: true
+    });
+  }
+
   async captureScreenshot(
     mode: ScreenshotCaptureMode,
     targetHwnd?: string | null

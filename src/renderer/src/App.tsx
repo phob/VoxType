@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from "react";
 import {
   ArrowRight,
   BookOpen,
@@ -123,6 +123,7 @@ type DevTab =
   | "logs";
 type HotkeyCaptureTarget =
   | "dictationToggleHotkey"
+  | "dictationHoldHotkey"
   | "showWindowHotkey"
   | "recordingStartHotkey"
   | "recordingStopHotkey";
@@ -371,6 +372,30 @@ export function App(): JSX.Element {
   }, [isOverlay, state.settings]);
 
   useEffect(() => {
+    if (isOverlay) {
+      return;
+    }
+
+    if (!capturingHotkey && !capturingProfileHotkey) {
+      return;
+    }
+
+    let active = true;
+    void window.voxtype.hotkeys.suspend().then((hotkeys) => {
+      if (active) {
+        setState((current) => ({ ...current, hotkeys }));
+      }
+    });
+
+    return () => {
+      active = false;
+      void window.voxtype.hotkeys.resume().then((hotkeys) => {
+        setState((current) => ({ ...current, hotkeys }));
+      });
+    };
+  }, [capturingHotkey, capturingProfileHotkey, isOverlay]);
+
+  useEffect(() => {
     if (manualUpdateCooldownSeconds <= 0) {
       return;
     }
@@ -413,12 +438,28 @@ export function App(): JSX.Element {
       }
 
       if (capturingProfileHotkey) {
+        const duplicate = findDuplicateHotkey(accelerator, `profile:${capturingProfileHotkey}`);
+
+        if (duplicate) {
+          setError(`${accelerator} is already assigned to ${duplicate}.`);
+          return;
+        }
+
+        setError(null);
         void updateProfileHotkey(capturingProfileHotkey, accelerator);
         setCapturingProfileHotkey(null);
         return;
       }
 
       if (capturingHotkey) {
+        const duplicate = findDuplicateHotkey(accelerator, capturingHotkey);
+
+        if (duplicate) {
+          setError(`${accelerator} is already assigned to ${duplicate}.`);
+          return;
+        }
+
+        setError(null);
         void updateSettings({ [capturingHotkey]: accelerator });
         setCapturingHotkey(null);
       }
@@ -429,7 +470,7 @@ export function App(): JSX.Element {
     return () => {
       window.removeEventListener("keydown", handleKeyDown, { capture: true });
     };
-  }, [capturingHotkey, capturingProfileHotkey, state.settings?.appProfiles]);
+  }, [capturingHotkey, capturingProfileHotkey, state.settings]);
 
   async function refresh(): Promise<void> {
     const [
@@ -488,6 +529,53 @@ export function App(): JSX.Element {
       window.voxtype.hotkeys.status()
     ]);
     setState((current) => ({ ...current, settings, models, hotkeys }));
+  }
+
+  function captureHotkey(event: MouseEvent, target: HotkeyCaptureTarget): void {
+    if (event.button !== 0) {
+      return;
+    }
+
+    setCapturingHotkey(target);
+  }
+
+  function clearHotkey(event: MouseEvent, target: HotkeyCaptureTarget): void {
+    event.preventDefault();
+    event.stopPropagation();
+    setCapturingHotkey((current) => (current === target ? null : current));
+    const patch: Pick<AppSettings, HotkeyCaptureTarget> = {
+      dictationToggleHotkey: state.settings?.dictationToggleHotkey ?? "",
+      dictationHoldHotkey: state.settings?.dictationHoldHotkey ?? "",
+      showWindowHotkey: state.settings?.showWindowHotkey ?? "",
+      recordingStartHotkey: state.settings?.recordingStartHotkey ?? "",
+      recordingStopHotkey: state.settings?.recordingStopHotkey ?? "",
+      [target]: ""
+    };
+    void updateSettings(patch);
+  }
+
+  function findDuplicateHotkey(accelerator: string, target: HotkeyCaptureTarget | `profile:${string}`): string | null {
+    const normalized = normalizeHotkey(accelerator);
+
+    for (const entry of appHotkeyEntries(state.settings)) {
+      if (entry.id !== target && normalizeHotkey(entry.value) === normalized) {
+        return entry.label;
+      }
+    }
+
+    for (const profile of state.settings?.appProfiles ?? []) {
+      const id = `profile:${profile.processName}` as const;
+
+      if (
+        id !== target &&
+        profile.postTranscriptionHotkey.trim() &&
+        normalizeHotkey(profile.postTranscriptionHotkey) === normalized
+      ) {
+        return `${profile.displayName} send key`;
+      }
+    }
+
+    return null;
   }
 
   async function checkForUpdates(options: { manual?: boolean } = {}): Promise<void> {
@@ -1477,7 +1565,7 @@ export function App(): JSX.Element {
               <dl className="home-summary">
                 <div>
                   <dt>Hotkey</dt>
-                  <dd>{state.settings.dictationToggleHotkey}</dd>
+                  <dd>{state.settings.dictationToggleHotkey || "Unset"}</dd>
                 </div>
                 <div>
                   <dt>Runtime</dt>
@@ -1624,12 +1712,31 @@ export function App(): JSX.Element {
                   </span>
                   <button
                     className="release-command-button"
-                    onClick={() => setCapturingHotkey("dictationToggleHotkey")}
+                    onClick={(event) => captureHotkey(event, "dictationToggleHotkey")}
+                    onContextMenu={(event) => clearHotkey(event, "dictationToggleHotkey")}
+                    title="Click to capture a hotkey. Right-click to clear."
                     type="button"
                   >
                     {capturingHotkey === "dictationToggleHotkey"
                       ? "Press keys..."
-                      : state.settings.dictationToggleHotkey}
+                      : state.settings.dictationToggleHotkey || "Unset"}
+                  </button>
+                </label>
+                <label className="setting-row">
+                  <span>
+                    <strong>Hold to dictate</strong>
+                    <small>Records only while this key combination is held down.</small>
+                  </span>
+                  <button
+                    className="release-command-button"
+                    onClick={(event) => captureHotkey(event, "dictationHoldHotkey")}
+                    onContextMenu={(event) => clearHotkey(event, "dictationHoldHotkey")}
+                    title="Click to capture a hotkey. Right-click to clear."
+                    type="button"
+                  >
+                    {capturingHotkey === "dictationHoldHotkey"
+                      ? "Press keys..."
+                      : state.settings.dictationHoldHotkey || "Unset"}
                   </button>
                 </label>
                 <label className="setting-row">
@@ -1639,17 +1746,22 @@ export function App(): JSX.Element {
                   </span>
                   <button
                     className="release-command-button"
-                    onClick={() => setCapturingHotkey("showWindowHotkey")}
+                    onClick={(event) => captureHotkey(event, "showWindowHotkey")}
+                    onContextMenu={(event) => clearHotkey(event, "showWindowHotkey")}
+                    title="Click to capture a hotkey. Right-click to clear."
                     type="button"
                   >
                     {capturingHotkey === "showWindowHotkey"
                       ? "Press keys..."
-                      : state.settings.showWindowHotkey}
+                      : state.settings.showWindowHotkey || "Unset"}
                   </button>
                 </label>
                 <div className="release-status-strip">
                   <ReleaseStatusBadge tone={state.hotkeys?.dictationToggleHotkey ? "ready" : "disabled"}>
                     Dictation {state.hotkeys?.dictationToggleHotkey ? "registered" : "not registered"}
+                  </ReleaseStatusBadge>
+                  <ReleaseStatusBadge tone={state.hotkeys?.dictationHoldHotkey ? "ready" : "disabled"}>
+                    Hold {state.hotkeys?.dictationHoldHotkey ? "registered" : "not registered"}
                   </ReleaseStatusBadge>
                   <ReleaseStatusBadge tone={state.hotkeys?.showWindowHotkey ? "ready" : "disabled"}>
                     Show window {state.hotkeys?.showWindowHotkey ? "registered" : "not registered"}
@@ -3136,7 +3248,11 @@ export function App(): JSX.Element {
               </label>
               <label className="dev-field">
                 <span>recordingStartHotkey</span>
-                <button onClick={() => setCapturingHotkey("recordingStartHotkey")} type="button">
+                <button
+                  onClick={(event) => captureHotkey(event, "recordingStartHotkey")}
+                  onContextMenu={(event) => clearHotkey(event, "recordingStartHotkey")}
+                  type="button"
+                >
                   {capturingHotkey === "recordingStartHotkey"
                     ? "capture..."
                     : state.settings.recordingStartHotkey || "unset"}
@@ -3144,7 +3260,11 @@ export function App(): JSX.Element {
               </label>
               <label className="dev-field">
                 <span>recordingStopHotkey</span>
-                <button onClick={() => setCapturingHotkey("recordingStopHotkey")} type="button">
+                <button
+                  onClick={(event) => captureHotkey(event, "recordingStopHotkey")}
+                  onContextMenu={(event) => clearHotkey(event, "recordingStopHotkey")}
+                  type="button"
+                >
                   {capturingHotkey === "recordingStopHotkey"
                     ? "capture..."
                     : state.settings.recordingStopHotkey || "same as start"}
@@ -3152,16 +3272,38 @@ export function App(): JSX.Element {
               </label>
               <label className="dev-field">
                 <span>dictationToggleHotkey</span>
-                <button onClick={() => setCapturingHotkey("dictationToggleHotkey")} type="button">
+                <button
+                  onClick={(event) => captureHotkey(event, "dictationToggleHotkey")}
+                  onContextMenu={(event) => clearHotkey(event, "dictationToggleHotkey")}
+                  type="button"
+                >
                   {capturingHotkey === "dictationToggleHotkey"
                     ? "capture..."
-                    : state.settings.dictationToggleHotkey}
+                    : state.settings.dictationToggleHotkey || "unset"}
+                </button>
+              </label>
+              <label className="dev-field">
+                <span>dictationHoldHotkey</span>
+                <button
+                  onClick={(event) => captureHotkey(event, "dictationHoldHotkey")}
+                  onContextMenu={(event) => clearHotkey(event, "dictationHoldHotkey")}
+                  type="button"
+                >
+                  {capturingHotkey === "dictationHoldHotkey"
+                    ? "capture..."
+                    : state.settings.dictationHoldHotkey || "unset"}
                 </button>
               </label>
               <label className="dev-field">
                 <span>showWindowHotkey</span>
-                <button onClick={() => setCapturingHotkey("showWindowHotkey")} type="button">
-                  {capturingHotkey === "showWindowHotkey" ? "capture..." : state.settings.showWindowHotkey}
+                <button
+                  onClick={(event) => captureHotkey(event, "showWindowHotkey")}
+                  onContextMenu={(event) => clearHotkey(event, "showWindowHotkey")}
+                  type="button"
+                >
+                  {capturingHotkey === "showWindowHotkey"
+                    ? "capture..."
+                    : state.settings.showWindowHotkey || "unset"}
                 </button>
               </label>
               <label className="dev-field">
@@ -3344,6 +3486,58 @@ export function App(): JSX.Element {
 
 function formatError(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+function appHotkeyEntries(settings: AppSettings | null): Array<{
+  id: HotkeyCaptureTarget;
+  label: string;
+  value: string;
+}> {
+  if (!settings) {
+    return [];
+  }
+
+  return [
+    {
+      id: "dictationToggleHotkey",
+      label: "Dictation",
+      value: settings.dictationToggleHotkey
+    },
+    {
+      id: "dictationHoldHotkey",
+      label: "Hold to dictate",
+      value: settings.dictationHoldHotkey
+    },
+    {
+      id: "showWindowHotkey",
+      label: "Show VoxType",
+      value: settings.showWindowHotkey
+    },
+    {
+      id: "recordingStartHotkey",
+      label: "Recording start hotkey",
+      value: settings.recordingStartHotkey
+    },
+    {
+      id: "recordingStopHotkey",
+      label: "Recording stop hotkey",
+      value: settings.recordingStopHotkey
+    }
+  ].filter((entry) => entry.value.trim());
+}
+
+function normalizeHotkey(value: string): string {
+  const parts = value
+    .split("+")
+    .map((part) => part.trim().toLowerCase())
+    .filter(Boolean);
+  const key = parts.at(-1) ?? "";
+  const modifiers = parts
+    .slice(0, -1)
+    .map((part) => (part === "ctrl" || part === "control" ? "commandorcontrol" : part))
+    .sort();
+
+  return [...modifiers, key].join("+");
 }
 
 function WindowTitleBar({ title }: { title: string }): JSX.Element {

@@ -261,3 +261,13 @@ The release UI should keep common startup controls on Home, including Start with
 Reason:
 
 Automatic startup affects whether VoxType is ready for daily dictation and belongs in the main setup flow. Offline mode, clipboard restoration, and audio muting are important but less frequently changed, so they fit better behind the existing Settings entry point.
+
+## 2026-04-29: Use Native Helper For Hold Hotkey Release
+
+Decision:
+
+Hold-to-dictate should use Electron's global shortcut only for the initial activation and delegate release detection to the native Windows helper.
+
+Reason:
+
+Electron global shortcuts do not expose global key-up events. The native helper can poll the physical key state with Windows APIs and tell the main process when the held combination has been released.

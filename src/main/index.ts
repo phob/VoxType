@@ -44,6 +44,7 @@ let dictationHotkeyState: DictationHotkeyState = {
 let nextDictationSessionId = 1;
 let registeredShowWindowHotkey: string | null = null;
 let registeredDictationHotkey: string | null = null;
+let registeredDictationHoldHotkey: string | null = null;
 
 const isDev = Boolean(process.env.ELECTRON_RENDERER_URL);
 const settingsStore = new SettingsStore();
@@ -171,21 +172,30 @@ function showMainWindow(): void {
   mainWindow.focus();
 }
 
-async function toggleDictationHotkey(): Promise<void> {
-  if (dictationHotkeyState.recording) {
-    const payload = {
-      sessionId: dictationHotkeyState.sessionId,
-      target: dictationHotkeyState.target,
-      ocrContext: dictationHotkeyState.ocrContext
-    };
+function stopDictationHotkey(): boolean {
+  if (!dictationHotkeyState.recording) {
+    return false;
+  }
 
-    dictationHotkeyState = {
-      ...dictationHotkeyState,
-      recording: false,
-      ocrContext: null
-    };
-    mainWindow?.webContents.send("dictation-hotkey-stop", payload);
-    return;
+  const payload = {
+    sessionId: dictationHotkeyState.sessionId,
+    target: dictationHotkeyState.target,
+    ocrContext: dictationHotkeyState.ocrContext
+  };
+
+  dictationHotkeyState = {
+    ...dictationHotkeyState,
+    recording: false,
+    ocrContext: null
+  };
+  mainWindow?.webContents.send("dictation-hotkey-stop", payload);
+
+  return true;
+}
+
+async function startDictationHotkey(): Promise<number | null> {
+  if (dictationHotkeyState.recording) {
+    return null;
   }
 
   const target = await windowsHelperService.getActiveWindow().catch(() => null);
@@ -217,16 +227,46 @@ async function toggleDictationHotkey(): Promise<void> {
 
   if (mainWindow?.webContents.isLoading()) {
     mainWindow.webContents.once("did-finish-load", () => {
+      if (!dictationHotkeyState.recording || dictationHotkeyState.sessionId !== sessionId) {
+        return;
+      }
+
       mainWindow?.webContents.send("dictation-hotkey-start", {
         sessionId,
         target,
         ocrContext: null
       });
     });
-    return;
+    return sessionId;
   }
 
   mainWindow?.webContents.send("dictation-hotkey-start", { sessionId, target, ocrContext: null });
+  return sessionId;
+}
+
+async function toggleDictationHotkey(): Promise<void> {
+  if (stopDictationHotkey()) {
+    return;
+  }
+
+  await startDictationHotkey();
+}
+
+async function holdDictationHotkey(): Promise<void> {
+  const settings = await settingsStore.get();
+  const sessionId = await startDictationHotkey();
+
+  if (sessionId === null) {
+    return;
+  }
+
+  try {
+    await windowsHelperService.waitForHotkeyRelease(settings.dictationHoldHotkey);
+  } finally {
+    if (dictationHotkeyState.recording && dictationHotkeyState.sessionId === sessionId) {
+      stopDictationHotkey();
+    }
+  }
 }
 
 function createOverlayWindow(): BrowserWindow {
@@ -348,16 +388,7 @@ async function captureActiveWindowOcrContext(
 
 async function registerConfiguredHotkeys(): Promise<void> {
   const settings = await settingsStore.get();
-
-  if (registeredShowWindowHotkey) {
-    globalShortcut.unregister(registeredShowWindowHotkey);
-    registeredShowWindowHotkey = null;
-  }
-
-  if (registeredDictationHotkey) {
-    globalShortcut.unregister(registeredDictationHotkey);
-    registeredDictationHotkey = null;
-  }
+  unregisterConfiguredHotkeys();
 
   if (settings.showWindowHotkey.trim()) {
     const registered = globalShortcut.register(settings.showWindowHotkey, showMainWindow);
@@ -373,15 +404,45 @@ async function registerConfiguredHotkeys(): Promise<void> {
     });
     registeredDictationHotkey = registered ? settings.dictationToggleHotkey : null;
   }
+
+  if (
+    settings.dictationHoldHotkey.trim() &&
+    settings.dictationHoldHotkey !== settings.showWindowHotkey &&
+    settings.dictationHoldHotkey !== settings.dictationToggleHotkey
+  ) {
+    const registered = globalShortcut.register(settings.dictationHoldHotkey, () => {
+      void holdDictationHotkey();
+    });
+    registeredDictationHoldHotkey = registered ? settings.dictationHoldHotkey : null;
+  }
+}
+
+function unregisterConfiguredHotkeys(): void {
+  if (registeredShowWindowHotkey) {
+    globalShortcut.unregister(registeredShowWindowHotkey);
+    registeredShowWindowHotkey = null;
+  }
+
+  if (registeredDictationHotkey) {
+    globalShortcut.unregister(registeredDictationHotkey);
+    registeredDictationHotkey = null;
+  }
+
+  if (registeredDictationHoldHotkey) {
+    globalShortcut.unregister(registeredDictationHoldHotkey);
+    registeredDictationHoldHotkey = null;
+  }
 }
 
 function getHotkeyStatus(): {
   showWindowHotkey: string | null;
   dictationToggleHotkey: string | null;
+  dictationHoldHotkey: string | null;
 } {
   return {
     showWindowHotkey: registeredShowWindowHotkey,
-    dictationToggleHotkey: registeredDictationHotkey
+    dictationToggleHotkey: registeredDictationHotkey,
+    dictationHoldHotkey: registeredDictationHoldHotkey
   };
 }
 
@@ -508,6 +569,14 @@ ipcMain.handle("dictation:set-hotkey-recording", (_event, recording: boolean) =>
   return dictationHotkeyState;
 });
 ipcMain.handle("hotkeys:status", () => getHotkeyStatus());
+ipcMain.handle("hotkeys:suspend", () => {
+  unregisterConfiguredHotkeys();
+  return getHotkeyStatus();
+});
+ipcMain.handle("hotkeys:resume", async () => {
+  await registerConfiguredHotkeys();
+  return getHotkeyStatus();
+});
 ipcMain.handle("windows-helper:status", () => windowsHelperService.getStatus());
 ipcMain.handle("windows-helper:active-window", async () => {
   const activeWindow = await windowsHelperService.getActiveWindow();

@@ -15,6 +15,7 @@ fn main() {
         "focus-window" => focus_window_from_arg(),
         "set-system-mute" => set_system_mute_from_arg(),
         "send-hotkey" => send_hotkey_from_arg(),
+        "wait-hotkey-release" => wait_hotkey_release_from_arg(),
         "capture-screenshot" => capture_screenshot_from_args(),
         "ocr-image" => ocr_image_from_args(),
         "message-targets" => message_targets_from_arg(),
@@ -25,7 +26,7 @@ fn main() {
         "type-text" => type_text_from_stdin(),
         "message-text" => message_text_from_stdin(),
         "help" | "--help" | "-h" => {
-            println!("Usage: voxtype-windows-helper active-window | focus-window <hwnd> | set-system-mute <true|false> | send-hotkey <accelerator> | capture-screenshot <output.png> [--active-window | --hwnd <hwnd>] | ocr-image <input.png> | message-targets [hwnd] | mute-capture-session <process-id> [process-name] | restore-capture-session | record-wav <output.wav> [--capture-mode shared|exclusive-preferred|exclusive-required] | paste-text | type-text [delay-ms] | message-text [focused-control|character-messages] [hwnd]");
+            println!("Usage: voxtype-windows-helper active-window | focus-window <hwnd> | set-system-mute <true|false> | send-hotkey <accelerator> | wait-hotkey-release <accelerator> | capture-screenshot <output.png> [--active-window | --hwnd <hwnd>] | ocr-image <input.png> | message-targets [hwnd] | mute-capture-session <process-id> [process-name] | restore-capture-session | record-wav <output.wav> [--capture-mode shared|exclusive-preferred|exclusive-required] | paste-text | type-text [delay-ms] | message-text [focused-control|character-messages] [hwnd]");
             Ok(())
         }
         _ => Err(format!("Unknown command: {command}")),
@@ -339,6 +340,19 @@ fn send_hotkey_from_arg() -> Result<(), String> {
 }
 
 #[cfg(windows)]
+fn wait_hotkey_release_from_arg() -> Result<(), String> {
+    let accelerator = env::args()
+        .nth(2)
+        .ok_or_else(|| "wait-hotkey-release requires an accelerator.".to_string())?;
+    windows_impl::wait_hotkey_release(&accelerator)
+}
+
+#[cfg(not(windows))]
+fn wait_hotkey_release_from_arg() -> Result<(), String> {
+    Err("wait-hotkey-release is only supported on Windows.".to_string())
+}
+
+#[cfg(windows)]
 fn mute_capture_session_from_args() -> Result<(), String> {
     let process_id = env::args()
         .nth(2)
@@ -431,8 +445,9 @@ mod windows_impl {
         PROCESS_QUERY_LIMITED_INFORMATION,
     };
     use windows::Win32::UI::Input::KeyboardAndMouse::{
-        SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP, KEYEVENTF_UNICODE,
-        VIRTUAL_KEY, VK_CONTROL, VK_LMENU, VK_LSHIFT, VK_LWIN, VK_V,
+        GetAsyncKeyState, SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP,
+        KEYEVENTF_UNICODE, VIRTUAL_KEY, VK_CONTROL, VK_LCONTROL, VK_LMENU, VK_LSHIFT, VK_LWIN,
+        VK_RCONTROL, VK_RMENU, VK_RSHIFT, VK_RWIN, VK_V,
     };
     use windows::Win32::UI::WindowsAndMessaging::{
         EnumChildWindows, GetClassNameW, GetForegroundWindow, GetGUIThreadInfo, GetSystemMetrics,
@@ -640,6 +655,16 @@ mod windows_impl {
 
         if sent != inputs.len() as u32 {
             return Err(format!("SendInput sent {sent} of {} events.", inputs.len()));
+        }
+
+        Ok(())
+    }
+
+    pub fn wait_hotkey_release(accelerator: &str) -> Result<(), String> {
+        let hotkey = parse_hotkey(accelerator)?;
+
+        while hotkey_is_pressed(&hotkey) {
+            thread::sleep(Duration::from_millis(20));
         }
 
         Ok(())
@@ -2455,6 +2480,29 @@ mod windows_impl {
         if !values.contains(&value) {
             values.push(value);
         }
+    }
+
+    fn hotkey_is_pressed(hotkey: &ParsedHotkey) -> bool {
+        hotkey.modifiers.iter().all(|key| virtual_key_is_down(*key))
+            && virtual_key_is_down(hotkey.key)
+    }
+
+    fn virtual_key_is_down(key: VIRTUAL_KEY) -> bool {
+        match key {
+            VK_CONTROL => {
+                virtual_key_state(VK_CONTROL)
+                    || virtual_key_state(VK_LCONTROL)
+                    || virtual_key_state(VK_RCONTROL)
+            }
+            VK_LMENU => virtual_key_state(VK_LMENU) || virtual_key_state(VK_RMENU),
+            VK_LSHIFT => virtual_key_state(VK_LSHIFT) || virtual_key_state(VK_RSHIFT),
+            VK_LWIN => virtual_key_state(VK_LWIN) || virtual_key_state(VK_RWIN),
+            _ => virtual_key_state(key),
+        }
+    }
+
+    fn virtual_key_state(key: VIRTUAL_KEY) -> bool {
+        unsafe { (GetAsyncKeyState(key.0 as i32) & 0x8000u16 as i16) != 0 }
     }
 
     fn parse_hotkey_key(key: &str) -> Result<VIRTUAL_KEY, String> {
