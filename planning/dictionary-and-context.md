@@ -53,6 +53,7 @@ Initial implementation:
 - Entries include preferred text, misheard phrases, category, source, enabled state, and optional app process scope.
 - The renderer includes a dictionary panel for adding, editing by clicking entries, disabling, and deleting entries.
 - The non-developer dictionary page keeps saved entries and latest OCR terms as the primary view; add/edit actions open a compact modal so the page fits the normal VoxType window without exposing large edit fields inline.
+- The latest OCR terms panel should show every extracted term from the latest OCR context in a bounded, scrollable side panel instead of truncating the list or growing the card.
 - Entries can be scoped to app profiles so corrections can be global or app-specific.
 
 ```json

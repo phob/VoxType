@@ -32,7 +32,7 @@ The core idea:
 - [windows-insertion.md](windows-insertion.md): typing, clipboard, SendInput, UI Automation, RDP/TeamViewer behavior.
 - [features.md](features.md): feature inventory and standout product ideas.
 - [roadmap.md](roadmap.md): phased implementation plan.
-- [release-and-changelog-strategy.md](release-and-changelog-strategy.md): release automation, Conventional Commits, and public changelog strategy.
+- [release-and-changelog-strategy.md](release-and-changelog-strategy.md): stable release automation and public GitHub Release changelog strategy.
 - [decisions.md](decisions.md): decisions already made and why.
 - [open-questions.md](open-questions.md): unresolved product and technical questions.
 - [ideas-backlog.md](ideas-backlog.md): rough ideas to revisit later.

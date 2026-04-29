@@ -12,5 +12,4 @@ Use user-facing wording for changes that should appear in the public changelog.
 
 - [ ] Build/typecheck passes locally or in CI.
 - [ ] Planning docs updated if product direction changed.
-- [ ] Commit messages use Conventional Commits when the change should affect releases.
-
+- [ ] PR title and labels are suitable for generated release notes, or `skip-changelog` is applied.

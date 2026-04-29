@@ -1904,7 +1904,7 @@ export function App(): JSX.Element {
               </div>
               {latestOcrContext?.terms.length ? (
                 <div className="release-ocr-term-list">
-                  {latestOcrContext.terms.slice(0, 48).map((term) => {
+                  {latestOcrContext.terms.map((term) => {
                     const saved = savedDictionaryTerms.has(term.trim().toLowerCase());
 
                     return (

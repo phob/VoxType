@@ -1,5 +1,13 @@
 # Planning Changelog
 
+## 2026-04-29
+
+- Clarified that the release Dictionary page should show every latest OCR term in a bounded, scrollable side panel.
+- Added an open release-strategy question about whether VoxType should keep Release Please/Conventional Commits or switch to a T3-style tag-driven workflow.
+- Replaced the Release Please/Conventional Commits release plan with a stable-only manual GitHub Actions release workflow using GitHub generated notes grouped by PR labels.
+- Updated agent/release planning guidance so public release notes come from PR titles and labels rather than commit messages.
+- Made stable GitHub Releases draft by default and added a manual release-notes path for patch releases without enough PR history for useful generated notes.
+
 ## 2026-04-27
 
 - Added managed CUDA runtime selection for official `whisper.cpp` v1.8.4 CUDA 12.4 and CUDA 11.8 Windows archives.

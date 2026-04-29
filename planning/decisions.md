@@ -66,11 +66,21 @@ This can make VoxType stand out from generic local Whisper dictation tools.
 
 Decision:
 
-Use Conventional Commits plus Release Please as the initial changelog and release automation strategy once the app scaffold exists.
+Superseded by `2026-04-29: Use Manual Stable Releases With GitHub Generated Notes`.
 
 Reason:
 
-VoxType needs consistent public changelogs that do not rely on manual updates, while still giving the maintainer a reviewable release PR before tags and GitHub Releases are created. This works well with AI-assisted development because generated release notes can be reviewed and edited before publication.
+The initial Release Please direction was useful for bootstrapping release thinking, but it made commit-message discipline too central to release quality while the app is still changing quickly.
+
+## 2026-04-29: Use Manual Stable Releases With GitHub Generated Notes
+
+Decision:
+
+VoxType should use a stable-only manual GitHub Actions release workflow. The maintainer dispatches a release with an explicit version, CI synchronizes Electron and Rust helper versions, commits the version bump, tags that commit, builds the Windows installer, creates checksums, and publishes a draft GitHub Release. Release notes can be supplied manually for small patch releases or generated from PR labels when the history supports it.
+
+Reason:
+
+This keeps release publication intentional and avoids depending on Conventional Commits for changelog quality. Draft releases provide a review point before publication, and PR titles/labels describe product-level changes more cleanly than individual AI-assisted commits.
 
 ## 2026-04-24: Store Settings In The Main Process
 

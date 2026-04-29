@@ -2354,10 +2354,16 @@ td select {
   grid-template-columns: minmax(0, 1fr) minmax(270px, 0.4fr);
   gap: 12px;
   align-items: start;
+  min-height: 0;
 }
 
 .release-ocr-terms-panel {
+  display: flex;
+  overflow: hidden;
+  flex-direction: column;
   align-self: start;
+  max-height: min(530px, calc(100vh - 118px));
+  min-height: 0;
 }
 
 .release-dictionary-list-panel {
@@ -2410,8 +2416,9 @@ td select {
 .release-ocr-term-list {
   display: flex;
   flex-wrap: wrap;
+  align-content: flex-start;
   gap: 7px;
-  max-height: 430px;
+  min-height: 0;
   overflow: auto;
   padding-right: 2px;
 }
