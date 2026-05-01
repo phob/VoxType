@@ -6,6 +6,15 @@ export type ActiveWindowInfo = {
   processId: number;
   processPath: string | null;
   processName: string | null;
+  bounds: {
+    left: number;
+    top: number;
+    right: number;
+    bottom: number;
+    width: number;
+    height: number;
+  } | null;
+  fullscreen: boolean;
 };
 
 export type WindowsHelperStatus = {

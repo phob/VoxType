@@ -271,3 +271,13 @@ Hold-to-dictate should use Electron's global shortcut only for the initial activ
 Reason:
 
 Electron global shortcuts do not expose global key-up events. The native helper can poll the physical key state with Windows APIs and tell the main process when the held combination has been released.
+
+## 2026-05-01: Suspend Dictation Hotkeys For Fullscreen Apps
+
+Decision:
+
+VoxType should offer an optional setting that suspends dictation hotkeys while the foreground window covers its monitor. The global toggle belongs in Settings, while each app's Never suspend override belongs inside that app's profile and should only appear when fullscreen suspension is enabled.
+
+Reason:
+
+Windows does not expose a reliable general-purpose "game is active" signal for normal desktop utilities. Fullscreen foreground detection is a practical, privacy-preserving proxy for gaming and other latency-sensitive contexts, while per-app overrides handle false positives such as presentations, browsers, video players, and remote sessions.

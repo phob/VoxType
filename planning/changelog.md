@@ -1,5 +1,11 @@
 # Planning Changelog
 
+## 2026-05-01
+
+- Added fullscreen-app dictation hotkey suspension as an accepted Settings behavior.
+- Clarified that per-app Never suspend overrides only appear when fullscreen hotkey suspension is enabled.
+- Moved the per-app Never suspend control into each app profile instead of listing all profiles under the Settings toggle.
+
 ## 2026-04-29
 
 - Clarified that the release Dictionary page should show every latest OCR term in a bounded, scrollable side panel.

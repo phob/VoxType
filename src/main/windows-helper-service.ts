@@ -59,7 +59,7 @@ export class WindowsHelperService {
       throw new Error("Windows helper returned an unexpected active-window payload.");
     }
 
-    return parsed;
+    return normalizeActiveWindowInfo(parsed);
   }
 
   async pasteText(pasteDelayMs = 0): Promise<void> {
@@ -643,7 +643,34 @@ function isActiveWindowInfo(value: unknown): value is ActiveWindowInfo {
     typeof info.title === "string" &&
     typeof info.processId === "number" &&
     (typeof info.processPath === "string" || info.processPath === null) &&
-    (typeof info.processName === "string" || info.processName === null)
+    (typeof info.processName === "string" || info.processName === null) &&
+    (info.bounds === undefined || info.bounds === null || isWindowBounds(info.bounds)) &&
+    (info.fullscreen === undefined || typeof info.fullscreen === "boolean")
+  );
+}
+
+function normalizeActiveWindowInfo(value: ActiveWindowInfo): ActiveWindowInfo {
+  return {
+    ...value,
+    bounds: value.bounds ?? null,
+    fullscreen: value.fullscreen === true
+  };
+}
+
+function isWindowBounds(value: unknown): boolean {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  const bounds = value as Record<string, unknown>;
+
+  return (
+    typeof bounds.left === "number" &&
+    typeof bounds.top === "number" &&
+    typeof bounds.right === "number" &&
+    typeof bounds.bottom === "number" &&
+    typeof bounds.width === "number" &&
+    typeof bounds.height === "number"
   );
 }
 

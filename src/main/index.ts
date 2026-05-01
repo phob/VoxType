@@ -6,7 +6,8 @@ import {
   type AppProfile,
   type AppSettings,
   type InsertionMode,
-  type SettingsPatch
+  type SettingsPatch,
+  findAppProfile
 } from "../shared/settings";
 import {
   type ActiveWindowInfo,
@@ -45,6 +46,10 @@ let nextDictationSessionId = 1;
 let registeredShowWindowHotkey: string | null = null;
 let registeredDictationHotkey: string | null = null;
 let registeredDictationHoldHotkey: string | null = null;
+let dictationSuspendedForFullscreen = false;
+let fullscreenSuspensionProcessName: string | null = null;
+let fullscreenSuspensionTimer: ReturnType<typeof setInterval> | null = null;
+let hotkeysManuallySuspended = false;
 
 const isDev = Boolean(process.env.ELECTRON_RENDERER_URL);
 const settingsStore = new SettingsStore();
@@ -390,6 +395,10 @@ async function registerConfiguredHotkeys(): Promise<void> {
   const settings = await settingsStore.get();
   unregisterConfiguredHotkeys();
 
+  if (hotkeysManuallySuspended) {
+    return;
+  }
+
   if (settings.showWindowHotkey.trim()) {
     const registered = globalShortcut.register(settings.showWindowHotkey, showMainWindow);
     registeredShowWindowHotkey = registered ? settings.showWindowHotkey : null;
@@ -415,6 +424,8 @@ async function registerConfiguredHotkeys(): Promise<void> {
     });
     registeredDictationHoldHotkey = registered ? settings.dictationHoldHotkey : null;
   }
+
+  await refreshFullscreenHotkeySuspension();
 }
 
 function unregisterConfiguredHotkeys(): void {
@@ -434,15 +445,110 @@ function unregisterConfiguredHotkeys(): void {
   }
 }
 
+function unregisterDictationHotkeys(): void {
+  if (registeredDictationHotkey) {
+    globalShortcut.unregister(registeredDictationHotkey);
+    registeredDictationHotkey = null;
+  }
+
+  if (registeredDictationHoldHotkey) {
+    globalShortcut.unregister(registeredDictationHoldHotkey);
+    registeredDictationHoldHotkey = null;
+  }
+}
+
+async function registerDictationHotkeys(settings: AppSettings): Promise<void> {
+  if (
+    settings.dictationToggleHotkey.trim() &&
+    settings.dictationToggleHotkey !== settings.showWindowHotkey &&
+    !registeredDictationHotkey
+  ) {
+    const registered = globalShortcut.register(settings.dictationToggleHotkey, () => {
+      void toggleDictationHotkey();
+    });
+    registeredDictationHotkey = registered ? settings.dictationToggleHotkey : null;
+  }
+
+  if (
+    settings.dictationHoldHotkey.trim() &&
+    settings.dictationHoldHotkey !== settings.showWindowHotkey &&
+    settings.dictationHoldHotkey !== settings.dictationToggleHotkey &&
+    !registeredDictationHoldHotkey
+  ) {
+    const registered = globalShortcut.register(settings.dictationHoldHotkey, () => {
+      void holdDictationHotkey();
+    });
+    registeredDictationHoldHotkey = registered ? settings.dictationHoldHotkey : null;
+  }
+}
+
+function startFullscreenSuspensionWatch(): void {
+  if (fullscreenSuspensionTimer) {
+    return;
+  }
+
+  fullscreenSuspensionTimer = setInterval(() => {
+    void refreshFullscreenHotkeySuspension();
+  }, 2000);
+}
+
+function stopFullscreenSuspensionWatch(): void {
+  if (!fullscreenSuspensionTimer) {
+    return;
+  }
+
+  clearInterval(fullscreenSuspensionTimer);
+  fullscreenSuspensionTimer = null;
+}
+
+async function refreshFullscreenHotkeySuspension(): Promise<void> {
+  const settings = await settingsStore.get();
+
+  if (hotkeysManuallySuspended) {
+    return;
+  }
+
+  if (!settings.suspendDictationHotkeysInFullscreenApps) {
+    stopFullscreenSuspensionWatch();
+    dictationSuspendedForFullscreen = false;
+    fullscreenSuspensionProcessName = null;
+    await registerDictationHotkeys(settings);
+    return;
+  }
+
+  startFullscreenSuspensionWatch();
+
+  const activeWindow = await windowsHelperService.getActiveWindow().catch(() => null);
+  const profile = findAppProfile(settings.appProfiles, activeWindow?.processName ?? null);
+  const shouldSuspend = Boolean(
+    activeWindow?.fullscreen && !profile?.neverSuspendDictationInFullscreen
+  );
+
+  if (shouldSuspend) {
+    unregisterDictationHotkeys();
+    dictationSuspendedForFullscreen = true;
+    fullscreenSuspensionProcessName = activeWindow?.processName ?? null;
+    return;
+  }
+
+  dictationSuspendedForFullscreen = false;
+  fullscreenSuspensionProcessName = null;
+  await registerDictationHotkeys(settings);
+}
+
 function getHotkeyStatus(): {
   showWindowHotkey: string | null;
   dictationToggleHotkey: string | null;
   dictationHoldHotkey: string | null;
+  dictationSuspendedForFullscreen: boolean;
+  fullscreenProcessName: string | null;
 } {
   return {
     showWindowHotkey: registeredShowWindowHotkey,
     dictationToggleHotkey: registeredDictationHotkey,
-    dictationHoldHotkey: registeredDictationHoldHotkey
+    dictationHoldHotkey: registeredDictationHoldHotkey,
+    dictationSuspendedForFullscreen,
+    fullscreenProcessName: fullscreenSuspensionProcessName
   };
 }
 
@@ -570,10 +676,12 @@ ipcMain.handle("dictation:set-hotkey-recording", (_event, recording: boolean) =>
 });
 ipcMain.handle("hotkeys:status", () => getHotkeyStatus());
 ipcMain.handle("hotkeys:suspend", () => {
+  hotkeysManuallySuspended = true;
   unregisterConfiguredHotkeys();
   return getHotkeyStatus();
 });
 ipcMain.handle("hotkeys:resume", async () => {
+  hotkeysManuallySuspended = false;
   await registerConfiguredHotkeys();
   return getHotkeyStatus();
 });
@@ -600,6 +708,7 @@ ipcMain.handle(
       | "recordingStopHotkey"
       | "postTranscriptionHotkey"
       | "whisperLanguage"
+      | "neverSuspendDictationInFullscreen"
     >
   ) =>
     settingsStore.updateAppProfile(processName, patch)
@@ -652,6 +761,7 @@ app.whenReady().then(() => {
 });
 
 app.on("will-quit", () => {
+  stopFullscreenSuspensionWatch();
   overlayWindow?.destroy();
   globalShortcut.unregisterAll();
 });

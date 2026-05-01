@@ -424,8 +424,9 @@ mod windows_impl {
     use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_EXTENDED_FRAME_BOUNDS};
     use windows::Win32::Graphics::Gdi::{
         BitBlt, CreateCompatibleBitmap, CreateCompatibleDC, DeleteDC, DeleteObject, GetDC,
-        GetDIBits, ReleaseDC, SelectObject, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS,
-        HBITMAP, HDC, HGDIOBJ, SRCCOPY,
+        GetDIBits, GetMonitorInfoW, MonitorFromWindow, ReleaseDC, SelectObject, BITMAPINFO,
+        BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, HBITMAP, HDC, HGDIOBJ, MONITORINFO,
+        MONITOR_DEFAULTTONEAREST, SRCCOPY,
     };
     use windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume;
     use windows::Win32::Media::Audio::{
@@ -473,6 +474,19 @@ mod windows_impl {
         process_id: u32,
         process_path: Option<String>,
         process_name: Option<String>,
+        bounds: Option<WindowBounds>,
+        fullscreen: bool,
+    }
+
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    pub struct WindowBounds {
+        left: i32,
+        top: i32,
+        right: i32,
+        bottom: i32,
+        width: i32,
+        height: i32,
     }
 
     #[derive(Serialize)]
@@ -525,6 +539,11 @@ mod windows_impl {
             .and_then(|path| path.rsplit(['\\', '/']).next())
             .filter(|name| !name.is_empty())
             .map(ToOwned::to_owned);
+        let rect = window_rect(hwnd, "foreground window").ok();
+        let bounds = rect.map(window_bounds);
+        let fullscreen = rect
+            .map(|value| window_covers_monitor(hwnd, value))
+            .unwrap_or(false);
 
         Ok(ActiveWindow {
             hwnd: format!("{:#x}", hwnd.0 as usize),
@@ -532,6 +551,8 @@ mod windows_impl {
             process_id,
             process_path,
             process_name,
+            bounds,
+            fullscreen,
         })
     }
 
@@ -1449,6 +1470,43 @@ mod windows_impl {
         }
 
         Ok(rect)
+    }
+
+    fn window_bounds(rect: RECT) -> WindowBounds {
+        WindowBounds {
+            left: rect.left,
+            top: rect.top,
+            right: rect.right,
+            bottom: rect.bottom,
+            width: rect.right - rect.left,
+            height: rect.bottom - rect.top,
+        }
+    }
+
+    fn window_covers_monitor(hwnd: HWND, rect: RECT) -> bool {
+        let monitor = unsafe { MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST) };
+
+        if monitor.0.is_null() {
+            return false;
+        }
+
+        let mut info = MONITORINFO {
+            cbSize: std::mem::size_of::<MONITORINFO>() as u32,
+            ..Default::default()
+        };
+
+        if !unsafe { GetMonitorInfoW(monitor, &mut info) }.as_bool() {
+            return false;
+        }
+
+        rects_match_with_tolerance(rect, info.rcMonitor, 2)
+    }
+
+    fn rects_match_with_tolerance(first: RECT, second: RECT, tolerance: i32) -> bool {
+        (first.left - second.left).abs() <= tolerance
+            && (first.top - second.top).abs() <= tolerance
+            && (first.right - second.right).abs() <= tolerance
+            && (first.bottom - second.bottom).abs() <= tolerance
     }
 
     fn capture_rect_to_png(screen_dc: HDC, rect: RECT, output_path: &str) -> Result<(), String> {
