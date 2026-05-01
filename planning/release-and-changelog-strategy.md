@@ -89,7 +89,7 @@ The non-developer sidebar footer doubles as the update affordance:
 
 - `Stable` means the installed version matches the latest GitHub Release or no installable release was found.
 - `Update` appears in orange when the latest GitHub Release has a newer `VoxType-Setup-*-x64.exe` asset.
-- Clicking `Update` downloads the installer into the app's user-data update cache, starts it with NSIS silent mode (`/S`), and immediately quits the running VoxType process so the installer can replace the executable.
+- Clicking `Update` downloads the installer into the app's user-data update cache, starts the normal one-click NSIS installer, and immediately quits the running VoxType process so the installer can replace the executable. The installer should use its normal finish behavior, including launching VoxType after installation.
 
 This first updater path intentionally uses the same GitHub Release artifacts produced by the stable release workflow instead of a separate update feed.
 
