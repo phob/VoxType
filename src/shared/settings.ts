@@ -52,6 +52,7 @@ export type AppProfile = {
   recordingStopHotkey: string;
   postTranscriptionHotkey: string;
   whisperLanguage: ProfileWhisperLanguage;
+  neverSuspendDictationInFullscreen: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -76,6 +77,7 @@ export type AppSettings = {
   startMinimized: boolean;
   startWithWindows: boolean;
   developerModeEnabled: boolean;
+  suspendDictationHotkeysInFullscreenApps: boolean;
   autoMuteSystemAudio: boolean;
   restoreClipboard: boolean;
   vadEnabled: boolean;
@@ -211,6 +213,10 @@ export function sanitizeSettings(
       typeof input.developerModeEnabled === "boolean"
         ? input.developerModeEnabled
         : defaults.developerModeEnabled,
+    suspendDictationHotkeysInFullscreenApps:
+      typeof input.suspendDictationHotkeysInFullscreenApps === "boolean"
+        ? input.suspendDictationHotkeysInFullscreenApps
+        : defaults.suspendDictationHotkeysInFullscreenApps,
     autoMuteSystemAudio:
       typeof input.autoMuteSystemAudio === "boolean"
         ? input.autoMuteSystemAudio
@@ -289,6 +295,7 @@ export function createAppProfile(input: {
     recordingStopHotkey: defaults.recordingStopHotkey ?? "",
     postTranscriptionHotkey: "",
     whisperLanguage: defaults.whisperLanguage,
+    neverSuspendDictationInFullscreen: false,
     createdAt: now,
     updatedAt: now
   };
@@ -344,6 +351,10 @@ function sanitizeAppProfiles(value: unknown): AppProfile[] {
       whisperLanguage: isProfileWhisperLanguage(item.whisperLanguage)
         ? item.whisperLanguage
         : "inherit",
+      neverSuspendDictationInFullscreen:
+        typeof item.neverSuspendDictationInFullscreen === "boolean"
+          ? item.neverSuspendDictationInFullscreen
+          : false,
       createdAt:
         typeof item.createdAt === "string" && item.createdAt.trim()
           ? item.createdAt

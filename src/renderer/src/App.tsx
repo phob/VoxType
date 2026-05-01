@@ -1166,6 +1166,7 @@ export function App(): JSX.Element {
         | "recordingStopHotkey"
         | "postTranscriptionHotkey"
         | "whisperLanguage"
+        | "neverSuspendDictationInFullscreen"
       >
     >
   ): Promise<void> {
@@ -1178,7 +1179,10 @@ export function App(): JSX.Element {
       recordingStopHotkey: patch.recordingStopHotkey ?? profile.recordingStopHotkey,
       postTranscriptionHotkey:
         patch.postTranscriptionHotkey ?? profile.postTranscriptionHotkey,
-      whisperLanguage: patch.whisperLanguage ?? profile.whisperLanguage
+      whisperLanguage: patch.whisperLanguage ?? profile.whisperLanguage,
+      neverSuspendDictationInFullscreen:
+        patch.neverSuspendDictationInFullscreen ??
+        profile.neverSuspendDictationInFullscreen
     };
     const settings = await window.voxtype.appProfiles.update(profile.processName, nextProfile);
     setState((current) => ({ ...current, settings }));
@@ -1694,6 +1698,21 @@ export function App(): JSX.Element {
                     onChange={(event) => void updateSettings({ autoMuteSystemAudio: event.target.checked })}
                   />
                 </label>
+                <label className="setting-row">
+                  <span>
+                    <strong>Suspend dictation hotkeys in fullscreen apps</strong>
+                    <small>Temporarily unregister dictation hotkeys while a fullscreen app is focused.</small>
+                  </span>
+                  <input
+                    checked={state.settings.suspendDictationHotkeysInFullscreenApps}
+                    type="checkbox"
+                    onChange={(event) =>
+                      void updateSettings({
+                        suspendDictationHotkeysInFullscreenApps: event.target.checked
+                      })
+                    }
+                  />
+                </label>
               </div>
             </section>
           ) : null}
@@ -1758,7 +1777,12 @@ export function App(): JSX.Element {
                 </label>
                 <div className="release-status-strip">
                   <ReleaseStatusBadge tone={state.hotkeys?.dictationToggleHotkey ? "ready" : "disabled"}>
-                    Dictation {state.hotkeys?.dictationToggleHotkey ? "registered" : "not registered"}
+                    Dictation{" "}
+                    {state.hotkeys?.dictationSuspendedForFullscreen
+                      ? `suspended for ${state.hotkeys.fullscreenProcessName ?? "fullscreen app"}`
+                      : state.hotkeys?.dictationToggleHotkey
+                        ? "registered"
+                        : "not registered"}
                   </ReleaseStatusBadge>
                   <ReleaseStatusBadge tone={state.hotkeys?.dictationHoldHotkey ? "ready" : "disabled"}>
                     Hold {state.hotkeys?.dictationHoldHotkey ? "registered" : "not registered"}
@@ -1883,6 +1907,10 @@ export function App(): JSX.Element {
                         <span>{writingStyleLabel(profile.writingStyle)}</span>
                         <span>{profileWhisperLanguageLabel(profile.whisperLanguage)}</span>
                         <span>{profile.postTranscriptionHotkey || "No send key"}</span>
+                        {state.settings.suspendDictationHotkeysInFullscreenApps &&
+                        profile.neverSuspendDictationInFullscreen ? (
+                          <span>Never suspend</span>
+                        ) : null}
                       </span>
                     </button>
                     <button
@@ -1992,6 +2020,23 @@ export function App(): JSX.Element {
                           : selectedProfile.postTranscriptionHotkey || "None"}
                       </button>
                     </div>
+                    {state.settings.suspendDictationHotkeysInFullscreenApps ? (
+                      <label className="setting-row">
+                        <span>
+                          <strong>Never suspend in fullscreen</strong>
+                          <small>Keep dictation hotkeys active for this app.</small>
+                        </span>
+                        <input
+                          checked={selectedProfile.neverSuspendDictationInFullscreen}
+                          type="checkbox"
+                          onChange={(event) =>
+                            void updateAppProfile(selectedProfile, {
+                              neverSuspendDictationInFullscreen: event.target.checked
+                            })
+                          }
+                        />
+                      </label>
+                    ) : null}
                   </div>
 
                   <div className="release-form-actions">
@@ -3405,6 +3450,18 @@ export function App(): JSX.Element {
                   }
                 />
                 developerModeEnabled
+              </label>
+              <label className="checkbox-field">
+                <input
+                  checked={state.settings.suspendDictationHotkeysInFullscreenApps}
+                  type="checkbox"
+                  onChange={(event) =>
+                    void updateSettings({
+                      suspendDictationHotkeysInFullscreenApps: event.target.checked
+                    })
+                  }
+                />
+                suspendDictationHotkeysInFullscreenApps
               </label>
               <label className="checkbox-field">
                 <input

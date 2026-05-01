@@ -183,6 +183,7 @@ const voxtype = {
         | "recordingStopHotkey"
         | "postTranscriptionHotkey"
         | "whisperLanguage"
+        | "neverSuspendDictationInFullscreen"
       >
     ) => ipcRenderer.invoke("app-profiles:update", processName, patch) as Promise<AppSettings>,
     remove: (processName: string) =>

@@ -15,6 +15,7 @@
 - Global hotkeys.
 - Hotkey controls can be cleared by right-clicking the hotkey button, which also unregisters the corresponding global shortcut.
 - Hotkey capture rejects key combinations that are already assigned to another VoxType hotkey.
+- Optional fullscreen-app protection suspends dictation hotkeys while a fullscreen app is focused, with per-app profiles able to opt out through a Never suspend override.
 - Tray app.
 - Start minimized option that launches VoxType as a tray icon without showing the main window; double-clicking the tray icon opens the main window.
 - Start with Windows option that registers VoxType to launch automatically when the user signs in.
@@ -43,7 +44,7 @@ The default release UI should stay intentionally small and focused on setup, not
 Primary surfaces:
 
 - Home: essential setup status plus frequently used startup controls such as language, Start with Windows, and Start minimized.
-- Settings: lower-frequency behavior toggles such as offline mode, clipboard restoration, and muting system audio during recording.
+- Settings: lower-frequency behavior toggles such as offline mode, clipboard restoration, muting system audio during recording, and fullscreen-app dictation hotkey suspension.
 - Hotkeys: dedicated configuration for global dictation and window/show hotkeys.
 - Models: local model catalog, installed status, downloads, activation, hardware fit, and deletion.
 - Profiles: detected app profiles with user-facing insertion method and writing style controls.

@@ -40,6 +40,7 @@ export class SettingsStore {
       startMinimized: false,
       startWithWindows: false,
       developerModeEnabled: false,
+      suspendDictationHotkeysInFullscreenApps: false,
       autoMuteSystemAudio: false,
       restoreClipboard: true,
       vadEnabled: true,
@@ -118,6 +119,7 @@ export class SettingsStore {
       | "recordingStopHotkey"
       | "postTranscriptionHotkey"
       | "whisperLanguage"
+      | "neverSuspendDictationInFullscreen"
     >
   ): Promise<AppSettings> {
     const settings = await this.get();
@@ -139,6 +141,7 @@ export class SettingsStore {
               recordingStopHotkey: patch.recordingStopHotkey,
               postTranscriptionHotkey: patch.postTranscriptionHotkey,
               whisperLanguage: patch.whisperLanguage,
+              neverSuspendDictationInFullscreen: patch.neverSuspendDictationInFullscreen,
               updatedAt: new Date().toISOString()
             }
           : profile
