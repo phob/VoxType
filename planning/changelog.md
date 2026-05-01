@@ -2,6 +2,7 @@
 
 ## 2026-05-01
 
+- Changed in-app updates to launch the normal one-click NSIS installer instead of silent mode so the installed app can start after the installer finishes.
 - Added fullscreen-app dictation hotkey suspension as an accepted Settings behavior.
 - Clarified that per-app Never suspend overrides only appear when fullscreen hotkey suspension is enabled.
 - Moved the per-app Never suspend control into each app profile instead of listing all profiles under the Settings toggle.

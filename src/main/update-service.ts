@@ -110,7 +110,7 @@ export class UpdateService {
         state: "installing"
       };
 
-      const child = spawn(installerPath, ["/S"], {
+      const child = spawn(installerPath, [], {
         detached: true,
         stdio: "ignore"
       });
