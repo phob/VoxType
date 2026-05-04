@@ -4149,7 +4149,7 @@ async function playRecordingCue(kind: "start" | "stop"): Promise<void> {
     oscillator.type = "sine";
     oscillator.frequency.setValueAtTime(frequency, start);
     gain.gain.setValueAtTime(0.0001, start);
-    gain.gain.exponentialRampToValueAtTime(0.08, start + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.12, start + 0.012);
     gain.gain.exponentialRampToValueAtTime(0.0001, end);
     oscillator.connect(gain);
     gain.connect(context.destination);
