@@ -2,6 +2,8 @@
 
 ## 2026-05-05
 
+- Added the current single-instance behavior to architecture planning.
+- Recorded the decision to rely on Electron's single-instance lock only, without legacy process-name scanning while development builds are maintainer-only.
 - Added a recording input device selector that defaults to the current Windows default microphone and uses a selected microphone for future recordings.
 
 ## 2026-05-01

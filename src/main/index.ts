@@ -75,6 +75,14 @@ if (process.platform === "win32") {
   app.setAppUserModelId("com.voxtype.app");
 }
 
+const gotSingleInstanceLock = app.requestSingleInstanceLock();
+
+if (!gotSingleInstanceLock) {
+  app.quit();
+} else {
+  app.on("second-instance", showMainWindow);
+}
+
 function getAppIconPath(): string {
   const resourcesRoot = app.isPackaged ? process.resourcesPath : join(app.getAppPath(), "resources");
   return join(resourcesRoot, "icons", "voxtype.ico");

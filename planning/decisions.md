@@ -281,3 +281,13 @@ VoxType should offer an optional setting that suspends dictation hotkeys while t
 Reason:
 
 Windows does not expose a reliable general-purpose "game is active" signal for normal desktop utilities. Fullscreen foreground detection is a practical, privacy-preserving proxy for gaming and other latency-sensitive contexts, while per-app overrides handle false positives such as presentations, browsers, video players, and remote sessions.
+
+## 2026-05-05: Use Electron Single-Instance Lock Only
+
+Decision:
+
+VoxType should use Electron's single-instance lock to prevent duplicate app instances between builds that include the guard. A second guarded launch should restore/focus the existing main window. For now, VoxType should not add a Windows process-name scan or other compatibility fallback to detect older releases that do not request the lock.
+
+Reason:
+
+The maintainer is currently the only person running development builds, so the practical risk is duplicate guarded builds rather than mixed public/dev version enforcement. Process-name scanning would add startup complexity and could introduce false positives, while older unguarded releases cannot be made fully cooperative when launched second without shipping a patched release.
