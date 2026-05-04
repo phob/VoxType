@@ -52,10 +52,17 @@ export type WindowsMediaOcrResult = {
 
 export type NativeRecordingOptions = {
   captureMode: "sharedCapture" | "exclusiveCapturePreferred" | "exclusiveCaptureRequired";
+  inputDeviceId: string;
   vadEnabled: boolean;
   vadPositiveSpeechThreshold: number;
   vadPreSpeechPadMs: number;
   vadRedemptionMs: number;
+};
+
+export type NativeInputDevice = {
+  id: string;
+  name: string;
+  isDefault: boolean;
 };
 
 export type NativeRecordingResult = {

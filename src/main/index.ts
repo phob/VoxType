@@ -691,6 +691,7 @@ ipcMain.handle("windows-helper:active-window", async () => {
   await settingsStore.ensureAppProfile(activeWindow);
   return activeWindow;
 });
+ipcMain.handle("windows-helper:input-devices", () => windowsHelperService.listInputDevices());
 ipcMain.handle("app-profiles:ensure", (_event, windowInfo: ActiveWindowInfo | null) =>
   settingsStore.ensureAppProfile(windowInfo)
 );

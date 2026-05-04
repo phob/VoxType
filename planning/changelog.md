@@ -1,5 +1,9 @@
 # Planning Changelog
 
+## 2026-05-05
+
+- Added a recording input device selector that defaults to the current Windows default microphone and uses a selected microphone for future recordings.
+
 ## 2026-05-01
 
 - Added short recording start/stop audio cues, ordered around system-audio mute/unmute so the cues remain audible.

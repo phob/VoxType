@@ -9,6 +9,7 @@ import {
   type NativeRecordingLevel,
   type NativeRecordingOptions,
   type NativeRecordingResult,
+  type NativeInputDevice,
   type WindowsMediaOcrResult,
   type ScreenshotCaptureMode,
   type ScreenshotCaptureResult,
@@ -278,6 +279,27 @@ export class WindowsHelperService {
     await runHelperWithStdin(helperPath, ["restore-capture-session"], JSON.stringify(state));
   }
 
+  async listInputDevices(): Promise<NativeInputDevice[]> {
+    const helperPath = await this.resolveHelperPath();
+
+    if (!helperPath) {
+      throw new Error(
+        "Windows helper executable was not found. Build it with `cargo build --manifest-path native/windows-helper/Cargo.toml`."
+      );
+    }
+
+    const { stdout } = await execFileAsync(helperPath, ["input-devices"], {
+      windowsHide: true
+    });
+    const parsed = JSON.parse(stdout) as unknown;
+
+    if (!Array.isArray(parsed) || !parsed.every(isNativeInputDevice)) {
+      throw new Error("Windows helper returned an unexpected input-devices payload.");
+    }
+
+    return parsed;
+  }
+
   async startRecording(
     options: NativeRecordingOptions,
     onLevel?: (level: NativeRecordingLevel) => void
@@ -303,6 +325,10 @@ export class WindowsHelperService {
 
     if (captureModeArg) {
       args.push("--capture-mode", captureModeArg);
+    }
+
+    if (options.inputDeviceId && options.inputDeviceId !== "default") {
+      args.push("--input-device", options.inputDeviceId);
     }
 
     if (options.vadEnabled) {
@@ -671,6 +697,20 @@ function isWindowBounds(value: unknown): boolean {
     typeof bounds.bottom === "number" &&
     typeof bounds.width === "number" &&
     typeof bounds.height === "number"
+  );
+}
+
+function isNativeInputDevice(value: unknown): value is NativeInputDevice {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  const device = value as Record<string, unknown>;
+
+  return (
+    typeof device.id === "string" &&
+    typeof device.name === "string" &&
+    typeof device.isDefault === "boolean"
   );
 }
 
