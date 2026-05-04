@@ -31,6 +31,7 @@ export class SettingsStore {
       dictationToggleHotkey: "CommandOrControl+Alt+Space",
       dictationHoldHotkey: "CommandOrControl+Alt+V",
       insertionMode: "clipboard",
+      recordingInputDeviceId: "default",
       recorderCaptureMode: "exclusiveCapturePreferred",
       ocrTermMode: "balanced",
       recordingCoordinationMode: "none",

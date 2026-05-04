@@ -68,6 +68,7 @@ export type AppSettings = {
   dictationToggleHotkey: string;
   dictationHoldHotkey: string;
   insertionMode: InsertionMode;
+  recordingInputDeviceId: string;
   recorderCaptureMode: RecorderCaptureMode;
   ocrTermMode: OcrTermMode;
   recordingCoordinationMode: RecordingCoordinationMode;
@@ -182,6 +183,10 @@ export function sanitizeSettings(
     insertionMode: isInsertionMode(input.insertionMode)
       ? input.insertionMode
       : defaults.insertionMode,
+    recordingInputDeviceId:
+      typeof input.recordingInputDeviceId === "string" && input.recordingInputDeviceId.trim()
+        ? input.recordingInputDeviceId.slice(0, 240)
+        : defaults.recordingInputDeviceId,
     recorderCaptureMode: isRecorderCaptureMode(input.recorderCaptureMode)
       ? input.recorderCaptureMode
       : defaults.recorderCaptureMode,

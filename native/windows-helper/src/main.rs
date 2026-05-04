@@ -21,12 +21,13 @@ fn main() {
         "message-targets" => message_targets_from_arg(),
         "mute-capture-session" => mute_capture_session_from_args(),
         "restore-capture-session" => restore_capture_session_from_stdin(),
+        "input-devices" => input_devices_json(),
         "record-wav" => record_wav_from_args(),
         "paste-text" => paste_text_from_stdin(),
         "type-text" => type_text_from_stdin(),
         "message-text" => message_text_from_stdin(),
         "help" | "--help" | "-h" => {
-            println!("Usage: voxtype-windows-helper active-window | focus-window <hwnd> | set-system-mute <true|false> | send-hotkey <accelerator> | wait-hotkey-release <accelerator> | capture-screenshot <output.png> [--active-window | --hwnd <hwnd>] | ocr-image <input.png> | message-targets [hwnd] | mute-capture-session <process-id> [process-name] | restore-capture-session | record-wav <output.wav> [--capture-mode shared|exclusive-preferred|exclusive-required] | paste-text | type-text [delay-ms] | message-text [focused-control|character-messages] [hwnd]");
+            println!("Usage: voxtype-windows-helper active-window | focus-window <hwnd> | set-system-mute <true|false> | send-hotkey <accelerator> | wait-hotkey-release <accelerator> | capture-screenshot <output.png> [--active-window | --hwnd <hwnd>] | ocr-image <input.png> | message-targets [hwnd] | mute-capture-session <process-id> [process-name] | restore-capture-session | input-devices | record-wav <output.wav> [--capture-mode shared|exclusive-preferred|exclusive-required] [--input-device <name>] | paste-text | type-text [delay-ms] | message-text [focused-control|character-messages] [hwnd]");
             Ok(())
         }
         _ => Err(format!("Unknown command: {command}")),
@@ -39,6 +40,22 @@ fn main() {
         );
         process::exit(1);
     }
+}
+
+#[cfg(windows)]
+fn input_devices_json() -> Result<(), String> {
+    let devices = windows_impl::list_input_devices()?;
+    println!(
+        "{}",
+        serde_json::to_string(&devices)
+            .map_err(|error| format!("Could not serialize input devices: {error}"))?
+    );
+    Ok(())
+}
+
+#[cfg(not(windows))]
+fn input_devices_json() -> Result<(), String> {
+    Err("input-devices is only supported on Windows.".to_string())
 }
 
 #[cfg(windows)]
@@ -96,6 +113,7 @@ fn record_wav_from_args() -> Result<(), String> {
 #[derive(Clone)]
 struct NativeRecordingConfig {
     capture_mode: CaptureMode,
+    input_device: Option<String>,
     vad: NativeVadConfig,
 }
 
@@ -103,6 +121,7 @@ impl NativeRecordingConfig {
     fn from_args() -> Result<Self, String> {
         let args = env::args().skip(3).collect::<Vec<_>>();
         let mut capture_mode = CaptureMode::Shared;
+        let mut input_device = None;
         let mut vad_config = NativeVadConfig::default();
         let mut index = 0;
 
@@ -114,6 +133,10 @@ impl NativeRecordingConfig {
                         args.get(index)
                             .ok_or_else(|| "--capture-mode requires a value.".to_string())?,
                     )?;
+                }
+                "--input-device" => {
+                    index += 1;
+                    input_device = args.get(index).cloned();
                 }
                 "--vad-model" => {
                     index += 1;
@@ -153,6 +176,7 @@ impl NativeRecordingConfig {
 
         Ok(Self {
             capture_mode,
+            input_device,
             vad: vad_config,
         })
     }
@@ -502,6 +526,14 @@ mod windows_impl {
 
     #[derive(Serialize)]
     #[serde(rename_all = "camelCase")]
+    pub struct InputDevice {
+        id: String,
+        name: String,
+        is_default: bool,
+    }
+
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
     pub struct WindowsOcrLine {
         text: String,
         confidence: Option<f32>,
@@ -830,11 +862,36 @@ mod windows_impl {
         Ok(())
     }
 
+    pub fn list_input_devices() -> Result<Vec<InputDevice>, String> {
+        let host = cpal::default_host();
+        let default_name = host.default_input_device().and_then(|device| device.name().ok());
+        let devices = host
+            .input_devices()
+            .map_err(|error| format!("Could not list input devices: {error}"))?;
+        let mut results = Vec::new();
+
+        for device in devices {
+            let name = device
+                .name()
+                .map_err(|error| format!("Could not read input device name: {error}"))?;
+
+            results.push(InputDevice {
+                id: name.clone(),
+                is_default: default_name.as_deref() == Some(name.as_str()),
+                name,
+            });
+        }
+
+        Ok(results)
+    }
+
     pub fn record_wav_until_stdin_stop(
         output_path: &str,
         recording_config: super::NativeRecordingConfig,
     ) -> Result<(), String> {
-        if recording_config.capture_mode != super::CaptureMode::Shared {
+        if recording_config.capture_mode != super::CaptureMode::Shared
+            && recording_config.input_device.is_none()
+        {
             match record_wav_wasapi_exclusive(output_path, recording_config.vad.clone()) {
                 Ok(()) => return Ok(()),
                 Err(error)
@@ -848,18 +905,26 @@ mod windows_impl {
             }
         }
 
-        record_wav_shared_until_stdin_stop(output_path, recording_config.vad)
+        record_wav_shared_until_stdin_stop(
+            output_path,
+            recording_config.vad,
+            recording_config.input_device.as_deref(),
+        )
     }
 
     fn record_wav_shared_until_stdin_stop(
         output_path: &str,
         vad_config: super::NativeVadConfig,
+        input_device: Option<&str>,
     ) -> Result<(), String> {
         let output_path = Path::new(output_path);
         let host = cpal::default_host();
-        let device = host
-            .default_input_device()
-            .ok_or_else(|| "No input device found.".to_string())?;
+        let device = match input_device {
+            Some(device_name) => find_input_device_by_name(&host, device_name)?,
+            None => host
+                .default_input_device()
+                .ok_or_else(|| "No input device found.".to_string())?,
+        };
         let config = get_preferred_input_config(&device)?;
         let sample_rate = config.sample_rate().0;
         let channels = config.channels() as usize;
@@ -1965,6 +2030,32 @@ mod windows_impl {
         Ok(best_config
             .map(|config| config.with_sample_rate(target_rate))
             .unwrap_or(default_config))
+    }
+
+    fn find_input_device_by_name(host: &cpal::Host, name: &str) -> Result<cpal::Device, String> {
+        let requested = name.trim();
+
+        if requested.is_empty() {
+            return host
+                .default_input_device()
+                .ok_or_else(|| "No input device found.".to_string());
+        }
+
+        let devices = host
+            .input_devices()
+            .map_err(|error| format!("Could not list input devices: {error}"))?;
+
+        for device in devices {
+            let device_name = device
+                .name()
+                .map_err(|error| format!("Could not read input device name: {error}"))?;
+
+            if device_name == requested {
+                return Ok(device);
+            }
+        }
+
+        Err(format!("Selected input device was not found: {requested}"))
     }
 
     fn sample_format_score(format: cpal::SampleFormat) -> u8 {
