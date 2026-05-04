@@ -24,6 +24,7 @@ import {
   type DictationHotkeyState,
   type NativeRecordingOptions,
   type NativeRecordingResult,
+  type NativeInputDevice,
   type RecordingOverlayState,
   type ScreenshotCaptureMode,
   type ScreenshotCaptureResult,
@@ -194,6 +195,8 @@ const voxtype = {
       ipcRenderer.invoke("windows-helper:status") as Promise<WindowsHelperStatus>,
     activeWindow: () =>
       ipcRenderer.invoke("windows-helper:active-window") as Promise<ActiveWindowInfo>,
+    inputDevices: () =>
+      ipcRenderer.invoke("windows-helper:input-devices") as Promise<NativeInputDevice[]>,
     startRecording: (options: NativeRecordingOptions) =>
       ipcRenderer.invoke("windows-helper:start-recording", options) as Promise<void>,
     stopRecording: () =>

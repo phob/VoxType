@@ -53,6 +53,7 @@ import { type UpdateStatus } from "../../../shared/updates";
 import {
   type ActiveWindowInfo,
   type DictationHotkeyPayload,
+  type NativeInputDevice,
   type RecordingOverlayState,
   type ScreenshotCaptureMode,
   type ScreenshotCaptureResult,
@@ -70,6 +71,7 @@ type AppState = {
   dictionary: DictionaryEntry[];
   hardware: HardwareAccelerationReport | null;
   windowsHelper: WindowsHelperStatus | null;
+  inputDevices: NativeInputDevice[];
   activeWindow: ActiveWindowInfo | null;
   hotkeys: HotkeyStatus | null;
 };
@@ -212,6 +214,7 @@ export function App(): JSX.Element {
     dictionary: [],
     hardware: null,
     windowsHelper: null,
+    inputDevices: [],
     activeWindow: null,
     hotkeys: null
   });
@@ -484,6 +487,7 @@ export function App(): JSX.Element {
       history,
       dictionary,
       windowsHelper,
+      inputDevices,
       hotkeys
     ] =
       await Promise.all([
@@ -497,6 +501,7 @@ export function App(): JSX.Element {
       window.voxtype.history.list(),
       window.voxtype.dictionary.list(),
       window.voxtype.windowsHelper.status(),
+      window.voxtype.windowsHelper.inputDevices().catch(() => []),
       window.voxtype.hotkeys.status()
     ]);
 
@@ -512,6 +517,7 @@ export function App(): JSX.Element {
       history,
       dictionary,
       windowsHelper,
+      inputDevices,
       activeWindow: null,
       hotkeys
     });
@@ -701,6 +707,7 @@ export function App(): JSX.Element {
 
     try {
       await window.voxtype.recordingOverlay.showRecording();
+      await playRecordingCue("start");
 
       if (state.settings?.autoMuteSystemAudio) {
         await window.voxtype.windowsHelper.setSystemMute(true);
@@ -839,6 +846,7 @@ export function App(): JSX.Element {
       await window.voxtype.recordingOverlay.showTranscribing();
       const coordinationError = await stopRecordingCoordination();
       const unmuteError = await unmuteSystemAudio();
+      await playRecordingCue("stop");
       setLastRecordingResult(recordingResult);
 
       if (recordingResult.vad.enabled && !recordingResult.vad.speechDetected) {
@@ -1697,6 +1705,26 @@ export function App(): JSX.Element {
                     type="checkbox"
                     onChange={(event) => void updateSettings({ autoMuteSystemAudio: event.target.checked })}
                   />
+                </label>
+                <label className="setting-row">
+                  <span>
+                    <strong>Microphone</strong>
+                    <small>{recordingInputDeviceLabel(state.settings, state.inputDevices)}</small>
+                  </span>
+                  <select
+                    value={state.settings.recordingInputDeviceId}
+                    onChange={(event) =>
+                      void updateSettings({ recordingInputDeviceId: event.target.value })
+                    }
+                  >
+                    <option value="default">System default</option>
+                    {state.inputDevices.map((device) => (
+                      <option key={device.id} value={device.id}>
+                        {device.name}
+                        {device.isDefault ? " (default)" : ""}
+                      </option>
+                    ))}
+                  </select>
                 </label>
                 <label className="setting-row">
                   <span>
@@ -3262,6 +3290,23 @@ export function App(): JSX.Element {
                   <option value="exclusiveCaptureRequired">exclusiveCaptureRequired</option>
                 </select>
               </label>
+              <label className="dev-field wide">
+                <span>recordingInputDeviceId</span>
+                <select
+                  value={state.settings.recordingInputDeviceId}
+                  onChange={(event) =>
+                    void updateSettings({ recordingInputDeviceId: event.target.value })
+                  }
+                >
+                  <option value="default">default</option>
+                  {state.inputDevices.map((device) => (
+                    <option key={device.id} value={device.id}>
+                      {device.name}
+                      {device.isDefault ? " (default)" : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
               <label className="dev-field">
                 <span>remoteClipboardPasteDelayMs</span>
                 <input
@@ -4100,6 +4145,24 @@ function profileWhisperLanguageLabel(language: ProfileWhisperLanguage): string {
   return language.toUpperCase();
 }
 
+function recordingInputDeviceLabel(
+  settings: AppSettings,
+  devices: NativeInputDevice[]
+): string {
+  if (settings.recordingInputDeviceId === "default") {
+    const defaultDevice = devices.find((device) => device.isDefault);
+    return defaultDevice
+      ? `Use the current Windows default: ${defaultDevice.name}.`
+      : "Use the current Windows default input device.";
+  }
+
+  const selectedDevice = devices.find((device) => device.id === settings.recordingInputDeviceId);
+
+  return selectedDevice
+    ? `Use ${selectedDevice.name} for VoxType recordings.`
+    : "The selected input device is not currently available.";
+}
+
 function profileForWindow(
   profiles: AppProfile[],
   windowInfo: ActiveWindowInfo | null
@@ -4123,6 +4186,40 @@ function wait(milliseconds: number): Promise<void> {
   return new Promise((resolve) => {
     window.setTimeout(resolve, milliseconds);
   });
+}
+
+async function playRecordingCue(kind: "start" | "stop"): Promise<void> {
+  const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
+
+  if (!AudioContextConstructor) {
+    return;
+  }
+
+  const context = new AudioContextConstructor();
+  const frequencies = kind === "start" ? [660, 880] : [880, 660];
+  const durationSeconds = 0.075;
+  const gapSeconds = 0.025;
+  const startedAt = context.currentTime + 0.01;
+
+  for (const [index, frequency] of frequencies.entries()) {
+    const start = startedAt + index * (durationSeconds + gapSeconds);
+    const end = start + durationSeconds;
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(frequency, start);
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(0.12, start + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, end);
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start(start);
+    oscillator.stop(end);
+  }
+
+  await wait(Math.ceil((frequencies.length * durationSeconds + gapSeconds) * 1000) + 40);
+  await context.close();
 }
 
 function formatDuration(milliseconds: number): string {

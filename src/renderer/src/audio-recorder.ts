@@ -24,6 +24,7 @@ export type VadTrimStats = {
 export async function startNativePcmRecorder(settings?: AppSettings | null): Promise<PcmRecorder> {
   await window.voxtype.windowsHelper.startRecording({
     captureMode: settings?.recorderCaptureMode ?? "sharedCapture",
+    inputDeviceId: settings?.recordingInputDeviceId ?? "default",
     vadEnabled: settings?.vadEnabled ?? true,
     vadPositiveSpeechThreshold: settings?.vadPositiveSpeechThreshold ?? 0.3,
     vadPreSpeechPadMs: settings?.vadPreSpeechPadMs ?? 450,

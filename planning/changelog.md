@@ -1,7 +1,12 @@
 # Planning Changelog
 
+## 2026-05-05
+
+- Added a recording input device selector that defaults to the current Windows default microphone and uses a selected microphone for future recordings.
+
 ## 2026-05-01
 
+- Added short recording start/stop audio cues, ordered around system-audio mute/unmute so the cues remain audible.
 - Changed in-app updates to launch the normal one-click NSIS installer instead of silent mode so the installed app can start after the installer finishes.
 - Added fullscreen-app dictation hotkey suspension as an accepted Settings behavior.
 - Clarified that per-app Never suspend overrides only appear when fullscreen hotkey suspension is enabled.
