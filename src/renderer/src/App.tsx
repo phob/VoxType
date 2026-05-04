@@ -701,6 +701,7 @@ export function App(): JSX.Element {
 
     try {
       await window.voxtype.recordingOverlay.showRecording();
+      await playRecordingCue("start");
 
       if (state.settings?.autoMuteSystemAudio) {
         await window.voxtype.windowsHelper.setSystemMute(true);
@@ -839,6 +840,7 @@ export function App(): JSX.Element {
       await window.voxtype.recordingOverlay.showTranscribing();
       const coordinationError = await stopRecordingCoordination();
       const unmuteError = await unmuteSystemAudio();
+      await playRecordingCue("stop");
       setLastRecordingResult(recordingResult);
 
       if (recordingResult.vad.enabled && !recordingResult.vad.speechDetected) {
@@ -4123,6 +4125,40 @@ function wait(milliseconds: number): Promise<void> {
   return new Promise((resolve) => {
     window.setTimeout(resolve, milliseconds);
   });
+}
+
+async function playRecordingCue(kind: "start" | "stop"): Promise<void> {
+  const AudioContextConstructor = window.AudioContext || window.webkitAudioContext;
+
+  if (!AudioContextConstructor) {
+    return;
+  }
+
+  const context = new AudioContextConstructor();
+  const frequencies = kind === "start" ? [660, 880] : [880, 660];
+  const durationSeconds = 0.075;
+  const gapSeconds = 0.025;
+  const startedAt = context.currentTime + 0.01;
+
+  for (const [index, frequency] of frequencies.entries()) {
+    const start = startedAt + index * (durationSeconds + gapSeconds);
+    const end = start + durationSeconds;
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(frequency, start);
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(0.08, start + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, end);
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    oscillator.start(start);
+    oscillator.stop(end);
+  }
+
+  await wait(Math.ceil((frequencies.length * durationSeconds + gapSeconds) * 1000) + 40);
+  await context.close();
 }
 
 function formatDuration(milliseconds: number): string {

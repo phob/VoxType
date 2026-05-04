@@ -21,6 +21,7 @@
 - Start with Windows option that registers VoxType to launch automatically when the user signs in.
 - Push-to-talk and toggle dictation.
 - Hold-to-dictate hotkey that records only while the configured key combination remains physically held.
+- Short start/stop audio cues play around recording, with the start cue before VoxType mutes system audio and the stop cue after audio is unmuted.
 - Voice activity detection.
 - Automatic silence trimming.
 - Recording coordination for apps that also use the microphone.
