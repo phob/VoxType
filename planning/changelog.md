@@ -1,5 +1,10 @@
 # Planning Changelog
 
+## 2026-05-05
+
+- Added the current single-instance behavior to architecture planning.
+- Recorded the decision to rely on Electron's single-instance lock only, without legacy process-name scanning while development builds are maintainer-only.
+
 ## 2026-05-01
 
 - Changed in-app updates to launch the normal one-click NSIS installer instead of silent mode so the installed app can start after the installer finishes.
