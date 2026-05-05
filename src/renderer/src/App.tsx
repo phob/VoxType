@@ -245,6 +245,9 @@ export function App(): JSX.Element {
   const [activeTab, setActiveTab] = useState<DevTab>("dictation");
   const [confirmingDeleteModelId, setConfirmingDeleteModelId] = useState<string | null>(null);
   const [capturingProfileHotkey, setCapturingProfileHotkey] = useState<string | null>(null);
+  const [releaseTooltip, setReleaseTooltip] = useState<{ text: string; x: number; y: number } | null>(
+    null
+  );
   const [selectedProfileProcessName, setSelectedProfileProcessName] = useState<string | null>(
     null
   );
@@ -1540,7 +1543,34 @@ export function App(): JSX.Element {
           </div>
         </aside>
 
-        <div className="release-main">
+        <div
+          className="release-main"
+          onMouseOver={(event) => {
+            const tooltipTarget = (event.target as HTMLElement).closest<HTMLElement>("[data-tooltip]");
+
+            if (!tooltipTarget) {
+              return;
+            }
+
+            const tooltipText = tooltipTarget.dataset.tooltip;
+
+            if (!tooltipText) {
+              return;
+            }
+
+            const rect = tooltipTarget.getBoundingClientRect();
+            setReleaseTooltip({ text: tooltipText, x: rect.left + rect.width / 2, y: rect.top - 8 });
+          }}
+          onMouseOut={(event) => {
+            const tooltipTarget = (event.target as HTMLElement).closest<HTMLElement>("[data-tooltip]");
+
+            if (!tooltipTarget || tooltipTarget.contains(event.relatedTarget as Node | null)) {
+              return;
+            }
+
+            setReleaseTooltip(null);
+          }}
+        >
           <header className="release-hero">
             <div className="release-hero-copy">
               <h1>VoxType</h1>
@@ -1568,6 +1598,16 @@ export function App(): JSX.Element {
             <div className="release-toast" role="status">
               <CheckCircle2 aria-hidden="true" className="release-icon-svg" />
               <span>{busyMessage}</span>
+            </div>
+          ) : null}
+
+          {releaseTooltip ? (
+            <div
+              className="release-tooltip"
+              style={{ left: releaseTooltip.x, top: releaseTooltip.y }}
+              role="tooltip"
+            >
+              {releaseTooltip.text}
             </div>
           ) : null}
 
@@ -1824,7 +1864,7 @@ export function App(): JSX.Element {
           ) : null}
 
         {releaseTab === "models" ? (
-          <section className="release-panel">
+          <section className="release-panel release-scroll-panel">
             <div className="release-panel-heading">
               <div className="release-panel-title">
                 <ReleaseIcon name="box" decorative />
@@ -1901,7 +1941,7 @@ export function App(): JSX.Element {
         ) : null}
 
         {releaseTab === "profiles" ? (
-          <section className="release-panel">
+          <section className="release-panel release-scroll-panel">
             <div className="release-panel-heading">
               <div className="release-panel-title">
                 <ReleaseIcon name="user" decorative />
@@ -2275,7 +2315,7 @@ export function App(): JSX.Element {
         ) : null}
 
         {releaseTab === "history" ? (
-          <section className="release-panel">
+          <section className="release-panel release-scroll-panel">
             <div className="release-panel-heading">
               <div className="release-panel-title">
                 <ReleaseIcon name="history" decorative />
