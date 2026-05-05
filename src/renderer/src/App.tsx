@@ -4072,18 +4072,10 @@ function roundRect(
   height: number,
   radius: number
 ): void {
-  const clampedRadius = Math.min(radius, width / 2, height / 2);
+  void radius;
 
   context.beginPath();
-  context.moveTo(x + clampedRadius, y);
-  context.lineTo(x + width - clampedRadius, y);
-  context.quadraticCurveTo(x + width, y, x + width, y + clampedRadius);
-  context.lineTo(x + width, y + height - clampedRadius);
-  context.quadraticCurveTo(x + width, y + height, x + width - clampedRadius, y + height);
-  context.lineTo(x + clampedRadius, y + height);
-  context.quadraticCurveTo(x, y + height, x, y + height - clampedRadius);
-  context.lineTo(x, y + clampedRadius);
-  context.quadraticCurveTo(x, y, x + clampedRadius, y);
+  context.rect(x, y, width, height);
   context.closePath();
 }
 
