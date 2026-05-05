@@ -426,11 +426,14 @@ mod windows_impl {
     use rubato::{FftFixedIn, Resampler};
     use serde::{Deserialize, Serialize};
     use std::collections::{HashSet, VecDeque};
+    use std::ffi::OsString;
     use std::fs::File;
     use std::io::{self, BufRead, BufReader, BufWriter, Write};
     use std::mem::MaybeUninit;
+    use std::os::windows::ffi::OsStringExt;
     use std::path::Path;
     use std::ptr;
+    use std::slice;
     use std::sync::mpsc;
     use std::sync::{
         atomic::{AtomicBool, Ordering},
@@ -444,6 +447,7 @@ mod windows_impl {
     use windows::Graphics::Imaging::{BitmapAlphaMode, BitmapPixelFormat, SoftwareBitmap};
     use windows::Media::Ocr::OcrEngine;
     use windows::Storage::Streams::DataWriter;
+    use windows::Win32::Devices::Properties;
     use windows::Win32::Foundation::{CloseHandle, HWND, LPARAM, MAX_PATH, RECT, WPARAM};
     use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_EXTENDED_FRAME_BOUNDS};
     use windows::Win32::Graphics::Gdi::{
@@ -455,20 +459,21 @@ mod windows_impl {
     use windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume;
     use windows::Win32::Media::Audio::{
         eCapture, eConsole, eRender, IAudioCaptureClient, IAudioClient, IAudioSessionControl2,
-        IAudioSessionManager2, IMMDeviceEnumerator, ISimpleAudioVolume, MMDeviceEnumerator,
-        AUDCLNT_BUFFERFLAGS_SILENT, AUDCLNT_SHAREMODE_EXCLUSIVE, WAVEFORMATEX,
-        WAVEFORMATEXTENSIBLE, WAVE_FORMAT_PCM,
+        IAudioSessionManager2, IMMDevice, IMMDeviceEnumerator, ISimpleAudioVolume,
+        MMDeviceEnumerator, AUDCLNT_BUFFERFLAGS_SILENT, AUDCLNT_SHAREMODE_EXCLUSIVE,
+        DEVICE_STATE_ACTIVE, WAVEFORMATEX, WAVEFORMATEXTENSIBLE, WAVE_FORMAT_PCM,
     };
     use windows::Win32::Media::KernelStreaming::WAVE_FORMAT_EXTENSIBLE;
     use windows::Win32::Media::Multimedia::WAVE_FORMAT_IEEE_FLOAT;
     use windows::Win32::System::Com::{
-        CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, CLSCTX_ALL,
-        COINIT_APARTMENTTHREADED,
+        CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, StructuredStorage,
+        CLSCTX_ALL, COINIT_APARTMENTTHREADED, STGM_READ,
     };
     use windows::Win32::System::Threading::{
         OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_WIN32,
         PROCESS_QUERY_LIMITED_INFORMATION,
     };
+    use windows::Win32::System::Variant::VT_LPWSTR;
     use windows::Win32::UI::Input::KeyboardAndMouse::{
         GetAsyncKeyState, SendInput, INPUT, INPUT_0, INPUT_KEYBOARD, KEYBDINPUT, KEYEVENTF_KEYUP,
         KEYEVENTF_UNICODE, VIRTUAL_KEY, VK_CONTROL, VK_LCONTROL, VK_LMENU, VK_LSHIFT, VK_LWIN,
@@ -864,7 +869,9 @@ mod windows_impl {
 
     pub fn list_input_devices() -> Result<Vec<InputDevice>, String> {
         let host = cpal::default_host();
-        let default_name = host.default_input_device().and_then(|device| device.name().ok());
+        let default_name = host
+            .default_input_device()
+            .and_then(|device| device.name().ok());
         let devices = host
             .input_devices()
             .map_err(|error| format!("Could not list input devices: {error}"))?;
@@ -889,10 +896,12 @@ mod windows_impl {
         output_path: &str,
         recording_config: super::NativeRecordingConfig,
     ) -> Result<(), String> {
-        if recording_config.capture_mode != super::CaptureMode::Shared
-            && recording_config.input_device.is_none()
-        {
-            match record_wav_wasapi_exclusive(output_path, recording_config.vad.clone()) {
+        if recording_config.capture_mode != super::CaptureMode::Shared {
+            match record_wav_wasapi_exclusive(
+                output_path,
+                recording_config.vad.clone(),
+                recording_config.input_device.as_deref(),
+            ) {
                 Ok(()) => return Ok(()),
                 Err(error)
                     if recording_config.capture_mode == super::CaptureMode::ExclusiveRequired =>
@@ -1073,6 +1082,7 @@ mod windows_impl {
     fn record_wav_wasapi_exclusive(
         output_path: &str,
         vad_config: super::NativeVadConfig,
+        input_device: Option<&str>,
     ) -> Result<(), String> {
         let output_path = Path::new(output_path);
         let stop_flag = Arc::new(AtomicBool::new(false));
@@ -1096,9 +1106,7 @@ mod windows_impl {
             let enumerator: IMMDeviceEnumerator =
                 CoCreateInstance(&MMDeviceEnumerator, None, CLSCTX_ALL)
                     .map_err(|error| error.to_string())?;
-            let device = enumerator
-                .GetDefaultAudioEndpoint(eCapture, eConsole)
-                .map_err(|error| error.to_string())?;
+            let device = find_wasapi_input_device(&enumerator, input_device)?;
             let audio_client: IAudioClient = device
                 .Activate(CLSCTX_ALL, None)
                 .map_err(|error| error.to_string())?;
@@ -1214,6 +1222,73 @@ mod windows_impl {
             .map_err(|error| error.to_string())?
         );
         Ok(())
+    }
+
+    unsafe fn find_wasapi_input_device(
+        enumerator: &IMMDeviceEnumerator,
+        input_device: Option<&str>,
+    ) -> Result<IMMDevice, String> {
+        let requested = input_device
+            .map(str::trim)
+            .filter(|value| !value.is_empty());
+
+        if let Some(requested) = requested {
+            let devices = enumerator
+                .EnumAudioEndpoints(eCapture, DEVICE_STATE_ACTIVE)
+                .map_err(|error| error.to_string())?;
+            let count = devices.GetCount().map_err(|error| error.to_string())?;
+
+            for index in 0..count {
+                let device = devices.Item(index).map_err(|error| error.to_string())?;
+                let device_id =
+                    pwstr_to_string_and_free(device.GetId().map_err(|error| error.to_string())?);
+                let friendly_name = wasapi_device_friendly_name(&device)?;
+
+                if device_id == requested || friendly_name == requested {
+                    return Ok(device);
+                }
+            }
+
+            return Err(format!("Input device '{requested}' was not found."));
+        }
+
+        enumerator
+            .GetDefaultAudioEndpoint(eCapture, eConsole)
+            .map_err(|error| error.to_string())
+    }
+
+    unsafe fn wasapi_device_friendly_name(device: &IMMDevice) -> Result<String, String> {
+        let property_store = device
+            .OpenPropertyStore(STGM_READ)
+            .map_err(|error| error.to_string())?;
+        let mut property_value = property_store
+            .GetValue(&Properties::DEVPKEY_Device_FriendlyName as *const _ as *const _)
+            .map_err(|error| error.to_string())?;
+        let prop_variant = &property_value.Anonymous.Anonymous;
+        let variant_type = prop_variant.vt;
+
+        if variant_type != VT_LPWSTR {
+            let _ = StructuredStorage::PropVariantClear(&mut property_value);
+            return Err(format!(
+                "Input device friendly name had unexpected variant type {:?}.",
+                variant_type
+            ));
+        }
+
+        let ptr_utf16 = prop_variant.Anonymous.pwszVal.0;
+        let mut len = 0;
+
+        while *ptr_utf16.offset(len) != 0 {
+            len += 1;
+        }
+
+        let name_slice = slice::from_raw_parts(ptr_utf16, len as usize);
+        let name = OsString::from_wide(name_slice)
+            .to_string_lossy()
+            .into_owned();
+        let _ = StructuredStorage::PropVariantClear(&mut property_value);
+
+        Ok(name)
     }
 
     fn drain_wasapi_capture(
