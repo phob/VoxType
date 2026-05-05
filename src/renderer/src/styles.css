@@ -15,6 +15,7 @@ body {
   margin: 0;
   min-width: 760px;
   min-height: 100vh;
+  overflow: hidden;
   background: #111418;
   scrollbar-color: transparent transparent;
   scrollbar-width: thin;
@@ -334,7 +335,7 @@ pre {
 }
 
 .release-main {
-  overflow: auto;
+  overflow: hidden;
   min-width: 0;
   min-height: 0;
   padding: 34px 28px 28px;
@@ -943,6 +944,7 @@ pre {
 .profile-list {
   display: grid;
   gap: 8px;
+  min-height: 0;
 }
 
 .model-row,
@@ -1311,15 +1313,9 @@ pre {
   color: #23d6cf;
 }
 
-.release-shell [data-tooltip] {
-  position: relative;
-}
-
-.release-shell [data-tooltip]:hover::after {
-  position: absolute;
-  z-index: 50;
-  bottom: calc(100% + 8px);
-  left: 50%;
+.release-tooltip {
+  position: fixed;
+  z-index: 100;
   width: max-content;
   max-width: 220px;
   padding: 8px 10px;
@@ -1328,10 +1324,9 @@ pre {
   color: #d7dde7;
   background: #121b24;
   box-shadow: 0 16px 38px rgb(0 0 0 / 0.28);
-  content: attr(data-tooltip);
   font-size: 0.72rem;
   line-height: 1.35;
-  transform: translateX(-50%);
+  transform: translate(-50%, -100%);
   pointer-events: none;
 }
 
@@ -1362,6 +1357,7 @@ pre {
 .history-list {
   display: grid;
   gap: 8px;
+  min-height: 0;
 }
 
 .empty-state {
@@ -1974,7 +1970,7 @@ td select {
 
 .release-main {
   padding: 20px 22px 16px;
-  overflow: auto;
+  overflow: hidden;
 }
 
 .release-hero {
@@ -2114,6 +2110,21 @@ td select {
   border-radius: 6px;
   background: linear-gradient(145deg, rgb(17 27 35 / 0.84), rgb(13 21 28 / 0.9));
   box-shadow: none;
+}
+
+.release-scroll-panel {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 118px);
+  min-height: 0;
+  overflow: hidden;
+}
+
+.release-scroll-panel .model-list,
+.release-scroll-panel .profile-list,
+.release-scroll-panel .history-list {
+  overflow: auto;
+  padding-right: 2px;
 }
 
 .release-home-stack .release-panel {
@@ -2301,6 +2312,9 @@ td select {
 .recent-history-list {
   display: grid;
   gap: 8px;
+  max-height: 190px;
+  overflow: auto;
+  padding-right: 2px;
 }
 
 .recent-history-row {
@@ -2370,7 +2384,12 @@ td select {
 }
 
 .release-dictionary-list-panel {
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 118px);
   min-width: 0;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .release-panel-actions {
@@ -2466,7 +2485,7 @@ td select {
 .dictionary-entry-list {
   display: grid;
   gap: 8px;
-  max-height: 530px;
+  min-height: 0;
   overflow: auto;
   padding-right: 2px;
 }
@@ -2650,4 +2669,31 @@ td select {
   .dev-tabs {
     overflow-x: auto;
   }
+}
+
+*,
+*::before,
+*::after {
+  border-radius: 0 !important;
+}
+
+.release-shell .setting-row input[type="checkbox"] {
+  display: grid;
+  place-items: center start;
+  padding: 2px;
+}
+
+.release-shell .setting-row input[type="checkbox"]::before {
+  position: static;
+  width: 14px;
+  height: 14px;
+  background: #d0d5dc;
+  box-shadow:
+    0 0 0 1px rgb(8 14 19 / 0.52),
+    0 2px 6px rgb(0 0 0 / 0.36),
+    0 1px 0 rgb(255 255 255 / 0.2) inset;
+}
+
+.release-shell .setting-row input[type="checkbox"]:checked::before {
+  transform: translateX(18px);
 }
