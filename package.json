@@ -13,6 +13,7 @@
     "dist:win": "npm run verify:packaging && npm run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win nsis --x64 --publish never",
     "release:win": "npm run build:native:release && npm run dist:win",
     "release:version": "node scripts/sync-release-version.mjs",
+    "changelog": "node scripts/generate-release-notes.mjs",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit",
     "verify:packaging": "node scripts/verify-packaging-config.mjs"
