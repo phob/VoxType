@@ -74,6 +74,7 @@ export type AppSettings = {
   recordingCoordinationMode: RecordingCoordinationMode;
   recordingStartHotkey: string;
   recordingStopHotkey: string;
+  automaticUpdateChecksEnabled: boolean;
   offlineMode: boolean;
   startMinimized: boolean;
   startWithWindows: boolean;
@@ -204,6 +205,10 @@ export function sanitizeSettings(
       typeof input.recordingStopHotkey === "string"
         ? input.recordingStopHotkey
         : defaults.recordingStopHotkey,
+    automaticUpdateChecksEnabled:
+      typeof input.automaticUpdateChecksEnabled === "boolean"
+        ? input.automaticUpdateChecksEnabled
+        : defaults.automaticUpdateChecksEnabled,
     offlineMode:
       typeof input.offlineMode === "boolean" ? input.offlineMode : defaults.offlineMode,
     startMinimized:
@@ -284,7 +289,7 @@ export function createAppProfile(input: {
   processPath?: string | null;
   title?: string;
 }): AppProfile {
-  const processName = normalizeProcessName(input.processName);
+  const processName = normalizeProcessName(input.processName ?? input.processPath);
   const now = new Date().toISOString();
   const defaults = getProfileDefaults(processName);
 
@@ -335,7 +340,8 @@ function sanitizeAppProfiles(value: unknown): AppProfile[] {
 
     seen.add(processName);
     profiles.push({
-      id: typeof item.id === "string" && item.id.trim() ? item.id : processName,
+      id:
+        typeof item.id === "string" && item.id.trim() ? normalizeProcessName(item.id) : processName,
       displayName:
         typeof item.displayName === "string" && item.displayName.trim()
           ? item.displayName.trim()
@@ -515,9 +521,19 @@ function displayNameFromProcess(processName: string, title?: string): string {
 }
 
 function normalizeProcessName(processName: unknown): string {
-  return typeof processName === "string" && processName.trim()
-    ? processName.trim().toLowerCase()
-    : "unknown.exe";
+  if (typeof processName !== "string") {
+    return "unknown.exe";
+  }
+
+  const trimmed = processName.trim();
+
+  if (!trimmed) {
+    return "unknown.exe";
+  }
+
+  const fileName = trimmed.split(/[\\\/]/).filter(Boolean).at(-1) ?? trimmed;
+
+  return fileName.toLowerCase();
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

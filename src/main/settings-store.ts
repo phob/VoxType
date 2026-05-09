@@ -37,6 +37,7 @@ export class SettingsStore {
       recordingCoordinationMode: "none",
       recordingStartHotkey: "",
       recordingStopHotkey: "",
+      automaticUpdateChecksEnabled: true,
       offlineMode: false,
       startMinimized: false,
       startWithWindows: false,

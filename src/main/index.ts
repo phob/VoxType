@@ -49,10 +49,14 @@ let registeredDictationHoldHotkey: string | null = null;
 let dictationSuspendedForFullscreen = false;
 let fullscreenSuspensionProcessName: string | null = null;
 let fullscreenSuspensionTimer: ReturnType<typeof setInterval> | null = null;
+let updateCheckTimer: ReturnType<typeof setInterval> | null = null;
 let hotkeysManuallySuspended = false;
+let revealMainWindowOnReady = false;
 const holdToDictateThresholdMs = 700;
+const updateCheckIntervalMs = 60 * 60 * 1000;
 
-const isDev = Boolean(process.env.ELECTRON_RENDERER_URL);
+const isDeveloperBuild = !app.isPackaged;
+const hasDevRendererUrl = Boolean(process.env.ELECTRON_RENDERER_URL);
 const settingsStore = new SettingsStore();
 const dictionaryStore = new DictionaryStore();
 const historyStore = new HistoryStore();
@@ -96,8 +100,12 @@ function applyStartupSettings(settings: AppSettings): void {
 
   app.setLoginItemSettings({
     openAtLogin: settings.startWithWindows,
-    openAsHidden: settings.startMinimized
+    openAsHidden: shouldStartMinimized(settings)
   });
+}
+
+function shouldStartMinimized(settings: AppSettings): boolean {
+  return !isDeveloperBuild && settings.startMinimized;
 }
 
 function createWindow(): void {
@@ -126,7 +134,7 @@ function createWindow(): void {
     void (async () => {
       const settings = await settingsStore.get();
 
-      if (settings.startMinimized) {
+      if (shouldStartMinimized(settings) && !revealMainWindowOnReady) {
         mainWindow?.hide();
         return;
       }
@@ -144,7 +152,7 @@ function createWindow(): void {
     }
   });
 
-  if (isDev && process.env.ELECTRON_RENDERER_URL) {
+  if (hasDevRendererUrl && process.env.ELECTRON_RENDERER_URL) {
     void mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
     mainWindow.webContents.openDevTools({ mode: "detach" });
   } else {
@@ -184,6 +192,49 @@ function showMainWindow(): void {
   mainWindow.setSkipTaskbar(false);
   mainWindow.show();
   mainWindow.focus();
+}
+
+function sendUpdateStatus(): void {
+  mainWindow?.webContents.send("app-update-status", updateService.getStatus());
+}
+
+async function checkForUpdates(options: { revealWindowOnAvailable?: boolean } = {}): Promise<void> {
+  const settings = await settingsStore.get();
+
+  if (!settings.automaticUpdateChecksEnabled) {
+    return;
+  }
+
+  const checkPromise = updateService.check();
+  sendUpdateStatus();
+  const status = await checkPromise;
+  sendUpdateStatus();
+
+  if (options.revealWindowOnAvailable && status.available) {
+    revealMainWindowOnReady = true;
+    showMainWindow();
+  }
+}
+
+function stopAutomaticUpdateChecks(): void {
+  if (!updateCheckTimer) {
+    return;
+  }
+
+  clearInterval(updateCheckTimer);
+  updateCheckTimer = null;
+}
+
+function startAutomaticUpdateChecks(settings: AppSettings): void {
+  stopAutomaticUpdateChecks();
+
+  if (!settings.automaticUpdateChecksEnabled) {
+    return;
+  }
+
+  updateCheckTimer = setInterval(() => {
+    void checkForUpdates();
+  }, updateCheckIntervalMs);
 }
 
 function stopDictationHotkey(): boolean {
@@ -339,7 +390,7 @@ function createOverlayWindow(): BrowserWindow {
     sendOverlayState();
   });
 
-  if (isDev && process.env.ELECTRON_RENDERER_URL) {
+  if (hasDevRendererUrl && process.env.ELECTRON_RENDERER_URL) {
     void overlayWindow.loadURL(`${process.env.ELECTRON_RENDERER_URL}?overlay=1`);
   } else {
     void overlayWindow.loadFile(join(__dirname, "../renderer/index.html"), {
@@ -584,7 +635,6 @@ function getHotkeyStatus(): {
 ipcMain.handle("app:get-version", () => app.getVersion());
 ipcMain.handle("app:get-info", () => {
   const version = app.getVersion();
-  const isDeveloperBuild = !app.isPackaged;
 
   return {
     isDeveloperBuild,
@@ -593,7 +643,13 @@ ipcMain.handle("app:get-info", () => {
   };
 });
 ipcMain.handle("app:update-status", () => updateService.getStatus());
-ipcMain.handle("app:check-for-updates", () => updateService.check());
+ipcMain.handle("app:check-for-updates", async () => {
+  const checkPromise = updateService.check();
+  sendUpdateStatus();
+  const status = await checkPromise;
+  sendUpdateStatus();
+  return status;
+});
 ipcMain.handle("app:install-update", () => updateService.install());
 ipcMain.handle("window:minimize", () => {
   mainWindow?.hide();
@@ -605,12 +661,14 @@ ipcMain.handle("settings:get", () => settingsStore.get());
 ipcMain.handle("settings:update", async (_event, patch: SettingsPatch) => {
   const settings = await settingsStore.update(patch);
   applyStartupSettings(settings);
+  startAutomaticUpdateChecks(settings);
   await registerConfiguredHotkeys();
   return settings;
 });
 ipcMain.handle("settings:reset", async () => {
   const settings = await settingsStore.reset();
   applyStartupSettings(settings);
+  startAutomaticUpdateChecks(settings);
   await registerConfiguredHotkeys();
   return settings;
 });
@@ -778,7 +836,11 @@ ipcMain.handle("recording-overlay:get-state", () => overlayState);
 
 app.whenReady().then(() => {
   Menu.setApplicationMenu(null);
-  void settingsStore.get().then(applyStartupSettings);
+  void settingsStore.get().then((settings) => {
+    applyStartupSettings(settings);
+    startAutomaticUpdateChecks(settings);
+    void checkForUpdates({ revealWindowOnAvailable: true });
+  });
   createWindow();
   createTray();
   void registerConfiguredHotkeys();
@@ -791,6 +853,7 @@ app.whenReady().then(() => {
 });
 
 app.on("will-quit", () => {
+  stopAutomaticUpdateChecks();
   stopFullscreenSuspensionWatch();
   overlayWindow?.destroy();
   globalShortcut.unregisterAll();

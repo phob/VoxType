@@ -43,7 +43,12 @@ const voxtype = {
   updates: {
     status: () => ipcRenderer.invoke("app:update-status") as Promise<UpdateStatus>,
     check: () => ipcRenderer.invoke("app:check-for-updates") as Promise<UpdateStatus>,
-    install: () => ipcRenderer.invoke("app:install-update") as Promise<UpdateStatus>
+    install: () => ipcRenderer.invoke("app:install-update") as Promise<UpdateStatus>,
+    onStatus: (callback: (status: UpdateStatus) => void) => {
+      const listener = (_event: Electron.IpcRendererEvent, status: UpdateStatus) => callback(status);
+      ipcRenderer.on("app-update-status", listener);
+      return () => ipcRenderer.off("app-update-status", listener);
+    }
   },
   window: {
     minimize: () => ipcRenderer.invoke("window:minimize") as Promise<void>,
