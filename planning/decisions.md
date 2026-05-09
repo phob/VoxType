@@ -2,6 +2,16 @@
 
 Record important decisions here so future sessions do not reopen settled topics without a reason.
 
+## 2026-05-09: Beginner-Friendly Windows Product Direction
+
+Decision:
+
+VoxType's default product experience should be beginner-friendly first, with a calm, secure, and capable personality. The UI should remain Windows-first and should not look or feel like a macOS clone.
+
+Reason:
+
+Release users should be able to set up and trust dictation without learning implementation details. VoxType can still expose expert diagnostics behind developer or advanced surfaces, but the primary product should feel approachable, private, and built for real Windows work.
+
 ## 2026-04-24: Windows-First Electron App
 
 Decision:
@@ -291,3 +301,13 @@ VoxType should use Electron's single-instance lock to prevent duplicate app inst
 Reason:
 
 The maintainer is currently the only person running development builds, so the practical risk is duplicate guarded builds rather than mixed public/dev version enforcement. Process-name scanning would add startup complexity and could introduce false positives, while older unguarded releases cannot be made fully cooperative when launched second without shipping a patched release.
+
+## 2026-05-09: Use One Dictation Key For Tap And Hold
+
+Decision:
+
+The main dictation key should support both modes by press duration: a quick press toggles dictation, while holding the same key longer than 700 ms records only until release. A separate hold hotkey can still be configured, but the default should share the dictation key.
+
+Reason:
+
+This keeps the everyday dictation workflow simpler while preserving push-to-talk behavior. VoxType already uses the native helper to detect release for hold-to-dictate, so the same release detection can classify a press without adding a second required shortcut.

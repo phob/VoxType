@@ -63,7 +63,9 @@ VoxType should feel:
 - Fast.
 - Private.
 - Dependable.
+- Beginner-friendly first.
 - Technical when needed, but not intimidating.
 - Calm and useful rather than flashy.
+- Secure and capable without looking like a macOS clone.
 - Built for real Windows work, including messy third-party apps.
 

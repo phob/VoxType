@@ -273,6 +273,45 @@ export function App(): JSX.Element {
   const activeRuntimeLabel = state.runtime
     ? `${state.runtime.backend.toUpperCase()} · ${state.runtime.status}`
     : "Runtime not ready";
+  const modelReady = activeModel?.status === "downloaded";
+  const runtimeReady = state.runtime?.status === "installed";
+  const hotkeyReady = Boolean(state.settings?.dictationToggleHotkey.trim());
+  const readyToDictate = modelReady && runtimeReady && hotkeyReady && !error;
+  const readinessTitle = error
+    ? "Attention needed"
+    : readyToDictate
+      ? "Ready to dictate"
+      : "Finish setup";
+  const readinessDetail = error
+    ? "Fix the current issue before starting another dictation."
+    : readyToDictate
+      ? "Focus any Windows app, press your dictation hotkey, and speak."
+      : "Complete the remaining setup steps, then use VoxType from the app where you want text.";
+  const setupSteps = [
+    {
+      id: "model",
+      label: "Choose a model",
+      detail: modelReady ? (activeModel?.name ?? "Model ready") : "Download a local Whisper model.",
+      ready: modelReady,
+      tab: "models" as ReleaseTab
+    },
+    {
+      id: "hotkey",
+      label: "Set dictation hotkey",
+      detail: hotkeyReady
+        ? (state.settings?.dictationToggleHotkey ?? "Hotkey ready")
+        : "Pick the shortcut you will use outside VoxType.",
+      ready: hotkeyReady,
+      tab: "hotkeys" as ReleaseTab
+    },
+    {
+      id: "runtime",
+      label: "Speech engine",
+      detail: runtimeReady ? activeRuntimeLabel : "Install or select a local runtime.",
+      ready: runtimeReady,
+      tab: "models" as ReleaseTab
+    }
+  ];
   const releaseModels = state.models.filter((model) => {
     if (releaseModelFilter === "installed") {
       return model.status === "downloaded";
@@ -567,6 +606,14 @@ export function App(): JSX.Element {
     const normalized = normalizeHotkey(accelerator);
 
     for (const entry of appHotkeyEntries(state.settings)) {
+      const sharedDictationKeys =
+        (target === "dictationToggleHotkey" && entry.id === "dictationHoldHotkey") ||
+        (target === "dictationHoldHotkey" && entry.id === "dictationToggleHotkey");
+
+      if (sharedDictationKeys) {
+        continue;
+      }
+
       if (entry.id !== target && normalizeHotkey(entry.value) === normalized) {
         return entry.label;
       }
@@ -1613,6 +1660,39 @@ export function App(): JSX.Element {
 
           {releaseTab === "general" ? (
             <div className="release-home-stack">
+            <section
+              className={
+                readyToDictate
+                  ? "release-panel release-readiness-panel ready"
+                  : "release-panel release-readiness-panel needs-setup"
+              }
+            >
+              <div className="readiness-main">
+                <span className="readiness-icon" aria-hidden="true">
+                  <ReleaseIcon name={readyToDictate ? "shield" : "bolt"} decorative />
+                </span>
+                <div>
+                  <strong>{readinessTitle}</strong>
+                  <p>{readinessDetail}</p>
+                </div>
+              </div>
+              <div className="readiness-steps" aria-label="Setup checklist">
+                {setupSteps.map((step) => (
+                  <button
+                    className={step.ready ? "ready" : "needs-setup"}
+                    key={step.id}
+                    onClick={() => setReleaseTab(step.tab)}
+                    type="button"
+                  >
+                    <span className="step-dot" aria-hidden="true" />
+                    <span>
+                      <strong>{step.label}</strong>
+                      <small>{step.detail}</small>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </section>
             <section className="release-panel release-summary-panel">
               <dl className="home-summary">
                 <div>
@@ -1620,7 +1700,7 @@ export function App(): JSX.Element {
                   <dd>{state.settings.dictationToggleHotkey || "Unset"}</dd>
                 </div>
                 <div>
-                  <dt>Runtime</dt>
+                  <dt>Speech engine</dt>
                   <dd>{activeRuntimeLabel}</dd>
                 </div>
                 <div>
@@ -1628,7 +1708,7 @@ export function App(): JSX.Element {
                   <dd>{activeModel?.name ?? state.settings.activeModelId}</dd>
                 </div>
                 <div>
-                  <dt>GPU</dt>
+                  <dt>Acceleration</dt>
                   <dd>{state.hardware?.bestGpu?.name ?? "CPU fallback"}</dd>
                 </div>
               </dl>
@@ -1697,7 +1777,9 @@ export function App(): JSX.Element {
                     </article>
                   ))
                 ) : (
-                  <p className="empty-state">No transcriptions yet.</p>
+                  <p className="empty-state">
+                    Your latest dictations will appear here after you use the hotkey in another app.
+                  </p>
                 )}
               </div>
             </section>
@@ -1795,7 +1877,7 @@ export function App(): JSX.Element {
                 <label className="setting-row">
                   <span>
                     <strong>Dictation</strong>
-                    <small>Starts and stops dictation from the active app.</small>
+                    <small>Tap to start or stop. Hold longer than 700 ms to record only while held.</small>
                   </span>
                   <button
                     className="release-command-button"
@@ -1812,7 +1894,7 @@ export function App(): JSX.Element {
                 <label className="setting-row">
                   <span>
                     <strong>Hold to dictate</strong>
-                    <small>Records only while this key combination is held down.</small>
+                    <small>Can use the same key as Dictation for press-duration behavior.</small>
                   </span>
                   <button
                     className="release-command-button"
@@ -1853,7 +1935,13 @@ export function App(): JSX.Element {
                         : "not registered"}
                   </ReleaseStatusBadge>
                   <ReleaseStatusBadge tone={state.hotkeys?.dictationHoldHotkey ? "ready" : "disabled"}>
-                    Hold {state.hotkeys?.dictationHoldHotkey ? "registered" : "not registered"}
+                    Hold{" "}
+                    {state.settings.dictationHoldHotkey &&
+                    state.settings.dictationHoldHotkey === state.settings.dictationToggleHotkey
+                      ? "shared with dictation"
+                      : state.hotkeys?.dictationHoldHotkey
+                        ? "registered"
+                        : "not registered"}
                   </ReleaseStatusBadge>
                   <ReleaseStatusBadge tone={state.hotkeys?.showWindowHotkey ? "ready" : "disabled"}>
                     Show window {state.hotkeys?.showWindowHotkey ? "registered" : "not registered"}
@@ -4029,16 +4117,25 @@ function RecordingOverlay({ state }: { state: RecordingOverlayState }): JSX.Elem
     };
   }, [state.mode]);
 
+  const statusLabel = state.mode === "recording" ? "Listening" : "Transcribing locally";
+
   return (
-    <main className="recording-overlay">
+    <main className="recording-overlay" aria-label={statusLabel}>
       {state.mode === "recording" ? (
-        <canvas
-          ref={canvasRef}
-          aria-label="Input gain timeline"
-          className="overlay-meter-canvas"
-        />
+        <>
+          <span className="overlay-status-dot" aria-hidden="true" />
+          <span className="overlay-status-label">{statusLabel}</span>
+          <canvas
+            ref={canvasRef}
+            aria-label="Input gain timeline"
+            className="overlay-meter-canvas"
+          />
+        </>
       ) : (
-        <div className="overlay-transcribing">Transcribing</div>
+        <div className="overlay-transcribing">
+          <span className="overlay-activity" aria-hidden="true" />
+          <span>{statusLabel}</span>
+        </div>
       )}
     </main>
   );
@@ -4061,10 +4158,10 @@ function paintMeter(
   const baselineY = height - paddingBottom;
 
   context.clearRect(0, 0, width, height);
-  context.fillStyle = "rgba(12, 15, 18, 0.82)";
+  context.fillStyle = "rgba(13, 22, 29, 0.96)";
   context.fillRect(0, 0, width, height);
 
-  const gridColor = "rgba(255, 255, 255, 0.08)";
+  const gridColor = "rgba(75, 91, 107, 0.32)";
   context.strokeStyle = gridColor;
   context.lineWidth = Math.max(1, scale);
 
@@ -4094,14 +4191,14 @@ function paintMeter(
 
 function meterColor(level: number): string {
   if (level > 0.78) {
-    return "#ff5c5c";
+    return "#ff6262";
   }
 
   if (level > 0.46) {
-    return "#ffc857";
+    return "#ffcf99";
   }
 
-  return "#32e38f";
+  return "#37d7a0";
 }
 
 function roundRect(

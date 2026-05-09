@@ -4,32 +4,70 @@
 
 # VoxType
 
-VoxType is state-of-the-art voice recognition software for Windows: local-first, privacy-focused, screen-aware dictation built for people who want fast, reliable speech-to-text across real Windows apps.
+VoxType is a Windows-first, local-first dictation app for people who want fast speech-to-text across real desktop apps.
 
-It is designed to feel like the best Windows dictation tool: press a global hotkey, speak naturally, and let VoxType transcribe locally, understand the active app, and insert the result where you were working.
+Press a global hotkey, speak naturally, and VoxType transcribes locally with Whisper, uses screen and app context when available, then inserts the result back into the app you were using.
 
-## Why VoxType
+```mermaid
+flowchart LR
+  A["Press global hotkey"] --> B["VoxType records locally"]
+  B --> C["Whisper transcribes"]
+  C --> D["OCR and dictionary context improve terms"]
+  D --> E["Text is inserted into the active Windows app"]
+```
 
-- **Windows-first dictation**: built around global hotkeys, native Windows app detection, and reliable insertion into desktop apps.
-- **Local-first privacy**: transcription, OCR context, dictionary behavior, and correction memory are designed to run locally.
-- **Whisper-powered recognition**: uses managed `whisper.cpp` runtimes with local model downloads.
-- **Screen-aware context**: local OCR can read the active window and bias transcription toward visible names, terms, codes, and UI text.
-- **App profiles**: VoxType can adapt insertion mode, writing style, language, and send-after-insert behavior per target app.
-- **Remote-safe insertion modes**: clipboard paste, Unicode typing, chunked typing, and remote-oriented profile defaults help with apps like Remote Desktop and TeamViewer.
-- **Native audio path**: recording runs through a Rust Windows helper with local Silero VAD support for cleaner dictation audio.
+## What It Does
 
-## First Release Notes
+- **Dictates into Windows apps** through global hotkeys, active-window detection, and reliable insertion paths.
+- **Keeps core data local**: transcription, OCR context, dictionary behavior, correction memory, and insertion are designed to run on the machine.
+- **Uses local Whisper runtimes** with managed model and runtime downloads.
+- **Understands screen context** by reading visible text with local OCR and using those terms to improve dictation.
+- **Adapts per app** with profiles for insertion mode, writing style, language, and send-after-insert behavior.
+- **Handles remote and legacy targets** with clipboard paste, remote clipboard paste, Unicode typing, chunked typing, and Windows Messaging experiments.
+- **Records through a native Windows helper** with local Silero VAD silence trimming.
 
-VoxType is currently preparing its first public GitHub release. The initial Windows installer is expected to be unsigned, so Windows SmartScreen may warn before installation.
+## Visual Proof
 
-Screenshots and release badges will be added here as the release page settles.
+The release UI is intentionally setup-focused: users configure language, startup behavior, hotkeys, models, profiles, dictionary entries, and history while everyday dictation happens from other Windows apps.
 
-## Installation
+Screenshots will be added as release assets settle. The key product loop is:
 
-1. Download the latest `VoxType-Setup-*-x64.exe` installer from the GitHub Releases page.
+1. Configure a model and hotkey in VoxType.
+2. Focus any Windows app.
+3. Press the dictation hotkey.
+4. Speak.
+5. VoxType inserts the transcript into the focused app.
+
+## Current Status
+
+VoxType is preparing its first public GitHub release. Early installers are expected to be unsigned, so Windows SmartScreen may warn before installation.
+
+Until signing is in place, releases should include checksums so users can verify installer downloads.
+
+## Try It
+
+1. Download the latest `VoxType-Setup-*-x64.exe` installer from GitHub Releases.
 2. Run the installer.
-3. Start VoxType and choose your preferred model, hotkey, and insertion settings.
-4. Press the dictation hotkey from any Windows app and speak.
+3. Start VoxType and choose a model, hotkey, and insertion settings.
+4. Focus another Windows app and press the dictation hotkey.
+
+## Development
+
+```powershell
+npm install
+npm run build
+```
+
+Useful scripts:
+
+- `npm run dev`: start the Electron development app.
+- `npm run build`: typecheck and build the Electron app.
+- `npm run build:native:release`: build the Rust Windows helper.
+- `npm run release:win`: build the native helper and Windows installer.
+
+## Project Notes
+
+The living product and architecture notes are in [planning/](planning/README.md).
 
 ## License
 
