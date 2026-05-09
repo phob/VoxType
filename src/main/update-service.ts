@@ -7,6 +7,8 @@ import { spawn } from "node:child_process";
 import { type UpdateStatus } from "../shared/updates";
 
 const latestReleaseUrl = "https://api.github.com/repos/phob/VoxType/releases/latest";
+const updateRequestTimeoutMs = 15000;
+const staleCheckingTimeoutMs = 30000;
 
 type GitHubReleaseAsset = {
   name: string;
@@ -40,20 +42,55 @@ export class UpdateService {
     error: null
   };
   private candidate: UpdateCandidate | null = null;
+  private checkPromise: Promise<UpdateStatus> | null = null;
+  private checkingStartedAt: number | null = null;
 
   getStatus(): UpdateStatus {
+    if (
+      this.status.state === "checking" &&
+      this.checkingStartedAt !== null &&
+      Date.now() - this.checkingStartedAt > staleCheckingTimeoutMs
+    ) {
+      this.status = {
+        ...this.status,
+        available: false,
+        state: "error",
+        error: "Update check timed out."
+      };
+      this.checkPromise = null;
+      this.checkingStartedAt = null;
+    }
+
     return this.status;
   }
 
   async check(): Promise<UpdateStatus> {
+    if (this.checkPromise) {
+      return this.checkPromise;
+    }
+
+    this.checkPromise = this.performCheck();
+    try {
+      return await this.checkPromise;
+    } finally {
+      this.checkPromise = null;
+    }
+  }
+
+  private async performCheck(): Promise<UpdateStatus> {
     this.status = {
       ...this.status,
       state: "checking",
       error: null
     };
+    this.checkingStartedAt = Date.now();
 
     try {
-      const release = await fetchJson<GitHubRelease>(latestReleaseUrl);
+      const release = await withTimeout(
+        fetchJson<GitHubRelease>(latestReleaseUrl),
+        updateRequestTimeoutMs,
+        "Update check timed out."
+      );
       const candidate = releaseToCandidate(release);
       const currentVersion = app.getVersion();
       const available = Boolean(candidate && isNewerVersion(candidate.version, currentVersion));
@@ -76,6 +113,8 @@ export class UpdateService {
         state: "error",
         error: formatUpdateError(error)
       };
+    } finally {
+      this.checkingStartedAt = null;
     }
 
     return this.status;
@@ -180,7 +219,24 @@ function parseVersion(version: string): [number, number, number] {
 
 function fetchJson<T>(url: string): Promise<T> {
   return new Promise((resolve, reject) => {
-    get(
+    let settled = false;
+    const resolveOnce = (value: T): void => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      resolve(value);
+    };
+    const rejectOnce = (error: unknown): void => {
+      if (settled) {
+        return;
+      }
+
+      settled = true;
+      reject(error);
+    };
+    const request = get(
       url,
       {
         headers: {
@@ -191,18 +247,22 @@ function fetchJson<T>(url: string): Promise<T> {
         }
       },
       (response) => {
+        response.setTimeout(updateRequestTimeoutMs, () => {
+          response.destroy(new Error("Update check timed out."));
+        });
+
         if (response.statusCode && response.statusCode >= 300 && response.statusCode < 400) {
           const redirect = response.headers.location;
           response.resume();
           if (redirect) {
-            fetchJson<T>(redirect).then(resolve, reject);
+            fetchJson<T>(redirect).then(resolveOnce, rejectOnce);
             return;
           }
         }
 
         if (response.statusCode !== 200) {
           response.resume();
-          reject(new Error(`GitHub returned ${response.statusCode ?? "an unknown status"}.`));
+          rejectOnce(new Error(`GitHub returned ${response.statusCode ?? "an unknown status"}.`));
           return;
         }
 
@@ -213,13 +273,38 @@ function fetchJson<T>(url: string): Promise<T> {
         });
         response.on("end", () => {
           try {
-            resolve(JSON.parse(body) as T);
+            resolveOnce(JSON.parse(body) as T);
           } catch (error) {
-            reject(error);
+            rejectOnce(error);
           }
         });
+        response.on("error", rejectOnce);
       }
-    ).on("error", reject);
+    );
+
+    request.setTimeout(updateRequestTimeoutMs, () => {
+      request.destroy(new Error("Update check timed out."));
+    });
+    request.on("error", rejectOnce);
+  });
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(message));
+    }, timeoutMs);
+
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      }
+    );
   });
 }
 

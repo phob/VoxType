@@ -188,6 +188,7 @@ const defaultOverlayState: RecordingOverlayState = {
   message: "Recording"
 };
 const manualUpdateCheckCooldownSeconds = 30;
+const updateCheckingWatchdogMs = 20000;
 
 export function App(): JSX.Element {
   const isOverlay = new URLSearchParams(window.location.search).get("overlay") === "1";
@@ -200,7 +201,7 @@ export function App(): JSX.Element {
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
   const audioObjectUrlRef = useRef<string | null>(null);
   const modelDeleteTimerRef = useRef<number | null>(null);
-  const checkedForUpdatesRef = useRef(false);
+  const profileDeleteTimerRef = useRef<number | null>(null);
   const [version, setVersion] = useState<string>("0.1.0");
   const [isDeveloperBuild, setIsDeveloperBuild] = useState(true);
   const [updateStatus, setUpdateStatus] = useState<UpdateStatus | null>(null);
@@ -244,6 +245,9 @@ export function App(): JSX.Element {
   const [releaseModelFilter, setReleaseModelFilter] = useState<ReleaseModelFilter>("all");
   const [activeTab, setActiveTab] = useState<DevTab>("dictation");
   const [confirmingDeleteModelId, setConfirmingDeleteModelId] = useState<string | null>(null);
+  const [confirmingDeleteProfileProcessName, setConfirmingDeleteProfileProcessName] = useState<
+    string | null
+  >(null);
   const [capturingProfileHotkey, setCapturingProfileHotkey] = useState<string | null>(null);
   const [releaseTooltip, setReleaseTooltip] = useState<{ text: string; x: number; y: number } | null>(
     null
@@ -260,6 +264,7 @@ export function App(): JSX.Element {
     ) ?? null;
   const latestTranscript = state.history[0];
   const currentTarget = insertionTarget ?? state.activeWindow;
+  const currentProfileProcessName = normalizeProfileProcessName(state.activeWindow?.processName);
   const generatedWhisperPrompt = buildWhisperPromptPreview(
     state.dictionary,
     currentTarget?.processName ?? null,
@@ -333,6 +338,8 @@ export function App(): JSX.Element {
       ? "Downloading"
       : updateStatus?.state === "installing"
         ? "Installing"
+        : updateStatus?.state === "error"
+          ? "Retry"
         : updateStatus?.available
           ? "Update"
           : manualUpdateCooldownSeconds > 0
@@ -366,6 +373,10 @@ export function App(): JSX.Element {
 
       if (modelDeleteTimerRef.current !== null) {
         window.clearTimeout(modelDeleteTimerRef.current);
+      }
+
+      if (profileDeleteTimerRef.current !== null) {
+        window.clearTimeout(profileDeleteTimerRef.current);
       }
     };
   }, [isOverlay]);
@@ -408,13 +419,44 @@ export function App(): JSX.Element {
   }, [activeModel?.status, state.settings?.insertionMode, recording, isOverlay]);
 
   useEffect(() => {
-    if (isOverlay || !state.settings || checkedForUpdatesRef.current) {
+    if (isOverlay) {
       return;
     }
 
-    checkedForUpdatesRef.current = true;
-    void checkForUpdates();
-  }, [isOverlay, state.settings]);
+    const removeUpdateStatusListener = window.voxtype.updates.onStatus((status) => {
+      setUpdateStatus(status);
+    });
+    void window.voxtype.updates.status().then(setUpdateStatus);
+
+    return removeUpdateStatusListener;
+  }, [isOverlay]);
+
+  useEffect(() => {
+    if (isOverlay || updateStatus?.state !== "checking") {
+      return;
+    }
+
+    let elapsedMs = 0;
+    const timer = window.setInterval(() => {
+      elapsedMs += 1000;
+      void window.voxtype.updates.status().then((status) => {
+        setUpdateStatus(
+          status.state === "checking" && elapsedMs >= updateCheckingWatchdogMs
+            ? {
+                ...status,
+                available: false,
+                state: "error",
+                error: "Update check timed out."
+              }
+            : status
+        );
+      });
+    }, 1000);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, [isOverlay, updateStatus?.state]);
 
   useEffect(() => {
     if (isOverlay) {
@@ -1247,15 +1289,47 @@ export function App(): JSX.Element {
   }
 
   async function removeAppProfile(profile: AppProfile): Promise<void> {
-    const settings = await window.voxtype.appProfiles.remove(profile.processName);
-    setState((current) => ({ ...current, settings }));
+    if (confirmingDeleteProfileProcessName !== profile.processName) {
+      setConfirmingDeleteProfileProcessName(profile.processName);
 
-    if (selectedProfileProcessName === profile.processName) {
-      setSelectedProfileProcessName(null);
+      if (profileDeleteTimerRef.current !== null) {
+        window.clearTimeout(profileDeleteTimerRef.current);
+      }
+
+      profileDeleteTimerRef.current = window.setTimeout(() => {
+        setConfirmingDeleteProfileProcessName((current) =>
+          current === profile.processName ? null : current
+        );
+        profileDeleteTimerRef.current = null;
+      }, 3000);
+      return;
     }
 
-    if (capturingProfileHotkey === profile.processName) {
-      setCapturingProfileHotkey(null);
+    setError(null);
+
+    if (profileDeleteTimerRef.current !== null) {
+      window.clearTimeout(profileDeleteTimerRef.current);
+      profileDeleteTimerRef.current = null;
+    }
+
+    setBusyMessage("Removing profile...");
+
+    try {
+      const settings = await window.voxtype.appProfiles.remove(profile.processName);
+      setState((current) => ({ ...current, settings }));
+      setConfirmingDeleteProfileProcessName(null);
+
+      if (selectedProfileProcessName === profile.processName) {
+        setSelectedProfileProcessName(null);
+      }
+
+      if (capturingProfileHotkey === profile.processName) {
+        setCapturingProfileHotkey(null);
+      }
+    } catch (profileError) {
+      setError(formatError(profileError));
+    } finally {
+      setBusyMessage(null);
     }
   }
 
@@ -1281,7 +1355,12 @@ export function App(): JSX.Element {
       return;
     }
 
-    const normalizedProcess = processName.toLowerCase();
+    const normalizedProcess = normalizeProfileProcessName(processName);
+
+    if (!normalizedProcess) {
+      return;
+    }
+
     const profile = state.settings?.appProfiles.find(
       (item) => item.processName === normalizedProcess
     );
@@ -1808,6 +1887,21 @@ export function App(): JSX.Element {
                 </label>
                 <label className="setting-row">
                   <span>
+                    <strong>Check for updates automatically</strong>
+                    <small>Look for a new release at startup and about every hour.</small>
+                  </span>
+                  <input
+                    checked={state.settings.automaticUpdateChecksEnabled}
+                    type="checkbox"
+                    onChange={(event) =>
+                      void updateSettings({
+                        automaticUpdateChecksEnabled: event.target.checked
+                      })
+                    }
+                  />
+                </label>
+                <label className="setting-row">
+                  <span>
                     <strong>Restore clipboard</strong>
                     <small>Put the previous clipboard back after pasting dictation.</small>
                   </span>
@@ -2042,7 +2136,7 @@ export function App(): JSX.Element {
                 type="button"
               >
                 <UserPlus aria-hidden="true" className="release-icon-svg" />
-                Add Current App
+                Add current app
               </button>
             </div>
             <div className="profile-list">
@@ -2053,36 +2147,75 @@ export function App(): JSX.Element {
                       className="profile-row-main"
                       onClick={() => setSelectedProfileProcessName(profile.processName)}
                       type="button"
+                      aria-label={`Open ${profile.displayName} profile settings`}
                     >
-                      <span className="profile-heading">
-                        <strong>{profile.displayName}</strong>
-                        <span>{profile.processName}</span>
+                      <span className="profile-row-top">
+              <span className="profile-heading">
+              <strong>{profile.displayName}</strong>
+            </span>
+            {profile.processName === currentProfileProcessName ? (
+              <span className="profile-current-badge">Current app</span>
+            ) : null}
                       </span>
                       <span className="profile-summary">
-                        <span>{insertionModeLabel(profile.insertionMode)}</span>
-                        <span>{writingStyleLabel(profile.writingStyle)}</span>
-                        <span>{profileWhisperLanguageLabel(profile.whisperLanguage)}</span>
-                        <span>{profile.postTranscriptionHotkey || "No send key"}</span>
+                        <span>
+                          <small>Insert</small>
+                          {insertionModeLabel(profile.insertionMode)}
+                        </span>
+                        <span>
+                          <small>Style</small>
+                          {writingStyleLabel(profile.writingStyle)}
+                        </span>
+                        <span>
+                          <small>Language</small>
+                          {profileWhisperLanguageLabel(profile.whisperLanguage)}
+                        </span>
+                        <span>
+                          <small>Send key</small>
+                          {profile.postTranscriptionHotkey || "None"}
+                        </span>
                         {state.settings.suspendDictationHotkeysInFullscreenApps &&
                         profile.neverSuspendDictationInFullscreen ? (
-                          <span>Never suspend</span>
+                          <span>
+                            <small>Fullscreen</small>
+                            Keep hotkeys
+                          </span>
                         ) : null}
                       </span>
                     </button>
                     <button
-                      aria-label={`Remove ${profile.displayName} profile`}
-                      className="release-icon-button"
-                      data-tooltip="Remove profile"
+                      aria-label={
+                        confirmingDeleteProfileProcessName === profile.processName
+                          ? `Confirm remove ${profile.displayName} profile`
+                          : `Remove ${profile.displayName} profile`
+                      }
+                      className={
+                        confirmingDeleteProfileProcessName === profile.processName
+                          ? "release-destructive-button"
+                          : "release-icon-button"
+                      }
+                      data-tooltip={
+                        confirmingDeleteProfileProcessName === profile.processName
+                          ? "Confirm remove"
+                          : "Remove profile"
+                      }
                       disabled={Boolean(busyMessage)}
                       onClick={() => void removeAppProfile(profile)}
                       type="button"
                     >
-                      <Trash2 aria-hidden="true" className="release-icon-svg" />
+                      {confirmingDeleteProfileProcessName === profile.processName ? (
+                        "Confirm"
+                      ) : (
+                        <Trash2 aria-hidden="true" className="release-icon-svg" />
+                      )}
                     </button>
                   </article>
                 ))
               ) : (
-                <p className="empty-state">Profiles appear after VoxType sees an app during dictation.</p>
+                <p className="empty-state">
+                  Add an app profile to tune insertion, writing style, language, and send keys for the app
+                  you are using.
+                </p>
               )}
             </div>
 
@@ -2112,11 +2245,6 @@ export function App(): JSX.Element {
                     >
                       <X aria-hidden="true" className="release-icon-svg" />
                     </button>
-                  </div>
-
-                  <div className="profile-modal-meta">
-                    <span>{selectedProfile.processName}</span>
-                    {selectedProfile.processPath ? <span>{selectedProfile.processPath}</span> : null}
                   </div>
 
                   <div className="release-form-grid">
@@ -2202,8 +2330,14 @@ export function App(): JSX.Element {
                       onClick={() => void removeAppProfile(selectedProfile)}
                       type="button"
                     >
-                      <Trash2 aria-hidden="true" className="release-icon-svg" />
-                      Remove
+                      {confirmingDeleteProfileProcessName === selectedProfile.processName ? (
+                        "Confirm remove"
+                      ) : (
+                        <>
+                          <Trash2 aria-hidden="true" className="release-icon-svg" />
+                          Remove
+                        </>
+                      )}
                     </button>
                     <button className="release-primary-button" onClick={closeProfileModal} type="button">
                       Done
@@ -3616,6 +3750,16 @@ export function App(): JSX.Element {
               </label>
               <label className="checkbox-field">
                 <input
+                  checked={state.settings.automaticUpdateChecksEnabled}
+                  type="checkbox"
+                  onChange={(event) =>
+                    void updateSettings({ automaticUpdateChecksEnabled: event.target.checked })
+                  }
+                />
+                automaticUpdateChecksEnabled
+              </label>
+              <label className="checkbox-field">
+                <input
                   checked={state.settings.developerModeEnabled}
                   type="checkbox"
                   onChange={(event) =>
@@ -4300,9 +4444,31 @@ function profileForWindow(
     return null;
   }
 
-  const processName = windowInfo.processName.toLowerCase();
+  const processName = normalizeProfileProcessName(windowInfo.processName);
+
+  if (!processName) {
+    return null;
+  }
+
   return profiles.find((profile) => profile.processName === processName) ?? null;
 }
+
+function normalizeProfileProcessName(processName: string | null | undefined): string | null {
+  if (!processName) {
+    return null;
+  }
+
+  const normalized = processName.trim();
+
+  if (!normalized) {
+    return null;
+  }
+
+  const fileName = normalized.split(/[\\\/]/).filter(Boolean).at(-1) ?? normalized;
+
+  return fileName.toLowerCase();
+}
+
 
 function splitMatches(value: string): string[] {
   return value

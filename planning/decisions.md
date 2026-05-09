@@ -311,3 +311,23 @@ The main dictation key should support both modes by press duration: a quick pres
 Reason:
 
 This keeps the everyday dictation workflow simpler while preserving push-to-talk behavior. VoxType already uses the native helper to detect release for hold-to-dictate, so the same release detection can classify a press without adding a second required shortcut.
+
+## 2026-05-10: Main Process Owns Automatic Update Checks
+
+Decision:
+
+VoxType should make automatic update checks configurable. When enabled, Electron main checks at startup and then about hourly. A startup update should reveal the main window even when Start minimized is enabled, but later periodic checks should only update the in-app status silently.
+
+Reason:
+
+Startup is the moment when a user most needs to notice an available update, especially if the app launched into the tray. Keeping periodic checks quiet avoids interrupting dictation work, and running checks from main lets startup visibility be handled reliably even while the renderer window is hidden.
+
+## 2026-05-10: Ignore Start Minimized In Dev Builds
+
+Decision:
+
+Unpackaged development builds, including preview runs, should ignore the Start minimized setting for startup visibility and login-item hidden-launch behavior, while preserving the saved user preference for packaged release builds.
+
+Reason:
+
+During local iteration, a hidden main window makes startup look broken and can hide renderer or DevTools feedback. Preview is part of that local workflow even though it does not use the dev renderer URL. Packaged release builds should still honor the user-facing setting.

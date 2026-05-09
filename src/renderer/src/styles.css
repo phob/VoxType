@@ -910,7 +910,7 @@ pre {
 .model-list,
 .profile-list {
   display: grid;
-  gap: 8px;
+  gap: 10px;
   min-height: 0;
 }
 
@@ -929,22 +929,34 @@ pre {
 
 .profile-row {
   grid-template-columns: minmax(0, 1fr) auto;
-  min-height: 54px;
-  padding: 6px 8px;
+  align-items: stretch;
+  min-height: 106px;
+  padding: 16px;
+  transition:
+    border-color 140ms ease-out,
+    background 140ms ease-out;
+}
+
+.profile-row:hover,
+.profile-row:focus-within {
+  border-color: rgb(75 91 107 / 0.64);
+  background: rgb(17 27 35 / 0.78);
 }
 
 .profile-row-main {
-  display: grid;
-  grid-template-columns: minmax(160px, 0.7fr) minmax(0, 1fr);
-  gap: 12px;
-  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  justify-content: center;
   min-width: 0;
-  min-height: 40px;
-  padding: 0 4px;
+  min-height: 74px;
+  padding: 0;
   border: 0;
+  border-radius: 4px;
   color: inherit;
   background: transparent;
   text-align: left;
+  cursor: pointer;
 }
 
 .profile-row-main:hover:not(:disabled) {
@@ -952,27 +964,89 @@ pre {
   background: transparent;
 }
 
+.profile-row-main:focus-visible {
+  outline: 2px solid rgb(35 214 207 / 0.72);
+  outline-offset: 3px;
+}
+
+.profile-row-top {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.profile-heading {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.profile-current-badge {
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
+  overflow: visible;
+  min-height: 20px;
+  padding: 3px 7px;
+  border: 1px solid rgb(35 214 207 / 0.46);
+  border-radius: 4px;
+  color: #dffcf8;
+  background: rgb(35 214 207 / 0.1);
+  font-size: 0.66rem;
+  font-weight: 700;
+  line-height: 1;
+  text-overflow: clip;
+  white-space: nowrap;
+}
+
 .profile-summary {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  justify-content: flex-end;
+  gap: 10px;
+  row-gap: 8px;
+  justify-content: flex-start;
   min-width: 0;
 }
 
 .profile-summary span {
+  display: inline-grid;
+  grid-template-columns: auto;
+  gap: 2px;
   overflow: hidden;
-  max-width: 170px;
-  min-height: 24px;
-  padding: 4px 8px;
+  max-width: 156px;
+  height: 38px;
+  padding: 5px 9px 6px;
   border: 1px solid rgb(75 91 107 / 0.36);
   border-radius: 5px;
   color: #b9c4d1;
   background: rgb(13 22 29 / 0.62);
-  font-size: 0.72rem;
-  line-height: 1.1;
+  font-size: 0.76rem;
+  line-height: 1.05;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.profile-summary small {
+  overflow: hidden;
+  color: #778391;
+  font-size: 0.62rem;
+  font-weight: 700;
+  line-height: 1;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.profile-row > .release-destructive-button {
+  min-width: 76px;
+  min-height: 32px;
+  padding: 0 10px;
+}
+
+.profile-row > .release-icon-button {
+  align-self: center;
 }
 
 .release-select {

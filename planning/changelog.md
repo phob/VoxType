@@ -1,5 +1,10 @@
 # Planning Changelog
 
+## 2026-05-10
+
+- Added automatic update-check planning: configurable startup/hourly checks, with startup updates allowed to reveal the window despite Start minimized.
+- Clarified that unpackaged development and preview builds ignore Start minimized while packaged release builds continue to honor it.
+
 ## 2026-05-09
 
 - Captured the product design direction as beginner-friendly first, with a calm, secure, and capable personality.
