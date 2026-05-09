@@ -50,6 +50,7 @@ let dictationSuspendedForFullscreen = false;
 let fullscreenSuspensionProcessName: string | null = null;
 let fullscreenSuspensionTimer: ReturnType<typeof setInterval> | null = null;
 let hotkeysManuallySuspended = false;
+const holdToDictateThresholdMs = 700;
 
 const isDev = Boolean(process.env.ELECTRON_RENDERER_URL);
 const settingsStore = new SettingsStore();
@@ -257,14 +258,6 @@ async function startDictationHotkey(): Promise<number | null> {
   return sessionId;
 }
 
-async function toggleDictationHotkey(): Promise<void> {
-  if (stopDictationHotkey()) {
-    return;
-  }
-
-  await startDictationHotkey();
-}
-
 async function holdDictationHotkey(): Promise<void> {
   const settings = await settingsStore.get();
   const sessionId = await startDictationHotkey();
@@ -282,14 +275,42 @@ async function holdDictationHotkey(): Promise<void> {
   }
 }
 
+async function durationAwareDictationHotkey(accelerator: string): Promise<void> {
+  if (stopDictationHotkey()) {
+    return;
+  }
+
+  const startedAt = Date.now();
+  const releasePromise = windowsHelperService.waitForHotkeyRelease(accelerator);
+  const sessionId = await startDictationHotkey();
+
+  try {
+    await releasePromise;
+  } catch {
+    return;
+  }
+
+  if (sessionId === null) {
+    return;
+  }
+
+  if (Date.now() - startedAt < holdToDictateThresholdMs) {
+    return;
+  }
+
+  if (dictationHotkeyState.recording && dictationHotkeyState.sessionId === sessionId) {
+    stopDictationHotkey();
+  }
+}
+
 function createOverlayWindow(): BrowserWindow {
   if (overlayWindow && !overlayWindow.isDestroyed()) {
     return overlayWindow;
   }
 
   overlayWindow = new BrowserWindow({
-    width: 150,
-    height: 24,
+    width: 196,
+    height: 30,
     frame: false,
     resizable: false,
     movable: false,
@@ -417,7 +438,7 @@ async function registerConfiguredHotkeys(): Promise<void> {
     settings.dictationToggleHotkey !== settings.showWindowHotkey
   ) {
     const registered = globalShortcut.register(settings.dictationToggleHotkey, () => {
-      void toggleDictationHotkey();
+      void durationAwareDictationHotkey(settings.dictationToggleHotkey);
     });
     registeredDictationHotkey = registered ? settings.dictationToggleHotkey : null;
   }
@@ -472,7 +493,7 @@ async function registerDictationHotkeys(settings: AppSettings): Promise<void> {
     !registeredDictationHotkey
   ) {
     const registered = globalShortcut.register(settings.dictationToggleHotkey, () => {
-      void toggleDictationHotkey();
+      void durationAwareDictationHotkey(settings.dictationToggleHotkey);
     });
     registeredDictationHotkey = registered ? settings.dictationToggleHotkey : null;
   }

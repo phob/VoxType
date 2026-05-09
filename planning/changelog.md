@@ -1,5 +1,11 @@
 # Planning Changelog
 
+## 2026-05-09
+
+- Captured the product design direction as beginner-friendly first, with a calm, secure, and capable personality.
+- Clarified that VoxType should avoid macOS-clone styling while staying Windows-first and approachable.
+- Updated dictation hotkey planning so one key handles both tap-to-toggle and hold-to-dictate with a 700 ms hold threshold.
+
 ## 2026-05-05
 
 - Added the current single-instance behavior to architecture planning.

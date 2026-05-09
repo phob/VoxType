@@ -29,7 +29,7 @@ export class SettingsStore {
       whisperPromptOverride: "",
       showWindowHotkey: "CommandOrControl+Shift+Space",
       dictationToggleHotkey: "CommandOrControl+Alt+Space",
-      dictationHoldHotkey: "CommandOrControl+Alt+V",
+      dictationHoldHotkey: "CommandOrControl+Alt+Space",
       insertionMode: "clipboard",
       recordingInputDeviceId: "default",
       recorderCaptureMode: "exclusiveCapturePreferred",

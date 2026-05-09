@@ -1,0 +1,232 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-05-09T00:00:00.000+02:00",
+  "title": "Design System: VoxType",
+  "extensions": {
+    "colorMeta": {
+      "primary-cyan": {
+        "role": "primary",
+        "displayName": "Workbench Cyan",
+        "canonical": "#23d6cf",
+        "tonalRamp": [
+          "oklch(15% 0.07 195)",
+          "oklch(25% 0.09 195)",
+          "oklch(35% 0.11 195)",
+          "oklch(45% 0.12 195)",
+          "oklch(58% 0.13 195)",
+          "oklch(70% 0.11 195)",
+          "oklch(82% 0.08 195)",
+          "oklch(94% 0.04 195)"
+        ]
+      },
+      "app-bg": {
+        "role": "neutral",
+        "displayName": "Workbench Black",
+        "canonical": "#0a1015",
+        "tonalRamp": [
+          "#03080c",
+          "#0a1015",
+          "#0d161d",
+          "#121b24",
+          "#1b2a34",
+          "#4b5b6b",
+          "#9ca8b6",
+          "#f1f4f8"
+        ]
+      },
+      "success-green": {
+        "role": "secondary",
+        "displayName": "Secure Green",
+        "canonical": "#28d6b7",
+        "tonalRamp": [
+          "oklch(15% 0.06 165)",
+          "oklch(25% 0.08 165)",
+          "oklch(35% 0.1 165)",
+          "oklch(45% 0.12 165)",
+          "oklch(58% 0.13 165)",
+          "oklch(70% 0.1 165)",
+          "oklch(82% 0.07 165)",
+          "oklch(94% 0.035 165)"
+        ]
+      },
+      "danger-red": {
+        "role": "tertiary",
+        "displayName": "Failure Red",
+        "canonical": "#ff6262",
+        "tonalRamp": [
+          "oklch(15% 0.07 25)",
+          "oklch(25% 0.09 25)",
+          "oklch(35% 0.11 25)",
+          "oklch(45% 0.13 25)",
+          "oklch(58% 0.15 25)",
+          "oklch(70% 0.12 25)",
+          "oklch(82% 0.08 25)",
+          "oklch(94% 0.04 25)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "Release page headings and high-level screen titles only."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Helper copy, setting explanations, row metadata, and empty states."
+      },
+      "code": {
+        "displayName": "Code",
+        "purpose": "Paths, model/runtime details, logs, OCR diagnostics, and developer-only technical values."
+      }
+    },
+    "shadows": [
+      {
+        "name": "inset-hairline",
+        "value": "0 1px 0 rgb(255 255 255 / 0.04) inset",
+        "purpose": "Inputs, selects, and dropdown triggers."
+      },
+      {
+        "name": "dropdown-lift",
+        "value": "0 18px 46px rgb(0 0 0 / 0.34)",
+        "purpose": "Custom select menus and anchored popovers."
+      },
+      {
+        "name": "modal-lift",
+        "value": "0 24px 70px rgb(0 0 0 / 0.42)",
+        "purpose": "Modal dialogs only."
+      },
+      {
+        "name": "status-glow",
+        "value": "0 0 18px rgb(40 214 183 / 0.42)",
+        "purpose": "Small live status dots, not full cards."
+      }
+    ],
+    "motion": [
+      {
+        "name": "state-quick",
+        "value": "140ms ease",
+        "purpose": "Icon rotation and quick control state changes."
+      },
+      {
+        "name": "toggle-standard",
+        "value": "160ms ease",
+        "purpose": "Toggle thumb movement and compact release controls."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "compact",
+        "value": "900px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Compact filled action for install, save, add, and confirm actions.",
+      "html": "<button class=\"ds-btn-primary\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M12 5v14M5 12h14\"/></svg><span>Add entry</span></button>",
+      "css": ".ds-btn-primary { display: inline-flex; gap: 8px; align-items: center; min-height: 32px; padding: 0 12px; border: 1px solid rgb(35 214 207 / 0.72); border-radius: 5px; color: #f3fffd; background: linear-gradient(180deg, #28bdb7, #168f8b); box-shadow: 0 8px 22px rgb(35 214 207 / 0.14); font: 700 0.78rem Inter, ui-sans-serif, system-ui, sans-serif; } .ds-btn-primary svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; } .ds-btn-primary:hover { border-color: #23d6cf; filter: brightness(1.04); } .ds-btn-primary:focus-visible { outline: none; box-shadow: 0 0 0 2px rgb(35 214 207 / 0.18), 0 8px 22px rgb(35 214 207 / 0.14); }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Quiet bordered action for cancel, clear, refresh, and secondary navigation.",
+      "html": "<button class=\"ds-btn-secondary\">Cancel</button>",
+      "css": ".ds-btn-secondary { min-height: 32px; padding: 0 12px; border: 1px solid rgb(75 91 107 / 0.72); border-radius: 5px; color: #d7dde7; background: rgb(13 22 29 / 0.92); box-shadow: 0 1px 0 rgb(255 255 255 / 0.04) inset; font: 700 0.78rem Inter, ui-sans-serif, system-ui, sans-serif; } .ds-btn-secondary:hover { border-color: rgb(106 124 143 / 0.86); background: rgb(17 28 37 / 0.94); } .ds-btn-secondary:focus-visible { outline: none; border-color: #23d6cf; box-shadow: 0 0 0 2px rgb(35 214 207 / 0.14), 0 1px 0 rgb(255 255 255 / 0.04) inset; }"
+    },
+    {
+      "name": "Release Panel",
+      "kind": "card",
+      "refersTo": "panel",
+      "description": "Flat-by-default product surface for settings, models, profiles, and history.",
+      "html": "<section class=\"ds-panel\"><header><span></span><h2>Models</h2></header><p>Choose a local model before dictating.</p></section>",
+      "css": ".ds-panel { width: 320px; padding: 12px 14px; border: 1px solid rgb(75 91 107 / 0.4); border-radius: 6px; color: #d7dde7; background: linear-gradient(145deg, rgb(17 27 35 / 0.84), rgb(13 21 28 / 0.9)); font-family: Inter, ui-sans-serif, system-ui, sans-serif; } .ds-panel header { display: flex; gap: 10px; align-items: center; margin-bottom: 12px; } .ds-panel header span { width: 9px; height: 9px; border-radius: 999px; background: #28d6b7; box-shadow: 0 0 18px rgb(40 214 183 / 0.42); } .ds-panel h2 { margin: 0; color: #f1f4f8; font-size: 0.92rem; } .ds-panel p { margin: 0; color: #9ca8b6; font-size: 0.82rem; line-height: 1.45; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Dark compact field for release forms and profile modals.",
+      "html": "<label class=\"ds-field\"><span>Preferred word</span><input value=\"OpenVPN\" /></label>",
+      "css": ".ds-field { display: grid; gap: 6px; color: #9faab6; font: 650 0.74rem Inter, ui-sans-serif, system-ui, sans-serif; } .ds-field input { width: 100%; min-height: 36px; padding: 0 12px; border: 1px solid rgb(75 91 107 / 0.72); border-radius: 5px; color: #d7dde7; background: rgb(13 22 29 / 0.92); box-shadow: 0 1px 0 rgb(255 255 255 / 0.04) inset; font: 400 0.82rem Inter, ui-sans-serif, system-ui, sans-serif; } .ds-field input:focus { outline: none; border-color: #23d6cf; box-shadow: 0 0 0 2px rgb(35 214 207 / 0.14), 0 1px 0 rgb(255 255 255 / 0.04) inset; }"
+    },
+    {
+      "name": "Sidebar Navigation Item",
+      "kind": "nav",
+      "refersTo": "navigation",
+      "description": "Stable left-rail navigation with a cyan location marker.",
+      "html": "<button class=\"ds-nav active\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><path d=\"M4 6h16M4 12h16M4 18h16\"/></svg><span>Hotkeys</span></button>",
+      "css": ".ds-nav { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 10px; align-items: center; width: 164px; min-height: 44px; padding: 0 10px; border: 1px solid transparent; border-radius: 6px; color: #b6c0cc; background: transparent; font: 650 0.86rem Inter, ui-sans-serif, system-ui, sans-serif; text-align: left; } .ds-nav svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; } .ds-nav:hover { background: rgb(255 255 255 / 0.03); } .ds-nav.active { color: #f5f7fb; border-left: 2px solid #23d6cf; background: linear-gradient(90deg, rgb(52 65 78 / 0.72), rgb(28 38 49 / 0.84)); } .ds-nav.active svg { color: #23d6cf; }"
+    },
+    {
+      "name": "Status Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Compact metadata token for model, runtime, OCR, and profile status.",
+      "html": "<span class=\"ds-chip success\">Installed</span>",
+      "css": ".ds-chip { display: inline-flex; align-items: center; min-height: 24px; padding: 4px 8px; border: 1px solid rgb(75 91 107 / 0.52); border-radius: 5px; color: #9ca8b6; background: rgb(13 22 29 / 0.62); font: 650 0.7rem Inter, ui-sans-serif, system-ui, sans-serif; } .ds-chip.success { color: #6ee6c9; border-color: rgb(40 214 183 / 0.5); background: rgb(40 214 183 / 0.08); } .ds-chip.warning { color: #ffcf99; border-color: rgb(255 143 57 / 0.38); background: rgb(255 143 57 / 0.16); }"
+    }
+  ],
+  "narrative": {
+    "northStar": "Secure Windows Workbench",
+    "overview": "VoxType should feel like a compact, trustworthy Windows utility that has been tuned for everyday setup confidence. The visual system is dark, restrained, and work-focused: it uses tonal panels, precise borders, small type, and cyan status accents to make local dictation feel ready without making the user manage internals.\n\nThe release UI is beginner-friendly first. It should surface setup readiness, model state, hotkeys, profiles, and history in calm language, while dense diagnostics remain behind developer mode. The design must stay Windows-first and must not become a macOS clone: no traffic-light metaphors, frosted floating chrome, Apple-like settings mimicry, or generic AI SaaS polish.",
+    "keyCharacteristics": [
+      "Dense but readable utility layout.",
+      "Cyan accent used for action, focus, active navigation, and local-ready status.",
+      "Flat and layered depth through borders, tonal surfaces, and rare overlays.",
+      "Square-to-small-radius Windows geometry, never pill-heavy except toggles and status capsules.",
+      "Friendly setup language on release surfaces, precise diagnostics only in developer mode."
+    ],
+    "rules": [
+      {
+        "name": "The Cyan Is Status Rule",
+        "body": "Cyan is for action, focus, active location, and ready state. Do not spray it across decorative shapes.",
+        "section": "colors"
+      },
+      {
+        "name": "The Tinted Dark Rule",
+        "body": "Never use pure black or pure white. VoxType darks should stay blue-green tinted; text should stay slightly softened.",
+        "section": "colors"
+      },
+      {
+        "name": "The Utility Scale Rule",
+        "body": "Keep release surfaces compact. Do not use marketing-scale type inside product panels.",
+        "section": "typography"
+      },
+      {
+        "name": "The Plain Label Rule",
+        "body": "Labels should name behavior, not implementation, unless the user is in developer mode.",
+        "section": "typography"
+      },
+      {
+        "name": "The Flat First Rule",
+        "body": "A normal panel is not lifted. It is separated by a border and a tonal background.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Overlay Earns Shadow Rule",
+        "body": "Shadows are for things that float above the workbench: menus, modals, tooltips, toasts.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do keep the primary release experience beginner-friendly first, with expert diagnostics behind developer mode.",
+      "Do use cyan for action, focus, active state, and local-ready status.",
+      "Do explain setup blockers in plain language before exposing paths, runtimes, or helper internals.",
+      "Do keep panels flat by default, separated by borders and tonal dark surfaces.",
+      "Do use lucide icons inside buttons where recognition improves scanning.",
+      "Do keep the UI Windows-first and practical, especially around hotkeys, tray behavior, models, profiles, and insertion modes."
+    ],
+    "donts": [
+      "Don't make VoxType look or feel like a macOS clone. No traffic-light chrome, translucent macOS-style panels, or Apple-like settings mimicry.",
+      "Don't use generic AI SaaS styling, gamer utility aesthetics, neon cyberpunk dashboards, or sterile enterprise admin pages.",
+      "Don't use decorative glassmorphism, gradient text, bokeh/orb backgrounds, or marketing hero patterns inside the product UI.",
+      "Don't expose raw OCR text, runtime executable paths, VAD thresholds, prompt previews, or low-level logs in the default release surface.",
+      "Don't use colored side-stripe borders greater than 1px on cards, list items, alerts, or callouts. Active navigation may use the existing 2px cyan leading edge because it marks location, not decoration.",
+      "Don't add an in-app record button to the release home. VoxType recording is driven by global hotkeys and the target-app workflow."
+    ]
+  }
+}
