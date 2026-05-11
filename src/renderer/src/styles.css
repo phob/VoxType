@@ -1,10 +1,34 @@
 :root {
-  color: #d7dce2;
-  background: #111418;
+  color: #d7dde7;
+  background: #0a1015;
   font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    "Segoe UI Variable Text", "Segoe UI", Inter, ui-sans-serif, system-ui, sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
+  --windows-accent: #23d6cf;
+  --windows-accent-strong: #168f8b;
+  --windows-bg: #0a1015;
+  --windows-chrome: #0f171d;
+  --windows-sidebar: #0b1218;
+  --windows-panel: #111a22;
+  --windows-panel-raised: #151f28;
+  --windows-field: #0d161d;
+  --windows-border: #334250;
+  --windows-border-muted: #25313b;
+  --windows-text: #f1f4f8;
+  --windows-text-secondary: #d7dde7;
+  --windows-text-muted: #9ca8b6;
+  --windows-control-radius: 4px;
+  --windows-panel-radius: 6px;
+  --winui-switch-track: #232a30;
+  --winui-switch-track-hover: #2d353d;
+  --winui-switch-track-pressed: #353e47;
+  --winui-switch-border: #8c969f;
+  --winui-switch-thumb: #d9dee5;
+  --winui-switch-thumb-checked: #071a1b;
+  --winui-switch-on: #4cc9e8;
+  --winui-switch-on-hover: #62d2ed;
+  --winui-switch-on-pressed: #31add1;
 }
 
 * {
@@ -16,13 +40,9 @@ body {
   min-width: 760px;
   min-height: 100vh;
   overflow: hidden;
-  background: #111418;
-  scrollbar-color: transparent transparent;
-  scrollbar-width: thin;
-}
-
-body:hover {
-  scrollbar-color: #4b5663 transparent;
+  background: var(--windows-bg);
+  scrollbar-color: #4b5b6b #0d161d;
+  scrollbar-width: auto;
 }
 
 ::-webkit-scrollbar {
@@ -31,27 +51,22 @@ body:hover {
 }
 
 ::-webkit-scrollbar-track {
-  background: transparent;
+  background: #0d161d;
 }
 
 ::-webkit-scrollbar-thumb {
-  border: 3px solid transparent;
-  border-radius: 999px;
-  background: transparent;
+  border: 2px solid #0d161d;
+  border-radius: 0;
+  background: #4b5b6b;
   background-clip: padding-box;
 }
 
-body:hover::-webkit-scrollbar-thumb,
-*:hover::-webkit-scrollbar-thumb {
-  background-color: #4b5663;
-}
-
 ::-webkit-scrollbar-thumb:hover {
-  background-color: #6a7480;
+  background-color: #6a7888;
 }
 
 ::-webkit-scrollbar-corner {
-  background: transparent;
+  background: #0d161d;
 }
 
 body:has(.recording-overlay) {
@@ -72,9 +87,9 @@ body:has(.recording-overlay) {
   justify-content: space-between;
   height: 38px;
   padding: 0 0 0 14px;
-  border-bottom: 1px solid #252b33;
-  color: #d7dce2;
-  background: #111418;
+  border-bottom: 1px solid var(--windows-border-muted);
+  color: var(--windows-text-secondary);
+  background: var(--windows-chrome);
   box-shadow: 0 1px 0 rgb(255 255 255 / 0.03) inset;
   user-select: none;
   -webkit-app-region: drag;
@@ -96,9 +111,10 @@ body:has(.recording-overlay) {
 .window-titlebar-mark {
   width: 24px;
   height: 24px;
-  border-radius: 50%;
+  border: 1px solid rgb(75 91 107 / 0.48);
+  border-radius: 4px;
+  background: #111a22;
   object-fit: contain;
-  box-shadow: 0 0 22px rgb(150 91 255 / 0.28);
 }
 
 .window-controls {
@@ -132,7 +148,7 @@ body:has(.recording-overlay) {
 }
 
 .window-controls .window-close-button:hover {
-  color: #ffffff;
+  color: #f7f2f2;
   background: #b84242;
 }
 
@@ -232,20 +248,17 @@ pre {
   min-height: 100vh;
   margin: 0;
   padding-top: 54px;
-  color: #dde3ec;
-  background:
-    radial-gradient(circle at 52% 22%, rgb(123 82 255 / 0.2), transparent 30%),
-    linear-gradient(145deg, #0b1118 0%, #121521 44%, #08121a 100%);
+  color: var(--windows-text-secondary);
+  background: var(--windows-bg);
 }
 
 .release-shell .window-titlebar {
   height: 54px;
   padding-left: 22px;
-  border: 1px solid rgb(70 80 99 / 0.36);
+  border: 1px solid rgb(75 91 107 / 0.42);
   border-right: 0;
   border-left: 0;
-  background: rgb(10 15 22 / 0.86);
-  backdrop-filter: blur(22px);
+  background: var(--windows-chrome);
 }
 
 .release-shell .window-titlebar-brand {
@@ -259,10 +272,8 @@ pre {
   gap: 22px;
   min-height: 0;
   padding: 24px 10px 18px;
-  border-right: 1px solid rgb(70 80 99 / 0.36);
-  background:
-    linear-gradient(180deg, rgb(21 29 43 / 0.72), rgb(8 20 29 / 0.86)),
-    rgb(11 17 25 / 0.95);
+  border-right: 1px solid rgb(75 91 107 / 0.42);
+  background: var(--windows-sidebar);
 }
 
 .release-sidebar-spacer {
@@ -300,9 +311,10 @@ pre {
 .release-nav button.active,
 .release-settings-link.active {
   color: #f5f7fb;
-  border-color: rgb(120 136 162 / 0.16);
-  background: linear-gradient(135deg, rgb(63 71 96 / 0.78), rgb(28 36 52 / 0.92));
-  box-shadow: 0 12px 30px rgb(0 0 0 / 0.16);
+  border-color: rgb(75 91 107 / 0.46);
+  border-left: 2px solid var(--windows-accent);
+  background: #192630;
+  box-shadow: none;
 }
 
 .release-nav-icon {
@@ -351,13 +363,7 @@ pre {
 }
 
 .release-hero::before {
-  position: absolute;
-  z-index: -2;
-  inset: 0;
-  background:
-    radial-gradient(ellipse at 54% 54%, rgb(35 214 207 / 0.14), transparent 42%),
-    linear-gradient(180deg, rgb(18 34 40 / 0.26), transparent 78%);
-  content: "";
+  display: none;
 }
 
 .release-hero-copy h1 {
@@ -397,13 +403,7 @@ pre {
 }
 
 .release-wave {
-  position: absolute;
-  z-index: -1;
-  right: -40px;
-  bottom: 14px;
-  left: -40px;
-  height: 86px;
-  overflow: hidden;
+  display: none;
 }
 
 .release-wave span {
@@ -431,22 +431,7 @@ pre {
 }
 
 .release-logo-orb {
-  position: absolute;
-  left: 50%;
-  bottom: 14px;
-  display: grid;
-  place-items: center;
-  width: 72px;
-  height: 72px;
-  border: 1px solid rgb(35 214 207 / 0.58);
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 38% 28%, rgb(118 238 224 / 0.86), rgb(21 139 142 / 0.95)),
-    #159aa0;
-  box-shadow:
-    0 0 0 9px rgb(35 214 207 / 0.12),
-    0 0 54px rgb(35 214 207 / 0.34);
-  transform: translateX(-50%);
+  display: none;
 }
 
 .release-logo-orb img {
@@ -458,12 +443,10 @@ pre {
 
 .release-status-card,
 .release-panel {
-  border: 1px solid rgb(69 82 105 / 0.42);
-  border-radius: 8px;
-  background:
-    linear-gradient(135deg, rgb(24 34 49 / 0.86), rgb(14 21 32 / 0.9)),
-    #121a26;
-  box-shadow: 0 18px 46px rgb(0 0 0 / 0.15);
+  border: 1px solid rgb(75 91 107 / 0.42);
+  border-radius: var(--windows-panel-radius);
+  background: var(--windows-panel);
+  box-shadow: none;
 }
 
 .release-status-card {
@@ -532,8 +515,8 @@ pre {
   min-height: 118px;
   padding: 18px;
   border: 1px solid rgb(73 84 105 / 0.34);
-  border-radius: 7px;
-  background: linear-gradient(145deg, rgb(37 44 64 / 0.68), rgb(21 27 41 / 0.92));
+  border-radius: var(--windows-panel-radius);
+  background: var(--windows-panel-raised);
 }
 
 .system-card strong {
@@ -555,9 +538,9 @@ pre {
   color: #dffcf1;
   font-size: 1.35rem;
   font-weight: 800;
-  clip-path: polygon(50% 0, 90% 16%, 86% 66%, 50% 100%, 14% 66%, 10% 16%);
-  background: linear-gradient(145deg, #37d7a0, #12795f);
-  box-shadow: 0 0 28px rgb(55 215 160 / 0.42);
+  border: 1px solid rgb(55 215 160 / 0.42);
+  border-radius: var(--windows-control-radius);
+  background: rgb(55 215 160 / 0.14);
 }
 
 .system-shield .release-icon-svg {
@@ -640,9 +623,9 @@ pre {
   min-height: 48px;
   padding: 0 14px;
   border-color: rgb(75 88 112 / 0.34);
-  border-radius: 7px;
+  border-radius: var(--windows-control-radius);
   color: #c6cedb;
-  background: linear-gradient(135deg, rgb(45 54 73 / 0.62), rgb(25 33 48 / 0.9));
+  background: var(--windows-field);
   text-align: left;
 }
 
@@ -899,12 +882,107 @@ pre {
   white-space: nowrap;
 }
 
+.setting-row input[type="checkbox"],
+.checkbox-field input {
+  position: relative;
+  width: 40px;
+  height: 20px;
+  min-width: 40px;
+  min-height: 20px;
+  padding: 0;
+  border: 1px solid var(--winui-switch-border);
+  border-radius: 999px;
+  appearance: none;
+  background: var(--winui-switch-track);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.04) inset;
+  cursor: pointer;
+  transition:
+    border-color 120ms ease,
+    background 120ms ease,
+    box-shadow 120ms ease;
+}
+
 .setting-row input[type="checkbox"] {
   justify-self: end;
-  width: 16px;
-  height: 16px;
-  min-height: 0;
-  accent-color: #4cc9a7;
+}
+
+.setting-row input[type="checkbox"]::before,
+.checkbox-field input::before {
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border: 0;
+  border-radius: 50%;
+  background: var(--winui-switch-thumb);
+  content: "";
+  opacity: 1;
+  transform: translate3d(0, -50%, 0);
+  transform-origin: center;
+  transition:
+    background 120ms ease,
+    transform 120ms ease;
+}
+
+.setting-row input[type="checkbox"]:hover,
+.checkbox-field input:hover {
+  border-color: #a8b2bc;
+  background: var(--winui-switch-track-hover);
+}
+
+.setting-row input[type="checkbox"]:active:not(:disabled),
+.checkbox-field input:active:not(:disabled) {
+  background: var(--winui-switch-track-pressed);
+}
+
+.setting-row input[type="checkbox"]:active:not(:disabled)::before,
+.checkbox-field input:active:not(:disabled)::before {
+  transform: translate3d(1px, -50%, 0) scale(0.92);
+}
+
+.setting-row input[type="checkbox"]:focus-visible,
+.checkbox-field input:focus-visible {
+  outline: none;
+  border-color: var(--winui-switch-on);
+  box-shadow:
+    0 0 0 2px rgb(76 201 232 / 0.2),
+    0 1px 0 rgb(255 255 255 / 0.04) inset;
+}
+
+.setting-row input[type="checkbox"]:checked,
+.checkbox-field input:checked {
+  border-color: var(--winui-switch-on);
+  background: var(--winui-switch-on);
+}
+
+.setting-row input[type="checkbox"]:checked::before,
+.checkbox-field input:checked::before {
+  background: var(--winui-switch-thumb-checked);
+  transform: translate3d(20px, -50%, 0);
+}
+
+.setting-row input[type="checkbox"]:checked:hover,
+.checkbox-field input:checked:hover {
+  border-color: var(--winui-switch-on-hover);
+  background: var(--winui-switch-on-hover);
+}
+
+.setting-row input[type="checkbox"]:checked:active:not(:disabled),
+.checkbox-field input:checked:active:not(:disabled) {
+  border-color: var(--winui-switch-on-pressed);
+  background: var(--winui-switch-on-pressed);
+}
+
+.setting-row input[type="checkbox"]:checked:active:not(:disabled)::before,
+.checkbox-field input:checked:active:not(:disabled)::before {
+  transform: translate3d(19px, -50%, 0) scale(0.92);
+}
+
+.setting-row input[type="checkbox"]:disabled,
+.checkbox-field input:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
 }
 
 .model-list,
@@ -1164,8 +1242,8 @@ pre {
 .release-primary-button {
   border-color: rgb(35 214 207 / 0.72);
   color: #f3fffd;
-  background: linear-gradient(180deg, #28bdb7, #168f8b);
-  box-shadow: 0 8px 22px rgb(35 214 207 / 0.14);
+  background: #168f8b;
+  box-shadow: none;
 }
 
 .release-secondary-button,
@@ -1695,11 +1773,7 @@ pre {
 }
 
 .checkbox-field input {
-  width: 14px;
-  height: 14px;
-  min-height: 0;
-  padding: 0;
-  accent-color: #4cc9a7;
+  flex: 0 0 auto;
 }
 
 .kv-grid {
@@ -1833,12 +1907,10 @@ td select {
 
 .release-shell .release-status-card,
 .release-shell .release-panel {
-  border: 1px solid rgb(69 82 105 / 0.42);
-  border-radius: 8px;
-  background:
-    linear-gradient(135deg, rgb(24 34 49 / 0.86), rgb(14 21 32 / 0.9)),
-    #121a26;
-  box-shadow: 0 18px 46px rgb(0 0 0 / 0.15);
+  border: 1px solid rgb(75 91 107 / 0.42);
+  border-radius: var(--windows-panel-radius);
+  background: var(--windows-panel);
+  box-shadow: none;
 }
 
 .release-shell .release-status-card {
@@ -1859,8 +1931,8 @@ td select {
 
 .release-shell .quick-actions-list button {
   border-color: rgb(75 88 112 / 0.34);
-  border-radius: 7px;
-  background: linear-gradient(135deg, rgb(45 54 73 / 0.62), rgb(25 33 48 / 0.9));
+  border-radius: var(--windows-control-radius);
+  background: var(--windows-field);
 }
 
 .release-shell {
@@ -1869,15 +1941,13 @@ td select {
   height: 100vh;
   padding-top: 40px;
   color: #d7dde7;
-  background:
-    radial-gradient(circle at 18% 16%, rgb(43 214 202 / 0.08), transparent 25%),
-    linear-gradient(145deg, #0a1015 0%, #10171e 54%, #090f14 100%);
+  background: var(--windows-bg);
 }
 
 .release-shell .window-titlebar {
   height: 40px;
   border-color: rgb(75 91 107 / 0.42);
-  background: rgb(9 15 20 / 0.94);
+  background: var(--windows-chrome);
 }
 
 .release-shell .window-titlebar-brand {
@@ -1888,16 +1958,14 @@ td select {
   width: 28px;
   height: 28px;
   border: 1px solid rgb(73 91 111 / 0.54);
-  border-radius: 6px;
+  border-radius: var(--windows-control-radius);
   background: #0f1921;
 }
 
 .release-sidebar {
   padding: 14px 8px 16px;
   border-right-color: rgb(75 91 107 / 0.42);
-  background:
-    linear-gradient(180deg, rgb(15 24 31 / 0.94), rgb(10 18 24 / 0.96)),
-    #0b1218;
+  background: var(--windows-sidebar);
   overflow: hidden;
 }
 
@@ -1915,7 +1983,7 @@ td select {
 .release-settings-link {
   min-height: 44px;
   padding: 0 10px;
-  border-radius: 6px;
+  border-radius: var(--windows-control-radius);
   color: #b6c0cc;
   font-size: 0.86rem;
 }
@@ -1923,9 +1991,9 @@ td select {
 .release-nav button.active,
 .release-settings-link.active {
   color: #f5f7fb;
-  border-color: transparent;
+  border-color: rgb(75 91 107 / 0.46);
   border-left: 2px solid #23d6cf;
-  background: linear-gradient(90deg, rgb(52 65 78 / 0.72), rgb(28 38 49 / 0.84));
+  background: #192630;
   box-shadow: none;
 }
 
@@ -1958,8 +2026,8 @@ td select {
   gap: 8px;
   padding: 9px;
   border: 1px solid rgb(75 91 107 / 0.36);
-  border-radius: 6px;
-  background: linear-gradient(180deg, rgb(23 34 43 / 0.78), rgb(13 22 29 / 0.86));
+  border-radius: var(--windows-panel-radius);
+  background: var(--windows-panel);
 }
 
 .sidebar-system-head {
@@ -2023,7 +2091,7 @@ td select {
 .sidebar-meter {
   overflow: hidden;
   height: 3px;
-  border-radius: 999px;
+  border-radius: 0;
   background: rgb(92 106 122 / 0.28);
 }
 
@@ -2031,7 +2099,7 @@ td select {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #23d6cf, #62eee0);
+  background: #23d6cf;
 }
 
 .sidebar-system-foot {
@@ -2048,7 +2116,7 @@ td select {
 .sidebar-system-foot button {
   padding: 4px 8px;
   border: 0;
-  border-radius: 5px;
+  border-radius: var(--windows-control-radius);
   color: #23d6cf;
   background: rgb(35 214 207 / 0.12);
   font: inherit;
@@ -2096,8 +2164,8 @@ td select {
   right: 0;
   min-height: 32px;
   border-color: rgb(75 91 107 / 0.52);
-  border-radius: 5px;
-  background: rgb(14 22 29 / 0.8);
+  border-radius: var(--windows-control-radius);
+  background: var(--windows-field);
 }
 
 .release-shell .release-status-card {
@@ -2204,8 +2272,8 @@ td select {
   margin-top: 12px;
   padding: 12px 14px;
   border-color: rgb(75 91 107 / 0.4);
-  border-radius: 6px;
-  background: linear-gradient(145deg, rgb(17 27 35 / 0.84), rgb(13 21 28 / 0.9));
+  border-radius: var(--windows-panel-radius);
+  background: var(--windows-panel);
   box-shadow: none;
 }
 
@@ -2737,17 +2805,14 @@ td select {
   place-items: center;
   padding: 24px;
   background: rgb(3 8 12 / 0.58);
-  backdrop-filter: blur(6px);
 }
 
 .release-modal {
   width: min(560px, calc(100vw - 48px));
   padding: 16px;
   border: 1px solid rgb(75 91 107 / 0.56);
-  border-radius: 8px;
-  background:
-    linear-gradient(180deg, rgb(21 32 41 / 0.98), rgb(11 19 25 / 0.98)),
-    #0d161d;
+  border-radius: var(--windows-panel-radius);
+  background: #0d161d;
   box-shadow: 0 24px 70px rgb(0 0 0 / 0.42);
 }
 
@@ -2862,91 +2927,3 @@ td select {
   }
 }
 
-*,
-*::before,
-*::after {
-  border-radius: 0 !important;
-}
-
-.release-shell .setting-row input[type="checkbox"] {
-  position: relative;
-  justify-self: end;
-  width: 40px;
-  height: 22px;
-  min-height: 0;
-  padding: 2px;
-  border: 1px solid rgb(75 91 107 / 0.72);
-  border-radius: 4px;
-  appearance: none;
-  background: rgb(13 22 29 / 0.92);
-  box-shadow: 0 1px 0 rgb(255 255 255 / 0.04) inset;
-  cursor: pointer;
-  transition:
-    border-color 140ms ease,
-    background 140ms ease,
-    box-shadow 140ms ease;
-}
-
-.release-shell .setting-row input[type="checkbox"]::before {
-  position: absolute;
-  top: 3px;
-  left: 3px;
-  width: 14px;
-  height: 14px;
-  border-radius: 2px;
-  background: #c8d1dc;
-  box-shadow:
-    0 0 0 1px rgb(8 14 19 / 0.52),
-    0 2px 6px rgb(0 0 0 / 0.36),
-    0 1px 0 rgb(255 255 255 / 0.2) inset;
-  content: "";
-  transition:
-    transform 160ms ease,
-    background 140ms ease;
-}
-
-.release-shell .setting-row input[type="checkbox"]::after {
-  position: absolute;
-  top: 6px;
-  right: 7px;
-  width: 4px;
-  height: 8px;
-  border: solid #072b2d;
-  border-width: 0 2px 2px 0;
-  content: "";
-  opacity: 0;
-  transform: rotate(45deg);
-  transition: opacity 120ms ease;
-}
-
-.release-shell .setting-row input[type="checkbox"]:hover {
-  border-color: rgb(106 124 143 / 0.86);
-  background: rgb(17 28 37 / 0.94);
-}
-
-.release-shell .setting-row input[type="checkbox"]:focus-visible {
-  outline: none;
-  border-color: #23d6cf;
-  box-shadow:
-    0 0 0 2px rgb(35 214 207 / 0.16),
-    0 1px 0 rgb(255 255 255 / 0.04) inset;
-}
-
-.release-shell .setting-row input[type="checkbox"]:checked {
-  border-color: #46ddd5;
-  background: linear-gradient(135deg, #1eb7ae, #74e9de);
-}
-
-.release-shell .setting-row input[type="checkbox"]:checked::before {
-  transform: translateX(18px);
-  background: #f3fffd;
-}
-
-.release-shell .setting-row input[type="checkbox"]:checked::after {
-  opacity: 1;
-}
-
-.release-shell .setting-row input[type="checkbox"]:disabled {
-  cursor: not-allowed;
-  opacity: 0.48;
-}
