@@ -162,12 +162,11 @@ Preferred first candidate:
 
 Current implementation:
 
-- `@ricky0123/vad-web` NonRealTimeVAD
-- bundled Silero legacy ONNX model
-- bundled ONNX Runtime Web/WASM assets
+- native Windows helper recording through CPAL/WASAPI
+- bundled Silero v4 ONNX model through `vad-rs`
+- Rubato resampling to 16 kHz before VAD/Whisper
 - post-recording trimming before Whisper transcription
-- conservative first/last speech envelope trimming instead of internal pause cutting
-- Web Audio offline resampling before VAD/Whisper, with linear fallback
+- leading/trailing silence trimming, with internal pauses preserved up to a cap instead of removed outright
 - no automatic recording stop behavior
 
 Handy comparison:

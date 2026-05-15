@@ -263,7 +263,7 @@ export function sanitizeSettings(
     vadPreservedPauseMs:
       typeof input.vadPreservedPauseMs === "number" &&
       Number.isFinite(input.vadPreservedPauseMs)
-        ? clamp(Math.round(input.vadPreservedPauseMs), 0, 2000)
+        ? migrateVadPreservedPauseMs(input.vadPreservedPauseMs, defaults.vadPreservedPauseMs)
         : defaults.vadPreservedPauseMs,
     remoteClipboardPasteDelayMs:
       typeof input.remoteClipboardPasteDelayMs === "number" &&
@@ -542,4 +542,14 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
+}
+
+function migrateVadPreservedPauseMs(value: number, defaultValue: number): number {
+  const rounded = Math.round(value);
+
+  if (rounded === 500 && defaultValue > rounded) {
+    return defaultValue;
+  }
+
+  return clamp(rounded, 0, 2000);
 }

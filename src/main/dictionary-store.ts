@@ -10,6 +10,7 @@ import {
   normalizeDictionaryPatch,
   sanitizeDictionaryEntries
 } from "../shared/dictionary";
+import { buildWhisperPromptContext } from "../shared/prompt-context";
 
 export class DictionaryStore {
   private readonly dictionaryPath: string;
@@ -98,13 +99,8 @@ export class DictionaryStore {
   ): Promise<string | null> {
     const entries = await this.relevantEntries(processName);
     const dictionaryTerms = entries.map((entry) => entry.preferred).filter(Boolean);
-    const terms = uniqueTerms([...dictionaryTerms, ...(ocrTerms ?? [])]).slice(0, 160);
 
-    if (terms.length === 0) {
-      return null;
-    }
-
-    return `Relevant terms: ${terms.join(", ")}. Use these spellings when they are spoken.`;
+    return buildWhisperPromptContext(dictionaryTerms, ocrTerms ?? []);
   }
 
   async applyCorrections(text: string, processName?: string | null): Promise<{
@@ -157,23 +153,4 @@ function replacePhrase(text: string, match: string, preferred: string): string {
   const expression = new RegExp(`${prefix}${escaped}${suffix}`, "gi");
 
   return text.replace(expression, preferred);
-}
-
-function uniqueTerms(terms: string[]): string[] {
-  const seen = new Set<string>();
-  const unique: string[] = [];
-
-  for (const term of terms) {
-    const normalized = term.trim();
-    const key = normalized.toLowerCase();
-
-    if (!normalized || seen.has(key)) {
-      continue;
-    }
-
-    seen.add(key);
-    unique.push(normalized);
-  }
-
-  return unique;
 }

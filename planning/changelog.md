@@ -1,5 +1,10 @@
 # Planning Changelog
 
+## 2026-05-15
+
+- Clarified the native Silero VAD direction around preserving internal thinking pauses up to a cap so resumed speech and first words remain available to Whisper.
+- Added an open question about future VAD presets for natural dictation, low latency, and noisy-room trimming.
+
 ## 2026-05-10
 
 - Added automatic update-check planning: configurable startup/hourly checks, with startup updates allowed to reveal the window despite Start minimized.

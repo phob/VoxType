@@ -28,7 +28,8 @@ export async function startNativePcmRecorder(settings?: AppSettings | null): Pro
     vadEnabled: settings?.vadEnabled ?? true,
     vadPositiveSpeechThreshold: settings?.vadPositiveSpeechThreshold ?? 0.3,
     vadPreSpeechPadMs: settings?.vadPreSpeechPadMs ?? 450,
-    vadRedemptionMs: settings?.vadRedemptionMs ?? 450
+    vadRedemptionMs: settings?.vadRedemptionMs ?? 450,
+    vadPreservedPauseMs: settings?.vadPreservedPauseMs ?? 2000
   });
 
   return {

@@ -51,7 +51,7 @@ export class SettingsStore {
       vadMinSpeechMs: 250,
       vadPreSpeechPadMs: 450,
       vadRedemptionMs: 450,
-      vadPreservedPauseMs: 500,
+      vadPreservedPauseMs: 2000,
       remoteClipboardPasteDelayMs: 450,
       remoteTypingDelayMs: 25,
       remoteTypingChunkSize: 24,

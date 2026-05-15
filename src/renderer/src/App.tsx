@@ -17,6 +17,7 @@ import {
   MoreVertical,
   Play,
   Plus,
+  RefreshCw,
   Settings,
   ShieldCheck,
   Trash2,
@@ -37,6 +38,7 @@ import { type HotkeyStatus } from "../../../shared/hotkeys";
 import { type LocalModel } from "../../../shared/models";
 import { type OcrPromptContext } from "../../../shared/ocr-context";
 import { type OcrResult } from "../../../shared/ocr";
+import { buildWhisperPromptContext } from "../../shared/prompt-context";
 import { type WhisperRuntime, type WhisperRuntimePreference } from "../../../shared/runtimes";
 import {
   type AppProfile,
@@ -241,6 +243,7 @@ export function App(): JSX.Element {
   const [latestOcrResult, setLatestOcrResult] = useState<OcrResult | null>(null);
   const [latestOcrContext, setLatestOcrContext] = useState<OcrPromptContext | null>(null);
   const [playingTranscriptId, setPlayingTranscriptId] = useState<string | null>(null);
+  const [retranscribingTranscriptId, setRetranscribingTranscriptId] = useState<string | null>(null);
   const [releaseTab, setReleaseTab] = useState<ReleaseTab>("general");
   const [releaseModelFilter, setReleaseModelFilter] = useState<ReleaseModelFilter>("all");
   const [activeTab, setActiveTab] = useState<DevTab>("dictation");
@@ -1081,16 +1084,17 @@ export function App(): JSX.Element {
     }
   }
 
-  async function transcribeLatestTranscript(): Promise<void> {
-    if (!latestTranscript?.audioFileName) {
+  async function transcribeSavedTranscript(entry: TranscriptEntry): Promise<void> {
+    if (!entry.audioFileName) {
       return;
     }
 
     setError(null);
-    setBusyMessage("Transcribing saved audio...");
+    setRetranscribingTranscriptId(entry.id);
+    setBusyMessage("Retranscribing saved audio...");
 
     try {
-      const audioBytes = await window.voxtype.history.audio(latestTranscript.id);
+      const audioBytes = await window.voxtype.history.audio(entry.id);
       const result = await window.voxtype.transcription.transcribeWav(audioBytes, {
         processName: currentTarget?.processName ?? hotkeyTargetRef.current?.processName,
         ocrContext: latestOcrContext ?? hotkeyOcrContextRef.current
@@ -1110,8 +1114,17 @@ export function App(): JSX.Element {
     } catch (transcriptionError) {
       setError(formatError(transcriptionError));
     } finally {
+      setRetranscribingTranscriptId(null);
       setBusyMessage(null);
     }
+  }
+
+  async function transcribeLatestTranscript(): Promise<void> {
+    if (!latestTranscript) {
+      return;
+    }
+
+    await transcribeSavedTranscript(latestTranscript);
   }
 
   async function refreshActiveWindow(): Promise<void> {
@@ -2592,6 +2605,23 @@ export function App(): JSX.Element {
                         type="button"
                       >
                         <Play aria-hidden="true" className="release-icon-svg" />
+                      </button>
+                      <button
+                        aria-label="Retranscribe saved audio"
+                        className="release-icon-button"
+                        data-tooltip="Retranscribe"
+                        disabled={!entry.audioFileName || Boolean(retranscribingTranscriptId)}
+                        onClick={() => void transcribeSavedTranscript(entry)}
+                        type="button"
+                      >
+                        <RefreshCw
+                          aria-hidden="true"
+                          className={
+                            retranscribingTranscriptId === entry.id
+                              ? "release-icon-svg spinning"
+                              : "release-icon-svg"
+                          }
+                        />
                       </button>
                     </div>
                   </article>
@@ -4568,13 +4598,9 @@ function buildWhisperPromptPreview(
         (!entry.appProcessName || !normalizedProcess || entry.appProcessName === normalizedProcess)
     )
     .map((entry) => entry.preferred);
-  const terms = uniqueTerms([...dictionaryTerms, ...ocrTerms]).slice(0, 160);
+  const prompt = buildWhisperPromptContext(dictionaryTerms, ocrTerms);
 
-  if (terms.length === 0) {
-    return "";
-  }
-
-  return `Relevant terms: ${terms.join(", ")}. Use these spellings when they are spoken.`;
+  return prompt ?? "";
 }
 
 function combineWhisperPromptPreview(generatedPrompt: string, promptOverride: string): string {
@@ -4596,25 +4622,3 @@ function combineWhisperPromptPreview(generatedPrompt: string, promptOverride: st
   return `${generated} ${custom}`;
 }
 
-function uniqueTerms(terms: string[]): string[] {
-  const seen = new Set<string>();
-  const unique: string[] = [];
-
-  for (const term of terms) {
-    if (typeof term !== "string") {
-      continue;
-    }
-
-    const normalized = term.trim();
-    const key = normalized.toLowerCase();
-
-    if (!normalized || seen.has(key)) {
-      continue;
-    }
-
-    seen.add(key);
-    unique.push(normalized);
-  }
-
-  return unique;
-}

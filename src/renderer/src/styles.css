@@ -1288,6 +1288,16 @@ pre {
   height: 15px;
 }
 
+.release-icon-svg.spinning {
+  animation: icon-spin 900ms linear infinite;
+}
+
+@keyframes icon-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
 .release-chip-row {
   display: flex;
   flex-wrap: wrap;

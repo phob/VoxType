@@ -345,6 +345,8 @@ export class WindowsHelperService {
         String(msToVadFrames(options.vadPreSpeechPadMs)),
         "--vad-hangover-frames",
         String(msToVadFrames(options.vadRedemptionMs)),
+        "--vad-preserved-pause-frames",
+        String(msToVadFrames(options.vadPreservedPauseMs)),
         "--vad-onset-frames",
         "2"
       );

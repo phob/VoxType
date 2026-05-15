@@ -19,6 +19,7 @@
 - How should VoxType detect and handle elevated target apps?
 - How much transcript history should be stored by default?
 - Should system-audio mute restore the previous mute state instead of always unmuting after VoxType finishes recording?
+- Should native Silero VAD eventually expose separate presets for natural dictation, low-latency pause compression, and aggressive noisy-room trimming?
 
 Resolved before first GitHub release:
 

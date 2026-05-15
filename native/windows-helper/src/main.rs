@@ -27,7 +27,7 @@ fn main() {
         "type-text" => type_text_from_stdin(),
         "message-text" => message_text_from_stdin(),
         "help" | "--help" | "-h" => {
-            println!("Usage: voxtype-windows-helper active-window | focus-window <hwnd> | set-system-mute <true|false> | send-hotkey <accelerator> | wait-hotkey-release <accelerator> | capture-screenshot <output.png> [--active-window | --hwnd <hwnd>] | ocr-image <input.png> | message-targets [hwnd] | mute-capture-session <process-id> [process-name] | restore-capture-session | input-devices | record-wav <output.wav> [--capture-mode shared|exclusive-preferred|exclusive-required] [--input-device <name>] | paste-text | type-text [delay-ms] | message-text [focused-control|character-messages] [hwnd]");
+            println!("Usage: voxtype-windows-helper active-window | focus-window <hwnd> | set-system-mute <true|false> | send-hotkey <accelerator> | wait-hotkey-release <accelerator> | capture-screenshot <output.png> [--active-window | --hwnd <hwnd>] | ocr-image <input.png> | message-targets [hwnd] | mute-capture-session <process-id> [process-name] | restore-capture-session | input-devices | record-wav <output.wav> [--capture-mode shared|exclusive-preferred|exclusive-required] [--input-device <name>] [--vad-preserved-pause-frames <frames>] | paste-text | type-text [delay-ms] | message-text [focused-control|character-messages] [hwnd]");
             Ok(())
         }
         _ => Err(format!("Unknown command: {command}")),
@@ -161,6 +161,11 @@ impl NativeRecordingConfig {
                     vad_config.hangover_frames =
                         parse_usize_arg(&args, index, "--vad-hangover-frames")?;
                 }
+                "--vad-preserved-pause-frames" => {
+                    index += 1;
+                    vad_config.preserved_pause_frames =
+                        parse_usize_arg(&args, index, "--vad-preserved-pause-frames")?;
+                }
                 "--vad-onset-frames" => {
                     index += 1;
                     vad_config.onset_frames = parse_usize_arg(&args, index, "--vad-onset-frames")?;
@@ -210,6 +215,7 @@ struct NativeVadConfig {
     threshold: f32,
     prefill_frames: usize,
     hangover_frames: usize,
+    preserved_pause_frames: usize,
     onset_frames: usize,
 }
 
@@ -221,6 +227,7 @@ impl Default for NativeVadConfig {
             threshold: 0.3,
             prefill_frames: 15,
             hangover_frames: 15,
+            preserved_pause_frames: 67,
             onset_frames: 2,
         }
     }
@@ -997,6 +1004,7 @@ mod windows_impl {
                 )?),
                 vad_config.prefill_frames,
                 vad_config.hangover_frames,
+                vad_config.preserved_pause_frames,
                 vad_config.onset_frames,
             ))
         } else {
@@ -1154,6 +1162,7 @@ mod windows_impl {
                     )?),
                     vad_config.prefill_frames,
                     vad_config.hangover_frames,
+                    vad_config.preserved_pause_frames,
                     vad_config.onset_frames,
                 ))
             } else {
@@ -2379,11 +2388,15 @@ mod windows_impl {
         inner_vad: Box<dyn VoiceActivityDetector>,
         prefill_frames: usize,
         hangover_frames: usize,
+        preserved_pause_frames: usize,
         onset_frames: usize,
         frame_buffer: VecDeque<Vec<f32>>,
+        pending_silence: VecDeque<Vec<f32>>,
+        pending_voice: Vec<Vec<f32>>,
         hangover_counter: usize,
         onset_counter: usize,
         in_speech: bool,
+        has_detected_speech: bool,
         temp_out: Vec<f32>,
     }
 
@@ -2392,63 +2405,103 @@ mod windows_impl {
             inner_vad: Box<dyn VoiceActivityDetector>,
             prefill_frames: usize,
             hangover_frames: usize,
+            preserved_pause_frames: usize,
             onset_frames: usize,
         ) -> Self {
             Self {
                 inner_vad,
                 prefill_frames,
                 hangover_frames,
+                preserved_pause_frames,
                 onset_frames,
                 frame_buffer: VecDeque::new(),
+                pending_silence: VecDeque::new(),
+                pending_voice: Vec::new(),
                 hangover_counter: 0,
                 onset_counter: 0,
                 in_speech: false,
+                has_detected_speech: false,
                 temp_out: Vec::new(),
             }
         }
 
         fn push_frame(&mut self, frame: &[f32]) -> Result<Option<Vec<f32>>, String> {
-            self.frame_buffer.push_back(frame.to_vec());
-            while self.frame_buffer.len() > self.prefill_frames + 1 {
-                self.frame_buffer.pop_front();
-            }
-
             let is_voice = self.inner_vad.is_voice(frame)?;
 
-            match (self.in_speech, is_voice) {
-                (false, true) => {
+            if !self.has_detected_speech {
+                self.frame_buffer.push_back(frame.to_vec());
+                while self.frame_buffer.len() > self.prefill_frames + self.onset_frames.max(1) {
+                    self.frame_buffer.pop_front();
+                }
+
+                if is_voice {
                     self.onset_counter += 1;
                     if self.onset_counter >= self.onset_frames {
                         self.in_speech = true;
+                        self.has_detected_speech = true;
                         self.hangover_counter = self.hangover_frames;
                         self.onset_counter = 0;
                         self.temp_out.clear();
                         for buffered in &self.frame_buffer {
                             self.temp_out.extend_from_slice(buffered);
                         }
-                        Ok(Some(self.temp_out.clone()))
+                        return Ok(Some(self.temp_out.clone()));
                     } else {
-                        Ok(None)
+                        return Ok(None);
                     }
-                }
-                (true, true) => {
-                    self.hangover_counter = self.hangover_frames;
-                    Ok(Some(frame.to_vec()))
-                }
-                (true, false) => {
-                    if self.hangover_counter > 0 {
-                        self.hangover_counter -= 1;
-                        Ok(Some(frame.to_vec()))
-                    } else {
-                        self.in_speech = false;
-                        Ok(None)
-                    }
-                }
-                (false, false) => {
+                } else {
                     self.onset_counter = 0;
-                    Ok(None)
+                    return Ok(None);
                 }
             }
+
+            if is_voice {
+                if self.in_speech {
+                    self.hangover_counter = self.hangover_frames;
+                    self.temp_out.clear();
+                    while let Some(silence) = self.pending_silence.pop_front() {
+                        self.temp_out.extend_from_slice(&silence);
+                    }
+                    self.temp_out.extend_from_slice(frame);
+                    return Ok(Some(self.temp_out.clone()));
+                }
+
+                self.pending_voice.push(frame.to_vec());
+                self.onset_counter += 1;
+
+                if self.onset_counter < self.onset_frames {
+                    return Ok(None);
+                }
+
+                self.in_speech = true;
+                self.hangover_counter = self.hangover_frames;
+                self.onset_counter = 0;
+                self.temp_out.clear();
+                while let Some(silence) = self.pending_silence.pop_front() {
+                    self.temp_out.extend_from_slice(&silence);
+                }
+                for voice in self.pending_voice.drain(..) {
+                    self.temp_out.extend_from_slice(&voice);
+                }
+                return Ok(Some(self.temp_out.clone()));
+            }
+
+            self.onset_counter = 0;
+            self.pending_voice.clear();
+            self.pending_silence.push_back(frame.to_vec());
+            while self.pending_silence.len() > self.preserved_pause_frames {
+                self.pending_silence.pop_front();
+            }
+
+            if self.in_speech {
+                if self.hangover_counter > 0 {
+                    self.hangover_counter -= 1;
+                } else {
+                    self.in_speech = false;
+                }
+            }
+
+            Ok(None)
         }
     }
 

@@ -57,6 +57,7 @@ export type NativeRecordingOptions = {
   vadPositiveSpeechThreshold: number;
   vadPreSpeechPadMs: number;
   vadRedemptionMs: number;
+  vadPreservedPauseMs: number;
 };
 
 export type NativeInputDevice = {
