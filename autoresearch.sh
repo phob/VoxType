@@ -56,6 +56,10 @@ grep_score 5 grep -R "resolveDictationMode" -n src >/dev/null
 grep_score 5 grep -R "openai-credentials:get-status\|openaiCredentials" -n src >/dev/null
 grep_score 5 grep -R "setApiKey" -n src/main src/preload >/dev/null
 grep_score 5 grep -R "clearApiKey" -n src/main src/preload >/dev/null
+grep_score 6 grep -R "audio/transcriptions" -n src/main >/dev/null
+grep_score 6 grep -R "FormData" -n src/main >/dev/null
+grep_score 6 grep -R "promptPack\.text" -n src/main >/dev/null
+grep_score 6 grep -R "metadata-only error" -n src/main >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null

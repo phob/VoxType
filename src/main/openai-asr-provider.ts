@@ -1,0 +1,73 @@
+import { type AsrResult, type FileAsrProvider, type FileAsrRequest } from "../shared/asr";
+import { OpenAiCredentialStore } from "./openai-credential-store";
+
+const OPENAI_TRANSCRIPTION_URL = "https://api.openai.com/v1/audio/transcriptions";
+
+export class OpenAiFileAsrProvider implements FileAsrProvider {
+  readonly providerId = "openai" as const;
+
+  constructor(private readonly credentials: OpenAiCredentialStore) {}
+
+  async transcribeFile(request: FileAsrRequest): Promise<AsrResult> {
+    const apiKey = await this.credentials.getApiKey();
+
+    if (!apiKey) {
+      throw new Error("OpenAI API key is required before Cloud Dictation can start.");
+    }
+
+    const startedAt = Date.now();
+    const form = new FormData();
+    form.set("model", request.mode.modelId);
+    form.set("file", new Blob([request.audioBytes], { type: "audio/wav" }), "dictation.wav");
+
+    if (request.language !== "auto") {
+      form.set("language", request.language);
+    }
+
+    if (request.promptPack?.text) {
+      form.set("prompt", request.promptPack.text);
+    }
+
+    const response = await fetch(OPENAI_TRANSCRIPTION_URL, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`
+      },
+      body: form
+    });
+
+    if (!response.ok) {
+      throw new Error(await formatOpenAiError(response));
+    }
+
+    const payload = await response.json() as { text?: unknown };
+    const providerText = typeof payload.text === "string" ? payload.text.trim() : "";
+
+    if (!providerText) {
+      throw new Error("OpenAI returned no transcript text.");
+    }
+
+    return {
+      providerId: this.providerId,
+      modelId: request.mode.modelId,
+      modeId: request.mode.id,
+      providerText,
+      durationMs: Date.now() - startedAt
+    };
+  }
+}
+
+async function formatOpenAiError(response: Response): Promise<string> {
+  let code = `${response.status} ${response.statusText}`.trim();
+
+  try {
+    const payload = await response.json() as { error?: { code?: unknown; type?: unknown; message?: unknown } };
+    const errorCode = typeof payload.error?.code === "string" ? payload.error.code : undefined;
+    const errorType = typeof payload.error?.type === "string" ? payload.error.type : undefined;
+    code = [code, errorType, errorCode].filter(Boolean).join(" / ");
+  } catch {
+    // Keep metadata-only error details; never include provider response bodies because they may echo text.
+  }
+
+  return `OpenAI transcription failed (${code}). Check the API key, billing, rate limits, and model access.`;
+}
