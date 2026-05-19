@@ -2203,7 +2203,7 @@ export function App(): JSX.Element {
                 </ReleaseChip>
               </div>
               <p className="settings-note">
-                Realtime readiness: IPC {currentOpenAiModeImplementationReadiness.realtimeSessionIpcReady ? "ready" : "pending"}, renderer lifecycle {currentOpenAiModeImplementationReadiness.realtimeRendererLifecycleReady ? "ready" : "pending"}, native PCM streaming {currentOpenAiModeImplementationReadiness.realtimeNativePcmStreamingReady ? "ready" : "pending"}.
+                Realtime readiness: IPC {currentOpenAiModeImplementationReadiness.realtimeSessionIpcReady ? "ready" : "pending"}, renderer lifecycle {currentOpenAiModeImplementationReadiness.realtimeRendererLifecycleReady ? "ready" : "pending"}, native PCM streaming {currentOpenAiModeImplementationReadiness.realtimeNativePcmStreamingReady ? "ready" : "pending"}, release smoke test {currentOpenAiModeImplementationReadiness.releaseSmokeTested ? "ready" : "pending"}.
               </p>
               <div className="settings-list">
                 <label className="setting-row">
