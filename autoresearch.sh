@@ -438,6 +438,7 @@ grep_score 6 grep -R "let stopReadinessModeId: DictationModeId | null" -n src/re
 grep_score 6 grep -R "Realtime Cloud Dictation cancelled because no speech was detected" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "Realtime Cloud Dictation cancelled after finalization failed" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "Finalizing realtime cloud dictation\.\.\." -n src/renderer/src/App.tsx >/dev/null
+grep_score 6 grep -R "Dictation completed but returned no transcript text" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "Transcribing with OpenAI\.\.\." -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "cloudProviderLabel: undefined" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "elapsedMs: undefined" -n src/main/index.ts >/dev/null

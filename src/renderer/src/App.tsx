@@ -1289,6 +1289,10 @@ export function App(): JSX.Element {
             processName: options?.pasteTarget?.processName ?? hotkeyTargetRef.current?.processName,
             ocrContext: options?.ocrContext ?? hotkeyOcrContextRef.current
           })).entry;
+
+      if (!entry.text.trim()) {
+        throw new Error("Dictation completed but returned no transcript text.");
+      }
       await window.voxtype.recordingOverlay.showFinalizing({
         cloudProviderLabel: readiness.cloud ? "Cloud Dictation" : undefined,
         message: readiness.modeId === "openai.realtime" ? "Finalizing realtime cloud dictation" : readiness.cloud ? "Finalizing cloud dictation" : "Finalizing local dictation"
