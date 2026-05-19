@@ -126,6 +126,10 @@ grep_score 6 grep -R "StreamingAudioConfig" -n src/shared/asr.ts >/dev/null
 grep_score 6 grep -R "sampleRateHz: 24000" -n src/shared/asr.ts >/dev/null
 grep_score 6 grep -R "OpenAI realtime requires 24 kHz PCM16 mono audio" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "input_audio_transcription" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "cloudSessionWarnMs" -n src >/dev/null
+grep_score 6 grep -R "cloudSessionMaxMs" -n src >/dev/null
+grep_score 6 grep -R "getCloudSessionLimitState" -n src >/dev/null
+grep_score 6 grep -R "maximum session duration" -n src >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null

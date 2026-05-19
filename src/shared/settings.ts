@@ -72,6 +72,8 @@ export type AppSettings = {
   whisperPromptOverride: string;
   cloudDictationConsentAccepted: boolean;
   cloudPromptPackOcrEnabled: boolean;
+  cloudSessionWarnMs: number;
+  cloudSessionMaxMs: number;
   showWindowHotkey: string;
   dictationToggleHotkey: string;
   dictationHoldHotkey: string;
@@ -192,6 +194,14 @@ export function sanitizeSettings(
       typeof input.cloudPromptPackOcrEnabled === "boolean"
         ? input.cloudPromptPackOcrEnabled
         : defaults.cloudPromptPackOcrEnabled,
+    cloudSessionWarnMs:
+      typeof input.cloudSessionWarnMs === "number" && Number.isFinite(input.cloudSessionWarnMs)
+        ? clamp(Math.round(input.cloudSessionWarnMs), 60_000, 60 * 60_000)
+        : defaults.cloudSessionWarnMs,
+    cloudSessionMaxMs:
+      typeof input.cloudSessionMaxMs === "number" && Number.isFinite(input.cloudSessionMaxMs)
+        ? clamp(Math.round(input.cloudSessionMaxMs), 60_000, 4 * 60 * 60_000)
+        : defaults.cloudSessionMaxMs,
     showWindowHotkey:
       typeof input.showWindowHotkey === "string"
         ? input.showWindowHotkey
