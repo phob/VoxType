@@ -98,6 +98,7 @@ grep_score 6 grep -R "readinessLocalModel.*readinessMode.modelId" -n src/rendere
 grep_score 6 grep -R "Download .*readinessMode.label.*readinessMode.modelId" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "Cloud Dictation consent" -n src/renderer >/dev/null
 grep_score 6 grep -R "Allow OCR Context in cloud Prompt Pack" -n src/renderer >/dev/null
+grep_score 6 grep -R "App Profiles can override this for sensitive apps" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "OpenAI API key" -n src/renderer >/dev/null
 grep_score 6 grep -R "dictationModes" -n src/renderer >/dev/null
 grep_score 6 grep -R "profileDictationModeOptions" -n src/renderer >/dev/null

@@ -2370,7 +2370,7 @@ export function App(): JSX.Element {
                 <label className="setting-row">
                   <span>
                     <strong>Allow OCR Context in cloud Prompt Pack</strong>
-                    <small>Off by default. Dictionary terms are still capped to {PROMPT_PACK_MAX_TERMS} terms / {PROMPT_PACK_MAX_CHARS.toLocaleString()} characters.</small>
+                    <small>Off by default. Dictionary terms are still capped to {PROMPT_PACK_MAX_TERMS} terms / {PROMPT_PACK_MAX_CHARS.toLocaleString()} characters. App Profiles can override this for sensitive apps.</small>
                   </span>
                   <input
                     checked={state.settings.cloudPromptPackOcrEnabled}
