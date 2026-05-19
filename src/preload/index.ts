@@ -11,6 +11,7 @@ import { type HotkeyStatus } from "../shared/hotkeys";
 import { type LocalModel } from "../shared/models";
 import { type OcrPromptContext } from "../shared/ocr-context";
 import { type OcrResult } from "../shared/ocr";
+import { type OpenAiCredentialStatus } from "../shared/openai-credentials";
 import { type WhisperRuntime } from "../shared/runtimes";
 import {
   type AppProfile,
@@ -66,11 +67,11 @@ const voxtype = {
     testConnection: () =>
       ipcRenderer.invoke("openai:test-connection") as Promise<{ ok: boolean; message: string }>,
     getStatus: () =>
-      ipcRenderer.invoke("openai-credentials:get-status") as Promise<{ hasApiKey: boolean }>,
+      ipcRenderer.invoke("openai-credentials:get-status") as Promise<OpenAiCredentialStatus>,
     setApiKey: (apiKey: string) =>
-      ipcRenderer.invoke("openai-credentials:set-api-key", apiKey) as Promise<{ hasApiKey: boolean }>,
+      ipcRenderer.invoke("openai-credentials:set-api-key", apiKey) as Promise<OpenAiCredentialStatus>,
     clearApiKey: () =>
-      ipcRenderer.invoke("openai-credentials:clear-api-key") as Promise<{ hasApiKey: boolean }>
+      ipcRenderer.invoke("openai-credentials:clear-api-key") as Promise<OpenAiCredentialStatus>
   },
   models: {
     list: () => ipcRenderer.invoke("models:list") as Promise<LocalModel[]>,

@@ -1,4 +1,5 @@
 import { safeStorage } from "electron";
+import { type OpenAiCredentialStatus } from "../shared/openai-credentials";
 import { chmod } from "node:fs/promises";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
@@ -47,5 +48,34 @@ export class OpenAiCredentialStore {
 
   async hasApiKey(): Promise<boolean> {
     return (await this.getApiKey()) !== null;
+  }
+
+  async getStatus(): Promise<OpenAiCredentialStatus> {
+    const envKey = process.env.OPENAI_API_KEY?.trim();
+
+    if (envKey) {
+      return {
+        hasApiKey: true,
+        source: "environment",
+        encryptionAvailable: safeStorage.isEncryptionAvailable()
+      };
+    }
+
+    try {
+      const encrypted = await readFile(this.credentialPath);
+      const storedKey = safeStorage.decryptString(encrypted).trim();
+
+      return {
+        hasApiKey: storedKey.length > 0,
+        source: storedKey.length > 0 ? "stored" : "missing",
+        encryptionAvailable: safeStorage.isEncryptionAvailable()
+      };
+    } catch {
+      return {
+        hasApiKey: false,
+        source: "missing",
+        encryptionAvailable: safeStorage.isEncryptionAvailable()
+      };
+    }
   }
 }

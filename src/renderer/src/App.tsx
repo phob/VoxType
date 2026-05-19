@@ -41,6 +41,7 @@ import { type HotkeyStatus } from "../../shared/hotkeys";
 import { type LocalModel } from "../../shared/models";
 import { type OcrPromptContext } from "../../shared/ocr-context";
 import { type OcrResult } from "../../shared/ocr";
+import { type OpenAiCredentialStatus } from "../../shared/openai-credentials";
 import {
   areAllOpenAiModesReadyForRelease,
   currentOpenAiModeImplementationReadiness
@@ -85,7 +86,7 @@ type AppState = {
   inputDevices: NativeInputDevice[];
   activeWindow: ActiveWindowInfo | null;
   hotkeys: HotkeyStatus | null;
-  openaiCredentials: { hasApiKey: boolean } | null;
+  openaiCredentials: OpenAiCredentialStatus | null;
 };
 
 type ReleaseTab =
@@ -216,6 +217,22 @@ const defaultOverlayState: RecordingOverlayState = {
 };
 const manualUpdateCheckCooldownSeconds = 30;
 const updateCheckingWatchdogMs = 20000;
+
+function getOpenAiCredentialStatusText(status: OpenAiCredentialStatus | null): string {
+  if (!status?.hasApiKey) {
+    return status?.encryptionAvailable === false
+      ? "Required before Cloud Dictation can record. OS credential encryption is unavailable."
+      : "Required before Cloud Dictation can record.";
+  }
+
+  if (status.source === "environment") {
+    return "Using OPENAI_API_KEY from the environment; not stored by VoxType.";
+  }
+
+  return status.encryptionAvailable
+    ? "Stored in OS-encrypted app storage."
+    : "Stored credential present, but OS encryption status could not be confirmed.";
+}
 
 export function App(): JSX.Element {
   const isOverlay = new URLSearchParams(window.location.search).get("overlay") === "1";
@@ -2276,7 +2293,7 @@ export function App(): JSX.Element {
                 <div className="setting-row">
                   <span>
                     <strong>OpenAI API key</strong>
-                    <small>{state.openaiCredentials?.hasApiKey ? "Stored in OS-encrypted app storage." : "Required before Cloud Dictation can record."}</small>
+                    <small>{getOpenAiCredentialStatusText(state.openaiCredentials)}</small>
                   </span>
                   <div className="setting-actions setting-actions-with-input">
                     <input

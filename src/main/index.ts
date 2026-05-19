@@ -685,18 +685,16 @@ ipcMain.handle("settings:reset", async () => {
   return settings;
 });
 
-ipcMain.handle("openai-credentials:get-status", async () => ({
-  hasApiKey: await openAiCredentialStore.hasApiKey()
-}));
+ipcMain.handle("openai-credentials:get-status", () => openAiCredentialStore.getStatus());
 
 ipcMain.handle("openai-credentials:set-api-key", async (_event, apiKey: string) => {
   await openAiCredentialStore.setApiKey(apiKey);
-  return { hasApiKey: await openAiCredentialStore.hasApiKey() };
+  return openAiCredentialStore.getStatus();
 });
 
 ipcMain.handle("openai-credentials:clear-api-key", async () => {
   await openAiCredentialStore.clearApiKey();
-  return { hasApiKey: false };
+  return openAiCredentialStore.getStatus();
 });
 
 ipcMain.handle("openai:test-connection", async () => {

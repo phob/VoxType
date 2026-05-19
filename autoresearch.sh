@@ -308,6 +308,10 @@ grep_score 6 grep -R "private snapshot()" -n src/main/realtime-cloud-session.ts 
 grep_score 6 grep -R "cloudProviderLabel: undefined" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "elapsedMs: undefined" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "livePreviewTurns: undefined" -n src/main/index.ts >/dev/null
+grep_score 6 grep -R "OpenAiCredentialStatus" -n src/shared/openai-credentials.ts src/preload/index.ts src/renderer/src/App.tsx >/dev/null
+grep_score 6 grep -R "source: \"environment\"" -n src/main/openai-credential-store.ts >/dev/null
+grep_score 6 grep -R "encryptionAvailable: safeStorage.isEncryptionAvailable" -n src/main/openai-credential-store.ts >/dev/null
+grep_score 6 grep -R "Using OPENAI_API_KEY from the environment" -n src/renderer/src/App.tsx >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null
