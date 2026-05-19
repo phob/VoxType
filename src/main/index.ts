@@ -868,8 +868,8 @@ ipcMain.handle("windows-helper:stop-recording", () =>
 ipcMain.handle("recording-overlay:show-recording", () => {
   showOverlay({ mode: "recording", level: 0, message: "Recording" });
 });
-ipcMain.handle("recording-overlay:show-transcribing", () => {
-  showOverlay({ mode: "transcribing", level: 0, message: "Transcribing" });
+ipcMain.handle("recording-overlay:show-transcribing", (_event, state?: Partial<RecordingOverlayState>) => {
+  showOverlay({ mode: "transcribing", level: 0, message: "Transcribing", ...state });
 });
 ipcMain.handle("recording-overlay:hide", () => {
   hideOverlay();

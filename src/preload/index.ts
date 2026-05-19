@@ -176,8 +176,8 @@ const voxtype = {
   },
   recordingOverlay: {
     showRecording: () => ipcRenderer.invoke("recording-overlay:show-recording") as Promise<void>,
-    showTranscribing: () =>
-      ipcRenderer.invoke("recording-overlay:show-transcribing") as Promise<void>,
+    showTranscribing: (state?: Partial<RecordingOverlayState>) =>
+      ipcRenderer.invoke("recording-overlay:show-transcribing", state) as Promise<void>,
     hide: () => ipcRenderer.invoke("recording-overlay:hide") as Promise<void>,
     getState: () =>
       ipcRenderer.invoke("recording-overlay:get-state") as Promise<RecordingOverlayState>,

@@ -1013,7 +1013,13 @@ export function App(): JSX.Element {
     try {
       const recordingResult = await recorderRef.current.stop();
       recorderRef.current = null;
-      await window.voxtype.recordingOverlay.showTranscribing();
+      const readiness = await window.voxtype.transcription.getReadiness(
+        options?.pasteTarget?.processName ?? hotkeyTargetRef.current?.processName
+      );
+      await window.voxtype.recordingOverlay.showTranscribing({
+        cloudProviderLabel: readiness.cloud ? "Cloud Dictation" : undefined,
+        message: readiness.cloud ? "Transcribing with OpenAI" : "Transcribing locally"
+      });
       const coordinationError = await stopRecordingCoordination();
       const unmuteError = await unmuteSystemAudio();
       await playRecordingCue("stop");
