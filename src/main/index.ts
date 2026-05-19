@@ -892,13 +892,22 @@ ipcMain.handle("transcription:realtime-finalize", async () => {
     });
   }
 
-  return realtimeCloudHistoryService.save({
-    mode,
-    turns: snapshot.turns,
-    startedAtMs: snapshot.startedAtMs,
-    endedAtMs: Date.now(),
-    processName
-  });
+  try {
+    return await realtimeCloudHistoryService.save({
+      mode,
+      turns: snapshot.turns,
+      startedAtMs: snapshot.startedAtMs,
+      endedAtMs: Date.now(),
+      processName
+    });
+  } catch (error) {
+    updateOverlay({
+      mode: "finalizing",
+      cloudProviderLabel: "Cloud Dictation",
+      message: error instanceof Error ? error.message : "Realtime Cloud Dictation finalization failed."
+    });
+    throw error;
+  }
 });
 
 ipcMain.handle("transcription:realtime-cancel", (_event, reason?: string) => {

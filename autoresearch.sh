@@ -236,6 +236,8 @@ grep_score 6 grep -R "dictionaryStore.applyCorrections" -n src/main/realtime-clo
 grep_score 6 grep -R "historyStore.add(entry)" -n src/main/realtime-cloud-history-service.ts >/dev/null
 grep_score 6 grep -R "composeRealtimeTurns(input.turns).trim" -n src/main/realtime-cloud-history-service.ts >/dev/null
 grep_score 6 grep -R "Realtime Cloud Dictation completed but returned no transcript turns" -n src/main/realtime-cloud-history-service.ts >/dev/null
+grep_score 6 grep -R "Realtime Cloud Dictation finalization failed" -n src/main/index.ts >/dev/null
+grep_score 6 grep -R "error instanceof Error \? error.message" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "sanitizeRealtimeVadThresholdOverride" -n src/shared/settings.ts >/dev/null
 grep_score 6 grep -R "input.developerModeEnabled === true" -n src/shared/settings.ts >/dev/null
 grep_score 6 grep -R "realtimeVadThresholdOverride:.*null" -n src/shared/settings.ts >/dev/null
