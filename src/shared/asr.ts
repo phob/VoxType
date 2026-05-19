@@ -67,6 +67,7 @@ export type StreamingAsrRequest = {
   language: WhisperLanguage;
   audioConfig: StreamingAudioConfig;
   latencyPreset: RealtimeLatencyPreset;
+  developerVadThresholdOverride: number | null;
 };
 
 export const openAiRealtimeAudioConfig: StreamingAudioConfig = {

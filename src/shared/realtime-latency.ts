@@ -8,9 +8,12 @@ export type OpenAiRealtimeVadConfig = {
 };
 
 export function getOpenAiRealtimeVadConfig(
-  preset: RealtimeLatencyPreset
+  preset: RealtimeLatencyPreset,
+  developerThresholdOverride: number | null = null
 ): OpenAiRealtimeVadConfig {
-  switch (preset) {
+  const override = sanitizeDeveloperVadThresholdOverride(developerThresholdOverride);
+  const config = (() => {
+    switch (preset) {
     case "fast":
       return {
         type: "server_vad",
@@ -33,5 +36,16 @@ export function getOpenAiRealtimeVadConfig(
         prefix_padding_ms: 350,
         silence_duration_ms: 650
       };
+    }
+  })();
+
+  return override === null ? config : { ...config, threshold: override };
+}
+
+function sanitizeDeveloperVadThresholdOverride(value: number | null): number | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return null;
   }
+
+  return Math.min(Math.max(value, 0.05), 0.95);
 }

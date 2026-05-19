@@ -77,6 +77,7 @@ export type AppSettings = {
   cloudSessionWarnMs: number;
   cloudSessionMaxMs: number;
   realtimeLatencyPreset: RealtimeLatencyPreset;
+  realtimeVadThresholdOverride: number | null;
   showWindowHotkey: string;
   dictationToggleHotkey: string;
   dictationHoldHotkey: string;
@@ -212,6 +213,11 @@ export function sanitizeSettings(
     realtimeLatencyPreset: isRealtimeLatencyPreset(input.realtimeLatencyPreset)
       ? input.realtimeLatencyPreset
       : defaults.realtimeLatencyPreset,
+    realtimeVadThresholdOverride:
+      typeof input.realtimeVadThresholdOverride === "number" &&
+      Number.isFinite(input.realtimeVadThresholdOverride)
+        ? clamp(input.realtimeVadThresholdOverride, 0.05, 0.95)
+        : null,
     showWindowHotkey:
       typeof input.showWindowHotkey === "string"
         ? input.showWindowHotkey

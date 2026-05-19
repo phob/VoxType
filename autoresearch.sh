@@ -159,6 +159,10 @@ grep_score 6 grep -R "exactLocalModelSettingsPatch(event.target.value)" -n src/r
 grep_score 6 grep -R "audioUnavailableReason" -n src >/dev/null
 grep_score 6 grep -R "entry.audioUnavailableReason" -n src/renderer >/dev/null
 grep_score 6 grep -R "typeof entry.audioUnavailableReason" -n src/main/history-store.ts >/dev/null
+grep_score 6 grep -R "realtimeVadThresholdOverride" -n src >/dev/null
+grep_score 6 grep -R "sanitizeDeveloperVadThresholdOverride" -n src/shared/realtime-latency.ts >/dev/null
+grep_score 6 grep -R "Developer realtime VAD threshold" -n src/renderer >/dev/null
+grep_score 6 grep -R "developerVadThresholdOverride" -n src/main/openai-realtime-asr-provider.ts src/shared/asr.ts >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null

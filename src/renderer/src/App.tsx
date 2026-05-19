@@ -2131,6 +2131,26 @@ export function App(): JSX.Element {
                     ))}
                   </select>
                 </label>
+                {state.settings.developerModeEnabled ? (
+                  <label className="setting-row">
+                    <span>
+                      <strong>Developer realtime VAD threshold</strong>
+                      <small>Debug-only raw OpenAI server VAD threshold override.</small>
+                    </span>
+                    <input
+                      max={0.95}
+                      min={0.05}
+                      step={0.01}
+                      type="number"
+                      value={state.settings.realtimeVadThresholdOverride ?? ""}
+                      onChange={(event) =>
+                        void updateSettings({
+                          realtimeVadThresholdOverride: event.target.value === "" ? null : Number(event.target.value)
+                        })
+                      }
+                    />
+                  </label>
+                ) : null}
                 <label className="setting-row">
                   <span>
                     <strong>Allow OCR Context in cloud Prompt Pack</strong>

@@ -37,7 +37,12 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
       throw new Error("OpenAI realtime requires 24 kHz PCM16 mono audio.");
     }
 
-    await this.openSession(apiKey, request.promptPack, request.latencyPreset);
+    await this.openSession(
+      apiKey,
+      request.promptPack,
+      request.latencyPreset,
+      request.developerVadThresholdOverride
+    );
   }
 
   appendPcm16Audio(pcm16Audio: Uint8Array): void {
@@ -67,7 +72,8 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
   private async openSession(
     apiKey: string,
     promptPack: PromptPack | null,
-    latencyPreset: StreamingAsrRequest["latencyPreset"]
+    latencyPreset: StreamingAsrRequest["latencyPreset"],
+    developerVadThresholdOverride: StreamingAsrRequest["developerVadThresholdOverride"]
   ): Promise<void> {
     await new Promise<void>((resolve, reject) => {
       const socket = new WebSocket(OPENAI_REALTIME_URL, [
@@ -83,7 +89,11 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
       socket.addEventListener("open", () => {
         clearTimeout(timeout);
         this.socket = socket;
-        socket.send(JSON.stringify(buildSessionUpdate(promptPack, latencyPreset)));
+        socket.send(JSON.stringify(buildSessionUpdate(
+          promptPack,
+          latencyPreset,
+          developerVadThresholdOverride
+        )));
         resolve();
       }, { once: true });
 
@@ -128,14 +138,15 @@ function encodeBase64(bytes: Uint8Array): string {
 
 function buildSessionUpdate(
   promptPack: PromptPack | null,
-  latencyPreset: StreamingAsrRequest["latencyPreset"]
+  latencyPreset: StreamingAsrRequest["latencyPreset"],
+  developerVadThresholdOverride: StreamingAsrRequest["developerVadThresholdOverride"]
 ): unknown {
   return {
     type: "session.update",
     session: {
       input_audio_format: "pcm16",
       input_audio_transcription: { model: "gpt-realtime-whisper" },
-      turn_detection: getOpenAiRealtimeVadConfig(latencyPreset),
+      turn_detection: getOpenAiRealtimeVadConfig(latencyPreset, developerVadThresholdOverride),
       instructions: promptPack?.text
         ? `Transcribe speech. Prefer these context terms when acoustically plausible: ${promptPack.text}`
         : "Transcribe speech accurately."

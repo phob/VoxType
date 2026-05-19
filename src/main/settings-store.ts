@@ -34,6 +34,7 @@ export class SettingsStore {
       cloudSessionWarnMs: 5 * 60 * 1000,
       cloudSessionMaxMs: 10 * 60 * 1000,
       realtimeLatencyPreset: "balanced",
+      realtimeVadThresholdOverride: null,
       showWindowHotkey: "CommandOrControl+Shift+Space",
       dictationToggleHotkey: "CommandOrControl+Alt+Space",
       dictationHoldHotkey: "CommandOrControl+Alt+Space",
