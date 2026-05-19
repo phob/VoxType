@@ -2093,6 +2093,7 @@ export function App(): JSX.Element {
                     <article className="recent-history-row" key={entry.id}>
                       <FileText aria-hidden="true" className="release-icon-svg" />
                       <p>{entry.text}</p>
+                      <small>{entry.providerId === "openai" ? "Cloud Dictation" : "Local dictation"}</small>
                       <time>{formatRelativeTimestamp(entry.createdAt)}</time>
                       <button aria-label="Transcript actions" type="button">
                         <MoreVertical aria-hidden="true" className="release-icon-svg" />

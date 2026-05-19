@@ -247,6 +247,8 @@ grep_score 6 grep -R "entry.providerId === \"local-whisper\"" -n src/main/histor
 grep_score 6 grep -R "entry.providerId === \"openai\"" -n src/main/history-store.ts >/dev/null
 grep_score 6 grep -R "typeof entry.turnCount === \"number\"" -n src/main/history-store.ts >/dev/null
 grep_score 6 grep -R "typeof entry.turnStatus === \"string\"" -n src/main/history-store.ts >/dev/null
+grep_score 6 grep -R "entry.providerId === \"openai\" \? \"Cloud Dictation\" : \"Local dictation\"" -n src/renderer >/dev/null
+grep_score 6 grep -R "recent-history-row" -n src/renderer >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null
