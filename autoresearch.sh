@@ -162,6 +162,7 @@ grep_score 6 grep -R "activeModelId: mode.modelId" -n src/renderer >/dev/null
 grep_score 6 grep -R "appendPcm16Audio" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "input_audio_buffer.append" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "input_audio_buffer.commit" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 bash -c '! grep -R "commitAudio(): void" -n src/main/openai-realtime-asr-provider.ts'
 grep_score 6 grep -R "toString(\"base64\")" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "StreamingAudioConfig" -n src/shared/asr.ts >/dev/null
 grep_score 6 grep -R "sampleRateHz: 24000" -n src/shared/asr.ts >/dev/null
