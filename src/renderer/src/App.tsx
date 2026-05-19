@@ -625,6 +625,20 @@ export function App(): JSX.Element {
     });
   }
 
+  function dictationModeSettingsPatch(modeId: DictationModeId): Partial<AppSettings> {
+    const mode = dictationModes.find((item) => item.id === modeId);
+
+    if (!mode || mode.providerId !== "local-whisper") {
+      return { dictationModeId: modeId };
+    }
+
+    if (mode.id === "local.custom") {
+      return { dictationModeId: modeId };
+    }
+
+    return { dictationModeId: modeId, activeModelId: mode.modelId };
+  }
+
   async function updateSettings(patch: Partial<AppSettings>): Promise<void> {
     setState((current) => ({
       ...current,
@@ -1991,7 +2005,7 @@ export function App(): JSX.Element {
                   <select
                     value={state.settings.dictationModeId}
                     onChange={(event) =>
-                      void updateSettings({ dictationModeId: event.target.value as DictationModeId })
+                      void updateSettings(dictationModeSettingsPatch(event.target.value as DictationModeId))
                     }
                   >
                     {dictationModes.map((mode) => {

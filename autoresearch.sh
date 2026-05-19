@@ -116,6 +116,8 @@ grep_score 6 grep -R "Cloud Prompt Pack preview" -n src/renderer >/dev/null
 grep_score 6 grep -R "includeOcrContext: false" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "forbidCloudDictation.*isCloudDictationMode" -n src/shared/cloud-status.ts src/main/transcription-service.ts >/dev/null
 grep_score 6 grep -R "local\.balanced" -n src/shared/cloud-status.ts src/main/transcription-service.ts >/dev/null
+grep_score 6 grep -R "dictationModeSettingsPatch" -n src/renderer >/dev/null
+grep_score 6 grep -R "activeModelId: mode.modelId" -n src/renderer >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null
