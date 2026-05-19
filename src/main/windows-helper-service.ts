@@ -15,8 +15,10 @@ import {
   type ScreenshotCaptureResult,
   type WindowsHelperStatus
 } from "../shared/windows-helper";
+import { retainLatestFiles } from "./file-retention";
 
 const execFileAsync = promisify(execFile);
+const retainedScreenshotCount = 10;
 
 type NativeRecording = {
   child: ChildProcessWithoutNullStreams;
@@ -203,6 +205,12 @@ export class WindowsHelperService {
     await execFileAsync(helperPath, args, {
       windowsHide: true
     });
+
+    await retainLatestFiles(
+      outputDirectory,
+      retainedScreenshotCount,
+      (fileName) => /^screenshot-\d+\.png$/i.test(fileName)
+    );
 
     return {
       path: outputPath,

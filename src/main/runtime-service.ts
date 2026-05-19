@@ -68,33 +68,41 @@ export class RuntimeService {
     const temporaryArchivePath = `${archivePath}.download`;
     const extractDirectory = join(runtimeDirectory, "extract");
 
-    await mkdir(dirname(archivePath), { recursive: true });
-    await rm(extractDirectory, { recursive: true, force: true });
-    await mkdir(extractDirectory, { recursive: true });
+    try {
+      await mkdir(dirname(archivePath), { recursive: true });
+      await rm(extractDirectory, { recursive: true, force: true });
+      await mkdir(extractDirectory, { recursive: true });
 
-    const response = await fetch(runtime.url);
+      const response = await fetch(runtime.url);
 
-    if (!response.ok || !response.body) {
-      throw new Error(
-        `Failed to download ${runtime.name}: ${response.status} ${response.statusText}`
+      if (!response.ok || !response.body) {
+        throw new Error(
+          `Failed to download ${runtime.name}: ${response.status} ${response.statusText}`
+        );
+      }
+
+      await pipeline(
+        Readable.fromWeb(response.body as ReadableStream<Uint8Array>),
+        createWriteStream(temporaryArchivePath)
       );
+      await rm(archivePath, { force: true });
+      await rename(temporaryArchivePath, archivePath);
+      await this.expandArchive(archivePath, extractDirectory);
+
+      const installedRuntime = await this.hydrateRuntime(runtime);
+
+      if (!installedRuntime.executablePath) {
+        throw new Error(`Installed ${runtime.name}, but no whisper-cli.exe was found.`);
+      }
+
+      return installedRuntime;
+    } catch (error) {
+      await rm(extractDirectory, { recursive: true, force: true }).catch(() => undefined);
+      throw error;
+    } finally {
+      await rm(temporaryArchivePath, { force: true }).catch(() => undefined);
+      await rm(archivePath, { force: true }).catch(() => undefined);
     }
-
-    await pipeline(
-      Readable.fromWeb(response.body as ReadableStream<Uint8Array>),
-      createWriteStream(temporaryArchivePath)
-    );
-    await rm(archivePath, { force: true });
-    await rename(temporaryArchivePath, archivePath);
-    await this.expandArchive(archivePath, extractDirectory);
-
-    const installedRuntime = await this.hydrateRuntime(runtime);
-
-    if (!installedRuntime.executablePath) {
-      throw new Error(`Installed ${runtime.name}, but no whisper-cli.exe was found.`);
-    }
-
-    return installedRuntime;
   }
 
   async getFirstRunCudaRuntimeTarget(): Promise<WhisperRuntimeCatalogItem | null> {

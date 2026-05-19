@@ -1,5 +1,5 @@
 import { app } from "electron";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { type TranscriptEntry } from "../shared/transcripts";
 
@@ -51,6 +51,7 @@ export class HistoryStore {
   async cleanup(): Promise<TranscriptEntry[]> {
     await this.list();
     await this.prune();
+    await this.removeOrphanedAudio();
 
     return this.entries ?? [];
   }
@@ -104,6 +105,22 @@ export class HistoryStore {
     }
 
     await rm(this.getAudioPath(entry.audioFileName), { force: true });
+  }
+
+  private async removeOrphanedAudio(): Promise<void> {
+    const retainedAudioFiles = new Set(
+      (this.entries ?? [])
+        .map((entry) => entry.audioFileName)
+        .filter((fileName): fileName is string => Boolean(fileName))
+    );
+    const audioFiles = await readdir(this.audioDirectory, { withFileTypes: true }).catch(() => []);
+
+    await Promise.all(
+      audioFiles
+        .filter((entry) => entry.isFile() && /\.wav$/i.test(entry.name))
+        .filter((entry) => !retainedAudioFiles.has(entry.name))
+        .map((entry) => rm(this.getAudioPath(entry.name), { force: true }).catch(() => undefined))
+    );
   }
 
   private getAudioPath(audioFileName: string): string {

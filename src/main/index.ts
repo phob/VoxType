@@ -23,6 +23,7 @@ import { ModelService } from "./model-service";
 import { OcrService } from "./ocr-service";
 import { RuntimeService } from "./runtime-service";
 import { SettingsStore } from "./settings-store";
+import { cleanupStartupStorage } from "./startup-cleanup";
 import { TranscriptionService } from "./transcription-service";
 import { UpdateService } from "./update-service";
 import { WindowsHelperService } from "./windows-helper-service";
@@ -834,7 +835,9 @@ ipcMain.handle("recording-overlay:hide", () => {
 });
 ipcMain.handle("recording-overlay:get-state", () => overlayState);
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  await cleanupStartupStorage().catch(() => undefined);
+  await historyStore.cleanup().catch(() => undefined);
   Menu.setApplicationMenu(null);
   void settingsStore.get().then((settings) => {
     applyStartupSettings(settings);

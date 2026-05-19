@@ -1,6 +1,6 @@
 import { app } from "electron";
 import { createWriteStream } from "node:fs";
-import { mkdir } from "node:fs/promises";
+import { mkdir, rename, rm } from "node:fs/promises";
 import { get } from "node:https";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
@@ -9,6 +9,7 @@ import { type UpdateStatus } from "../shared/updates";
 const latestReleaseUrl = "https://api.github.com/repos/phob/VoxType/releases/latest";
 const updateRequestTimeoutMs = 15000;
 const staleCheckingTimeoutMs = 30000;
+const updateDirectory = join(app.getPath("userData"), "updates");
 
 type GitHubReleaseAsset = {
   name: string;
@@ -44,6 +45,11 @@ export class UpdateService {
   private candidate: UpdateCandidate | null = null;
   private checkPromise: Promise<UpdateStatus> | null = null;
   private checkingStartedAt: number | null = null;
+  private readonly updateCleanupPromise: Promise<void>;
+
+  constructor() {
+    this.updateCleanupPromise = cleanupUpdateDirectory();
+  }
 
   getStatus(): UpdateStatus {
     if (
@@ -137,12 +143,18 @@ export class UpdateService {
       error: null
     };
 
+    let temporaryInstallerPath: string | null = null;
+
     try {
-      const updateDirectory = join(app.getPath("userData"), "updates");
+      await this.updateCleanupPromise;
       const installerPath = join(updateDirectory, candidate.installerName);
+      temporaryInstallerPath = `${installerPath}.download`;
 
       await mkdir(updateDirectory, { recursive: true });
-      await downloadFile(candidate.installerUrl, installerPath);
+      await rm(temporaryInstallerPath, { force: true });
+      await downloadFile(candidate.installerUrl, temporaryInstallerPath);
+      await rm(installerPath, { force: true });
+      await rename(temporaryInstallerPath, installerPath);
 
       this.status = {
         ...this.status,
@@ -157,6 +169,10 @@ export class UpdateService {
 
       app.quit();
     } catch (error) {
+      if (temporaryInstallerPath) {
+        await rm(temporaryInstallerPath, { force: true }).catch(() => undefined);
+      }
+
       this.status = {
         ...this.status,
         state: "error",
@@ -166,6 +182,10 @@ export class UpdateService {
 
     return this.status;
   }
+}
+
+async function cleanupUpdateDirectory(): Promise<void> {
+  await rm(updateDirectory, { recursive: true, force: true }).catch(() => undefined);
 }
 
 function releaseToCandidate(release: GitHubRelease): UpdateCandidate | null {

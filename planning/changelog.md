@@ -4,6 +4,11 @@
 
 - Clarified the native Silero VAD direction around preserving internal thinking pauses up to a cap so resumed speech and first words remain available to Whisper.
 - Added an open question about future VAD presets for natural dictation, low latency, and noisy-room trimming.
+- Added the Context Engine as the next dictionary/context integration layer, with glossary language, architecture placement, and roadmap direction.
+- Sequenced the first Context Engine slice around post-ASR correction quality before prompt ranking.
+- Defined Context Engine correction confidence bands and limited first-version auto-apply behavior to high-confidence corrections.
+- Clarified storage cleanup behavior for managed Whisper runtime archives, OCR screenshots, and in-app update installers.
+- Added startup cleanup planning for disposable Electron cache folders, partial download/temp files, native recording leftovers, and orphaned transcript audio.
 
 ## 2026-05-10
 
