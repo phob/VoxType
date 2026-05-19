@@ -132,7 +132,15 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
       ]);
       const timeout = setTimeout(() => {
         socket.close();
-        reject(new Error("OpenAI realtime session did not connect before the pre-connection buffer expired."));
+        const error = this.socket === socket
+          ? new Error("OpenAI realtime session configuration did not complete before the pre-connection buffer expired.")
+          : new Error("OpenAI realtime session did not connect before the pre-connection buffer expired.");
+
+        if (this.socket === socket) {
+          this.failRealtime(error);
+        } else {
+          reject(error);
+        }
       }, 5000);
 
       socket.addEventListener("open", () => {
