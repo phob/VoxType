@@ -120,6 +120,8 @@ grep_score 6 grep -R "language: settings.whisperLanguage" -n src/main/index.ts >
 grep_score 6 grep -R "typeof entry.languageHint === \"string\"" -n src/main/history-store.ts >/dev/null
 grep_score 6 grep -R "entry.turnCount" -n src/renderer >/dev/null
 grep_score 6 grep -R "entry.turnStatus" -n src/renderer >/dev/null
+grep_score 6 grep -R "entry.languageHint" -n src/renderer/src/App.tsx >/dev/null
+grep_score 6 grep -R "language .*entry.languageHint" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "disabled in Offline Mode" -n src/renderer >/dev/null
 grep_score 6 grep -R "API key required" -n src/renderer >/dev/null
 grep_score 6 grep -R "option disabled" -n src/renderer >/dev/null

@@ -2205,7 +2205,7 @@ export function App(): JSX.Element {
                     <article className="recent-history-row" key={entry.id}>
                       <FileText aria-hidden="true" className="release-icon-svg" />
                       <p>{entry.text}</p>
-                      <small>{entry.providerId === "openai" ? "Cloud Dictation" : "Local dictation"}</small>
+                      <small>{entry.providerId === "openai" ? "Cloud Dictation" : "Local dictation"}{entry.languageHint ? ` · ${entry.languageHint}` : " · auto"}</small>
                       <time>{formatRelativeTimestamp(entry.createdAt)}</time>
                       <button aria-label="Transcript actions" type="button">
                         <MoreVertical aria-hidden="true" className="release-icon-svg" />
@@ -3137,6 +3137,7 @@ export function App(): JSX.Element {
                       <p>{entry.text}</p>
                       <small>
                         {entry.providerId === "openai" ? "Cloud Dictation" : "Local dictation"} · {entry.dictationModeId ?? "local.custom"} · {entry.modelId} · {formatDuration(entry.durationMs)}
+                        {entry.languageHint ? ` · language ${entry.languageHint}` : " · language auto"}
                         {entry.turnCount ? ` · ${entry.turnCount} turns` : ""}
                         {entry.turnStatus ? ` · ${entry.turnStatus}` : ""}
                         {entry.audioFileName ? " · audio saved" : ""}
