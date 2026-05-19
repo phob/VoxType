@@ -443,7 +443,10 @@ function hideOverlay(): void {
   overlayState = {
     ...overlayState,
     visible: false,
-    level: 0
+    level: 0,
+    cloudProviderLabel: undefined,
+    elapsedMs: undefined,
+    livePreviewTurns: undefined
   };
   sendOverlayState();
   overlayWindow?.destroy();
