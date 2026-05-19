@@ -1211,7 +1211,6 @@ export function App(): JSX.Element {
 
     clearCloudSessionLimitTimer();
     setRecording(false);
-    setBusyMessage("Transcribing locally...");
     let stopReadinessModeId: DictationModeId | null = null;
 
     try {
@@ -1221,6 +1220,13 @@ export function App(): JSX.Element {
         options?.pasteTarget?.processName ?? hotkeyTargetRef.current?.processName
       );
       stopReadinessModeId = readiness.modeId;
+      setBusyMessage(
+        readiness.modeId === "openai.realtime"
+          ? "Finalizing realtime cloud dictation..."
+          : readiness.cloud
+            ? "Transcribing with OpenAI..."
+            : "Transcribing locally..."
+      );
       await window.voxtype.recordingOverlay.showTranscribing({
         cloudProviderLabel: readiness.cloud ? "Cloud Dictation" : undefined,
         message: readiness.cloud ? "Transcribing with OpenAI" : "Transcribing locally"
