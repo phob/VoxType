@@ -2,11 +2,30 @@ import { type AsrResult, type FileAsrProvider, type FileAsrRequest } from "../sh
 import { OpenAiCredentialStore } from "./openai-credential-store";
 
 const OPENAI_TRANSCRIPTION_URL = "https://api.openai.com/v1/audio/transcriptions";
+const OPENAI_MODELS_URL = "https://api.openai.com/v1/models";
 
 export class OpenAiFileAsrProvider implements FileAsrProvider {
   readonly providerId = "openai" as const;
 
   constructor(private readonly credentials: OpenAiCredentialStore) {}
+
+  async testConnection(modelId: string): Promise<{ ok: boolean; message: string }> {
+    const apiKey = await this.credentials.getApiKey();
+
+    if (!apiKey) {
+      return { ok: false, message: "OpenAI API key is required before testing Cloud Dictation." };
+    }
+
+    const response = await fetch(`${OPENAI_MODELS_URL}/${encodeURIComponent(modelId)}`, {
+      headers: { Authorization: `Bearer ${apiKey}` }
+    });
+
+    if (!response.ok) {
+      return { ok: false, message: await formatOpenAiError(response) };
+    }
+
+    return { ok: true, message: `${modelId} is available for this API key.` };
+  }
 
   async transcribeFile(request: FileAsrRequest): Promise<AsrResult> {
     const apiKey = await this.credentials.getApiKey();

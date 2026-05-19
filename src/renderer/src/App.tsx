@@ -655,6 +655,20 @@ export function App(): JSX.Element {
     setState((current) => ({ ...current, openaiCredentials }));
   }
 
+  async function testOpenAiConnection(): Promise<void> {
+    setBusyMessage("Testing OpenAI connection...");
+
+    try {
+      const result = await window.voxtype.openaiCredentials.testConnection();
+      setInsertionTestResult(result.message);
+      setError(result.ok ? null : result.message);
+    } catch (testError) {
+      setError(formatError(testError));
+    } finally {
+      setBusyMessage(null);
+    }
+  }
+
   function captureHotkey(event: MouseEvent, target: HotkeyCaptureTarget): void {
     if (event.button !== 0) {
       return;
@@ -1985,6 +1999,7 @@ export function App(): JSX.Element {
                   </span>
                   <div className="setting-actions">
                     <button onClick={() => void saveOpenAiApiKey()} type="button">Save key</button>
+                    <button disabled={!state.openaiCredentials?.hasApiKey} onClick={() => void testOpenAiConnection()} type="button">Test connection</button>
                     <button disabled={!state.openaiCredentials?.hasApiKey} onClick={() => void clearOpenAiApiKey()} type="button">Clear</button>
                   </div>
                 </div>

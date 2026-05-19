@@ -62,6 +62,8 @@ const voxtype = {
     reset: () => ipcRenderer.invoke("settings:reset") as Promise<AppSettings>
   },
   openaiCredentials: {
+    testConnection: () =>
+      ipcRenderer.invoke("openai:test-connection") as Promise<{ ok: boolean; message: string }>,
     getStatus: () =>
       ipcRenderer.invoke("openai-credentials:get-status") as Promise<{ hasApiKey: boolean }>,
     setApiKey: (apiKey: string) =>

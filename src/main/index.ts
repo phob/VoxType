@@ -22,6 +22,7 @@ import { HistoryStore } from "./history-store";
 import { InsertionService } from "./insertion-service";
 import { ModelService } from "./model-service";
 import { OcrService } from "./ocr-service";
+import { OpenAiFileAsrProvider } from "./openai-asr-provider";
 import { OpenAiCredentialStore } from "./openai-credential-store";
 import { RuntimeService } from "./runtime-service";
 import { SettingsStore } from "./settings-store";
@@ -69,6 +70,7 @@ const hardwareService = new HardwareService();
 const windowsHelperService = new WindowsHelperService();
 const ocrService = new OcrService(windowsHelperService);
 const openAiCredentialStore = new OpenAiCredentialStore();
+const openAiFileAsrProvider = new OpenAiFileAsrProvider(openAiCredentialStore);
 const updateService = new UpdateService();
 const transcriptionService = new TranscriptionService(
   settingsStore,
@@ -689,6 +691,17 @@ ipcMain.handle("openai-credentials:set-api-key", async (_event, apiKey: string) 
 ipcMain.handle("openai-credentials:clear-api-key", async () => {
   await openAiCredentialStore.clearApiKey();
   return { hasApiKey: false };
+});
+
+ipcMain.handle("openai:test-connection", async () => {
+  const settings = await settingsStore.get();
+  const mode = getCloudDictationReadiness({
+    settings,
+    profile: null,
+    hasApiKey: await openAiCredentialStore.hasApiKey()
+  });
+
+  return openAiFileAsrProvider.testConnection(mode.modeId.startsWith("openai.") ? mode.modeId === "openai.economy" ? "gpt-4o-mini-transcribe" : mode.modeId === "openai.realtime" ? "gpt-realtime-whisper" : "gpt-4o-transcribe" : "gpt-4o-transcribe");
 });
 ipcMain.handle("models:list", () => modelService.list());
 ipcMain.handle("models:download", (_event, modelId: string) => modelService.download(modelId));
