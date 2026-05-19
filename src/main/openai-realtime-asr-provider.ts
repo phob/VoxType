@@ -24,6 +24,10 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
     resolve: () => void;
     reject: (error: Error) => void;
   }> = [];
+  private sessionReadyWaiters: Array<{
+    resolve: () => void;
+    reject: (error: Error) => void;
+  }> = [];
   private lastError: Error | null = null;
 
   constructor(
@@ -132,18 +136,31 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
       }, 5000);
 
       socket.addEventListener("open", () => {
-        clearTimeout(timeout);
         this.socket = socket;
+        this.sessionReadyWaiters.push({
+          resolve: () => {
+            clearTimeout(timeout);
+            resolve();
+          },
+          reject: (error: Error) => {
+            clearTimeout(timeout);
+            reject(error);
+          }
+        });
         socket.send(JSON.stringify(buildSessionUpdate(
           promptPack,
           language,
           latencyPreset
         )));
-        resolve();
       }, { once: true });
 
       socket.addEventListener("message", (event) => this.handleMessage(event));
       socket.addEventListener("close", () => {
+        if (this.sessionReadyWaiters.length > 0) {
+          this.failRealtime(new Error("OpenAI realtime session closed before session configuration completed."));
+          return;
+        }
+
         if (this.finalTranscriptWaiters.length > 0) {
           this.failRealtime(new Error("OpenAI realtime session closed before final transcript completed."));
         }
@@ -182,6 +199,12 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
         this.failRealtime(new Error(formatRealtimeOpenAiError(payload.error)));
         return;
       }
+
+      if (payload.type === "session.updated") {
+        this.resolveSessionReadyWaiters();
+        return;
+      }
+
       const providerItemId = payload.item_id ?? "current";
       const final = payload.type === "conversation.item.input_audio_transcription.completed" ||
         (payload.type?.includes("completed") ?? false);
@@ -226,10 +249,24 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
   private failRealtime(error: Error): void {
     this.lastError = error;
     this.onError?.(error);
+    const sessionWaiters = this.sessionReadyWaiters;
+    this.sessionReadyWaiters = [];
+    for (const waiter of sessionWaiters) {
+      waiter.reject(error);
+    }
+
     const waiters = this.finalTranscriptWaiters;
     this.finalTranscriptWaiters = [];
     for (const waiter of waiters) {
       waiter.reject(error);
+    }
+  }
+
+  private resolveSessionReadyWaiters(): void {
+    const waiters = this.sessionReadyWaiters;
+    this.sessionReadyWaiters = [];
+    for (const waiter of waiters) {
+      waiter.resolve();
     }
   }
 

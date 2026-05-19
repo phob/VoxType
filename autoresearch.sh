@@ -172,6 +172,9 @@ grep_score 6 grep -R "throwIfRealtimeFailed" -n src/main/openai-realtime-asr-pro
 grep_score 6 grep -R "failRealtime" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "OpenAI realtime session closed before final transcript completed" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "finalTranscriptWaiters.length > 0" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "sessionReadyWaiters" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "session.updated" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "OpenAI realtime session closed before session configuration completed" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "await session.finalize" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "cloudSessionWarnMs" -n src >/dev/null
 grep_score 6 grep -R "cloudSessionMaxMs" -n src >/dev/null
