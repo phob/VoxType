@@ -282,7 +282,13 @@ function cloudErrorCode(error: unknown): string {
 }
 
 function formatErrorMessage(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  const message = error instanceof Error ? error.message : String(error);
+
+  if (/transcript|text/i.test(message)) {
+    return "Provider returned no usable transcript.";
+  }
+
+  return message;
 }
 
 function resolveDictationMode(settings: AppSettings, profile: AppProfile | null): DictationMode {

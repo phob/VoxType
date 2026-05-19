@@ -148,7 +148,8 @@ grep_score 6 grep -R "openAiFileAsrProvider.testConnection(modelId)" -n src/main
 grep_score 6 grep -R "transcription:preview-prompt-pack" -n src >/dev/null
 grep_score 6 grep -R "previewPromptPack" -n src/preload src/renderer >/dev/null
 grep_score 6 grep -R "Cloud Prompt Pack preview" -n src/renderer >/dev/null
-grep_score 6 grep -R "Screenshots, transcript history, full Dictionary, and insertion target contents are not included" -n src/renderer/src/App.tsx >/dev/null
+grep_score 6 grep -R "Screenshots, transcript history, full Dictionary, and insertion target contents are not included" -n src/shared/cloud-prompt-pack-preview.ts >/dev/null
+grep_score 6 grep -R "formatCloudPromptPackPreview" -n src/shared/cloud-prompt-pack-preview.ts src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "includeOcrContext: false" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "forbidCloudDictation.*isCloudDictationMode" -n src/shared/cloud-status.ts src/main/transcription-service.ts >/dev/null
 grep_score 6 grep -R "local\.balanced" -n src/shared/cloud-status.ts src/main/transcription-service.ts >/dev/null
@@ -350,6 +351,8 @@ grep_score 6 grep -R "getCloudDictationReadinessForMode" -n src/shared/cloud-sta
 grep_score 6 grep -R "requestedModeId: mode.id" -n src/main/transcription-service.ts >/dev/null
 grep_score 6 bash -c '! grep -R "getCloudDictationBlockReason" -n src/main/transcription-service.ts'
 grep_score 6 grep -R "formatErrorMessage" -n src/main/transcription-service.ts >/dev/null
+grep_score 6 grep -R "Provider returned no usable transcript" -n src/main/transcription-service.ts >/dev/null
+grep_score 6 grep -R "transcript|text" -n src/main/transcription-service.ts >/dev/null
 grep_score 6 grep -R "isDictationModeId" -n src/main/history-store.ts >/dev/null
 grep_score 6 grep -R "entry.providerId === \"local-whisper\"" -n src/main/history-store.ts >/dev/null
 grep_score 6 grep -R "entry.providerId === \"openai\"" -n src/main/history-store.ts >/dev/null
