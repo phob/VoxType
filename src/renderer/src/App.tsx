@@ -1048,6 +1048,10 @@ export function App(): JSX.Element {
       return;
     }
 
+    if (readiness.profileForbidsCloud && readiness.reason) {
+      setBusyMessage(readiness.reason);
+    }
+
     try {
       await window.voxtype.recordingOverlay.showRecording(
         readiness.cloud
