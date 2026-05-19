@@ -6,6 +6,7 @@ export type OpenAiModeImplementationReadiness = {
   realtimeSessionIpcReady: boolean;
   realtimeRendererLifecycleReady: boolean;
   realtimeNativePcmStreamingReady: boolean;
+  releaseSmokeTested: boolean;
   realtimeReady: boolean;
 };
 
@@ -14,7 +15,8 @@ export const currentOpenAiModeImplementationReadiness = createOpenAiModeImplemen
   fileEconomyReady: true,
   realtimeSessionIpcReady: true,
   realtimeRendererLifecycleReady: true,
-  realtimeNativePcmStreamingReady: true
+  realtimeNativePcmStreamingReady: true,
+  releaseSmokeTested: false
 });
 
 export function createOpenAiModeImplementationReadiness(input: Omit<OpenAiModeImplementationReadiness, "realtimeReady">): OpenAiModeImplementationReadiness {
@@ -23,20 +25,28 @@ export function createOpenAiModeImplementationReadiness(input: Omit<OpenAiModeIm
     realtimeReady:
       input.realtimeSessionIpcReady &&
       input.realtimeRendererLifecycleReady &&
-      input.realtimeNativePcmStreamingReady
+      input.realtimeNativePcmStreamingReady &&
+      input.releaseSmokeTested
   };
 }
 
 export function areAllOpenAiModesReadyForRelease(
   readiness: OpenAiModeImplementationReadiness
 ): boolean {
-  return readiness.fileAccuracyReady && readiness.fileEconomyReady && readiness.realtimeReady;
+  return readiness.fileAccuracyReady && readiness.fileEconomyReady && readiness.realtimeReady && readiness.releaseSmokeTested;
 }
 
 export function getOpenAiModeImplementationStatus(
   modeId: DictationModeId,
   readiness: OpenAiModeImplementationReadiness
 ): { implemented: boolean; reason: string | null } {
+  if (modeId === "openai.realtime" && !readiness.releaseSmokeTested) {
+    return {
+      implemented: false,
+      reason: "Realtime Cloud Dictation needs release smoke testing before normal UI exposure"
+    };
+  }
+
   if (modeId === "openai.realtime" && !readiness.realtimeNativePcmStreamingReady) {
     return {
       implemented: false,
