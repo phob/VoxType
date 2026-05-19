@@ -32,7 +32,7 @@ import {
   type PcmRecordingResult
 } from "./audio-recorder";
 import { eventToAccelerator } from "./hotkey-capture";
-import { dictationModes, isCloudDictationMode, type DictationModeId } from "../../../shared/asr";
+import { dictationModes, getDictationMode, isCloudDictationMode, type DictationModeId } from "../../../shared/asr";
 import { getCloudSessionLimitState } from "../../../shared/cloud-session-limits";
 import { getDictationModeAvailability } from "../../../shared/dictation-mode-availability";
 import { type DictionaryEntry } from "../../../shared/dictionary";
@@ -300,6 +300,8 @@ export function App(): JSX.Element {
     generatedWhisperPrompt,
     state.settings?.whisperPromptOverride ?? ""
   );
+  const activeDictationMode = getDictationMode(state.settings?.dictationModeId ?? "local.balanced");
+  const activeProviderLabel = activeDictationMode.providerId === "openai" ? "Cloud Dictation" : "Local dictation";
   const appStatus = error ? "Error" : recording ? "Recording" : busyMessage ? busyMessage : "Ready";
   const activeRuntimeLabel = state.runtime
     ? `${state.runtime.backend.toUpperCase()} · ${state.runtime.status}`
@@ -2068,6 +2070,9 @@ export function App(): JSX.Element {
                   <ReleaseIcon name="settings" decorative />
                   <h2>Settings</h2>
                 </div>
+                <ReleaseChip tone={activeDictationMode.providerId === "openai" ? "warning" : "success"}>
+                  {activeProviderLabel}: {activeDictationMode.label}
+                </ReleaseChip>
               </div>
               <div className="settings-list">
                 <label className="setting-row">
@@ -4148,6 +4153,7 @@ export function App(): JSX.Element {
               </label>
             </div>
             <div className="result-row">
+              <code>{activeProviderLabel} · {activeDictationMode.label}</code>
               <code>hotkeys</code>
               <span>
                 dictation={state.hotkeys?.dictationToggleHotkey ?? "none"} show=
