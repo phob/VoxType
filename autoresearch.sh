@@ -110,6 +110,10 @@ grep_score 6 grep -R "showTranscribing: (state" -n src/preload >/dev/null
 grep_score 6 grep -R "cloudProviderLabel: readiness.cloud" -n src/renderer >/dev/null
 grep_score 6 grep -R "getDictationMode(mode.modeId)" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "openAiFileAsrProvider.testConnection(modelId)" -n src/main/index.ts >/dev/null
+grep_score 6 grep -R "transcription:preview-prompt-pack" -n src >/dev/null
+grep_score 6 grep -R "previewPromptPack" -n src/preload src/renderer >/dev/null
+grep_score 6 grep -R "Cloud Prompt Pack preview" -n src/renderer >/dev/null
+grep_score 6 grep -R "includeOcrContext: false" -n src/main/index.ts >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null

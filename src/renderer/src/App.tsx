@@ -660,6 +660,17 @@ export function App(): JSX.Element {
     setState((current) => ({ ...current, openaiCredentials }));
   }
 
+  async function previewCloudPromptPack(): Promise<void> {
+    const promptPack = await window.voxtype.transcription.previewPromptPack(
+      state.activeWindow?.processName
+    );
+    setInsertionTestResult(
+      promptPack
+        ? `Cloud Prompt Pack preview (${promptPack.terms.length} terms, ${promptPack.source}): ${promptPack.text}`
+        : "Cloud Prompt Pack preview is empty for the current app."
+    );
+  }
+
   async function testOpenAiConnection(): Promise<void> {
     setBusyMessage("Testing OpenAI connection...");
 
@@ -2037,6 +2048,7 @@ export function App(): JSX.Element {
                   </span>
                   <div className="setting-actions">
                     <button onClick={() => void saveOpenAiApiKey()} type="button">Save key</button>
+                    <button onClick={() => void previewCloudPromptPack()} type="button">Prompt Pack preview</button>
                     <button disabled={!state.openaiCredentials?.hasApiKey} onClick={() => void testOpenAiConnection()} type="button">Test connection</button>
                     <button disabled={!state.openaiCredentials?.hasApiKey} onClick={() => void clearOpenAiApiKey()} type="button">Clear</button>
                   </div>

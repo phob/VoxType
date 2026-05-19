@@ -25,6 +25,7 @@ import { ModelService } from "./model-service";
 import { OcrService } from "./ocr-service";
 import { OpenAiFileAsrProvider } from "./openai-asr-provider";
 import { OpenAiCredentialStore } from "./openai-credential-store";
+import { buildCloudPromptPack } from "./prompt-pack";
 import { RuntimeService } from "./runtime-service";
 import { SettingsStore } from "./settings-store";
 import { cleanupStartupStorage } from "./startup-cleanup";
@@ -747,6 +748,26 @@ ipcMain.handle(
   (_event, imagePath: string, mode: "screen" | "activeWindow") =>
     ocrService.recognizeImage(imagePath, mode)
 );
+ipcMain.handle("transcription:preview-prompt-pack", async (_event, processName?: string | null) => {
+  const settings = await settingsStore.get();
+  const profile = findAppProfile(settings.appProfiles, processName ?? null);
+  const readiness = getCloudDictationReadiness({
+    settings,
+    profile,
+    hasApiKey: await openAiCredentialStore.hasApiKey()
+  });
+
+  if (!readiness.cloud) {
+    return null;
+  }
+
+  return buildCloudPromptPack(dictionaryStore, {
+    processName,
+    ocrContext: null,
+    includeOcrContext: false
+  });
+});
+
 ipcMain.handle("transcription:get-readiness", async (_event, processName?: string | null) => {
   const settings = await settingsStore.get();
   const profile = findAppProfile(settings.appProfiles, processName ?? null);

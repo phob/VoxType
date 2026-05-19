@@ -4,6 +4,7 @@ import {
   type DictionaryEntry,
   type DictionaryPatch
 } from "../shared/dictionary";
+import { type PromptPack } from "../shared/asr";
 import { type CloudDictationReadiness } from "../shared/cloud-status";
 import { type HardwareAccelerationReport } from "../shared/hardware";
 import { type HotkeyStatus } from "../shared/hotkeys";
@@ -103,6 +104,8 @@ const voxtype = {
       ipcRenderer.invoke("ocr:recognize-screenshot", imagePath, mode) as Promise<OcrResult>
   },
   transcription: {
+    previewPromptPack: (processName?: string | null) =>
+      ipcRenderer.invoke("transcription:preview-prompt-pack", processName) as Promise<PromptPack | null>,
     getReadiness: (processName?: string | null) =>
       ipcRenderer.invoke("transcription:get-readiness", processName) as Promise<CloudDictationReadiness>,
     transcribeWav: (
