@@ -84,14 +84,24 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
     }
 
     await new Promise<void>((resolve, reject) => {
-      const timeout = setTimeout(resolve, timeoutMs);
+      const settle = (waiter: {
+        resolve: () => void;
+        reject: (error: Error) => void;
+      }): void => {
+        clearTimeout(timeout);
+        this.removeFinalTranscriptWaiter(waiter);
+      };
+      const timeout = setTimeout(() => {
+        settle(waiter);
+        resolve();
+      }, timeoutMs);
       const waiter = {
         resolve: () => {
-          clearTimeout(timeout);
+          settle(waiter);
           resolve();
         },
         reject: (error: Error) => {
-          clearTimeout(timeout);
+          settle(waiter);
           reject(error);
         }
       };
@@ -276,6 +286,13 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
     for (const waiter of waiters) {
       waiter.resolve();
     }
+  }
+
+  private removeFinalTranscriptWaiter(waiter: {
+    resolve: () => void;
+    reject: (error: Error) => void;
+  }): void {
+    this.finalTranscriptWaiters = this.finalTranscriptWaiters.filter((candidate) => candidate !== waiter);
   }
 
   private resolveFinalTranscriptWaiters(): void {
