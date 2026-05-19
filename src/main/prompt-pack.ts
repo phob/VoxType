@@ -1,9 +1,7 @@
-import { type OcrPromptContext } from "../shared/ocr-context";
 import { type PromptPack } from "../shared/asr";
+import { type OcrPromptContext } from "../shared/ocr-context";
+import { PROMPT_PACK_MAX_CHARS, PROMPT_PACK_MAX_TERMS } from "../shared/prompt-pack-limits";
 import { DictionaryStore } from "./dictionary-store";
-
-export const PROMPT_PACK_MAX_TERMS = 50;
-export const PROMPT_PACK_MAX_CHARS = 1000;
 
 export type CloudPromptPackOptions = {
   processName?: string | null;

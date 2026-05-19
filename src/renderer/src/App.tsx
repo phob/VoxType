@@ -42,6 +42,7 @@ import { type LocalModel } from "../../shared/models";
 import { type OcrPromptContext } from "../../shared/ocr-context";
 import { type OcrResult } from "../../shared/ocr";
 import { buildWhisperPromptContext } from "../../shared/prompt-context";
+import { PROMPT_PACK_MAX_CHARS, PROMPT_PACK_MAX_TERMS } from "../../shared/prompt-pack-limits";
 import { type WhisperRuntime, type WhisperRuntimePreference } from "../../shared/runtimes";
 import {
   type AppProfile,
@@ -2243,7 +2244,7 @@ export function App(): JSX.Element {
                 <label className="setting-row">
                   <span>
                     <strong>Allow OCR Context in cloud Prompt Pack</strong>
-                    <small>Off by default. Dictionary terms are still capped to 50 terms / 1,000 characters.</small>
+                    <small>Off by default. Dictionary terms are still capped to {PROMPT_PACK_MAX_TERMS} terms / {PROMPT_PACK_MAX_CHARS.toLocaleString()} characters.</small>
                   </span>
                   <input
                     checked={state.settings.cloudPromptPackOcrEnabled}

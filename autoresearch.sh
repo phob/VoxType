@@ -279,8 +279,11 @@ grep_score 6 grep -R "private finalized = false" -n src/main/realtime-cloud-sess
 grep_score 6 grep -R "cancel(reason = \"Realtime Cloud Dictation session cancelled\")" -n src/main/realtime-cloud-session.ts >/dev/null
 grep_score 6 grep -R "cancelForOfflineMode" -n src/main/realtime-cloud-session.ts >/dev/null
 grep_score 6 grep -R "termLimit: 50" -n src/shared/asr.ts >/dev/null
-grep_score 6 grep -R "characterLimit: 1000" -n src/shared/asr.ts >/dev/null
+grep_score 6 grep -R "PROMPT_PACK_MAX_TERMS = 50" -n src/shared/prompt-pack-limits.ts >/dev/null
+grep_score 6 grep -R "PROMPT_PACK_MAX_CHARS = 1000" -n src/shared/prompt-pack-limits.ts >/dev/null
+grep_score 6 grep -R "PromptPackTermLimit" -n src/shared/asr.ts >/dev/null
 grep_score 6 grep -R "termLimit: PROMPT_PACK_MAX_TERMS" -n src/main/prompt-pack.ts >/dev/null
+grep_score 6 grep -R "PROMPT_PACK_MAX_TERMS" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "promptPack.termLimit" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "Realtime Cloud Dictation stopped because Offline Mode was enabled" -n src/main/realtime-cloud-session.ts >/dev/null
 grep_score 6 grep -R "private snapshot()" -n src/main/realtime-cloud-session.ts >/dev/null

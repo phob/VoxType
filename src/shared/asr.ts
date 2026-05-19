@@ -3,6 +3,7 @@ import {
   OPENAI_REALTIME_WHISPER_MODEL_ID,
   OPENAI_TRANSCRIBE_MODEL_ID
 } from "./openai-models";
+import { type PromptPackCharacterLimit, type PromptPackTermLimit } from "./prompt-pack-limits";
 import { type RealtimeLatencyPreset, type WhisperLanguage } from "./settings";
 
 export type AsrProviderId = "local-whisper" | "openai";
@@ -51,8 +52,8 @@ export type PromptPack = {
   text: string;
   source: "dictionary" | "dictionary+ocr";
   truncated: boolean;
-  termLimit: 50;
-  characterLimit: 1000;
+  termLimit: PromptPackTermLimit;
+  characterLimit: PromptPackCharacterLimit;
 };
 
 export type FileAsrRequest = {
