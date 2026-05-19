@@ -12,6 +12,7 @@ import { type PromptPack } from "../shared/asr";
 export type RealtimeCloudSessionSnapshot = {
   startedAtMs: number;
   turns: TranscriptTurn[];
+  preConnectionDroppedBytes: number;
 };
 
 const openAiRealtimePreConnectionBufferBytes = openAiRealtimeAudioConfig.sampleRateHz * 2 * 5;
@@ -22,6 +23,7 @@ export class RealtimeCloudSession {
   private finalized = false;
   private streamingStarted = false;
   private preConnectionBytes = 0;
+  private preConnectionDroppedBytes = 0;
   private readonly preConnectionBuffer: Uint8Array[] = [];
   private readonly provider: OpenAiRealtimeAsrProvider;
 
@@ -115,7 +117,9 @@ export class RealtimeCloudSession {
 
     while (this.preConnectionBytes > openAiRealtimePreConnectionBufferBytes) {
       const removed = this.preConnectionBuffer.shift();
-      this.preConnectionBytes -= removed?.byteLength ?? 0;
+      const removedBytes = removed?.byteLength ?? 0;
+      this.preConnectionBytes -= removedBytes;
+      this.preConnectionDroppedBytes += removedBytes;
     }
   }
 
@@ -131,7 +135,8 @@ export class RealtimeCloudSession {
   private snapshot(): RealtimeCloudSessionSnapshot {
     return {
       startedAtMs: this.startedAtMs,
-      turns: this.turns
+      turns: this.turns,
+      preConnectionDroppedBytes: this.preConnectionDroppedBytes
     };
   }
 }

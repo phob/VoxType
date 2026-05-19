@@ -350,6 +350,8 @@ grep_score 6 grep -R "openAiRealtimePreConnectionBufferBytes" -n src/main/realti
 grep_score 6 grep -R "bufferPreConnectionAudio" -n src/main/realtime-cloud-session.ts >/dev/null
 grep_score 6 grep -R "flushPreConnectionBuffer" -n src/main/realtime-cloud-session.ts >/dev/null
 grep_score 6 grep -R "this.streamingStarted = true" -n src/main/realtime-cloud-session.ts >/dev/null
+grep_score 6 grep -R "preConnectionDroppedBytes" -n src/main/realtime-cloud-session.ts src/main/index.ts >/dev/null
+grep_score 6 grep -R "Realtime pre-connection buffer limit reached; oldest audio was dropped" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "cloudProviderLabel: undefined" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "elapsedMs: undefined" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "livePreviewTurns: undefined" -n src/main/index.ts >/dev/null

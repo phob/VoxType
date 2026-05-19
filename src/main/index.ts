@@ -884,6 +884,14 @@ ipcMain.handle("transcription:realtime-finalize", async () => {
   const snapshot = session.finalize();
   const mode = getDictationMode("openai.realtime");
 
+  if (snapshot.preConnectionDroppedBytes > 0) {
+    updateOverlay({
+      mode: "finalizing",
+      cloudProviderLabel: "Cloud Dictation",
+      message: "Realtime pre-connection buffer limit reached; oldest audio was dropped."
+    });
+  }
+
   return realtimeCloudHistoryService.save({
     mode,
     turns: snapshot.turns,
