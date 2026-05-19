@@ -185,12 +185,28 @@ export class TranscriptionService {
     });
     assertCloudDictationLogIsMetadataOnly(startedLogEntry);
 
-    const asrResult = await this.openAiFileProvider.transcribeFile({
-      audioBytes,
-      mode,
-      promptPack,
-      language: whisperLanguage
-    });
+    let asrResult: Awaited<ReturnType<OpenAiFileAsrProvider["transcribeFile"]>>;
+
+    try {
+      asrResult = await this.openAiFileProvider.transcribeFile({
+        audioBytes,
+        mode,
+        promptPack,
+        language: whisperLanguage
+      });
+    } catch (error) {
+      const failedLogEntry = createCloudDictationLogEntry({
+        providerId: "openai",
+        modelId: mode.modelId,
+        modeId: mode.id,
+        durationMs: Date.now() - startedAt,
+        status: "failed",
+        errorCode: cloudErrorCode(error)
+      });
+      assertCloudDictationLogIsMetadataOnly(failedLogEntry);
+      throw error;
+    }
+
     const completedLogEntry = createCloudDictationLogEntry({
       providerId: asrResult.providerId,
       modelId: asrResult.modelId,
@@ -251,6 +267,15 @@ export class TranscriptionService {
 
     return null;
   }
+}
+
+function cloudErrorCode(error: unknown): string {
+  if (!(error instanceof Error)) {
+    return "unknown";
+  }
+
+  const match = error.message.match(/\(([^)]+)\)/);
+  return match?.[1] ?? error.name;
 }
 
 function resolveDictationMode(settings: AppSettings, profile: AppProfile | null): DictationMode {

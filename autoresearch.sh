@@ -145,6 +145,9 @@ grep_score 6 grep -R "assertCloudDictationLogIsMetadataOnly" -n src >/dev/null
 grep_score 6 grep -R "sensitive field" -n src/shared/cloud-logging.ts >/dev/null
 grep_score 6 grep -R "status: \"completed\"" -n src/main/transcription-service.ts >/dev/null
 grep_score 6 grep -R "status: \"started\"" -n src/main/transcription-service.ts >/dev/null
+grep_score 6 grep -R "status: \"failed\"" -n src/main/transcription-service.ts >/dev/null
+grep_score 6 grep -R "cloudErrorCode" -n src/main/transcription-service.ts >/dev/null
+grep_score 6 grep -R "failedLogEntry" -n src/main/transcription-service.ts >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null
