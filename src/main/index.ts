@@ -707,10 +707,19 @@ ipcMain.handle("openai:test-connection", async () => {
     };
   }
 
+  const hasApiKey = await openAiCredentialStore.hasApiKey();
+
+  if (!hasApiKey) {
+    return {
+      ok: false,
+      message: "OpenAI test connection requires an API key before any network request."
+    };
+  }
+
   const mode = getCloudDictationReadiness({
     settings,
     profile: null,
-    hasApiKey: await openAiCredentialStore.hasApiKey()
+    hasApiKey
   });
 
   const dictationMode = getDictationMode(mode.modeId);
