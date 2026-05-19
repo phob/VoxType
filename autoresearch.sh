@@ -321,8 +321,11 @@ grep_score 6 grep -R "realtimeReady: false" -n src/shared/openai-readiness.ts >/
 grep_score 6 grep -R "realtimeSessionIpcReady: true" -n src/shared/openai-readiness.ts >/dev/null
 grep_score 6 grep -R "realtimeRendererLifecycleReady: true" -n src/shared/openai-readiness.ts >/dev/null
 grep_score 6 grep -R "realtimeNativePcmStreamingReady: true" -n src/shared/openai-readiness.ts >/dev/null
-grep_score 6 grep -R "releaseSmokeTested: false" -n src/shared/openai-readiness.ts >/dev/null
+grep_score 6 grep -R "releaseSmokeTested: isCloudReleaseSmokeTestComplete" -n src/shared/openai-readiness.ts >/dev/null
 grep_score 6 grep -R "input.releaseSmokeTested" -n src/shared/openai-readiness.ts >/dev/null
+grep_score 6 grep -R "CloudReleaseSmokeTestChecklist" -n src/shared/cloud-release-smoke-test.ts >/dev/null
+grep_score 6 grep -R "realtimeEndToEndDictation: false" -n src/shared/cloud-release-smoke-test.ts >/dev/null
+grep_score 6 grep -R "noSensitiveCloudLogs: false" -n src/shared/cloud-release-smoke-test.ts >/dev/null
 grep_score 6 grep -R "needs release smoke testing before normal UI exposure" -n src/shared/openai-readiness.ts >/dev/null
 grep_score 6 grep -R "createOpenAiModeImplementationReadiness" -n src/shared/openai-readiness.ts >/dev/null
 grep_score 6 grep -R "input.realtimeSessionIpcReady &&" -n src/shared/openai-readiness.ts >/dev/null

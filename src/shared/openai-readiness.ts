@@ -1,4 +1,5 @@
 import { type DictationModeId } from "./asr";
+import { currentCloudReleaseSmokeTestChecklist, isCloudReleaseSmokeTestComplete } from "./cloud-release-smoke-test";
 
 export type OpenAiModeImplementationReadiness = {
   fileAccuracyReady: boolean;
@@ -16,7 +17,7 @@ export const currentOpenAiModeImplementationReadiness = createOpenAiModeImplemen
   realtimeSessionIpcReady: true,
   realtimeRendererLifecycleReady: true,
   realtimeNativePcmStreamingReady: true,
-  releaseSmokeTested: false
+  releaseSmokeTested: isCloudReleaseSmokeTestComplete(currentCloudReleaseSmokeTestChecklist)
 });
 
 export function createOpenAiModeImplementationReadiness(input: Omit<OpenAiModeImplementationReadiness, "realtimeReady">): OpenAiModeImplementationReadiness {
