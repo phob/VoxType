@@ -1,4 +1,3 @@
-use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use serde::Serialize;
 use std::env;
 use std::io::{self, Read};
@@ -428,6 +427,7 @@ fn set_system_mute_from_arg() -> Result<(), String> {
 
 #[cfg(windows)]
 mod windows_impl {
+    use base64::{prelude::BASE64_STANDARD, Engine as _};
     use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
     use cpal::SizedSample;
     use image::{ImageBuffer, Rgba};

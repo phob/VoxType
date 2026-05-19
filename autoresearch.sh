@@ -297,6 +297,7 @@ grep_score 6 grep -R "realtimePcm16Chunk" -n native/windows-helper/src/main.rs >
 grep_score 6 grep -R "emit_realtime_pcm16_chunk" -n native/windows-helper/src/main.rs >/dev/null
 grep_score 6 grep -R "audio_base64" -n native/windows-helper/src/main.rs >/dev/null
 grep_score 6 grep -R "base64 = \"0.22\"" -n native/windows-helper/Cargo.toml >/dev/null
+grep_score 6 grep -R "use base64::{prelude::BASE64_STANDARD, Engine as _};" -n native/windows-helper/src/main.rs >/dev/null
 grep_score 6 grep -R "Finalizing realtime cloud dictation" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "Realtime Cloud Dictation failed to start" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "cancelRealtime(\"Realtime Cloud Dictation stopped because Offline Mode was enabled" -n src/renderer/src/App.tsx >/dev/null
