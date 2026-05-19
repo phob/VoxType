@@ -578,9 +578,15 @@ function parseRecordingStdoutEvents(stdout: string): Array<{
           parsed.channelCount === 1 &&
           typeof parsed.audioBase64 === "string"
         ) {
+          const pcm16Chunk = new Uint8Array(Buffer.from(parsed.audioBase64, "base64"));
+
+          if (pcm16Chunk.byteLength === 0 || pcm16Chunk.byteLength % 2 !== 0) {
+            return [];
+          }
+
           return [{
             level: { rms: 0, peak: 0 },
-            pcm16Chunk: new Uint8Array(Buffer.from(parsed.audioBase64, "base64"))
+            pcm16Chunk
           }];
         }
       } catch {
