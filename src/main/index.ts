@@ -246,6 +246,23 @@ function cancelActiveRealtimeCloudSession(reason: string): void {
   activeRealtimeCloudProcessName = null;
 }
 
+function appendRealtimePcm16AudioSafely(bytes: Uint8Array): void {
+  if (!activeRealtimeCloudSession) {
+    return;
+  }
+
+  try {
+    activeRealtimeCloudSession.appendPcm16Audio(bytes);
+  } catch (error) {
+    cancelActiveRealtimeCloudSession("Realtime Cloud Dictation stopped because audio streaming failed.");
+    updateOverlay({
+      mode: "finalizing",
+      cloudProviderLabel: "Cloud Dictation",
+      message: error instanceof Error ? error.message : "Realtime Cloud Dictation audio streaming failed."
+    });
+  }
+}
+
 function startAutomaticUpdateChecks(settings: AppSettings): void {
   stopAutomaticUpdateChecks();
 
@@ -878,7 +895,7 @@ ipcMain.handle("transcription:realtime-append-pcm16", (_event, bytes: Uint8Array
     throw new Error("Realtime Cloud Dictation PCM16 audio chunks must contain whole 16-bit samples.");
   }
 
-  activeRealtimeCloudSession.appendPcm16Audio(bytes);
+  appendRealtimePcm16AudioSafely(bytes);
 });
 
 ipcMain.handle("transcription:realtime-finalize", async () => {
@@ -1023,7 +1040,7 @@ ipcMain.handle("windows-helper:start-recording", (_event, options: NativeRecordi
     });
 
     if (pcm16Chunk && activeRealtimeCloudSession) {
-      activeRealtimeCloudSession.appendPcm16Audio(pcm16Chunk);
+      appendRealtimePcm16AudioSafely(pcm16Chunk);
     }
   })
 );
