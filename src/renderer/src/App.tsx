@@ -315,7 +315,7 @@ export function App(): JSX.Element {
   const activeRuntimeLabel = state.runtime
     ? `${state.runtime.backend.toUpperCase()} · ${state.runtime.status}`
     : "Runtime not ready";
-  const developerCloudModePreviewEnabled = isDeveloperBuild && Boolean(state.settings?.developerModeEnabled);
+  const developerCloudModePreviewEnabled = isDeveloperBuild;
   const activeModeIsCloud = activeDictationMode.providerId === "openai";
   const cloudSetupReady =
     !activeModeIsCloud ||

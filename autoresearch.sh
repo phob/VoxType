@@ -263,7 +263,8 @@ grep_score 6 grep -R "getOpenAiModelIdForMode" -n src/main/index.ts src/shared/o
 grep_score 6 grep -R "OPENAI_TRANSCRIBE_MODEL_ID" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "allOpenAiModesReadyForRelease" -n src/shared/dictation-mode-availability.ts src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "Cloud Dictation is available after all OpenAI modes are ready" -n src/shared/dictation-mode-availability.ts >/dev/null
-grep_score 6 grep -R "developerCloudModePreviewEnabled" -n src/renderer/src/App.tsx >/dev/null
+grep_score 6 grep -R "developerCloudModePreviewEnabled = isDeveloperBuild" -n src/renderer/src/App.tsx >/dev/null
+grep_score 6 bash -c '! grep -R "developerCloudModePreviewEnabled = isDeveloperBuild &&" -n src/renderer/src/App.tsx'
 grep_score 6 grep -R "realtimeStreamingReady: developerCloudModePreviewEnabled" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "mode: 0o600" -n src/main/openai-credential-store.ts >/dev/null
 grep_score 6 grep -R "chmod(this.credentialPath, 0o600)" -n src/main/openai-credential-store.ts >/dev/null
