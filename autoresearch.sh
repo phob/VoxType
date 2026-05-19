@@ -73,6 +73,7 @@ grep_score 6 grep -R "firstSeenSequence" -n src >/dev/null
 grep_score 6 grep -R "markFallback" -n src >/dev/null
 grep_score 6 grep -R "append\?: boolean" -n src/shared/transcript-turns.ts >/dev/null
 grep_score 6 grep -R "provisionalText = undefined" -n src/shared/transcript-turns.ts >/dev/null
+grep_score 6 bash -c 'test $(grep -c "provisionalText = undefined" src/shared/transcript-turns.ts) -ge 2'
 grep_score 6 grep -R "conversation.item.input_audio_transcription.delta" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "composeFinalText" -n src >/dev/null
 grep_score 6 grep -R "OpenAiRealtimeAsrProvider" -n src >/dev/null

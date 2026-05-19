@@ -39,6 +39,7 @@ export class TranscriptTurnAccumulator {
 
     if (turn && !turn.finalText && turn.provisionalText) {
       turn.finalText = turn.provisionalText;
+      turn.provisionalText = undefined;
       turn.status = "fallback";
     }
 
