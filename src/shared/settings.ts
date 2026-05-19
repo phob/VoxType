@@ -215,11 +215,6 @@ export function sanitizeSettings(
     realtimeLatencyPreset: isRealtimeLatencyPreset(input.realtimeLatencyPreset)
       ? input.realtimeLatencyPreset
       : defaults.realtimeLatencyPreset,
-    realtimeVadThresholdOverride:
-      typeof input.realtimeVadThresholdOverride === "number" &&
-      Number.isFinite(input.realtimeVadThresholdOverride)
-        ? clamp(input.realtimeVadThresholdOverride, 0.05, 0.95)
-        : null,
     showWindowHotkey:
       typeof input.showWindowHotkey === "string"
         ? input.showWindowHotkey
@@ -274,6 +269,10 @@ export function sanitizeSettings(
       typeof input.developerModeEnabled === "boolean"
         ? input.developerModeEnabled
         : defaults.developerModeEnabled,
+    realtimeVadThresholdOverride:
+      input.developerModeEnabled === true
+        ? sanitizeRealtimeVadThresholdOverride(input.realtimeVadThresholdOverride)
+        : null,
     suspendDictationHotkeysInFullscreenApps:
       typeof input.suspendDictationHotkeysInFullscreenApps === "boolean"
         ? input.suspendDictationHotkeysInFullscreenApps
@@ -599,6 +598,10 @@ function normalizeProcessName(processName: unknown): string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function sanitizeRealtimeVadThresholdOverride(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? clamp(value, 0.05, 0.95) : null;
 }
 
 function clamp(value: number, min: number, max: number): number {

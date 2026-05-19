@@ -215,6 +215,9 @@ grep_score 6 grep -R "createCorrectedRealtimeCloudHistoryEntry" -n src >/dev/nul
 grep_score 6 grep -R "RealtimeCloudHistoryService" -n src/main >/dev/null
 grep_score 6 grep -R "dictionaryStore.applyCorrections" -n src/main/realtime-cloud-history-service.ts >/dev/null
 grep_score 6 grep -R "historyStore.add(entry)" -n src/main/realtime-cloud-history-service.ts >/dev/null
+grep_score 6 grep -R "sanitizeRealtimeVadThresholdOverride" -n src/shared/settings.ts >/dev/null
+grep_score 6 grep -R "input.developerModeEnabled === true" -n src/shared/settings.ts >/dev/null
+grep_score 6 grep -R "realtimeVadThresholdOverride:.*null" -n src/shared/settings.ts >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null
