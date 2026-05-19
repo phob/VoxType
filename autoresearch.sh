@@ -186,6 +186,10 @@ grep_score 6 grep -R "previewPromptPack: (context" -n src/preload >/dev/null
 grep_score 6 grep -R "transcription:preview-prompt-pack" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "includeOcrContext: settings.cloudPromptPackOcrEnabled" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "ocrContext: state.settings\?\.cloudPromptPackOcrEnabled" -n src/renderer >/dev/null
+grep_score 6 grep -R "openai.com/api/pricing" -n src/renderer >/dev/null
+grep_score 6 grep -R "openai.com/policies/privacy-policy" -n src/renderer >/dev/null
+grep_score 6 grep -R "platform.openai.com/docs/models" -n src/renderer >/dev/null
+grep_score 6 grep -R "inline-doc-links" -n src/renderer >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null

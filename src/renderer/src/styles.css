@@ -869,6 +869,21 @@ pre {
   font-size: 0.88rem;
 }
 
+.inline-doc-links {
+  display: inline-flex;
+  gap: 8px;
+  margin-left: 6px;
+}
+
+.inline-doc-links a {
+  color: #7cc7ff;
+  text-decoration: none;
+}
+
+.inline-doc-links a:hover {
+  text-decoration: underline;
+}
+
 .setting-row small,
 .model-row small,
 .model-row span,
