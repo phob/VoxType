@@ -149,6 +149,7 @@ function isTranscriptEntry(value: unknown): value is TranscriptEntry {
     (typeof entry.promptContext === "string" || entry.promptContext === undefined) &&
     (typeof entry.audioFileName === "string" || entry.audioFileName === undefined) &&
     (typeof entry.audioUnavailableReason === "string" || entry.audioUnavailableReason === undefined) &&
+    (typeof entry.languageHint === "string" || entry.languageHint === undefined) &&
     (entry.providerId === "local-whisper" || entry.providerId === "openai" || entry.providerId === undefined) &&
     (isDictationModeId(entry.dictationModeId) || entry.dictationModeId === undefined) &&
     (typeof entry.turnCount === "number" || entry.turnCount === undefined) &&

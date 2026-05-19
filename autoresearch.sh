@@ -114,6 +114,10 @@ grep_score 6 grep -R "Test connection" -n src/renderer >/dev/null
 grep_score 6 grep -R "v1/models" -n src/main/openai-asr-provider.ts >/dev/null
 grep_score 6 grep -R "Cloud Dictation.*entry.providerId" -n src/renderer >/dev/null
 grep_score 6 grep -R "entry.dictationModeId" -n src/renderer >/dev/null
+grep_score 6 grep -R "languageHint\?: string" -n src/shared/transcripts.ts >/dev/null
+grep_score 6 grep -R "languageHint: getProviderLanguageHint" -n src/main/transcription-service.ts src/shared/realtime-history.ts >/dev/null
+grep_score 6 grep -R "language: settings.whisperLanguage" -n src/main/index.ts >/dev/null
+grep_score 6 grep -R "typeof entry.languageHint === \"string\"" -n src/main/history-store.ts >/dev/null
 grep_score 6 grep -R "entry.turnCount" -n src/renderer >/dev/null
 grep_score 6 grep -R "entry.turnStatus" -n src/renderer >/dev/null
 grep_score 6 grep -R "disabled in Offline Mode" -n src/renderer >/dev/null

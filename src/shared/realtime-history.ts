@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { type DictationMode, type TranscriptTurn } from "./asr";
+import { getProviderLanguageHint } from "./provider-language";
+import { type WhisperLanguage } from "./settings";
 import { TranscriptTurnAccumulator } from "./transcript-turns";
 import { type TranscriptEntry } from "./transcripts";
 
@@ -10,6 +12,7 @@ export type RealtimeCloudHistoryInput = {
   endedAtMs: number;
   correctedText?: string | null;
   correctionsApplied?: string[];
+  language?: WhisperLanguage;
 };
 
 export type RealtimeCloudCorrectionInput = {
@@ -63,6 +66,7 @@ export function createRealtimeCloudHistoryEntry(
     providerId: "openai",
     dictationModeId: input.mode.id,
     modelId: input.mode.modelId,
+    languageHint: input.language ? getProviderLanguageHint("openai", input.language).parameterValue ?? undefined : undefined,
     turnCount: input.turns.length,
     turnStatus: summarizeRealtimeTurnStatus(input.turns),
     createdAt: new Date(input.startedAtMs).toISOString(),

@@ -902,12 +902,14 @@ ipcMain.handle("transcription:realtime-finalize", async () => {
   }
 
   try {
+    const settings = await settingsStore.get();
     return await realtimeCloudHistoryService.save({
       mode,
       turns: snapshot.turns,
       startedAtMs: snapshot.startedAtMs,
       endedAtMs: Date.now(),
-      processName
+      processName,
+      language: settings.whisperLanguage
     });
   } catch (error) {
     updateOverlay({

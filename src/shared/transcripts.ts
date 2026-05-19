@@ -12,6 +12,7 @@ export type TranscriptEntry = {
   providerId?: AsrProviderId;
   dictationModeId?: DictationModeId;
   modelId: string;
+  languageHint?: string;
   turnCount?: number;
   turnStatus?: string;
   createdAt: string;

@@ -18,6 +18,7 @@ import { getCloudFailurePolicy } from "../shared/cloud-failure-policy";
 import { resolveCloudPromptPackOcrEnabled } from "../shared/cloud-prompt-pack-settings";
 import { getCloudDictationReadinessForMode } from "../shared/cloud-status";
 import { getModelById } from "../shared/models";
+import { getProviderLanguageHint } from "../shared/provider-language";
 import { type OcrPromptContext } from "../shared/ocr-context";
 import { findAppProfile, type AppProfile, type AppSettings } from "../shared/settings";
 import { type TranscriptEntry, type TranscriptionResult } from "../shared/transcripts";
@@ -145,6 +146,7 @@ export class TranscriptionService {
         providerId: "local-whisper",
         dictationModeId: mode.id,
         modelId: model.id,
+        languageHint: getProviderLanguageHint("local-whisper", whisperLanguage).parameterValue ?? undefined,
         createdAt: new Date().toISOString(),
         durationMs: Date.now() - startedAt
       };
@@ -254,6 +256,7 @@ export class TranscriptionService {
       providerId: asrResult.providerId,
       dictationModeId: asrResult.modeId,
       modelId: asrResult.modelId,
+      languageHint: getProviderLanguageHint("openai", whisperLanguage).parameterValue ?? undefined,
       createdAt: new Date().toISOString(),
       durationMs: Date.now() - startedAt
     };
