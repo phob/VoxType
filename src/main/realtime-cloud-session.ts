@@ -14,10 +14,15 @@ export type RealtimeCloudSessionSnapshot = {
   turns: TranscriptTurn[];
 };
 
+const openAiRealtimePreConnectionBufferBytes = openAiRealtimeAudioConfig.sampleRateHz * 2 * 5;
+
 export class RealtimeCloudSession {
   private readonly startedAtMs = Date.now();
   private turns: TranscriptTurn[] = [];
   private finalized = false;
+  private streamingStarted = false;
+  private preConnectionBytes = 0;
+  private readonly preConnectionBuffer: Uint8Array[] = [];
   private readonly provider: OpenAiRealtimeAsrProvider;
 
   constructor(
@@ -54,9 +59,20 @@ export class RealtimeCloudSession {
       latencyPreset: this.settings.realtimeLatencyPreset,
       developerVadThresholdOverride: this.settings.realtimeVadThresholdOverride
     });
+    this.streamingStarted = true;
+    this.flushPreConnectionBuffer();
   }
 
   appendPcm16Audio(bytes: Uint8Array): void {
+    if (this.finalized) {
+      return;
+    }
+
+    if (!this.streamingStarted) {
+      this.bufferPreConnectionAudio(bytes);
+      return;
+    }
+
     this.provider.appendPcm16Audio(bytes);
   }
 
@@ -87,6 +103,29 @@ export class RealtimeCloudSession {
 
   cancelForOfflineMode(): RealtimeCloudSessionSnapshot {
     return this.cancel("Realtime Cloud Dictation stopped because Offline Mode was enabled.");
+  }
+
+  private bufferPreConnectionAudio(bytes: Uint8Array): void {
+    if (bytes.byteLength === 0) {
+      return;
+    }
+
+    this.preConnectionBuffer.push(bytes);
+    this.preConnectionBytes += bytes.byteLength;
+
+    while (this.preConnectionBytes > openAiRealtimePreConnectionBufferBytes) {
+      const removed = this.preConnectionBuffer.shift();
+      this.preConnectionBytes -= removed?.byteLength ?? 0;
+    }
+  }
+
+  private flushPreConnectionBuffer(): void {
+    for (const bytes of this.preConnectionBuffer) {
+      this.provider.appendPcm16Audio(bytes);
+    }
+
+    this.preConnectionBuffer.length = 0;
+    this.preConnectionBytes = 0;
   }
 
   private snapshot(): RealtimeCloudSessionSnapshot {

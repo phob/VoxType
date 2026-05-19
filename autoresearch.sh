@@ -346,6 +346,10 @@ grep_score 6 grep -R "rawText: normalizedText !== text" -n src/main/transcriptio
 grep_score 6 grep -R "normalizeRealtimeProviderText" -n src/shared/realtime-history.ts >/dev/null
 grep_score 6 grep -R "Realtime Cloud Dictation stopped because Offline Mode was enabled" -n src/main/realtime-cloud-session.ts >/dev/null
 grep_score 6 grep -R "private snapshot()" -n src/main/realtime-cloud-session.ts >/dev/null
+grep_score 6 grep -R "openAiRealtimePreConnectionBufferBytes" -n src/main/realtime-cloud-session.ts >/dev/null
+grep_score 6 grep -R "bufferPreConnectionAudio" -n src/main/realtime-cloud-session.ts >/dev/null
+grep_score 6 grep -R "flushPreConnectionBuffer" -n src/main/realtime-cloud-session.ts >/dev/null
+grep_score 6 grep -R "this.streamingStarted = true" -n src/main/realtime-cloud-session.ts >/dev/null
 grep_score 6 grep -R "cloudProviderLabel: undefined" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "elapsedMs: undefined" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "livePreviewTurns: undefined" -n src/main/index.ts >/dev/null
