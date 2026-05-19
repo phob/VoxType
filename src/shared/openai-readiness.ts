@@ -24,6 +24,23 @@ export function areAllOpenAiModesReadyForRelease(
   return readiness.fileAccuracyReady && readiness.fileEconomyReady && readiness.realtimeReady;
 }
 
+export function getOpenAiModeImplementationStatus(
+  modeId: DictationModeId,
+  readiness: OpenAiModeImplementationReadiness
+): { implemented: boolean; reason: string | null } {
+  if (modeId === "openai.realtime" && !readiness.realtimeNativePcmStreamingReady) {
+    return {
+      implemented: false,
+      reason: "Realtime native PCM streaming is not implemented yet"
+    };
+  }
+
+  return {
+    implemented: isOpenAiModeImplemented(modeId, readiness),
+    reason: null
+  };
+}
+
 export function isOpenAiModeImplemented(
   modeId: DictationModeId,
   readiness: OpenAiModeImplementationReadiness

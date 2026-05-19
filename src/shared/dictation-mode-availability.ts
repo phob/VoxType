@@ -1,5 +1,5 @@
 import { getDictationMode, isCloudDictationMode, type DictationModeId } from "./asr";
-import { isOpenAiModeImplemented, type OpenAiModeImplementationReadiness } from "./openai-readiness";
+import { getOpenAiModeImplementationStatus, type OpenAiModeImplementationReadiness } from "./openai-readiness";
 import { type AppSettings } from "./settings";
 
 export type DictationModeAvailabilityReasonCode =
@@ -30,13 +30,17 @@ export function getDictationModeAvailability(input: {
     return { modeId: mode.id, selectable: false, reason: "disabled in Offline Mode", reasonCode: "offline" };
   }
 
-  if (mode.providerId === "openai" && !isOpenAiModeImplemented(mode.id, input.openAiReadiness)) {
-    return {
-      modeId: mode.id,
-      selectable: false,
-      reason: `${mode.label} is not implemented yet`,
-      reasonCode: "mode_not_implemented"
-    };
+  if (mode.providerId === "openai") {
+    const implementation = getOpenAiModeImplementationStatus(mode.id, input.openAiReadiness);
+
+    if (!implementation.implemented) {
+      return {
+        modeId: mode.id,
+        selectable: false,
+        reason: implementation.reason ?? `${mode.label} is not implemented yet`,
+        reasonCode: "mode_not_implemented"
+      };
+    }
   }
 
   if (mode.providerId === "openai" && !input.allOpenAiModesReadyForRelease) {
