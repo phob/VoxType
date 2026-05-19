@@ -2159,7 +2159,8 @@ export function App(): JSX.Element {
                         settings: state.settings,
                         hasOpenAiApiKey: Boolean(state.openaiCredentials?.hasApiKey),
                         realtimeStreamingReady: realtimeModeSelectionReady,
-                        allOpenAiModesReadyForRelease: cloudModeSelectionReady
+                        allOpenAiModesReadyForRelease: cloudModeSelectionReady,
+                        openAiReadiness: currentOpenAiModeImplementationReadiness
                       });
 
                       return (
