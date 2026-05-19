@@ -94,7 +94,7 @@ export class RealtimeCloudSession {
     this.provider.appendPcm16Audio(bytes);
   }
 
-  finalize(): RealtimeCloudSessionSnapshot {
+  async finalize(): Promise<RealtimeCloudSessionSnapshot> {
     if (!this.finalized) {
       this.finalized = true;
       const completedLogEntry = createCloudDictationLogEntry({
@@ -105,7 +105,7 @@ export class RealtimeCloudSession {
         status: "completed"
       });
       assertCloudDictationLogIsMetadataOnly(completedLogEntry);
-      this.provider.commitAudio();
+      await this.provider.commitAudioAndWaitForFinalTranscript();
       this.provider.stop();
     }
 

@@ -890,7 +890,7 @@ ipcMain.handle("transcription:realtime-finalize", async () => {
   activeRealtimeCloudSession = null;
   const processName = activeRealtimeCloudProcessName;
   activeRealtimeCloudProcessName = null;
-  const snapshot = session.finalize();
+  const snapshot = await session.finalize();
   const mode = getDictationMode("openai.realtime");
 
   if (snapshot.preConnectionDroppedBytes > 0) {

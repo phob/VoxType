@@ -20,6 +20,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
   readonly providerId = "openai" as const;
   private socket: WebSocket | null = null;
   private readonly turns = new TranscriptTurnAccumulator();
+  private finalTranscriptWaiters: Array<() => void> = [];
 
   constructor(
     private readonly credentials: OpenAiCredentialStore,
@@ -60,6 +61,28 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
       type: "input_audio_buffer.append",
       audio: encodeBase64(pcm16Audio)
     }));
+  }
+
+  async commitAudioAndWaitForFinalTranscript(timeoutMs = 10000): Promise<void> {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    const initialFinalTurnCount = this.finalTurnCount();
+    this.socket.send(JSON.stringify({ type: "input_audio_buffer.commit" }));
+
+    if (this.finalTurnCount() > initialFinalTurnCount) {
+      return;
+    }
+
+    await new Promise<void>((resolve) => {
+      const timeout = setTimeout(resolve, timeoutMs);
+      const waiter = () => {
+        clearTimeout(timeout);
+        resolve();
+      };
+      this.finalTranscriptWaiters.push(waiter);
+    });
   }
 
   commitAudio(): void {
@@ -136,7 +159,8 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
         return;
       }
       const providerItemId = payload.item_id ?? "current";
-      const final = payload.type?.includes("completed") ?? false;
+      const final = payload.type === "conversation.item.input_audio_transcription.completed" ||
+        (payload.type?.includes("completed") ?? false);
       const text = payload.transcript ?? payload.delta ?? "";
 
       if (!text) {
@@ -144,8 +168,24 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
       }
 
       this.onPreview?.(this.turns.apply({ providerItemId, text, final }));
+
+      if (final) {
+        this.resolveFinalTranscriptWaiters();
+      }
     } catch {
       // Ignore malformed provider events; do not log transcripts or raw provider responses.
+    }
+  }
+
+  private finalTurnCount(): number {
+    return this.turns.snapshot().filter((turn) => turn.status === "final" && turn.finalText?.trim()).length;
+  }
+
+  private resolveFinalTranscriptWaiters(): void {
+    const waiters = this.finalTranscriptWaiters;
+    this.finalTranscriptWaiters = [];
+    for (const resolve of waiters) {
+      resolve();
     }
   }
 }
@@ -177,15 +217,23 @@ function buildSessionUpdate(
   return {
     type: "session.update",
     session: {
-      input_audio_format: "pcm16",
-      input_audio_transcription: {
-        model: OPENAI_REALTIME_WHISPER_MODEL_ID,
-        language: languageHint.parameterValue ?? undefined
-      },
-      turn_detection: getOpenAiRealtimeVadConfig(latencyPreset, developerVadThresholdOverride),
-      instructions: promptPack?.text
-        ? `Transcribe speech. Prefer these context terms when acoustically plausible: ${promptPack.text}`
-        : "Transcribe speech accurately."
+      type: "transcription",
+      audio: {
+        input: {
+          format: {
+            type: "audio/pcm",
+            rate: 24000
+          },
+          transcription: {
+            model: OPENAI_REALTIME_WHISPER_MODEL_ID,
+            language: languageHint.parameterValue ?? undefined,
+            prompt: promptPack?.text
+              ? `Transcribe speech. Prefer these context terms when acoustically plausible: ${promptPack.text}`
+              : undefined
+          },
+          turn_detection: getOpenAiRealtimeVadConfig(latencyPreset, developerVadThresholdOverride)
+        }
+      }
     }
   };
 }
