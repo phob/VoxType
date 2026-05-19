@@ -239,6 +239,9 @@ grep_score 6 grep -R "allowAutomaticLocalFallback: false" -n src/shared/cloud-fa
 grep_score 6 grep -R "will not automatically retry with local dictation" -n src/shared/cloud-failure-policy.ts >/dev/null
 grep_score 6 grep -R "settings-panel release-scroll-panel" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "release-scroll-panel .settings-list" -n src/renderer/src/styles.css >/dev/null
+grep_score 6 grep -R "getCloudFailurePolicy" -n src/main/transcription-service.ts >/dev/null
+grep_score 6 grep -R "policy.userMessage" -n src/main/transcription-service.ts >/dev/null
+grep_score 6 grep -R "formatErrorMessage" -n src/main/transcription-service.ts >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null

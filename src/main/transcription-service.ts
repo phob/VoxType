@@ -14,6 +14,7 @@ import {
   assertCloudDictationLogIsMetadataOnly,
   createCloudDictationLogEntry
 } from "../shared/cloud-logging";
+import { getCloudFailurePolicy } from "../shared/cloud-failure-policy";
 import { getModelById } from "../shared/models";
 import { type OcrPromptContext } from "../shared/ocr-context";
 import { findAppProfile, type AppProfile, type AppSettings } from "../shared/settings";
@@ -211,7 +212,8 @@ export class TranscriptionService {
         errorCode: cloudErrorCode(error)
       });
       assertCloudDictationLogIsMetadataOnly(failedLogEntry);
-      throw error;
+      const policy = getCloudFailurePolicy(mode.id);
+      throw new Error(`${policy.userMessage} ${formatErrorMessage(error)}`);
     }
 
     const completedLogEntry = createCloudDictationLogEntry({
@@ -283,6 +285,10 @@ function cloudErrorCode(error: unknown): string {
 
   const match = error.message.match(/\(([^)]+)\)/);
   return match?.[1] ?? error.name;
+}
+
+function formatErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function resolveDictationMode(settings: AppSettings, profile: AppProfile | null): DictationMode {
