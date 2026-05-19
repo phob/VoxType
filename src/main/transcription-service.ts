@@ -15,6 +15,7 @@ import {
   createCloudDictationLogEntry
 } from "../shared/cloud-logging";
 import { getCloudFailurePolicy } from "../shared/cloud-failure-policy";
+import { resolveCloudPromptPackOcrEnabled } from "../shared/cloud-prompt-pack-settings";
 import { getCloudDictationReadinessForMode } from "../shared/cloud-status";
 import { getModelById } from "../shared/models";
 import { type OcrPromptContext } from "../shared/ocr-context";
@@ -187,7 +188,7 @@ export class TranscriptionService {
     const promptPack = await buildCloudPromptPack(this.dictionaryStore, {
       processName: context?.processName,
       ocrContext: context?.ocrContext,
-      includeOcrContext: settings.cloudPromptPackOcrEnabled,
+      includeOcrContext: resolveCloudPromptPackOcrEnabled(settings, profile),
       consentAccepted: settings.cloudDictationConsentAccepted
     });
     const startedLogEntry = createCloudDictationLogEntry({

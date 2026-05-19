@@ -226,6 +226,7 @@ const voxtype = {
         | "whisperLanguage"
         | "dictationModeId"
         | "forbidCloudDictation"
+        | "cloudPromptPackOcrEnabled"
         | "neverSuspendDictationInFullscreen"
       >
     ) => ipcRenderer.invoke("app-profiles:update", processName, patch) as Promise<AppSettings>,

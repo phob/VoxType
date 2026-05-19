@@ -139,6 +139,7 @@ export class SettingsStore {
       | "whisperLanguage"
       | "dictationModeId"
       | "forbidCloudDictation"
+      | "cloudPromptPackOcrEnabled"
       | "neverSuspendDictationInFullscreen"
     >
   ): Promise<AppSettings> {
@@ -163,6 +164,7 @@ export class SettingsStore {
               whisperLanguage: patch.whisperLanguage,
               dictationModeId: patch.dictationModeId,
               forbidCloudDictation: patch.forbidCloudDictation,
+              cloudPromptPackOcrEnabled: patch.cloudPromptPackOcrEnabled,
               neverSuspendDictationInFullscreen: patch.neverSuspendDictationInFullscreen,
               updatedAt: new Date().toISOString()
             }

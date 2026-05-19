@@ -58,6 +58,7 @@ export type AppProfile = {
   whisperLanguage: ProfileWhisperLanguage;
   dictationModeId: DictationModeId | "inherit";
   forbidCloudDictation: boolean;
+  cloudPromptPackOcrEnabled: "inherit" | boolean;
   neverSuspendDictationInFullscreen: boolean;
   createdAt: string;
   updatedAt: string;
@@ -366,6 +367,7 @@ export function createAppProfile(input: {
     whisperLanguage: defaults.whisperLanguage,
     dictationModeId: "inherit",
     forbidCloudDictation: false,
+    cloudPromptPackOcrEnabled: "inherit",
     neverSuspendDictationInFullscreen: false,
     createdAt: now,
     updatedAt: now
@@ -429,6 +431,10 @@ function sanitizeAppProfiles(value: unknown): AppProfile[] {
           : "inherit",
       forbidCloudDictation:
         typeof item.forbidCloudDictation === "boolean" ? item.forbidCloudDictation : false,
+      cloudPromptPackOcrEnabled:
+        item.cloudPromptPackOcrEnabled === "inherit" || typeof item.cloudPromptPackOcrEnabled === "boolean"
+          ? item.cloudPromptPackOcrEnabled
+          : "inherit",
       neverSuspendDictationInFullscreen:
         typeof item.neverSuspendDictationInFullscreen === "boolean"
           ? item.neverSuspendDictationInFullscreen
@@ -457,6 +463,7 @@ function getProfileDefaults(processName: string): {
   whisperLanguage: ProfileWhisperLanguage;
   dictationModeId?: DictationModeId | "inherit";
   forbidCloudDictation?: boolean;
+  cloudPromptPackOcrEnabled?: "inherit" | boolean;
 } {
   if (["chrome.exe", "msedge.exe", "firefox.exe", "brave.exe"].includes(processName)) {
     return {

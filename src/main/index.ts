@@ -2,6 +2,7 @@ import { app, BrowserWindow, Menu, Tray, globalShortcut, ipcMain, nativeImage, s
 import { join } from "node:path";
 import { getDictationMode } from "../shared/asr";
 import { getOpenAiModelIdForMode, OPENAI_TRANSCRIBE_MODEL_ID } from "../shared/openai-models";
+import { resolveCloudPromptPackOcrEnabled } from "../shared/cloud-prompt-pack-settings";
 import { getCloudDictationReadiness } from "../shared/cloud-status";
 import { type DictionaryCreateInput, type DictionaryPatch } from "../shared/dictionary";
 import { buildOcrPromptContext, type OcrPromptContext } from "../shared/ocr-context";
@@ -800,7 +801,7 @@ ipcMain.handle(
     return buildCloudPromptPack(dictionaryStore, {
       processName,
       ocrContext: context?.ocrContext ?? null,
-      includeOcrContext: settings.cloudPromptPackOcrEnabled,
+      includeOcrContext: resolveCloudPromptPackOcrEnabled(settings, profile),
       consentAccepted: settings.cloudDictationConsentAccepted
     });
 });
@@ -856,7 +857,7 @@ ipcMain.handle(
     const promptPack = await buildCloudPromptPack(dictionaryStore, {
       processName,
       ocrContext: context?.ocrContext ?? null,
-      includeOcrContext: settings.cloudPromptPackOcrEnabled,
+      includeOcrContext: resolveCloudPromptPackOcrEnabled(settings, profile),
       consentAccepted: settings.cloudDictationConsentAccepted
     });
 
