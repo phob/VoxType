@@ -123,7 +123,11 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
     this.socket.send(JSON.stringify({ type: "input_audio_buffer.commit" }));
   }
 
-  stop(): void {
+  stop(reason = "OpenAI realtime session stopped."): void {
+    if (this.sessionReadyWaiters.length > 0 || this.finalTranscriptWaiters.length > 0) {
+      this.failRealtime(new Error(reason));
+    }
+
     this.socket?.close();
     this.socket = null;
   }

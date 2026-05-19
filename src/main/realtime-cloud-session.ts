@@ -105,7 +105,7 @@ export class RealtimeCloudSession {
       });
       assertCloudDictationLogIsMetadataOnly(completedLogEntry);
       await this.provider.commitAudioAndWaitForFinalTranscript();
-      this.provider.stop();
+      this.provider.stop("Realtime Cloud Dictation stopped after final transcript processing.");
     }
 
     return this.snapshot();
@@ -122,7 +122,7 @@ export class RealtimeCloudSession {
         status: "cancelled"
       });
       assertCloudDictationLogIsMetadataOnly(cancelledLogEntry);
-      this.provider.stop();
+      this.provider.stop(reason);
       this.updateOverlay({
         mode: "finalizing",
         cloudProviderLabel: "Cloud Dictation",
