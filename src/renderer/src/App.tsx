@@ -2292,6 +2292,19 @@ export function App(): JSX.Element {
                 </label>
                 <label className="setting-row">
                   <span>
+                    <strong>Save cloud file audio history</strong>
+                    <small>Stores processed WAV audio for non-realtime Cloud Dictation history; realtime cloud audio is never saved.</small>
+                  </span>
+                  <input
+                    checked={state.settings.cloudFileAudioHistoryEnabled}
+                    type="checkbox"
+                    onChange={(event) =>
+                      void updateSettings({ cloudFileAudioHistoryEnabled: event.target.checked })
+                    }
+                  />
+                </label>
+                <label className="setting-row">
+                  <span>
                     <strong>Realtime latency preset</strong>
                     <small>Advanced OpenAI realtime VAD timing; Balanced is recommended.</small>
                   </span>

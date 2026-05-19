@@ -226,6 +226,9 @@ grep_score 6 grep -R "cloudSessionMaxMs: number | null" -n src/shared/settings.t
 grep_score 6 grep -R "cloudFileAudioHistoryEnabled: boolean" -n src/shared/settings.ts >/dev/null
 grep_score 6 grep -R "cloudFileAudioHistoryEnabled: false" -n src/main/settings-store.ts >/dev/null
 grep_score 6 grep -R "settings.cloudFileAudioHistoryEnabled" -n src/main/transcription-service.ts >/dev/null
+grep_score 6 grep -R "Save cloud file audio history" -n src/renderer/src/App.tsx >/dev/null
+grep_score 6 grep -R "realtime cloud audio is never saved" -n src/renderer/src/App.tsx >/dev/null
+grep_score 6 grep -R "cloudFileAudioHistoryEnabled: event.target.checked" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "input.cloudSessionMaxMs === null" -n src/shared/settings.ts >/dev/null
 grep_score 6 grep -R "const unlimited = input.settings.cloudSessionMaxMs === null" -n src/shared/cloud-session-limits.ts >/dev/null
 grep_score 6 grep -R "leave blank for unlimited" -n src/renderer >/dev/null
