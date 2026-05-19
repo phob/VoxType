@@ -65,6 +65,10 @@ grep_score 6 grep -R "OpenAiFileAsrProvider" -n src/main/transcription-service.t
 grep_score 6 grep -R "buildCloudPromptPack" -n src/main/transcription-service.ts >/dev/null
 grep_score 6 grep -R "hasApiKey" -n src/main/transcription-service.ts >/dev/null
 grep_score 6 grep -R "Realtime Cloud Dictation is not available yet" -n src/main >/dev/null
+grep_score 6 grep -R "TranscriptTurnAccumulator" -n src >/dev/null
+grep_score 6 grep -R "firstSeenSequence" -n src >/dev/null
+grep_score 6 grep -R "markFallback" -n src >/dev/null
+grep_score 6 grep -R "composeFinalText" -n src >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null
