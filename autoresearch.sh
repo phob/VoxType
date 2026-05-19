@@ -182,6 +182,9 @@ grep_score 6 grep -R "getOpenAiRealtimeVadConfig" -n src >/dev/null
 grep_score 6 grep -R "silence_duration_ms" -n src/shared/realtime-latency.ts >/dev/null
 grep_score 6 grep -R "Realtime latency preset" -n src/renderer >/dev/null
 grep_score 6 grep -R "latencyPreset" -n src/main/openai-realtime-asr-provider.ts src/shared/asr.ts >/dev/null
+grep_score 6 grep -R "getOpenAiRealtimeTranscriptionDelay" -n src/main/openai-realtime-asr-provider.ts src/shared/realtime-latency.ts >/dev/null
+grep_score 6 grep -R "delay: getOpenAiRealtimeTranscriptionDelay" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "turn_detection: null" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "CloudDictationLogEntry" -n src >/dev/null
 grep_score 6 grep -R "assertCloudDictationLogIsMetadataOnly" -n src >/dev/null
 grep_score 6 grep -R "sensitive field" -n src/shared/cloud-logging.ts >/dev/null

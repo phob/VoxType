@@ -7,7 +7,7 @@ import {
 import { classifyOpenAiError, formatOpenAiFriendlyError } from "../shared/openai-errors";
 import { OPENAI_REALTIME_WHISPER_MODEL_ID } from "../shared/openai-models";
 import { getProviderLanguageHint } from "../shared/provider-language";
-import { getOpenAiRealtimeVadConfig } from "../shared/realtime-latency";
+import { getOpenAiRealtimeTranscriptionDelay } from "../shared/realtime-latency";
 import { TranscriptTurnAccumulator } from "../shared/transcript-turns";
 import { OpenAiCredentialStore } from "./openai-credential-store";
 
@@ -47,8 +47,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
       apiKey,
       request.promptPack,
       request.language,
-      request.latencyPreset,
-      request.developerVadThresholdOverride
+      request.latencyPreset
     );
   }
 
@@ -106,8 +105,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
     apiKey: string,
     promptPack: PromptPack | null,
     language: StreamingAsrRequest["language"],
-    latencyPreset: StreamingAsrRequest["latencyPreset"],
-    developerVadThresholdOverride: StreamingAsrRequest["developerVadThresholdOverride"]
+    latencyPreset: StreamingAsrRequest["latencyPreset"]
   ): Promise<void> {
     await new Promise<void>((resolve, reject) => {
       const socket = new WebSocket(OPENAI_REALTIME_URL, [
@@ -126,8 +124,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
         socket.send(JSON.stringify(buildSessionUpdate(
           promptPack,
           language,
-          latencyPreset,
-          developerVadThresholdOverride
+          latencyPreset
         )));
         resolve();
       }, { once: true });
@@ -225,8 +222,7 @@ function encodeBase64(bytes: Uint8Array): string {
 function buildSessionUpdate(
   promptPack: PromptPack | null,
   language: StreamingAsrRequest["language"],
-  latencyPreset: StreamingAsrRequest["latencyPreset"],
-  developerVadThresholdOverride: StreamingAsrRequest["developerVadThresholdOverride"]
+  latencyPreset: StreamingAsrRequest["latencyPreset"]
 ): unknown {
   const languageHint = getProviderLanguageHint("openai", language);
 
@@ -243,11 +239,12 @@ function buildSessionUpdate(
           transcription: {
             model: OPENAI_REALTIME_WHISPER_MODEL_ID,
             language: languageHint.parameterValue ?? undefined,
+            delay: getOpenAiRealtimeTranscriptionDelay(latencyPreset),
             prompt: promptPack?.text
               ? `Transcribe speech. Prefer these context terms when acoustically plausible: ${promptPack.text}`
               : undefined
           },
-          turn_detection: getOpenAiRealtimeVadConfig(latencyPreset, developerVadThresholdOverride)
+          turn_detection: null
         }
       }
     }

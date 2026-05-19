@@ -1,11 +1,27 @@
 import { type RealtimeLatencyPreset } from "./settings";
 
+export type OpenAiRealtimeTranscriptionDelay = "minimal" | "medium" | "high";
+
 export type OpenAiRealtimeVadConfig = {
   type: "server_vad";
   threshold: number;
   prefix_padding_ms: number;
   silence_duration_ms: number;
 };
+
+export function getOpenAiRealtimeTranscriptionDelay(
+  preset: RealtimeLatencyPreset
+): OpenAiRealtimeTranscriptionDelay {
+  switch (preset) {
+  case "fast":
+    return "minimal";
+  case "accurate":
+    return "high";
+  case "balanced":
+  default:
+    return "medium";
+  }
+}
 
 export function getOpenAiRealtimeVadConfig(
   preset: RealtimeLatencyPreset,
