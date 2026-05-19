@@ -330,6 +330,9 @@ grep_score 6 grep -R "entry.providerId === \"openai\" \? \"Cloud Dictation\" : \
 grep_score 6 grep -R "recent-history-row" -n src/renderer >/dev/null
 grep_score 6 grep -R "getProviderLanguageHint" -n src >/dev/null
 grep_score 6 grep -R "openAiSupportedLanguageHints" -n src/shared/provider-language.ts >/dev/null
+grep_score 6 grep -R "supported: boolean" -n src/shared/provider-language.ts >/dev/null
+grep_score 6 grep -R "auto language detection" -n src/shared/provider-language.ts >/dev/null
+grep_score 6 grep -R "does not support an explicit" -n src/shared/provider-language.ts >/dev/null
 grep_score 6 grep -R "languageHint.parameterValue" -n src/main/openai-asr-provider.ts >/dev/null
 grep_score 6 grep -R "getProviderLanguageHint(\"openai\", language)" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "language: languageHint.parameterValue" -n src/main/openai-realtime-asr-provider.ts >/dev/null
