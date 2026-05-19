@@ -1073,6 +1073,13 @@ export function App(): JSX.Element {
         systemAudioMutedByVoxTypeRef.current = true;
       }
 
+      if (readiness.modeId === "openai.realtime") {
+        await window.voxtype.transcription.startRealtime({
+          processName: hotkeyTargetRef.current?.processName ?? state.activeWindow?.processName,
+          ocrContext: hotkeyOcrContextRef.current
+        });
+      }
+
       recorderRef.current = await startNativePcmRecorder(state.settings);
       await startRecordingCoordination(state.settings);
       if (state.settings) {
@@ -1089,6 +1096,9 @@ export function App(): JSX.Element {
             (stopError) => formatError(stopError)
           )
         : null;
+      if (readinessMode.id === "openai.realtime") {
+        await window.voxtype.transcription.cancelRealtime("Realtime Cloud Dictation failed to start.").catch(() => undefined);
+      }
       const coordinationError = await stopRecordingCoordination();
       const unmuteError = await unmuteSystemAudio();
       setError(
@@ -1228,13 +1238,15 @@ export function App(): JSX.Element {
         return;
       }
 
-      const result = await window.voxtype.transcription.transcribeWav(recordingResult.wavBytes, {
-        processName: options?.pasteTarget?.processName ?? hotkeyTargetRef.current?.processName,
-        ocrContext: options?.ocrContext ?? hotkeyOcrContextRef.current
-      });
+      const entry = readiness.modeId === "openai.realtime"
+        ? await window.voxtype.transcription.finalizeRealtime()
+        : (await window.voxtype.transcription.transcribeWav(recordingResult.wavBytes, {
+            processName: options?.pasteTarget?.processName ?? hotkeyTargetRef.current?.processName,
+            ocrContext: options?.ocrContext ?? hotkeyOcrContextRef.current
+          })).entry;
       await window.voxtype.recordingOverlay.showFinalizing({
         cloudProviderLabel: readiness.cloud ? "Cloud Dictation" : undefined,
-        message: readiness.cloud ? "Finalizing cloud dictation" : "Finalizing local dictation"
+        message: readiness.modeId === "openai.realtime" ? "Finalizing realtime cloud dictation" : readiness.cloud ? "Finalizing cloud dictation" : "Finalizing local dictation"
       });
       if (unmuteError) {
         setError(unmuteError);
@@ -1243,10 +1255,10 @@ export function App(): JSX.Element {
         setError(coordinationError);
       }
       if (state.settings?.insertionMode === "clipboard" && !options?.pasteTarget?.hwnd) {
-        await window.voxtype.insertion.copy(result.entry.text);
+        await window.voxtype.insertion.copy(entry.text);
       } else if (options?.pasteTarget?.hwnd) {
         await window.voxtype.insertion.insertWindow(
-          result.entry.text,
+          entry.text,
           options.pasteTarget.hwnd,
           options.pasteTarget.processName
         );
@@ -1261,7 +1273,7 @@ export function App(): JSX.Element {
         ...current,
         runtime,
         dictionary,
-        history: history.length > 0 ? history : [result.entry, ...current.history]
+        history: history.length > 0 ? history : [entry, ...current.history]
       }));
     } catch (transcriptionError) {
       const coordinationError = await stopRecordingCoordination();

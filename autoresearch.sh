@@ -243,6 +243,10 @@ grep_score 6 grep -R "transcription:realtime-start" -n src/main/index.ts src/pre
 grep_score 6 grep -R "transcription:realtime-append-pcm16" -n src/main/index.ts src/preload/index.ts >/dev/null
 grep_score 6 grep -R "transcription:realtime-finalize" -n src/main/index.ts src/preload/index.ts >/dev/null
 grep_score 6 grep -R "realtimeCloudHistoryService.save" -n src/main/index.ts >/dev/null
+grep_score 6 grep -R "transcription.startRealtime" -n src/renderer/src/App.tsx >/dev/null
+grep_score 6 grep -R "transcription.finalizeRealtime" -n src/renderer/src/App.tsx >/dev/null
+grep_score 6 grep -R "Finalizing realtime cloud dictation" -n src/renderer/src/App.tsx >/dev/null
+grep_score 6 grep -R "Realtime Cloud Dictation failed to start" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "cancelRealtime(\"Realtime Cloud Dictation stopped because Offline Mode was enabled" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "transcription:realtime-cancel" -n src/main/index.ts src/preload/index.ts >/dev/null
 grep_score 6 grep -R "function cancelActiveRealtimeCloudSession" -n src/main/index.ts >/dev/null
