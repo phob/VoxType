@@ -98,6 +98,9 @@ grep_score 6 grep -R "Cloud Dictation.*entry.providerId" -n src/renderer >/dev/n
 grep_score 6 grep -R "entry.dictationModeId" -n src/renderer >/dev/null
 grep_score 6 grep -R "entry.turnCount" -n src/renderer >/dev/null
 grep_score 6 grep -R "entry.turnStatus" -n src/renderer >/dev/null
+grep_score 6 grep -R "disabled in Offline Mode" -n src/renderer >/dev/null
+grep_score 6 grep -R "API key required" -n src/renderer >/dev/null
+grep_score 6 grep -R "option disabled" -n src/renderer >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null

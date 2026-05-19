@@ -1956,11 +1956,20 @@ export function App(): JSX.Element {
                       void updateSettings({ dictationModeId: event.target.value as DictationModeId })
                     }
                   >
-                    {dictationModes.map((mode) => (
-                      <option key={mode.id} value={mode.id}>
-                        {mode.label} — {mode.secondaryText}
-                      </option>
-                    ))}
+                    {dictationModes.map((mode) => {
+                      const disabledReason =
+                        state.settings.offlineMode && mode.providerId === "openai"
+                          ? "disabled in Offline Mode"
+                          : mode.providerId === "openai" && !state.openaiCredentials?.hasApiKey
+                            ? "API key required"
+                            : null;
+
+                      return (
+                        <option disabled={Boolean(disabledReason)} key={mode.id} value={mode.id}>
+                          {mode.label} — {mode.secondaryText}{disabledReason ? ` (${disabledReason})` : ""}
+                        </option>
+                      );
+                    })}
                   </select>
                 </label>
                 <label className="setting-row">
