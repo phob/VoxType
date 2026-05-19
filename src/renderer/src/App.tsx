@@ -49,6 +49,7 @@ import {
   currentCloudReleaseSmokeTestChecklist,
   formatCloudReleaseSmokeTestStatus
 } from "../../shared/cloud-release-smoke-test";
+import { resolveCloudPromptPackOcrEnabled } from "../../shared/cloud-prompt-pack-settings";
 import { type OcrResult } from "../../shared/ocr";
 import { type OpenAiCredentialStatus } from "../../shared/openai-credentials";
 import {
@@ -795,9 +796,15 @@ export function App(): JSX.Element {
   }
 
   async function previewCloudPromptPack(): Promise<void> {
+    const activeProfile = state.settings
+      ? state.settings.appProfiles.find((profile) => profile.processName === state.activeWindow?.processName) ?? null
+      : null;
+    const includeOcrContext = state.settings
+      ? resolveCloudPromptPackOcrEnabled(state.settings, activeProfile)
+      : false;
     const promptPack = await window.voxtype.transcription.previewPromptPack({
       processName: state.activeWindow?.processName,
-      ocrContext: state.settings?.cloudPromptPackOcrEnabled ? latestOcrContext : null
+      ocrContext: includeOcrContext ? latestOcrContext : null
     });
     setInsertionTestResult(
       promptPack

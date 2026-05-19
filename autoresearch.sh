@@ -213,6 +213,8 @@ grep_score 6 grep -R "whisper prompt override" -ni src/main/prompt-pack.ts >/dev
 grep_score 6 grep -R "style:" -n src/main/prompt-pack.ts >/dev/null
 grep_score 6 grep -R "format as" -n src/main/prompt-pack.ts >/dev/null
 grep_score 6 grep -R "previewPromptPack: (context" -n src/preload >/dev/null
+grep_score 6 grep -R "resolveCloudPromptPackOcrEnabled(state.settings, activeProfile)" -n src/renderer/src/App.tsx >/dev/null
+grep_score 6 grep -R "const includeOcrContext" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "transcription:preview-prompt-pack" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "includeOcrContext: resolveCloudPromptPackOcrEnabled(settings, profile)" -n src/main/index.ts src/main/transcription-service.ts >/dev/null
 grep_score 6 grep -R "cloudPromptPackOcrEnabled: \"inherit\" | boolean" -n src/shared/settings.ts >/dev/null
