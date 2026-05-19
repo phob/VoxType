@@ -21,6 +21,7 @@ export class TranscriptTurnAccumulator {
 
     if (event.final) {
       turn.finalText = event.text;
+      turn.provisionalText = undefined;
       turn.status = "final";
     } else {
       turn.provisionalText = event.append && turn.provisionalText
