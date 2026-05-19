@@ -15,12 +15,21 @@ export type CloudDictationLogEntry = CloudDictationLogInput & {
 
 const sensitiveKeys = [
   "apiKey",
+  "authorization",
+  "bearer",
+  "credential",
+  "secret",
   "audio",
+  "pcm",
+  "wav",
   "prompt",
   "promptPack",
   "transcript",
   "text",
   "screenshot",
+  "image",
+  "ocr",
+  "targetContent",
   "response"
 ];
 

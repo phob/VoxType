@@ -157,6 +157,9 @@ grep_score 6 grep -R "latencyPreset" -n src/main/openai-realtime-asr-provider.ts
 grep_score 6 grep -R "CloudDictationLogEntry" -n src >/dev/null
 grep_score 6 grep -R "assertCloudDictationLogIsMetadataOnly" -n src >/dev/null
 grep_score 6 grep -R "sensitive field" -n src/shared/cloud-logging.ts >/dev/null
+grep_score 6 grep -R "authorization" -n src/shared/cloud-logging.ts >/dev/null
+grep_score 6 grep -R "targetContent" -n src/shared/cloud-logging.ts >/dev/null
+grep_score 6 grep -R "\"pcm\"" -n src/shared/cloud-logging.ts >/dev/null
 grep_score 6 grep -R "status: \"completed\"" -n src/main/transcription-service.ts >/dev/null
 grep_score 6 grep -R "status: \"started\"" -n src/main/transcription-service.ts >/dev/null
 grep_score 6 grep -R "status: \"failed\"" -n src/main/transcription-service.ts >/dev/null
