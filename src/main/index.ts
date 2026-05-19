@@ -1,5 +1,6 @@
 import { app, BrowserWindow, Menu, Tray, globalShortcut, ipcMain, nativeImage, screen } from "electron";
 import { join } from "node:path";
+import { getCloudDictationReadiness } from "../shared/cloud-status";
 import { type DictionaryCreateInput, type DictionaryPatch } from "../shared/dictionary";
 import { buildOcrPromptContext, type OcrPromptContext } from "../shared/ocr-context";
 import {
@@ -729,6 +730,17 @@ ipcMain.handle(
   (_event, imagePath: string, mode: "screen" | "activeWindow") =>
     ocrService.recognizeImage(imagePath, mode)
 );
+ipcMain.handle("transcription:get-readiness", async (_event, processName?: string | null) => {
+  const settings = await settingsStore.get();
+  const profile = findAppProfile(settings.appProfiles, processName ?? null);
+
+  return getCloudDictationReadiness({
+    settings,
+    profile,
+    hasApiKey: await openAiCredentialStore.hasApiKey()
+  });
+});
+
 ipcMain.handle(
   "transcription:transcribe-wav",
   (

@@ -795,7 +795,16 @@ export function App(): JSX.Element {
   async function startRecording(): Promise<void> {
     setError(null);
 
-    if (activeModel?.status !== "downloaded") {
+    const readiness = await window.voxtype.transcription.getReadiness(
+      hotkeyTargetRef.current?.processName ?? state.activeWindow?.processName
+    );
+
+    if (!readiness.ready) {
+      setError(readiness.reason ?? "Dictation is not ready.");
+      return;
+    }
+
+    if (!readiness.cloud && activeModel?.status !== "downloaded") {
       setError("Download and select a Whisper model before recording.");
       return;
     }

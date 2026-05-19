@@ -78,6 +78,10 @@ grep_score 6 grep -R "livePreviewTurns" -n src >/dev/null
 grep_score 6 grep -R "overlay-live-preview" -n src/renderer >/dev/null
 grep_score 6 grep -R "finalizing" -n src/shared src/renderer >/dev/null
 grep_score 6 grep -R "cloudProviderLabel" -n src >/dev/null
+grep_score 6 grep -R "CloudDictationReadiness" -n src >/dev/null
+grep_score 6 grep -R "transcription:get-readiness" -n src >/dev/null
+grep_score 6 grep -R "getReadiness" -n src/renderer src/preload >/dev/null
+grep_score 6 grep -R "!readiness\.ready" -n src/renderer >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null
