@@ -858,6 +858,7 @@ export function App(): JSX.Element {
       await recorder.stop().catch(() => undefined);
     }
 
+    await window.voxtype.transcription.cancelRealtime("Realtime Cloud Dictation stopped because Offline Mode was enabled.").catch(() => undefined);
     await stopRecordingCoordination();
     await unmuteSystemAudio();
     setError("Cloud Dictation stopped because Offline Mode was enabled.");
