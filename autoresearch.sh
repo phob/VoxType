@@ -86,6 +86,9 @@ grep_score 6 grep -R "CloudDictationReadinessReasonCode" -n src/shared/cloud-sta
 grep_score 6 grep -R "reasonCode: \"offline_mode\"" -n src/shared/cloud-status.ts >/dev/null
 grep_score 6 grep -R "reasonCode: \"consent_required\"" -n src/shared/cloud-status.ts >/dev/null
 grep_score 6 grep -R "reasonCode: \"api_key_required\"" -n src/shared/cloud-status.ts >/dev/null
+grep_score 6 grep -R "requestedModeId: DictationModeId" -n src/shared/cloud-status.ts >/dev/null
+grep_score 6 grep -R "profileForbidsCloud: boolean" -n src/shared/cloud-status.ts >/dev/null
+grep_score 6 grep -R "This App Profile forbids Cloud Dictation; using Local balanced instead" -n src/shared/cloud-status.ts >/dev/null
 grep_score 6 grep -R "Cloud Dictation consent" -n src/renderer >/dev/null
 grep_score 6 grep -R "Allow OCR Context in cloud Prompt Pack" -n src/renderer >/dev/null
 grep_score 6 grep -R "OpenAI API key" -n src/renderer >/dev/null

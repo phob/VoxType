@@ -9,11 +9,13 @@ export type CloudDictationReadinessReasonCode =
   | "cloud_ready";
 
 export type CloudDictationReadiness = {
+  requestedModeId: DictationModeId;
   modeId: DictationModeId;
   cloud: boolean;
   ready: boolean;
   reason: string | null;
   reasonCode: CloudDictationReadinessReasonCode;
+  profileForbidsCloud: boolean;
 };
 
 export function resolveEffectiveDictationModeId(
@@ -31,23 +33,35 @@ export function getCloudDictationReadiness(input: {
   hasApiKey: boolean;
 }): CloudDictationReadiness {
   const requestedModeId = resolveEffectiveDictationModeId(input.settings, input.profile);
-  const modeId =
+  const profileForbidsCloud = Boolean(
     input.profile?.forbidCloudDictation && isCloudDictationMode(requestedModeId)
-      ? "local.balanced"
-      : requestedModeId;
+  );
+  const modeId = profileForbidsCloud ? "local.balanced" : requestedModeId;
   const cloud = isCloudDictationMode(modeId);
 
   if (!cloud) {
-    return { modeId, cloud, ready: true, reason: null, reasonCode: "local_ready" };
+    return {
+      requestedModeId,
+      modeId,
+      cloud,
+      ready: true,
+      reason: profileForbidsCloud
+        ? "This App Profile forbids Cloud Dictation; using Local balanced instead."
+        : null,
+      reasonCode: "local_ready",
+      profileForbidsCloud
+    };
   }
 
   if (input.settings.offlineMode) {
     return {
+      requestedModeId,
       modeId,
       cloud,
       ready: false,
       reason: "Cloud Dictation is disabled while Offline Mode is on.",
-      reasonCode: "offline_mode"
+      reasonCode: "offline_mode",
+      profileForbidsCloud
     };
   }
 
@@ -57,7 +71,8 @@ export function getCloudDictationReadiness(input: {
       cloud,
       ready: false,
       reason: "Cloud Dictation requires one-time consent.",
-      reasonCode: "consent_required"
+      reasonCode: "consent_required",
+      profileForbidsCloud
     };
   }
 
@@ -67,7 +82,8 @@ export function getCloudDictationReadiness(input: {
       cloud,
       ready: false,
       reason: "Add an OpenAI API key before recording.",
-      reasonCode: "api_key_required"
+      reasonCode: "api_key_required",
+      profileForbidsCloud
     };
   }
 
@@ -76,6 +92,7 @@ export function getCloudDictationReadiness(input: {
     cloud,
     ready: true,
     reason: `${getDictationMode(modeId).label} ready.`,
-    reasonCode: "cloud_ready"
+    reasonCode: "cloud_ready",
+    profileForbidsCloud
   };
 }
