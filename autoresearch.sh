@@ -290,8 +290,10 @@ grep_score 6 grep -R "realtimeCloudHistoryService.save" -n src/main/index.ts >/d
 grep_score 6 grep -R "transcription.startRealtime" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "transcription.finalizeRealtime" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "onLevel\?: (level: NativeRecordingLevel, pcm16Chunk\?: Uint8Array)" -n src/main/windows-helper-service.ts >/dev/null
-grep_score 6 grep -R "parseRealtimePcm16ChunkEvents" -n src/main/windows-helper-service.ts >/dev/null
-grep_score 6 grep -R "isRealtimePcm16ChunkLine" -n src/main/windows-helper-service.ts >/dev/null
+grep_score 6 grep -R "parseRecordingStdoutEvents" -n src/main/windows-helper-service.ts >/dev/null
+grep_score 6 grep -R "parsed.type === \"realtimePcm16Chunk\"" -n src/main/windows-helper-service.ts >/dev/null
+grep_score 6 grep -R "onLevel?.(event.level, event.pcm16Chunk)" -n src/main/windows-helper-service.ts >/dev/null
+grep_score 6 bash -c '! grep -R "parseRealtimePcm16ChunkEvents" -n src/main/windows-helper-service.ts'
 grep_score 6 grep -R "activeRealtimeCloudSession.appendPcm16Audio(pcm16Chunk)" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "realtimePcm16Chunk" -n native/windows-helper/src/main.rs >/dev/null
 grep_score 6 grep -R "emit_realtime_pcm16_chunk" -n native/windows-helper/src/main.rs >/dev/null

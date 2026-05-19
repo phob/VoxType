@@ -369,17 +369,8 @@ export class WindowsHelperService {
 
     child.stdout.on("data", (chunk: Buffer) => {
       stdout.push(chunk);
-      const text = chunk.toString("utf8");
-      const pcm16Chunks = parseRealtimePcm16ChunkEvents(text);
-      let chunkIndex = 0;
-
-      for (const level of parseRecordingLevelEvents(text)) {
-        onLevel?.(level, pcm16Chunks[chunkIndex]);
-        chunkIndex += 1;
-      }
-
-      for (; chunkIndex < pcm16Chunks.length; chunkIndex += 1) {
-        onLevel?.({ rms: 0, peak: 0 }, pcm16Chunks[chunkIndex]);
+      for (const event of parseRecordingStdoutEvents(chunk.toString("utf8"))) {
+        onLevel?.(event.level, event.pcm16Chunk);
       }
     });
     child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk));
@@ -556,44 +547,48 @@ function parseNativeRecordingMetadata(stdout: string): Omit<NativeRecordingResul
 }
 
 function parseRecordingLevelEvents(stdout: string): NativeRecordingLevel[] {
-  return stdout
-    .split(/\r?\n/)
-    .map((item) => item.trim())
-    .filter(isRecordingLevelLine)
-    .map((line) => JSON.parse(line) as Record<string, unknown>)
-    .map((parsed) => ({
-      rms: typeof parsed.rms === "number" ? clamp01(parsed.rms) : 0,
-      peak: typeof parsed.peak === "number" ? clamp01(parsed.peak) : 0
-    }));
+  return parseRecordingStdoutEvents(stdout).map((event) => event.level);
 }
 
-function parseRealtimePcm16ChunkEvents(stdout: string): Uint8Array[] {
+function parseRecordingStdoutEvents(stdout: string): Array<{
+  level: NativeRecordingLevel;
+  pcm16Chunk?: Uint8Array;
+}> {
   return stdout
     .split(/\r?\n/)
     .map((item) => item.trim())
-    .filter(isRealtimePcm16ChunkLine)
-    .map((line) => JSON.parse(line) as Record<string, unknown>)
-    .flatMap((parsed) => {
-      if (
-        parsed.encoding !== "pcm16" ||
-        parsed.sampleRateHz !== 24000 ||
-        parsed.channelCount !== 1 ||
-        typeof parsed.audioBase64 !== "string"
-      ) {
+    .filter(Boolean)
+    .flatMap((line) => {
+      try {
+        const parsed = JSON.parse(line) as Record<string, unknown>;
+
+        if (parsed.type === "recordingLevel") {
+          return [{
+            level: {
+              rms: typeof parsed.rms === "number" ? clamp01(parsed.rms) : 0,
+              peak: typeof parsed.peak === "number" ? clamp01(parsed.peak) : 0
+            }
+          }];
+        }
+
+        if (
+          parsed.type === "realtimePcm16Chunk" &&
+          parsed.encoding === "pcm16" &&
+          parsed.sampleRateHz === 24000 &&
+          parsed.channelCount === 1 &&
+          typeof parsed.audioBase64 === "string"
+        ) {
+          return [{
+            level: { rms: 0, peak: 0 },
+            pcm16Chunk: new Uint8Array(Buffer.from(parsed.audioBase64, "base64"))
+          }];
+        }
+      } catch {
         return [];
       }
 
-      return [new Uint8Array(Buffer.from(parsed.audioBase64, "base64"))];
+      return [];
     });
-}
-
-function isRealtimePcm16ChunkLine(line: string): boolean {
-  try {
-    const parsed = JSON.parse(line) as Record<string, unknown>;
-    return parsed.type === "realtimePcm16Chunk";
-  } catch {
-    return false;
-  }
 }
 
 function isRecordingLevelLine(line: string): boolean {
