@@ -16,6 +16,15 @@ export const currentCloudReleaseSmokeTestChecklist: CloudReleaseSmokeTestCheckli
   noSensitiveCloudLogs: false
 };
 
+export const cloudReleaseSmokeTestLabels: Record<keyof CloudReleaseSmokeTestChecklist, string> = {
+  realtimeEndToEndDictation: "Realtime end-to-end dictation",
+  accuracyFileDictation: "Cloud accuracy file dictation",
+  economyFileDictation: "Cloud economy file dictation",
+  offlineKillSwitch: "Offline Mode kill switch",
+  profileCloudForbidFallback: "App Profile cloud-forbid fallback",
+  noSensitiveCloudLogs: "No sensitive cloud logs"
+};
+
 export function getPendingCloudReleaseSmokeTests(
   checklist: CloudReleaseSmokeTestChecklist
 ): Array<keyof CloudReleaseSmokeTestChecklist> {
@@ -33,7 +42,9 @@ export function formatCloudReleaseSmokeTestStatus(
     return "Cloud release smoke test complete";
   }
 
-  return `Cloud release smoke test pending: ${pending.join(", ")}`;
+  return `Cloud release smoke test pending: ${pending
+    .map((key) => cloudReleaseSmokeTestLabels[key])
+    .join(", ")}`;
 }
 
 export function isCloudReleaseSmokeTestComplete(
