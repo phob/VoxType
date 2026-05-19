@@ -9,14 +9,23 @@ export type OpenAiModeImplementationReadiness = {
   realtimeReady: boolean;
 };
 
-export const currentOpenAiModeImplementationReadiness: OpenAiModeImplementationReadiness = {
+export const currentOpenAiModeImplementationReadiness = createOpenAiModeImplementationReadiness({
   fileAccuracyReady: true,
   fileEconomyReady: true,
   realtimeSessionIpcReady: true,
   realtimeRendererLifecycleReady: true,
-  realtimeNativePcmStreamingReady: false,
-  realtimeReady: false
-};
+  realtimeNativePcmStreamingReady: false
+});
+
+export function createOpenAiModeImplementationReadiness(input: Omit<OpenAiModeImplementationReadiness, "realtimeReady">): OpenAiModeImplementationReadiness {
+  return {
+    ...input,
+    realtimeReady:
+      input.realtimeSessionIpcReady &&
+      input.realtimeRendererLifecycleReady &&
+      input.realtimeNativePcmStreamingReady
+  };
+}
 
 export function areAllOpenAiModesReadyForRelease(
   readiness: OpenAiModeImplementationReadiness

@@ -316,6 +316,8 @@ grep_score 6 grep -R "realtimeReady: false" -n src/shared/openai-readiness.ts >/
 grep_score 6 grep -R "realtimeSessionIpcReady: true" -n src/shared/openai-readiness.ts >/dev/null
 grep_score 6 grep -R "realtimeRendererLifecycleReady: true" -n src/shared/openai-readiness.ts >/dev/null
 grep_score 6 grep -R "realtimeNativePcmStreamingReady: false" -n src/shared/openai-readiness.ts >/dev/null
+grep_score 6 grep -R "createOpenAiModeImplementationReadiness" -n src/shared/openai-readiness.ts >/dev/null
+grep_score 6 grep -R "input.realtimeSessionIpcReady &&" -n src/shared/openai-readiness.ts >/dev/null
 grep_score 6 grep -R "Realtime readiness: IPC" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "native PCM streaming" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "isOpenAiModeImplemented" -n src/shared/openai-readiness.ts src/shared/dictation-mode-availability.ts >/dev/null
