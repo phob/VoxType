@@ -53,6 +53,7 @@ grep_score 5 grep -R "forbids Cloud Dictation" -n src >/dev/null
 grep_score 5 grep -R "one-time consent" -n src >/dev/null
 grep_score 5 grep -R "OpenAI API key" -n src >/dev/null
 grep_score 5 grep -R "resolveDictationMode" -n src >/dev/null
+grep_score 6 grep -R "resolveEffectiveDictationModeId(settings, profile)" -n src/main/transcription-service.ts >/dev/null
 grep_score 5 grep -R "openai-credentials:get-status\|openaiCredentials" -n src >/dev/null
 grep_score 5 grep -R "setApiKey" -n src/main src/preload >/dev/null
 grep_score 5 grep -R "clearApiKey" -n src/main src/preload >/dev/null

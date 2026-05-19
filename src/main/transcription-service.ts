@@ -16,7 +16,7 @@ import {
 } from "../shared/cloud-logging";
 import { getCloudFailurePolicy } from "../shared/cloud-failure-policy";
 import { resolveCloudPromptPackOcrEnabled } from "../shared/cloud-prompt-pack-settings";
-import { getCloudDictationReadinessForMode } from "../shared/cloud-status";
+import { getCloudDictationReadinessForMode, resolveEffectiveDictationModeId } from "../shared/cloud-status";
 import { getModelById } from "../shared/models";
 import { getProviderLanguageHint } from "../shared/provider-language";
 import { type OcrPromptContext } from "../shared/ocr-context";
@@ -282,10 +282,7 @@ function formatErrorMessage(error: unknown): string {
 }
 
 function resolveDictationMode(settings: AppSettings, profile: AppProfile | null): DictationMode {
-  const requestedModeId: DictationModeId =
-    profile?.dictationModeId && profile.dictationModeId !== "inherit"
-      ? profile.dictationModeId
-      : settings.dictationModeId;
+  const requestedModeId: DictationModeId = resolveEffectiveDictationModeId(settings, profile);
   const modeId =
     profile?.forbidCloudDictation && isCloudDictationMode(requestedModeId)
       ? "local.balanced"
