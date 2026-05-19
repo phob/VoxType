@@ -33,6 +33,7 @@ import {
 } from "./audio-recorder";
 import { eventToAccelerator } from "./hotkey-capture";
 import { dictationModes, isCloudDictationMode, type DictationModeId } from "../../../shared/asr";
+import { getCloudSessionLimitState } from "../../../shared/cloud-session-limits";
 import { type DictionaryEntry } from "../../../shared/dictionary";
 import { type HardwareAccelerationReport } from "../../../shared/hardware";
 import { type HotkeyStatus } from "../../../shared/hotkeys";
@@ -211,6 +212,8 @@ export function App(): JSX.Element {
   const hotkeySessionIdRef = useRef<number | null>(null);
   const systemAudioMutedByVoxTypeRef = useRef(false);
   const recordingStopHotkeyRef = useRef<string | null>(null);
+  const cloudSessionLimitTimerRef = useRef<number | null>(null);
+  const cloudSessionWarnedRef = useRef(false);
   const audioElementRef = useRef<HTMLAudioElement | null>(null);
   const audioObjectUrlRef = useRef<string | null>(null);
   const modelDeleteTimerRef = useRef<number | null>(null);
@@ -389,6 +392,8 @@ export function App(): JSX.Element {
       if (modelDeleteTimerRef.current !== null) {
         window.clearTimeout(modelDeleteTimerRef.current);
       }
+
+      clearCloudSessionLimitTimer();
 
       if (profileDeleteTimerRef.current !== null) {
         window.clearTimeout(profileDeleteTimerRef.current);
@@ -699,9 +704,52 @@ export function App(): JSX.Element {
     }
   }
 
+  function clearCloudSessionLimitTimer(): void {
+    if (cloudSessionLimitTimerRef.current !== null) {
+      window.clearInterval(cloudSessionLimitTimerRef.current);
+      cloudSessionLimitTimerRef.current = null;
+    }
+
+    cloudSessionWarnedRef.current = false;
+  }
+
+  function startCloudSessionLimitTimer(settings: AppSettings, modeId: DictationModeId): void {
+    clearCloudSessionLimitTimer();
+
+    if (!isCloudDictationMode(modeId)) {
+      return;
+    }
+
+    const startedAtMs = Date.now();
+    cloudSessionLimitTimerRef.current = window.setInterval(() => {
+      const limit = getCloudSessionLimitState({
+        settings,
+        modeId,
+        startedAtMs,
+        nowMs: Date.now()
+      });
+
+      if (limit.shouldStop) {
+        clearCloudSessionLimitTimer();
+        setError(limit.warningMessage ?? "Cloud Dictation reached the maximum session duration.");
+        void stopAndTranscribe({
+          pasteTarget: hotkeyTargetRef.current,
+          ocrContext: hotkeyOcrContextRef.current
+        });
+        return;
+      }
+
+      if (limit.shouldWarn && !cloudSessionWarnedRef.current) {
+        cloudSessionWarnedRef.current = true;
+        setBusyMessage(limit.warningMessage);
+      }
+    }, 1000);
+  }
+
   async function terminateActiveCloudDictationForOfflineMode(): Promise<void> {
     const recorder = recorderRef.current;
     recorderRef.current = null;
+    clearCloudSessionLimitTimer();
     setRecording(false);
     await window.voxtype.recordingOverlay.hide();
     await window.voxtype.dictation.setHotkeyRecording(false);
@@ -911,6 +959,9 @@ export function App(): JSX.Element {
 
       recorderRef.current = await startNativePcmRecorder(state.settings);
       await startRecordingCoordination(state.settings);
+      if (state.settings) {
+        startCloudSessionLimitTimer(state.settings, readiness.modeId);
+      }
       setRecording(true);
     } catch (recordingError) {
       await window.voxtype.recordingOverlay.hide();
@@ -1032,6 +1083,7 @@ export function App(): JSX.Element {
       return;
     }
 
+    clearCloudSessionLimitTimer();
     setRecording(false);
     setBusyMessage("Transcribing locally...");
 
