@@ -48,6 +48,11 @@ grep_score 4 grep -R "providerId" -n src/shared src/main >/dev/null
 grep_score 4 grep -R "dictationModeId" -n src/shared src/main >/dev/null
 grep_score 4 grep -R "rawText" -n src/shared src/main >/dev/null
 grep_score 4 grep -R "Live Preview\|livePreview\|provisional" -n src >/dev/null
+grep_score 5 grep -R "Cloud Dictation is disabled while Offline Mode" -n src >/dev/null
+grep_score 5 grep -R "forbids Cloud Dictation" -n src >/dev/null
+grep_score 5 grep -R "one-time consent" -n src >/dev/null
+grep_score 5 grep -R "OpenAI API key" -n src >/dev/null
+grep_score 5 grep -R "resolveDictationMode" -n src >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null

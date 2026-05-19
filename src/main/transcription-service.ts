@@ -4,9 +4,15 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { promisify } from "node:util";
+import {
+  getDictationMode,
+  isCloudDictationMode,
+  type DictationMode,
+  type DictationModeId
+} from "../shared/asr";
 import { getModelById } from "../shared/models";
 import { type OcrPromptContext } from "../shared/ocr-context";
-import { findAppProfile } from "../shared/settings";
+import { findAppProfile, type AppProfile, type AppSettings } from "../shared/settings";
 import { type TranscriptEntry, type TranscriptionResult } from "../shared/transcripts";
 import { DictionaryStore } from "./dictionary-store";
 import { HistoryStore } from "./history-store";
@@ -29,15 +35,21 @@ export class TranscriptionService {
   ): Promise<TranscriptionResult> {
     const startedAt = Date.now();
     const settings = await this.settingsStore.get();
-    const model = getModelById(settings.activeModelId);
     const profile = findAppProfile(settings.appProfiles, context?.processName ?? null);
+    const mode = resolveDictationMode(settings, profile);
+    const modelId = resolveLocalModelId(settings, mode);
+    const model = getModelById(modelId);
     const whisperLanguage =
       profile?.whisperLanguage && profile.whisperLanguage !== "inherit"
         ? profile.whisperLanguage
         : settings.whisperLanguage;
 
+    if (isCloudDictationMode(mode.id)) {
+      throw new Error(getCloudDictationBlockReason(settings, profile));
+    }
+
     if (!model) {
-      throw new Error(`Unknown active model: ${settings.activeModelId}`);
+      throw new Error(`Unknown active model: ${modelId}`);
     }
 
     const modelPath = join(settings.modelDirectory, model.fileName);
@@ -112,6 +124,8 @@ export class TranscriptionService {
           ocrCorrection.applied.length > 0 ? ocrCorrection.applied : undefined,
         promptContext: promptContext || undefined,
         audioFileName,
+        providerId: "local-whisper",
+        dictationModeId: mode.id,
         modelId: model.id,
         createdAt: new Date().toISOString(),
         durationMs: Date.now() - startedAt
@@ -127,6 +141,43 @@ export class TranscriptionService {
       await rm(outputTextPath, { force: true });
     }
   }
+}
+
+function resolveDictationMode(settings: AppSettings, profile: AppProfile | null): DictationMode {
+  const modeId: DictationModeId =
+    profile?.dictationModeId && profile.dictationModeId !== "inherit"
+      ? profile.dictationModeId
+      : settings.dictationModeId;
+
+  return getDictationMode(modeId);
+}
+
+function resolveLocalModelId(settings: AppSettings, mode: DictationMode): string {
+  if (mode.id === "local.custom") {
+    return settings.localCustomModelId || settings.activeModelId;
+  }
+
+  if (mode.providerId === "local-whisper") {
+    return mode.modelId;
+  }
+
+  return settings.activeModelId;
+}
+
+function getCloudDictationBlockReason(settings: AppSettings, profile: AppProfile | null): string {
+  if (settings.offlineMode) {
+    return "Cloud Dictation is disabled while Offline Mode is on.";
+  }
+
+  if (profile?.forbidCloudDictation) {
+    return "This App Profile forbids Cloud Dictation. Select a local Dictation Mode to dictate here.";
+  }
+
+  if (!settings.cloudDictationConsentAccepted) {
+    return "Cloud Dictation requires one-time consent before audio or Prompt Pack context can be sent to OpenAI.";
+  }
+
+  return "Cloud Dictation is not connected yet. Add an OpenAI API key before recording.";
 }
 
 async function readTextOutput(path: string, fallback: string): Promise<string> {
