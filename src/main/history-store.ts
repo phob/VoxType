@@ -1,6 +1,7 @@
 import { app } from "electron";
 import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { isDictationModeId } from "../shared/asr";
 import { type TranscriptEntry } from "../shared/transcripts";
 
 const historyLimit = 10;
@@ -148,6 +149,10 @@ function isTranscriptEntry(value: unknown): value is TranscriptEntry {
     (typeof entry.promptContext === "string" || entry.promptContext === undefined) &&
     (typeof entry.audioFileName === "string" || entry.audioFileName === undefined) &&
     (typeof entry.audioUnavailableReason === "string" || entry.audioUnavailableReason === undefined) &&
+    (entry.providerId === "local-whisper" || entry.providerId === "openai" || entry.providerId === undefined) &&
+    (isDictationModeId(entry.dictationModeId) || entry.dictationModeId === undefined) &&
+    (typeof entry.turnCount === "number" || entry.turnCount === undefined) &&
+    (typeof entry.turnStatus === "string" || entry.turnStatus === undefined) &&
     typeof entry.modelId === "string" &&
     typeof entry.createdAt === "string" &&
     typeof entry.durationMs === "number"
