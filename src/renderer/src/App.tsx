@@ -2110,7 +2110,7 @@ export function App(): JSX.Element {
           ) : null}
 
           {releaseTab === "settings" ? (
-            <section className="release-panel settings-panel">
+            <section className="release-panel settings-panel release-scroll-panel">
               <div className="section-title-row">
                 <div className="release-panel-title">
                   <ReleaseIcon name="settings" decorative />

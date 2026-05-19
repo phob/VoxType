@@ -2360,7 +2360,8 @@ td select {
 
 .release-scroll-panel .model-list,
 .release-scroll-panel .profile-list,
-.release-scroll-panel .history-list {
+.release-scroll-panel .history-list,
+.release-scroll-panel .settings-list {
   overflow: auto;
   padding-right: 2px;
 }
