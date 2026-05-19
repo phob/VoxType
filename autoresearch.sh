@@ -214,8 +214,9 @@ grep_score 6 grep -R "entry.audioUnavailableReason" -n src/renderer >/dev/null
 grep_score 6 grep -R "typeof entry.audioUnavailableReason" -n src/main/history-store.ts >/dev/null
 grep_score 6 grep -R "realtimeVadThresholdOverride" -n src >/dev/null
 grep_score 6 grep -R "sanitizeDeveloperVadThresholdOverride" -n src/shared/realtime-latency.ts >/dev/null
-grep_score 6 grep -R "Developer realtime VAD threshold" -n src/renderer >/dev/null
-grep_score 6 grep -R "developerVadThresholdOverride" -n src/main/openai-realtime-asr-provider.ts src/shared/asr.ts >/dev/null
+grep_score 6 grep -R "OpenAI realtime transcription delay" -n src/renderer >/dev/null
+grep_score 6 grep -R "Clear ignored VAD override" -n src/renderer >/dev/null
+grep_score 6 bash -c '! grep -R "developerVadThresholdOverride" -n src/main/openai-realtime-asr-provider.ts src/shared/asr.ts'
 grep_score 6 grep -R "getDictationModeAvailability" -n src >/dev/null
 grep_score 6 grep -R "Realtime streaming is not available yet" -n src/shared/dictation-mode-availability.ts >/dev/null
 grep_score 6 grep -R "realtimeStreamingReady: false" -n src/renderer >/dev/null
@@ -341,7 +342,7 @@ grep_score 6 grep -R "this.mode = getDictationMode(\"openai.realtime\")" -n src/
 grep_score 6 grep -R "modeId: this.mode.id" -n src/main/realtime-cloud-session.ts >/dev/null
 grep_score 6 grep -R "openAiRealtimeAudioConfig" -n src/main/realtime-cloud-session.ts >/dev/null
 grep_score 6 grep -R "appendPcm16Audio" -n src/main/realtime-cloud-session.ts >/dev/null
-grep_score 6 grep -R "developerVadThresholdOverride: this.settings.realtimeVadThresholdOverride" -n src/main/realtime-cloud-session.ts >/dev/null
+grep_score 6 bash -c '! grep -R "developerVadThresholdOverride: this.settings.realtimeVadThresholdOverride" -n src/main/realtime-cloud-session.ts'
 grep_score 6 grep -R "consentAccepted: boolean" -n src/main/prompt-pack.ts >/dev/null
 grep_score 6 grep -R "requires Cloud Dictation consent" -n src/main/prompt-pack.ts >/dev/null
 grep_score 6 grep -R "consentAccepted: settings.cloudDictationConsentAccepted" -n src/main src/main/index.ts >/dev/null

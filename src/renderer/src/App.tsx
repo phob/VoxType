@@ -2341,7 +2341,7 @@ export function App(): JSX.Element {
                 <label className="setting-row">
                   <span>
                     <strong>Realtime latency preset</strong>
-                    <small>Advanced OpenAI realtime VAD timing; Balanced is recommended.</small>
+                    <small>OpenAI realtime transcription delay; Balanced is recommended.</small>
                   </span>
                   <select
                     value={state.settings.realtimeLatencyPreset}
@@ -2356,24 +2356,18 @@ export function App(): JSX.Element {
                     ))}
                   </select>
                 </label>
-                {state.settings.developerModeEnabled ? (
+                {state.settings.developerModeEnabled && state.settings.realtimeVadThresholdOverride !== null ? (
                   <label className="setting-row">
                     <span>
-                      <strong>Developer realtime VAD threshold</strong>
-                      <small>Debug-only raw OpenAI server VAD threshold override.</small>
+                      <strong>Legacy realtime VAD threshold</strong>
+                      <small>Ignored for gpt-realtime-whisper transcription sessions because server VAD is disabled; clear it to remove stale debug state.</small>
                     </span>
-                    <input
-                      max={0.95}
-                      min={0.05}
-                      step={0.01}
-                      type="number"
-                      value={state.settings.realtimeVadThresholdOverride ?? ""}
-                      onChange={(event) =>
-                        void updateSettings({
-                          realtimeVadThresholdOverride: event.target.value === "" ? null : Number(event.target.value)
-                        })
-                      }
-                    />
+                    <button
+                      type="button"
+                      onClick={() => void updateSettings({ realtimeVadThresholdOverride: null })}
+                    >
+                      Clear ignored VAD override
+                    </button>
                   </label>
                 ) : null}
                 <label className="setting-row">
