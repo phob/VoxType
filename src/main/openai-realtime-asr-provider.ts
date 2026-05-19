@@ -32,6 +32,10 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
       throw new Error(`Unsupported realtime OpenAI model: ${request.mode.modelId}.`);
     }
 
+    if (request.audioConfig.sampleRateHz !== 24000 || request.audioConfig.encoding !== "pcm16") {
+      throw new Error("OpenAI realtime requires 24 kHz PCM16 mono audio.");
+    }
+
     await this.openSession(apiKey, request.promptPack);
   }
 
@@ -122,6 +126,7 @@ function buildSessionUpdate(promptPack: PromptPack | null): unknown {
     type: "session.update",
     session: {
       input_audio_format: "pcm16",
+      input_audio_transcription: { model: "gpt-realtime-whisper" },
       turn_detection: { type: "server_vad" },
       instructions: promptPack?.text
         ? `Transcribe speech. Prefer these context terms when acoustically plausible: ${promptPack.text}`

@@ -55,10 +55,23 @@ export type FileAsrRequest = {
   language: WhisperLanguage;
 };
 
+export type StreamingAudioConfig = {
+  sampleRateHz: 24000;
+  encoding: "pcm16";
+  channelCount: 1;
+};
+
 export type StreamingAsrRequest = {
   mode: DictationMode;
   promptPack: PromptPack | null;
   language: WhisperLanguage;
+  audioConfig: StreamingAudioConfig;
+};
+
+export const openAiRealtimeAudioConfig: StreamingAudioConfig = {
+  sampleRateHz: 24000,
+  encoding: "pcm16",
+  channelCount: 1
 };
 
 export interface FileAsrProvider {
