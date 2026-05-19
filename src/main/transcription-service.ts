@@ -174,7 +174,7 @@ export class TranscriptionService {
     }
 
     if (mode.kind !== "file") {
-      throw new Error("Realtime Cloud Dictation is not available yet.");
+      throw new Error("Realtime Cloud Dictation uses streaming capture and cannot transcribe a completed WAV file.");
     }
 
     const id = randomUUID();

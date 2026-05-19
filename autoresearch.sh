@@ -170,6 +170,8 @@ grep_score 6 grep -R "disabled={!availability.selectable}" -n src/renderer >/dev
 grep_score 6 grep -R "forceModeId" -n src >/dev/null
 grep_score 6 grep -R "forceModeId: \"local.custom\"" -n src/renderer >/dev/null
 grep_score 6 grep -R "context\?\.forceModeId === \"local.custom\"" -n src/main/transcription-service.ts >/dev/null
+grep_score 6 grep -R "Realtime Cloud Dictation uses streaming capture" -n src/main/transcription-service.ts >/dev/null
+grep_score 6 grep -R "Realtime Cloud Dictation uses streaming capture" -n src/main/transcription-service.ts >/dev/null
 grep_score 6 grep -R "activeProviderLabel" -n src/renderer >/dev/null
 grep_score 6 grep -R "getDictationMode(state.settings" -n src/renderer >/dev/null
 grep_score 6 grep -R "Cloud Dictation.*activeDictationMode.label" -n src/renderer >/dev/null
