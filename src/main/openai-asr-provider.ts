@@ -1,4 +1,5 @@
 import { type AsrResult, type FileAsrProvider, type FileAsrRequest } from "../shared/asr";
+import { classifyOpenAiError, formatOpenAiFriendlyError } from "../shared/openai-errors";
 import { OpenAiCredentialStore } from "./openai-credential-store";
 
 const OPENAI_TRANSCRIPTION_URL = "https://api.openai.com/v1/audio/transcriptions";
@@ -77,16 +78,19 @@ export class OpenAiFileAsrProvider implements FileAsrProvider {
 }
 
 async function formatOpenAiError(response: Response): Promise<string> {
-  let code = `${response.status} ${response.statusText}`.trim();
+  let payload: { error?: { code?: unknown; type?: unknown; message?: unknown } } = {};
 
   try {
-    const payload = await response.json() as { error?: { code?: unknown; type?: unknown; message?: unknown } };
-    const errorCode = typeof payload.error?.code === "string" ? payload.error.code : undefined;
-    const errorType = typeof payload.error?.type === "string" ? payload.error.type : undefined;
-    code = [code, errorType, errorCode].filter(Boolean).join(" / ");
+    payload = await response.json() as { error?: { code?: unknown; type?: unknown; message?: unknown } };
   } catch {
     // Keep metadata-only error details; never include provider response bodies because they may echo text.
   }
 
-  return `OpenAI transcription failed (${code}). Check the API key, billing, rate limits, and model access.`;
+  return formatOpenAiFriendlyError(classifyOpenAiError({
+    status: response.status,
+    statusText: response.statusText,
+    code: typeof payload.error?.code === "string" ? payload.error.code : null,
+    type: typeof payload.error?.type === "string" ? payload.error.type : null,
+    message: typeof payload.error?.message === "string" ? payload.error.message : null
+  }));
 }

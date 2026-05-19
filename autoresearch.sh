@@ -229,6 +229,11 @@ grep_score 6 grep -R "consentAccepted: settings.cloudDictationConsentAccepted" -
 grep_score 6 grep -R "sanitizeCloudSessionMaxMs" -n src/shared/settings.ts >/dev/null
 grep_score 6 grep -R "Math.max(60_000, warnMs)" -n src/shared/settings.ts >/dev/null
 grep_score 6 grep -R "normalizedCloudSessionMaxMinutes" -n src/renderer >/dev/null
+grep_score 6 grep -R "classifyOpenAiError" -n src >/dev/null
+grep_score 6 grep -R "invalid_key" -n src/shared/openai-errors.ts >/dev/null
+grep_score 6 grep -R "rate_limit" -n src/shared/openai-errors.ts >/dev/null
+grep_score 6 grep -R "model_access" -n src/shared/openai-errors.ts >/dev/null
+grep_score 6 grep -R "Technical details" -n src/shared/openai-errors.ts >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null
