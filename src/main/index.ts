@@ -21,6 +21,7 @@ import { HistoryStore } from "./history-store";
 import { InsertionService } from "./insertion-service";
 import { ModelService } from "./model-service";
 import { OcrService } from "./ocr-service";
+import { OpenAiCredentialStore } from "./openai-credential-store";
 import { RuntimeService } from "./runtime-service";
 import { SettingsStore } from "./settings-store";
 import { cleanupStartupStorage } from "./startup-cleanup";
@@ -66,6 +67,7 @@ const runtimeService = new RuntimeService();
 const hardwareService = new HardwareService();
 const windowsHelperService = new WindowsHelperService();
 const ocrService = new OcrService(windowsHelperService);
+const openAiCredentialStore = new OpenAiCredentialStore();
 const updateService = new UpdateService();
 const transcriptionService = new TranscriptionService(
   settingsStore,
@@ -672,6 +674,20 @@ ipcMain.handle("settings:reset", async () => {
   startAutomaticUpdateChecks(settings);
   await registerConfiguredHotkeys();
   return settings;
+});
+
+ipcMain.handle("openai-credentials:get-status", async () => ({
+  hasApiKey: await openAiCredentialStore.hasApiKey()
+}));
+
+ipcMain.handle("openai-credentials:set-api-key", async (_event, apiKey: string) => {
+  await openAiCredentialStore.setApiKey(apiKey);
+  return { hasApiKey: await openAiCredentialStore.hasApiKey() };
+});
+
+ipcMain.handle("openai-credentials:clear-api-key", async () => {
+  await openAiCredentialStore.clearApiKey();
+  return { hasApiKey: false };
 });
 ipcMain.handle("models:list", () => modelService.list());
 ipcMain.handle("models:download", (_event, modelId: string) => modelService.download(modelId));

@@ -60,6 +60,14 @@ const voxtype = {
       ipcRenderer.invoke("settings:update", patch) as Promise<AppSettings>,
     reset: () => ipcRenderer.invoke("settings:reset") as Promise<AppSettings>
   },
+  openaiCredentials: {
+    getStatus: () =>
+      ipcRenderer.invoke("openai-credentials:get-status") as Promise<{ hasApiKey: boolean }>,
+    setApiKey: (apiKey: string) =>
+      ipcRenderer.invoke("openai-credentials:set-api-key", apiKey) as Promise<{ hasApiKey: boolean }>,
+    clearApiKey: () =>
+      ipcRenderer.invoke("openai-credentials:clear-api-key") as Promise<{ hasApiKey: boolean }>
+  },
   models: {
     list: () => ipcRenderer.invoke("models:list") as Promise<LocalModel[]>,
     download: (modelId: string) =>
@@ -189,6 +197,8 @@ const voxtype = {
         | "recordingStopHotkey"
         | "postTranscriptionHotkey"
         | "whisperLanguage"
+        | "dictationModeId"
+        | "forbidCloudDictation"
         | "neverSuspendDictationInFullscreen"
       >
     ) => ipcRenderer.invoke("app-profiles:update", processName, patch) as Promise<AppSettings>,
