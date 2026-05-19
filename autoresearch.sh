@@ -286,7 +286,9 @@ grep_score 6 grep -R "chmod(this.credentialPath, 0o600)" -n src/main/openai-cred
 grep_score 6 grep -R "OpenAI test connection is disabled while Offline Mode is on" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "OpenAI test connection requires an API key before any network request" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "const hasApiKey = await openAiCredentialStore.hasApiKey" -n src/main/index.ts >/dev/null
-grep_score 6 grep -R "state.settings.offlineMode} onClick={() => void testOpenAiConnection" -n src/renderer/src/App.tsx >/dev/null
+grep_score 6 grep -R "state.settings.offlineMode" -n src/renderer/src/App.tsx | grep "testOpenAiConnection\|disabled" >/dev/null
+grep_score 6 grep -R "API key required before test connection" -n src/renderer/src/App.tsx >/dev/null
+grep_score 6 grep -R "Test OpenAI API key and selected cloud model" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "formatRealtimeOpenAiError" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "payload.type === \"error\"" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "classifyOpenAiError" -n src/main/openai-realtime-asr-provider.ts >/dev/null

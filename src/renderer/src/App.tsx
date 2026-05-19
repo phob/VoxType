@@ -2311,7 +2311,12 @@ export function App(): JSX.Element {
                     />
                     <button disabled={!openAiApiKeyDraft.trim()} onClick={() => void saveOpenAiApiKey()} type="button">Save key</button>
                     <button onClick={() => void previewCloudPromptPack()} type="button">Prompt Pack preview</button>
-                    <button disabled={!state.openaiCredentials?.hasApiKey || state.settings.offlineMode} onClick={() => void testOpenAiConnection()} type="button">Test connection</button>
+                    <button
+                      disabled={!state.openaiCredentials?.hasApiKey || state.settings.offlineMode}
+                      title={state.settings.offlineMode ? "Disabled in Offline Mode" : !state.openaiCredentials?.hasApiKey ? "API key required before test connection" : "Test OpenAI API key and selected cloud model"}
+                      onClick={() => void testOpenAiConnection()}
+                      type="button"
+                    >Test connection</button>
                     <button disabled={!state.openaiCredentials?.hasApiKey || state.openaiCredentials.source === "environment"} onClick={() => void clearOpenAiApiKey()} type="button">Clear stored key</button>
                   </div>
                 </div>
