@@ -219,7 +219,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
         return;
       }
 
-      if (payload.type === "session.updated") {
+      if (payload.type === "session.updated" || payload.type === "session.created") {
         this.resolveSessionReadyWaiters();
         return;
       }
