@@ -34,6 +34,7 @@ import {
 import { eventToAccelerator } from "./hotkey-capture";
 import { dictationModes, isCloudDictationMode, type DictationModeId } from "../../../shared/asr";
 import { getCloudSessionLimitState } from "../../../shared/cloud-session-limits";
+import { getDictationModeAvailability } from "../../../shared/dictation-mode-availability";
 import { type DictionaryEntry } from "../../../shared/dictionary";
 import { type HardwareAccelerationReport } from "../../../shared/hardware";
 import { type HotkeyStatus } from "../../../shared/hotkeys";
@@ -2080,18 +2081,16 @@ export function App(): JSX.Element {
                     }
                   >
                     {dictationModes.map((mode) => {
-                      const disabledReason =
-                        state.settings.offlineMode && mode.providerId === "openai"
-                          ? "disabled in Offline Mode"
-                          : null;
-                      const setupHint =
-                        mode.providerId === "openai" && !state.openaiCredentials?.hasApiKey
-                          ? "API key required before recording"
-                          : null;
+                      const availability = getDictationModeAvailability({
+                        modeId: mode.id,
+                        settings: state.settings,
+                        hasOpenAiApiKey: Boolean(state.openaiCredentials?.hasApiKey),
+                        realtimeStreamingReady: false
+                      });
 
                       return (
-                        <option disabled={Boolean(disabledReason)} key={mode.id} value={mode.id}>
-                          {mode.label} — {mode.secondaryText}{disabledReason ? ` (${disabledReason})` : setupHint ? ` (${setupHint})` : ""}
+                        <option disabled={!availability.selectable} key={mode.id} value={mode.id}>
+                          {mode.label} — {mode.secondaryText}{availability.reason ? ` (${availability.reason})` : ""}
                         </option>
                       );
                     })}

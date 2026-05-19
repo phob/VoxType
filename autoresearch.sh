@@ -163,6 +163,10 @@ grep_score 6 grep -R "realtimeVadThresholdOverride" -n src >/dev/null
 grep_score 6 grep -R "sanitizeDeveloperVadThresholdOverride" -n src/shared/realtime-latency.ts >/dev/null
 grep_score 6 grep -R "Developer realtime VAD threshold" -n src/renderer >/dev/null
 grep_score 6 grep -R "developerVadThresholdOverride" -n src/main/openai-realtime-asr-provider.ts src/shared/asr.ts >/dev/null
+grep_score 6 grep -R "getDictationModeAvailability" -n src >/dev/null
+grep_score 6 grep -R "Realtime streaming is not available yet" -n src/shared/dictation-mode-availability.ts >/dev/null
+grep_score 6 grep -R "realtimeStreamingReady: false" -n src/renderer >/dev/null
+grep_score 6 grep -R "disabled={!availability.selectable}" -n src/renderer >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null
