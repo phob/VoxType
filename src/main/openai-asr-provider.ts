@@ -1,5 +1,6 @@
 import { type AsrResult, type FileAsrProvider, type FileAsrRequest } from "../shared/asr";
 import { classifyOpenAiError, formatOpenAiFriendlyError } from "../shared/openai-errors";
+import { getProviderLanguageHint } from "../shared/provider-language";
 import { OpenAiCredentialStore } from "./openai-credential-store";
 
 const OPENAI_TRANSCRIPTION_URL = "https://api.openai.com/v1/audio/transcriptions";
@@ -40,8 +41,10 @@ export class OpenAiFileAsrProvider implements FileAsrProvider {
     form.set("model", request.mode.modelId);
     form.set("file", new Blob([request.audioBytes], { type: "audio/wav" }), "dictation.wav");
 
-    if (request.language !== "auto") {
-      form.set("language", request.language);
+    const languageHint = getProviderLanguageHint(this.providerId, request.language);
+
+    if (languageHint.parameterValue) {
+      form.set("language", languageHint.parameterValue);
     }
 
     if (request.promptPack?.text) {
