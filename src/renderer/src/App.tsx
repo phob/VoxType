@@ -315,7 +315,11 @@ export function App(): JSX.Element {
   const activeRuntimeLabel = state.runtime
     ? `${state.runtime.backend.toUpperCase()} · ${state.runtime.status}`
     : "Runtime not ready";
+  const openAiModesReadyForRelease = false;
+  const realtimeStreamingReady = false;
   const developerCloudModePreviewEnabled = isDeveloperBuild;
+  const cloudModeSelectionReady = openAiModesReadyForRelease || developerCloudModePreviewEnabled;
+  const realtimeModeSelectionReady = realtimeStreamingReady || developerCloudModePreviewEnabled;
   const activeModeIsCloud = activeDictationMode.providerId === "openai";
   const cloudSetupReady =
     !activeModeIsCloud ||
@@ -2140,8 +2144,8 @@ export function App(): JSX.Element {
                         modeId: mode.id,
                         settings: state.settings,
                         hasOpenAiApiKey: Boolean(state.openaiCredentials?.hasApiKey),
-                        realtimeStreamingReady: developerCloudModePreviewEnabled,
-                        allOpenAiModesReadyForRelease: developerCloudModePreviewEnabled
+                        realtimeStreamingReady: realtimeModeSelectionReady,
+                        allOpenAiModesReadyForRelease: cloudModeSelectionReady
                       });
 
                       return (
