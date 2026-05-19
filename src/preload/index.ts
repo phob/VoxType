@@ -124,7 +124,15 @@ const voxtype = {
         "transcription:transcribe-wav",
         bytes,
         context
-      ) as Promise<TranscriptionResult>
+      ) as Promise<TranscriptionResult>,
+    startRealtime: (context?: { processName?: string | null; ocrContext?: OcrPromptContext | null }) =>
+      ipcRenderer.invoke("transcription:realtime-start", context) as Promise<void>,
+    appendRealtimePcm16: (bytes: Uint8Array) =>
+      ipcRenderer.invoke("transcription:realtime-append-pcm16", bytes) as Promise<void>,
+    finalizeRealtime: () =>
+      ipcRenderer.invoke("transcription:realtime-finalize") as Promise<TranscriptEntry>,
+    cancelRealtime: (reason?: string) =>
+      ipcRenderer.invoke("transcription:realtime-cancel", reason) as Promise<void>
   },
   history: {
     list: () => ipcRenderer.invoke("history:list") as Promise<TranscriptEntry[]>,

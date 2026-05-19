@@ -238,6 +238,11 @@ grep_score 6 grep -R "sanitizeRealtimeVadThresholdOverride" -n src/shared/settin
 grep_score 6 grep -R "input.developerModeEnabled === true" -n src/shared/settings.ts >/dev/null
 grep_score 6 grep -R "realtimeVadThresholdOverride:.*null" -n src/shared/settings.ts >/dev/null
 grep_score 6 grep -R "RealtimeCloudSession" -n src/main/realtime-cloud-session.ts >/dev/null
+grep_score 6 grep -R "activeRealtimeCloudSession" -n src/main/index.ts >/dev/null
+grep_score 6 grep -R "transcription:realtime-start" -n src/main/index.ts src/preload/index.ts >/dev/null
+grep_score 6 grep -R "transcription:realtime-append-pcm16" -n src/main/index.ts src/preload/index.ts >/dev/null
+grep_score 6 grep -R "transcription:realtime-finalize" -n src/main/index.ts src/preload/index.ts >/dev/null
+grep_score 6 grep -R "realtimeCloudHistoryService.save" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "livePreviewTurns: turns" -n src/main/realtime-cloud-session.ts >/dev/null
 grep_score 6 grep -R "openAiRealtimeAudioConfig" -n src/main/realtime-cloud-session.ts >/dev/null
 grep_score 6 grep -R "appendPcm16Audio" -n src/main/realtime-cloud-session.ts >/dev/null

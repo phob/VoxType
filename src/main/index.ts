@@ -27,6 +27,8 @@ import { OcrService } from "./ocr-service";
 import { OpenAiFileAsrProvider } from "./openai-asr-provider";
 import { OpenAiCredentialStore } from "./openai-credential-store";
 import { buildCloudPromptPack } from "./prompt-pack";
+import { RealtimeCloudHistoryService } from "./realtime-cloud-history-service";
+import { RealtimeCloudSession } from "./realtime-cloud-session";
 import { RuntimeService } from "./runtime-service";
 import { SettingsStore } from "./settings-store";
 import { cleanupStartupStorage } from "./startup-cleanup";
@@ -81,6 +83,9 @@ const transcriptionService = new TranscriptionService(
   runtimeService,
   dictionaryStore
 );
+const realtimeCloudHistoryService = new RealtimeCloudHistoryService(dictionaryStore, historyStore);
+let activeRealtimeCloudSession: RealtimeCloudSession | null = null;
+let activeRealtimeCloudProcessName: string | null = null;
 const insertionService = new InsertionService(windowsHelperService, settingsStore);
 
 app.setName("VoxType");
@@ -818,6 +823,75 @@ ipcMain.handle(
   ) =>
     transcriptionService.transcribeWav(bytes, context)
 );
+
+ipcMain.handle(
+  "transcription:realtime-start",
+  async (
+    _event,
+    context?: { processName?: string | null; ocrContext?: OcrPromptContext | null }
+  ) => {
+    const settings = await settingsStore.get();
+    const processName = context?.processName ?? null;
+    const profile = findAppProfile(settings.appProfiles, processName);
+    const readiness = getCloudDictationReadiness({
+      settings,
+      profile,
+      hasApiKey: await openAiCredentialStore.hasApiKey()
+    });
+
+    if (!readiness.ready || readiness.modeId !== "openai.realtime") {
+      throw new Error(readiness.reason ?? "Realtime Cloud Dictation is not ready.");
+    }
+
+    activeRealtimeCloudSession?.cancel("Realtime Cloud Dictation session replaced by a new recording.");
+    activeRealtimeCloudSession = new RealtimeCloudSession(openAiCredentialStore, settings, updateOverlay);
+    activeRealtimeCloudProcessName = processName;
+
+    const promptPack = await buildCloudPromptPack(dictionaryStore, {
+      processName,
+      ocrContext: context?.ocrContext ?? null,
+      includeOcrContext: settings.cloudPromptPackOcrEnabled,
+      consentAccepted: settings.cloudDictationConsentAccepted
+    });
+
+    await activeRealtimeCloudSession.start(promptPack);
+  }
+);
+
+ipcMain.handle("transcription:realtime-append-pcm16", (_event, bytes: Uint8Array) => {
+  if (!activeRealtimeCloudSession) {
+    throw new Error("Realtime Cloud Dictation has not started.");
+  }
+
+  activeRealtimeCloudSession.appendPcm16Audio(bytes);
+});
+
+ipcMain.handle("transcription:realtime-finalize", async () => {
+  if (!activeRealtimeCloudSession) {
+    throw new Error("Realtime Cloud Dictation has not started.");
+  }
+
+  const session = activeRealtimeCloudSession;
+  activeRealtimeCloudSession = null;
+  const processName = activeRealtimeCloudProcessName;
+  activeRealtimeCloudProcessName = null;
+  const snapshot = session.finalize();
+  const mode = getDictationMode("openai.realtime");
+
+  return realtimeCloudHistoryService.save({
+    mode,
+    turns: snapshot.turns,
+    startedAtMs: snapshot.startedAtMs,
+    endedAtMs: Date.now(),
+    processName
+  });
+});
+
+ipcMain.handle("transcription:realtime-cancel", (_event, reason?: string) => {
+  activeRealtimeCloudSession?.cancel(reason);
+  activeRealtimeCloudSession = null;
+  activeRealtimeCloudProcessName = null;
+});
 ipcMain.handle("history:list", () => historyStore.list());
 ipcMain.handle("history:audio", (_event, entryId: string) => historyStore.readAudio(entryId));
 ipcMain.handle("history:cleanup", () => historyStore.cleanup());
