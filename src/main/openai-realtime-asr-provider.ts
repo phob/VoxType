@@ -1,11 +1,11 @@
 import {
-  OPENAI_REALTIME_WHISPER_MODEL_ID,
   type PromptPack,
   type StreamingAsrProvider,
   type StreamingAsrRequest,
   type TranscriptTurn
 } from "../shared/asr";
 import { classifyOpenAiError, formatOpenAiFriendlyError } from "../shared/openai-errors";
+import { OPENAI_REALTIME_WHISPER_MODEL_ID } from "../shared/openai-models";
 import { getProviderLanguageHint } from "../shared/provider-language";
 import { getOpenAiRealtimeVadConfig } from "../shared/realtime-latency";
 import { TranscriptTurnAccumulator } from "../shared/transcript-turns";

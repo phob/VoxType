@@ -1,3 +1,8 @@
+import {
+  OPENAI_MINI_TRANSCRIBE_MODEL_ID,
+  OPENAI_REALTIME_WHISPER_MODEL_ID,
+  OPENAI_TRANSCRIBE_MODEL_ID
+} from "./openai-models";
 import { type RealtimeLatencyPreset, type WhisperLanguage } from "./settings";
 
 export type AsrProviderId = "local-whisper" | "openai";
@@ -9,10 +14,6 @@ export type DictationModeId =
   | "openai.realtime"
   | "openai.accuracy"
   | "openai.economy";
-
-export const OPENAI_REALTIME_WHISPER_MODEL_ID = "gpt-realtime-whisper" as const;
-export const OPENAI_TRANSCRIBE_MODEL_ID = "gpt-4o-transcribe" as const;
-export const OPENAI_MINI_TRANSCRIBE_MODEL_ID = "gpt-4o-mini-transcribe" as const;
 
 export type DictationModeKind = "file" | "streaming";
 

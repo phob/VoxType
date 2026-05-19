@@ -254,8 +254,10 @@ grep_score 6 grep -R "openAiSupportedLanguageHints" -n src/shared/provider-langu
 grep_score 6 grep -R "languageHint.parameterValue" -n src/main/openai-asr-provider.ts >/dev/null
 grep_score 6 grep -R "getProviderLanguageHint(\"openai\", language)" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "language: languageHint.parameterValue" -n src/main/openai-realtime-asr-provider.ts >/dev/null
-grep_score 6 grep -R "OPENAI_REALTIME_WHISPER_MODEL_ID = \"gpt-realtime-whisper\"" -n src/shared/asr.ts >/dev/null
+grep_score 6 grep -R "OPENAI_REALTIME_WHISPER_MODEL_ID = \"gpt-realtime-whisper\"" -n src/shared/openai-models.ts >/dev/null
 grep_score 6 grep -R "OPENAI_REALTIME_WHISPER_MODEL_ID" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "openAiModeModelIds" -n src/shared/openai-models.ts >/dev/null
+grep_score 6 grep -R "getOpenAiModelIdForMode" -n src/main/index.ts src/shared/openai-models.ts >/dev/null
 grep_score 6 grep -R "OPENAI_TRANSCRIBE_MODEL_ID" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "mode: 0o600" -n src/main/openai-credential-store.ts >/dev/null
 grep_score 6 grep -R "chmod(this.credentialPath, 0o600)" -n src/main/openai-credential-store.ts >/dev/null
