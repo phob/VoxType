@@ -2874,6 +2874,7 @@ export function App(): JSX.Element {
                         {entry.turnCount ? ` · ${entry.turnCount} turns` : ""}
                         {entry.turnStatus ? ` · ${entry.turnStatus}` : ""}
                         {entry.audioFileName ? " · audio saved" : ""}
+                        {entry.audioUnavailableReason ? ` · ${entry.audioUnavailableReason}` : ""}
                       </small>
                     </div>
                     <div className="history-actions">
@@ -2898,7 +2899,7 @@ export function App(): JSX.Element {
                       <button
                         aria-label={playingTranscriptId === entry.id ? "Stop audio" : "Play audio"}
                         className="release-icon-button"
-                        data-tooltip={playingTranscriptId === entry.id ? "Stop audio" : "Play audio"}
+                        data-tooltip={entry.audioUnavailableReason ?? (playingTranscriptId === entry.id ? "Stop audio" : "Play audio")}
                         disabled={!entry.audioFileName}
                         onClick={() => void playTranscriptAudio(entry)}
                         type="button"
