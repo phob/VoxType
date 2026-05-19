@@ -300,6 +300,8 @@ grep_score 6 grep -R "parseRecordingStdoutEvents(text)" -n src/main/windows-help
 grep_score 6 grep -R "let stdoutRemainder = \"\"" -n src/main/windows-helper-service.ts >/dev/null
 grep_score 6 grep -R "splitCompleteStdoutLines" -n src/main/windows-helper-service.ts >/dev/null
 grep_score 6 grep -R "stdoutRemainder.*chunk.toString" -n src/main/windows-helper-service.ts >/dev/null
+grep_score 6 grep -R "child.once(\"close\"" -n src/main/windows-helper-service.ts >/dev/null
+grep_score 6 grep -R "stdoutRemainder = \"\"" -n src/main/windows-helper-service.ts >/dev/null
 grep_score 6 grep -R "onLevel?.(event.level, event.pcm16Chunk)" -n src/main/windows-helper-service.ts >/dev/null
 grep_score 6 bash -c '! grep -R "parseRealtimePcm16ChunkEvents" -n src/main/windows-helper-service.ts'
 grep_score 6 grep -R "activeRealtimeCloudSession.appendPcm16Audio(pcm16Chunk)" -n src/main/index.ts >/dev/null

@@ -377,6 +377,14 @@ export class WindowsHelperService {
       }
     });
     child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk));
+    child.once("close", () => {
+      const complete = stdoutRemainder;
+      stdoutRemainder = "";
+      stdout.push(Buffer.from(stripRealtimePcm16ChunkEvents(complete)));
+      for (const event of parseRecordingStdoutEvents(complete)) {
+        onLevel?.(event.level, event.pcm16Chunk);
+      }
+    });
     child.once("exit", (code) => {
       if (this.recording?.child === child && code !== null && code !== 0) {
         this.recording = null;
