@@ -58,6 +58,8 @@ grep_score 5 grep -R "setApiKey" -n src/main src/preload >/dev/null
 grep_score 5 grep -R "clearApiKey" -n src/main src/preload >/dev/null
 grep_score 6 grep -R "audio/transcriptions" -n src/main >/dev/null
 grep_score 6 grep -R "FormData" -n src/main >/dev/null
+grep_score 6 grep -R "copyAudioBytesForUpload" -n src/main/openai-asr-provider.ts >/dev/null
+grep_score 6 grep -R "new Uint8Array(audioBytes)" -n src/main/openai-asr-provider.ts >/dev/null
 grep_score 6 grep -R "promptPack\.text" -n src/main >/dev/null
 grep_score 6 grep -R "metadata-only error" -n src/main >/dev/null
 grep_score 6 grep -R "transcribeCloudFile" -n src/main >/dev/null

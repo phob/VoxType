@@ -39,7 +39,7 @@ export class OpenAiFileAsrProvider implements FileAsrProvider {
     const startedAt = Date.now();
     const form = new FormData();
     form.set("model", request.mode.modelId);
-    form.set("file", new Blob([request.audioBytes], { type: "audio/wav" }), "dictation.wav");
+    form.set("file", new Blob([copyAudioBytesForUpload(request.audioBytes)], { type: "audio/wav" }), "dictation.wav");
 
     const languageHint = getProviderLanguageHint(this.providerId, request.language);
 
@@ -78,6 +78,11 @@ export class OpenAiFileAsrProvider implements FileAsrProvider {
       durationMs: Date.now() - startedAt
     };
   }
+}
+
+function copyAudioBytesForUpload(audioBytes: Uint8Array): Uint8Array {
+  // Copy processed WAV bytes at the provider boundary so later local mutations cannot affect the upload body.
+  return new Uint8Array(audioBytes);
 }
 
 async function formatOpenAiError(response: Response): Promise<string> {
