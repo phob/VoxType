@@ -194,6 +194,10 @@ grep_score 6 grep -R "openAiApiKeyDraft" -n src/renderer >/dev/null
 grep_score 6 grep -R "type=\"password\"" -n src/renderer >/dev/null
 grep_score 6 grep -R "setOpenAiApiKeyDraft(\"\")" -n src/renderer >/dev/null
 grep_score 6 grep -R "setting-actions-with-input" -n src/renderer >/dev/null
+grep_score 6 grep -R "Cloud session warning" -n src/renderer >/dev/null
+grep_score 6 grep -R "Cloud session maximum" -n src/renderer >/dev/null
+grep_score 6 grep -R "cloudSessionWarnMs: Number(event.target.value) \* 60000" -n src/renderer >/dev/null
+grep_score 6 grep -R "cloudSessionMaxMs: Number(event.target.value) \* 60000" -n src/renderer >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null

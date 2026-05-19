@@ -2150,6 +2150,34 @@ export function App(): JSX.Element {
                 </label>
                 <label className="setting-row">
                   <span>
+                    <strong>Cloud session warning</strong>
+                    <small>Warn after this many minutes; default is 5.</small>
+                  </span>
+                  <input
+                    min={1}
+                    type="number"
+                    value={Math.round(state.settings.cloudSessionWarnMs / 60000)}
+                    onChange={(event) =>
+                      void updateSettings({ cloudSessionWarnMs: Number(event.target.value) * 60000 })
+                    }
+                  />
+                </label>
+                <label className="setting-row">
+                  <span>
+                    <strong>Cloud session maximum</strong>
+                    <small>Automatically finalize after this many minutes; default is 10.</small>
+                  </span>
+                  <input
+                    min={1}
+                    type="number"
+                    value={Math.round(state.settings.cloudSessionMaxMs / 60000)}
+                    onChange={(event) =>
+                      void updateSettings({ cloudSessionMaxMs: Number(event.target.value) * 60000 })
+                    }
+                  />
+                </label>
+                <label className="setting-row">
+                  <span>
                     <strong>Realtime latency preset</strong>
                     <small>Advanced OpenAI realtime VAD timing; Balanced is recommended.</small>
                   </span>
