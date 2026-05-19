@@ -5,6 +5,10 @@ import {
 } from "../shared/asr";
 import { type AppSettings } from "../shared/settings";
 import { type RecordingOverlayState } from "../shared/windows-helper";
+import {
+  assertCloudDictationLogIsMetadataOnly,
+  createCloudDictationLogEntry
+} from "../shared/cloud-logging";
 import { OpenAiCredentialStore } from "./openai-credential-store";
 import { OpenAiRealtimeAsrProvider } from "./openai-realtime-asr-provider";
 import { type PromptPack } from "../shared/asr";
@@ -53,6 +57,15 @@ export class RealtimeCloudSession {
   }
 
   async start(promptPack: PromptPack | null): Promise<void> {
+    const startedLogEntry = createCloudDictationLogEntry({
+      providerId: "openai",
+      modelId: getDictationMode("openai.realtime").modelId,
+      modeId: "openai.realtime",
+      durationMs: 0,
+      status: "started"
+    });
+    assertCloudDictationLogIsMetadataOnly(startedLogEntry);
+
     await this.provider.startStreaming({
       mode: getDictationMode("openai.realtime"),
       promptPack,
@@ -81,6 +94,14 @@ export class RealtimeCloudSession {
   finalize(): RealtimeCloudSessionSnapshot {
     if (!this.finalized) {
       this.finalized = true;
+      const completedLogEntry = createCloudDictationLogEntry({
+        providerId: "openai",
+        modelId: getDictationMode("openai.realtime").modelId,
+        modeId: "openai.realtime",
+        durationMs: Date.now() - this.startedAtMs,
+        status: "completed"
+      });
+      assertCloudDictationLogIsMetadataOnly(completedLogEntry);
       this.provider.commitAudio();
       this.provider.stop();
     }
@@ -91,6 +112,14 @@ export class RealtimeCloudSession {
   cancel(reason = "Realtime Cloud Dictation session cancelled"): RealtimeCloudSessionSnapshot {
     if (!this.finalized) {
       this.finalized = true;
+      const cancelledLogEntry = createCloudDictationLogEntry({
+        providerId: "openai",
+        modelId: getDictationMode("openai.realtime").modelId,
+        modeId: "openai.realtime",
+        durationMs: Date.now() - this.startedAtMs,
+        status: "cancelled"
+      });
+      assertCloudDictationLogIsMetadataOnly(cancelledLogEntry);
       this.provider.stop();
       this.updateOverlay({
         mode: "finalizing",

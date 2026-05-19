@@ -267,6 +267,9 @@ grep_score 6 grep -R "function cancelActiveRealtimeCloudSession" -n src/main/ind
 grep_score 6 grep -R "Realtime Cloud Dictation cancelled because VoxType is quitting" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "cancelActiveRealtimeCloudSession(reason ?? \"Realtime Cloud Dictation session cancelled\")" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "livePreviewTurns: turns" -n src/main/realtime-cloud-session.ts >/dev/null
+grep_score 6 grep -R "status: \"cancelled\"" -n src/main/realtime-cloud-session.ts >/dev/null
+grep_score 6 grep -R "assertCloudDictationLogIsMetadataOnly(startedLogEntry)" -n src/main/realtime-cloud-session.ts >/dev/null
+grep_score 6 grep -R "assertCloudDictationLogIsMetadataOnly(completedLogEntry)" -n src/main/realtime-cloud-session.ts >/dev/null
 grep_score 6 grep -R "openAiRealtimeAudioConfig" -n src/main/realtime-cloud-session.ts >/dev/null
 grep_score 6 grep -R "appendPcm16Audio" -n src/main/realtime-cloud-session.ts >/dev/null
 grep_score 6 grep -R "developerVadThresholdOverride: this.settings.realtimeVadThresholdOverride" -n src/main/realtime-cloud-session.ts >/dev/null
