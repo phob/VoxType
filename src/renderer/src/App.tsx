@@ -40,6 +40,11 @@ import { type HardwareAccelerationReport } from "../../shared/hardware";
 import { type HotkeyStatus } from "../../shared/hotkeys";
 import { type LocalModel } from "../../shared/models";
 import { type OcrPromptContext } from "../../shared/ocr-context";
+import {
+  cloudDictationConsentExclusions,
+  cloudDictationConsentOfflineNotice,
+  cloudDictationConsentSummary
+} from "../../shared/cloud-consent-copy";
 import { type OcrResult } from "../../shared/ocr";
 import { type OpenAiCredentialStatus } from "../../shared/openai-credentials";
 import {
@@ -2192,8 +2197,7 @@ export function App(): JSX.Element {
                   <span>
                     <strong>Cloud Dictation consent</strong>
                     <small>
-                      Sends microphone audio and compact Prompt Pack context to OpenAI; never screenshots,
-                      transcript history, or the full Dictionary.
+                      {cloudDictationConsentSummary} {cloudDictationConsentExclusions} {cloudDictationConsentOfflineNotice}
                       <span className="inline-doc-links">
                         <a href="https://openai.com/api/pricing/" rel="noreferrer" target="_blank">Pricing</a>
                         <a href="https://openai.com/policies/privacy-policy/" rel="noreferrer" target="_blank">Privacy</a>
