@@ -4,6 +4,7 @@ import {
   type StreamingAsrRequest,
   type TranscriptTurn
 } from "../shared/asr";
+import { getProviderLanguageHint } from "../shared/provider-language";
 import { getOpenAiRealtimeVadConfig } from "../shared/realtime-latency";
 import { TranscriptTurnAccumulator } from "../shared/transcript-turns";
 import { OpenAiCredentialStore } from "./openai-credential-store";
@@ -40,6 +41,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
     await this.openSession(
       apiKey,
       request.promptPack,
+      request.language,
       request.latencyPreset,
       request.developerVadThresholdOverride
     );
@@ -72,6 +74,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
   private async openSession(
     apiKey: string,
     promptPack: PromptPack | null,
+    language: StreamingAsrRequest["language"],
     latencyPreset: StreamingAsrRequest["latencyPreset"],
     developerVadThresholdOverride: StreamingAsrRequest["developerVadThresholdOverride"]
   ): Promise<void> {
@@ -91,6 +94,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
         this.socket = socket;
         socket.send(JSON.stringify(buildSessionUpdate(
           promptPack,
+          language,
           latencyPreset,
           developerVadThresholdOverride
         )));
@@ -138,14 +142,20 @@ function encodeBase64(bytes: Uint8Array): string {
 
 function buildSessionUpdate(
   promptPack: PromptPack | null,
+  language: StreamingAsrRequest["language"],
   latencyPreset: StreamingAsrRequest["latencyPreset"],
   developerVadThresholdOverride: StreamingAsrRequest["developerVadThresholdOverride"]
 ): unknown {
+  const languageHint = getProviderLanguageHint("openai", language);
+
   return {
     type: "session.update",
     session: {
       input_audio_format: "pcm16",
-      input_audio_transcription: { model: "gpt-realtime-whisper" },
+      input_audio_transcription: {
+        model: "gpt-realtime-whisper",
+        language: languageHint.parameterValue ?? undefined
+      },
       turn_detection: getOpenAiRealtimeVadConfig(latencyPreset, developerVadThresholdOverride),
       instructions: promptPack?.text
         ? `Transcribe speech. Prefer these context terms when acoustically plausible: ${promptPack.text}`

@@ -252,6 +252,8 @@ grep_score 6 grep -R "recent-history-row" -n src/renderer >/dev/null
 grep_score 6 grep -R "getProviderLanguageHint" -n src >/dev/null
 grep_score 6 grep -R "openAiSupportedLanguageHints" -n src/shared/provider-language.ts >/dev/null
 grep_score 6 grep -R "languageHint.parameterValue" -n src/main/openai-asr-provider.ts >/dev/null
+grep_score 6 grep -R "getProviderLanguageHint(\"openai\", language)" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "language: languageHint.parameterValue" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null
