@@ -1,4 +1,5 @@
 import { safeStorage } from "electron";
+import { chmod } from "node:fs/promises";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { app } from "electron";
@@ -36,7 +37,8 @@ export class OpenAiCredentialStore {
     }
 
     await mkdir(dirname(this.credentialPath), { recursive: true });
-    await writeFile(this.credentialPath, safeStorage.encryptString(trimmed));
+    await writeFile(this.credentialPath, safeStorage.encryptString(trimmed), { mode: 0o600 });
+    await chmod(this.credentialPath, 0o600).catch(() => undefined);
   }
 
   async clearApiKey(): Promise<void> {

@@ -254,6 +254,8 @@ grep_score 6 grep -R "openAiSupportedLanguageHints" -n src/shared/provider-langu
 grep_score 6 grep -R "languageHint.parameterValue" -n src/main/openai-asr-provider.ts >/dev/null
 grep_score 6 grep -R "getProviderLanguageHint(\"openai\", language)" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "language: languageHint.parameterValue" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "mode: 0o600" -n src/main/openai-credential-store.ts >/dev/null
+grep_score 6 grep -R "chmod(this.credentialPath, 0o600)" -n src/main/openai-credential-store.ts >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null
