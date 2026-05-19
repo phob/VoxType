@@ -96,6 +96,7 @@ grep_score 6 grep -R "fallbackModeId: DictationModeId | null" -n src/shared/clou
 grep_score 6 grep -R "const fallbackModeId = profileForbidsCloud" -n src/shared/cloud-status.ts >/dev/null
 grep_score 6 bash -c 'test $(grep -c "fallbackModeId" src/shared/cloud-status.ts) -ge 7'
 grep_score 6 grep -R "This App Profile forbids Cloud Dictation; using Local balanced instead" -n src/shared/cloud-status.ts >/dev/null
+grep_score 6 grep -R "profileCloudFallbackModeId" -n src/shared/cloud-status.ts src/main/transcription-service.ts >/dev/null
 grep_score 6 grep -R "readiness.fallbackModeId && readiness.reason" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "const fallbackMode = getDictationMode(readiness.fallbackModeId)" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "Fallback mode:.*fallbackMode.label" -n src/renderer/src/App.tsx >/dev/null

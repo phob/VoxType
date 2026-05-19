@@ -1,6 +1,8 @@
 import { getDictationMode, isCloudDictationMode, type DictationModeId } from "./asr";
 import { type AppProfile, type AppSettings } from "./settings";
 
+export const profileCloudFallbackModeId = "local.balanced" satisfies DictationModeId;
+
 export type CloudDictationReadinessReasonCode =
   | "local_ready"
   | "offline_mode"
@@ -49,7 +51,7 @@ export function getCloudDictationReadinessForMode(input: {
   const profileForbidsCloud = Boolean(
     input.profile?.forbidCloudDictation && isCloudDictationMode(requestedModeId)
   );
-  const modeId = profileForbidsCloud ? "local.balanced" : requestedModeId;
+  const modeId = profileForbidsCloud ? profileCloudFallbackModeId : requestedModeId;
   const fallbackModeId = profileForbidsCloud ? modeId : null;
   const cloud = isCloudDictationMode(modeId);
 

@@ -16,7 +16,11 @@ import {
 } from "../shared/cloud-logging";
 import { getCloudFailurePolicy } from "../shared/cloud-failure-policy";
 import { resolveCloudPromptPackOcrEnabled } from "../shared/cloud-prompt-pack-settings";
-import { getCloudDictationReadinessForMode, resolveEffectiveDictationModeId } from "../shared/cloud-status";
+import {
+  getCloudDictationReadinessForMode,
+  profileCloudFallbackModeId,
+  resolveEffectiveDictationModeId
+} from "../shared/cloud-status";
 import { getModelById } from "../shared/models";
 import { getProviderLanguageHint } from "../shared/provider-language";
 import { type OcrPromptContext } from "../shared/ocr-context";
@@ -285,7 +289,7 @@ function resolveDictationMode(settings: AppSettings, profile: AppProfile | null)
   const requestedModeId: DictationModeId = resolveEffectiveDictationModeId(settings, profile);
   const modeId =
     profile?.forbidCloudDictation && isCloudDictationMode(requestedModeId)
-      ? "local.balanced"
+      ? profileCloudFallbackModeId
       : requestedModeId;
 
   return getDictationMode(modeId);
