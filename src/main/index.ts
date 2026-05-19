@@ -87,7 +87,11 @@ const transcriptionService = new TranscriptionService(
 const realtimeCloudHistoryService = new RealtimeCloudHistoryService(dictionaryStore, historyStore);
 let activeRealtimeCloudSession: RealtimeCloudSession | null = null;
 let activeRealtimeCloudProcessName: string | null = null;
-let lastRealtimeCloudSessionError: Error | null = null;
+let lastRealtimeCloudSessionError: {
+  error: Error;
+  recordedAtMs: number;
+} | null = null;
+const lastRealtimeCloudSessionErrorTtlMs = 30000;
 const insertionService = new InsertionService(windowsHelperService, settingsStore);
 
 app.setName("VoxType");
@@ -245,7 +249,12 @@ function cancelActiveRealtimeCloudSession(reason: string, error?: Error): void {
   activeRealtimeCloudSession?.cancel(reason);
   activeRealtimeCloudSession = null;
   activeRealtimeCloudProcessName = null;
-  lastRealtimeCloudSessionError = error ?? null;
+  lastRealtimeCloudSessionError = error
+    ? {
+        error,
+        recordedAtMs: Date.now()
+      }
+    : null;
 }
 
 function appendRealtimePcm16AudioSafely(bytes: Uint8Array): Error | null {
@@ -928,7 +937,14 @@ ipcMain.handle("transcription:realtime-finalize", async () => {
   if (!activeRealtimeCloudSession) {
     const previousRealtimeError = lastRealtimeCloudSessionError;
     lastRealtimeCloudSessionError = null;
-    throw previousRealtimeError ?? new Error("Realtime Cloud Dictation has not started.");
+    if (
+      previousRealtimeError &&
+      Date.now() - previousRealtimeError.recordedAtMs <= lastRealtimeCloudSessionErrorTtlMs
+    ) {
+      throw previousRealtimeError.error;
+    }
+
+    throw new Error("Realtime Cloud Dictation has not started.");
   }
 
   const session = activeRealtimeCloudSession;
