@@ -326,6 +326,9 @@ grep_score 6 grep -R "input.releaseSmokeTested" -n src/shared/openai-readiness.t
 grep_score 6 grep -R "CloudReleaseSmokeTestChecklist" -n src/shared/cloud-release-smoke-test.ts >/dev/null
 grep_score 6 grep -R "realtimeEndToEndDictation: false" -n src/shared/cloud-release-smoke-test.ts >/dev/null
 grep_score 6 grep -R "noSensitiveCloudLogs: false" -n src/shared/cloud-release-smoke-test.ts >/dev/null
+grep_score 6 grep -R "getPendingCloudReleaseSmokeTests" -n src/shared/cloud-release-smoke-test.ts >/dev/null
+grep_score 6 grep -R "formatCloudReleaseSmokeTestStatus" -n src/shared/cloud-release-smoke-test.ts src/renderer/src/App.tsx >/dev/null
+grep_score 6 grep -R "Cloud release smoke test pending" -n src/shared/cloud-release-smoke-test.ts >/dev/null
 grep_score 6 grep -R "needs release smoke testing before normal UI exposure" -n src/shared/openai-readiness.ts >/dev/null
 grep_score 6 grep -R "createOpenAiModeImplementationReadiness" -n src/shared/openai-readiness.ts >/dev/null
 grep_score 6 grep -R "input.realtimeSessionIpcReady &&" -n src/shared/openai-readiness.ts >/dev/null

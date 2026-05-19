@@ -45,6 +45,10 @@ import {
   cloudDictationConsentOfflineNotice,
   cloudDictationConsentSummary
 } from "../../shared/cloud-consent-copy";
+import {
+  currentCloudReleaseSmokeTestChecklist,
+  formatCloudReleaseSmokeTestStatus
+} from "../../shared/cloud-release-smoke-test";
 import { type OcrResult } from "../../shared/ocr";
 import { type OpenAiCredentialStatus } from "../../shared/openai-credentials";
 import {
@@ -2203,7 +2207,7 @@ export function App(): JSX.Element {
                 </ReleaseChip>
               </div>
               <p className="settings-note">
-                Realtime readiness: IPC {currentOpenAiModeImplementationReadiness.realtimeSessionIpcReady ? "ready" : "pending"}, renderer lifecycle {currentOpenAiModeImplementationReadiness.realtimeRendererLifecycleReady ? "ready" : "pending"}, native PCM streaming {currentOpenAiModeImplementationReadiness.realtimeNativePcmStreamingReady ? "ready" : "pending"}, release smoke test {currentOpenAiModeImplementationReadiness.releaseSmokeTested ? "ready" : "pending"}.
+                Realtime readiness: IPC {currentOpenAiModeImplementationReadiness.realtimeSessionIpcReady ? "ready" : "pending"}, renderer lifecycle {currentOpenAiModeImplementationReadiness.realtimeRendererLifecycleReady ? "ready" : "pending"}, native PCM streaming {currentOpenAiModeImplementationReadiness.realtimeNativePcmStreamingReady ? "ready" : "pending"}, release smoke test {currentOpenAiModeImplementationReadiness.releaseSmokeTested ? "ready" : "pending"}. {formatCloudReleaseSmokeTestStatus(currentCloudReleaseSmokeTestChecklist)}.
               </p>
               <div className="settings-list">
                 <label className="setting-row">
