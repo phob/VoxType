@@ -212,6 +212,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
       const payload = JSON.parse(event.data) as {
         type?: string;
         item_id?: string;
+        content_index?: number;
         transcript?: string;
         delta?: string;
         error?: {
@@ -231,7 +232,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
         return;
       }
 
-      const providerItemId = payload.item_id ?? "current";
+      const providerItemId = getRealtimeTranscriptKey(payload.item_id, payload.content_index);
       const final = payload.type === "conversation.item.input_audio_transcription.completed" ||
         (payload.type?.includes("completed") ?? false);
       const text = payload.transcript ?? payload.delta ?? "";
@@ -317,6 +318,13 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
       waiter.resolve();
     }
   }
+}
+
+function getRealtimeTranscriptKey(itemId: string | undefined, contentIndex: number | undefined): string {
+  const safeItemId = itemId?.trim() || "current";
+  return typeof contentIndex === "number" && Number.isFinite(contentIndex)
+    ? `${safeItemId}:${contentIndex}`
+    : safeItemId;
 }
 
 function formatRealtimeOpenAiError(error: {

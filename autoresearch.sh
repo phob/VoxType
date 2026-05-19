@@ -168,6 +168,8 @@ grep_score 6 grep -R "commitAudioAndWaitForFinalTranscript" -n src/main src/shar
 grep_score 6 grep -R "markProvisionalTurnsAsFallback" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "conversation.item.input_audio_transcription.completed" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "conversation.item.input_audio_transcription.failed" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "content_index" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "getRealtimeTranscriptKey" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "throwIfRealtimeFailed" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "failRealtime" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "OpenAI realtime session closed before final transcript completed" -n src/main/openai-realtime-asr-provider.ts >/dev/null
