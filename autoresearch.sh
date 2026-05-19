@@ -202,6 +202,10 @@ grep_score 6 grep -R "cloudSessionMaxMs: number | null" -n src/shared/settings.t
 grep_score 6 grep -R "input.cloudSessionMaxMs === null" -n src/shared/settings.ts >/dev/null
 grep_score 6 grep -R "const unlimited = input.settings.cloudSessionMaxMs === null" -n src/shared/cloud-session-limits.ts >/dev/null
 grep_score 6 grep -R "leave blank for unlimited" -n src/renderer >/dev/null
+grep_score 6 grep -R "elapsedMs\?: number" -n src/shared/windows-helper.ts >/dev/null
+grep_score 6 grep -R "formatElapsedCloudSession" -n src/renderer >/dev/null
+grep_score 6 grep -R "Cloud Dictation 0:00" -n src/renderer >/dev/null
+grep_score 6 grep -R "elapsedMs: limit.elapsedMs" -n src/renderer >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null

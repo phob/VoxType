@@ -185,7 +185,8 @@ const voxtype = {
     resume: () => ipcRenderer.invoke("hotkeys:resume") as Promise<HotkeyStatus>
   },
   recordingOverlay: {
-    showRecording: () => ipcRenderer.invoke("recording-overlay:show-recording") as Promise<void>,
+    showRecording: (state?: Partial<RecordingOverlayState>) =>
+      ipcRenderer.invoke("recording-overlay:show-recording", state) as Promise<void>,
     showTranscribing: (state?: Partial<RecordingOverlayState>) =>
       ipcRenderer.invoke("recording-overlay:show-transcribing", state) as Promise<void>,
     showFinalizing: (state?: Partial<RecordingOverlayState>) =>

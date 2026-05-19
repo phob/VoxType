@@ -900,8 +900,8 @@ ipcMain.handle("windows-helper:start-recording", (_event, options: NativeRecordi
 ipcMain.handle("windows-helper:stop-recording", () =>
   windowsHelperService.stopRecording()
 );
-ipcMain.handle("recording-overlay:show-recording", () => {
-  showOverlay({ mode: "recording", level: 0, message: "Recording" });
+ipcMain.handle("recording-overlay:show-recording", (_event, state?: Partial<RecordingOverlayState>) => {
+  showOverlay({ mode: "recording", level: 0, message: "Recording", ...state });
 });
 ipcMain.handle("recording-overlay:show-transcribing", (_event, state?: Partial<RecordingOverlayState>) => {
   showOverlay({ mode: "transcribing", level: 0, message: "Transcribing", ...state });

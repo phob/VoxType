@@ -88,6 +88,7 @@ export type RecordingOverlayState = {
   level: number;
   message: string;
   cloudProviderLabel?: string;
+  elapsedMs?: number;
   livePreviewTurns?: TranscriptTurn[];
 };
 

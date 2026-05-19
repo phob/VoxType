@@ -772,6 +772,12 @@ export function App(): JSX.Element {
         nowMs: Date.now()
       });
 
+      void window.voxtype.recordingOverlay.showRecording({
+        cloudProviderLabel: "Cloud Dictation",
+        elapsedMs: limit.elapsedMs,
+        message: formatElapsedCloudSession(limit.elapsedMs)
+      });
+
       if (limit.shouldStop) {
         clearCloudSessionLimitTimer();
         setError(limit.warningMessage ?? "Cloud Dictation reached the maximum session duration.");
@@ -992,7 +998,15 @@ export function App(): JSX.Element {
     }
 
     try {
-      await window.voxtype.recordingOverlay.showRecording();
+      await window.voxtype.recordingOverlay.showRecording(
+        readiness.cloud
+          ? {
+              cloudProviderLabel: "Cloud Dictation",
+              elapsedMs: 0,
+              message: "Cloud Dictation 0:00"
+            }
+          : undefined
+      );
       await playRecordingCue("start");
 
       if (state.settings?.autoMuteSystemAudio) {
@@ -4527,6 +4541,14 @@ function formatBytes(value: number | null | undefined): string {
   return `${(value / 1024 / 1024).toFixed(1)} MB`;
 }
 
+function formatElapsedCloudSession(elapsedMs: number): string {
+  const totalSeconds = Math.max(0, Math.floor(elapsedMs / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+
+  return `Cloud Dictation ${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
 function RecordingOverlay({ state }: { state: RecordingOverlayState }): JSX.Element {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
@@ -4692,13 +4714,15 @@ function RecordingOverlay({ state }: { state: RecordingOverlayState }): JSX.Elem
         ? "Finalizing"
         : state.cloudProviderLabel ?? "Transcribing locally";
   const previewTurns = state.livePreviewTurns?.slice(-5) ?? [];
+  const elapsedLabel =
+    typeof state.elapsedMs === "number" ? formatElapsedCloudSession(state.elapsedMs) : null;
 
   return (
     <main className="recording-overlay" aria-label={statusLabel}>
       {state.mode === "recording" ? (
         <>
           <span className="overlay-status-dot" aria-hidden="true" />
-          <span className="overlay-status-label">{statusLabel}</span>
+          <span className="overlay-status-label">{elapsedLabel ?? statusLabel}</span>
           <canvas
             ref={canvasRef}
             aria-label="Input gain timeline"
