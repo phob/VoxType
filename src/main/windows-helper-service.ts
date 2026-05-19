@@ -368,8 +368,9 @@ export class WindowsHelperService {
     const stderr: Buffer[] = [];
 
     child.stdout.on("data", (chunk: Buffer) => {
-      stdout.push(Buffer.from(stripRealtimePcm16ChunkEvents(chunk.toString("utf8"))));
-      for (const event of parseRecordingStdoutEvents(chunk.toString("utf8"))) {
+      const text = chunk.toString("utf8");
+      stdout.push(Buffer.from(stripRealtimePcm16ChunkEvents(text)));
+      for (const event of parseRecordingStdoutEvents(text)) {
         onLevel?.(event.level, event.pcm16Chunk);
       }
     });
