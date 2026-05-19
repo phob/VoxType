@@ -167,6 +167,9 @@ grep_score 6 grep -R "getDictationModeAvailability" -n src >/dev/null
 grep_score 6 grep -R "Realtime streaming is not available yet" -n src/shared/dictation-mode-availability.ts >/dev/null
 grep_score 6 grep -R "realtimeStreamingReady: false" -n src/renderer >/dev/null
 grep_score 6 grep -R "disabled={!availability.selectable}" -n src/renderer >/dev/null
+grep_score 6 grep -R "forceModeId" -n src >/dev/null
+grep_score 6 grep -R "forceModeId: \"local.custom\"" -n src/renderer >/dev/null
+grep_score 6 grep -R "context\?\.forceModeId === \"local.custom\"" -n src/main/transcription-service.ts >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null

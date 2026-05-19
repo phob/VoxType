@@ -1275,7 +1275,8 @@ export function App(): JSX.Element {
       const audioBytes = await window.voxtype.history.audio(entry.id);
       const result = await window.voxtype.transcription.transcribeWav(audioBytes, {
         processName: currentTarget?.processName ?? hotkeyTargetRef.current?.processName,
-        ocrContext: latestOcrContext ?? hotkeyOcrContextRef.current
+        ocrContext: latestOcrContext ?? hotkeyOcrContextRef.current,
+        forceModeId: "local.custom"
       });
       const [runtime, history, dictionary] = await Promise.all([
         window.voxtype.runtime.getWhisper(),

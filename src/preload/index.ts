@@ -110,7 +110,11 @@ const voxtype = {
       ipcRenderer.invoke("transcription:get-readiness", processName) as Promise<CloudDictationReadiness>,
     transcribeWav: (
       bytes: Uint8Array,
-      context?: { processName?: string | null; ocrContext?: OcrPromptContext | null }
+      context?: {
+        processName?: string | null;
+        ocrContext?: OcrPromptContext | null;
+        forceModeId?: "local.custom";
+      }
     ) =>
       ipcRenderer.invoke(
         "transcription:transcribe-wav",

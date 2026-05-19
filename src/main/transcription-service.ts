@@ -40,12 +40,18 @@ export class TranscriptionService {
 
   async transcribeWav(
     audioBytes: Uint8Array,
-    context?: { processName?: string | null; ocrContext?: OcrPromptContext | null }
+    context?: {
+      processName?: string | null;
+      ocrContext?: OcrPromptContext | null;
+      forceModeId?: "local.custom";
+    }
   ): Promise<TranscriptionResult> {
     const startedAt = Date.now();
     const settings = await this.settingsStore.get();
     const profile = findAppProfile(settings.appProfiles, context?.processName ?? null);
-    const mode = resolveDictationMode(settings, profile);
+    const mode = context?.forceModeId === "local.custom"
+      ? getDictationMode("local.custom")
+      : resolveDictationMode(settings, profile);
     const modelId = resolveLocalModelId(settings, mode);
     const model = getModelById(modelId);
     const whisperLanguage =

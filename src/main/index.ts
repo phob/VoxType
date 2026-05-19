@@ -784,7 +784,11 @@ ipcMain.handle(
   (
     _event,
     bytes: Uint8Array,
-    context?: { processName?: string | null; ocrContext?: OcrPromptContext | null }
+    context?: {
+      processName?: string | null;
+      ocrContext?: OcrPromptContext | null;
+      forceModeId?: "local.custom";
+    }
   ) =>
     transcriptionService.transcribeWav(bytes, context)
 );
