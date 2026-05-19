@@ -17,7 +17,9 @@ export async function buildCloudPromptPack(
 ): Promise<PromptPack | null> {
   const ocrTerms = options.includeOcrContext ? options.ocrContext?.terms ?? [] : [];
   const promptContext = await dictionaryStore.buildPromptContext(options.processName, ocrTerms);
-  const terms = extractPromptTerms(promptContext).slice(0, PROMPT_PACK_MAX_TERMS);
+  const terms = extractPromptTerms(promptContext)
+    .filter((term) => !looksLikeWhisperPromptOverride(term))
+    .slice(0, PROMPT_PACK_MAX_TERMS);
   const text = terms.join(", ").slice(0, PROMPT_PACK_MAX_CHARS).trim();
 
   if (!text) {
@@ -30,6 +32,18 @@ export async function buildCloudPromptPack(
     source: ocrTerms.length > 0 ? "dictionary+ocr" : "dictionary",
     truncated: terms.length >= PROMPT_PACK_MAX_TERMS || terms.join(", ").length > PROMPT_PACK_MAX_CHARS
   };
+}
+
+function looksLikeWhisperPromptOverride(term: string): boolean {
+  const lower = term.toLowerCase();
+
+  return (
+    lower.includes("whisperpromptoverride") ||
+    lower.includes("whisper prompt override") ||
+    lower.startsWith("style:") ||
+    lower.startsWith("rewrite") ||
+    lower.startsWith("format as")
+  );
 }
 
 function extractPromptTerms(promptContext: string | null): string[] {

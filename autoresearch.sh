@@ -178,6 +178,10 @@ grep_score 6 grep -R "cloudSetupReady" -n src/renderer >/dev/null
 grep_score 6 grep -R "Cloud setup" -n src/renderer >/dev/null
 grep_score 6 grep -R "Cloud mode uses OpenAI instead of a local Whisper model" -n src/renderer >/dev/null
 grep_score 6 grep -R "Cloud mode does not require a local whisper.cpp runtime" -n src/renderer >/dev/null
+grep_score 6 grep -R "looksLikeWhisperPromptOverride" -n src/main/prompt-pack.ts >/dev/null
+grep_score 6 grep -R "whisper prompt override" -ni src/main/prompt-pack.ts >/dev/null
+grep_score 6 grep -R "style:" -n src/main/prompt-pack.ts >/dev/null
+grep_score 6 grep -R "format as" -n src/main/prompt-pack.ts >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null

@@ -32,17 +32,17 @@ import {
   type PcmRecordingResult
 } from "./audio-recorder";
 import { eventToAccelerator } from "./hotkey-capture";
-import { dictationModes, getDictationMode, isCloudDictationMode, type DictationModeId } from "../../../shared/asr";
-import { getCloudSessionLimitState } from "../../../shared/cloud-session-limits";
-import { getDictationModeAvailability } from "../../../shared/dictation-mode-availability";
-import { type DictionaryEntry } from "../../../shared/dictionary";
-import { type HardwareAccelerationReport } from "../../../shared/hardware";
-import { type HotkeyStatus } from "../../../shared/hotkeys";
-import { type LocalModel } from "../../../shared/models";
-import { type OcrPromptContext } from "../../../shared/ocr-context";
-import { type OcrResult } from "../../../shared/ocr";
+import { dictationModes, getDictationMode, isCloudDictationMode, type DictationModeId } from "../../shared/asr";
+import { getCloudSessionLimitState } from "../../shared/cloud-session-limits";
+import { getDictationModeAvailability } from "../../shared/dictation-mode-availability";
+import { type DictionaryEntry } from "../../shared/dictionary";
+import { type HardwareAccelerationReport } from "../../shared/hardware";
+import { type HotkeyStatus } from "../../shared/hotkeys";
+import { type LocalModel } from "../../shared/models";
+import { type OcrPromptContext } from "../../shared/ocr-context";
+import { type OcrResult } from "../../shared/ocr";
 import { buildWhisperPromptContext } from "../../shared/prompt-context";
-import { type WhisperRuntime, type WhisperRuntimePreference } from "../../../shared/runtimes";
+import { type WhisperRuntime, type WhisperRuntimePreference } from "../../shared/runtimes";
 import {
   type AppProfile,
   type AppSettings,
@@ -53,9 +53,9 @@ import {
   type RecorderCaptureMode,
   type RecordingCoordinationMode,
   type WhisperLanguage
-} from "../../../shared/settings";
-import { type TranscriptEntry } from "../../../shared/transcripts";
-import { type UpdateStatus } from "../../../shared/updates";
+} from "../../shared/settings";
+import { type TranscriptEntry } from "../../shared/transcripts";
+import { type UpdateStatus } from "../../shared/updates";
 import {
   type ActiveWindowInfo,
   type DictationHotkeyPayload,
@@ -64,7 +64,7 @@ import {
   type ScreenshotCaptureMode,
   type ScreenshotCaptureResult,
   type WindowsHelperStatus
-} from "../../../shared/windows-helper";
+} from "../../shared/windows-helper";
 
 const voxtypeLogoUrl = new URL("../../../resources/icons/voxtype-logo-transparent.png", import.meta.url).href;
 

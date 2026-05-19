@@ -1,4 +1,4 @@
-import { type AppSettings } from "../../../shared/settings";
+import { type AppSettings } from "../../shared/settings";
 
 export type PcmRecorder = {
   stop: () => Promise<PcmRecordingResult>;
