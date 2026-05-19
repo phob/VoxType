@@ -310,7 +310,7 @@ export class WindowsHelperService {
 
   async startRecording(
     options: NativeRecordingOptions,
-    onLevel?: (level: NativeRecordingLevel) => void
+    onLevel?: (level: NativeRecordingLevel, pcm16Chunk?: Uint8Array) => void
   ): Promise<void> {
     if (this.recording) {
       throw new Error("Native recording is already active.");
@@ -370,7 +370,7 @@ export class WindowsHelperService {
     child.stdout.on("data", (chunk: Buffer) => {
       stdout.push(chunk);
       for (const level of parseRecordingLevelEvents(chunk.toString("utf8"))) {
-        onLevel?.(level);
+        onLevel?.(level, extractRealtimePcm16Chunk(level));
       }
     });
     child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk));
@@ -556,6 +556,11 @@ function parseRecordingLevelEvents(stdout: string): NativeRecordingLevel[] {
       rms: typeof parsed.rms === "number" ? clamp01(parsed.rms) : 0,
       peak: typeof parsed.peak === "number" ? clamp01(parsed.peak) : 0
     }));
+}
+
+function extractRealtimePcm16Chunk(_level: NativeRecordingLevel): Uint8Array | undefined {
+  // TODO: pipe 24 kHz PCM16 mono chunks from the native helper once streaming output is available.
+  return undefined;
 }
 
 function isRecordingLevelLine(line: string): boolean {

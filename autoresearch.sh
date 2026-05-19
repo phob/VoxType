@@ -245,6 +245,9 @@ grep_score 6 grep -R "transcription:realtime-finalize" -n src/main/index.ts src/
 grep_score 6 grep -R "realtimeCloudHistoryService.save" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "transcription.startRealtime" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "transcription.finalizeRealtime" -n src/renderer/src/App.tsx >/dev/null
+grep_score 6 grep -R "onLevel\?: (level: NativeRecordingLevel, pcm16Chunk\?: Uint8Array)" -n src/main/windows-helper-service.ts >/dev/null
+grep_score 6 grep -R "extractRealtimePcm16Chunk" -n src/main/windows-helper-service.ts >/dev/null
+grep_score 6 grep -R "activeRealtimeCloudSession.appendPcm16Audio(pcm16Chunk)" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "Finalizing realtime cloud dictation" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "Realtime Cloud Dictation failed to start" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "cancelRealtime(\"Realtime Cloud Dictation stopped because Offline Mode was enabled" -n src/renderer/src/App.tsx >/dev/null

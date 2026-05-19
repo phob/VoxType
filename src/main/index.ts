@@ -989,10 +989,14 @@ ipcMain.handle("windows-helper:capture-screenshot", (_event, mode: "screen" | "a
   windowsHelperService.captureScreenshot(mode)
 );
 ipcMain.handle("windows-helper:start-recording", (_event, options: NativeRecordingOptions) =>
-  windowsHelperService.startRecording(options, (level) => {
+  windowsHelperService.startRecording(options, (level, pcm16Chunk) => {
     updateOverlay({
       level: Math.max(level.rms * 3, level.peak)
     });
+
+    if (pcm16Chunk && activeRealtimeCloudSession) {
+      activeRealtimeCloudSession.appendPcm16Audio(pcm16Chunk);
+    }
   })
 );
 ipcMain.handle("windows-helper:stop-recording", () =>
