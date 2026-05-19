@@ -32,7 +32,19 @@ export function getCloudDictationReadiness(input: {
   profile: AppProfile | null;
   hasApiKey: boolean;
 }): CloudDictationReadiness {
-  const requestedModeId = resolveEffectiveDictationModeId(input.settings, input.profile);
+  return getCloudDictationReadinessForMode({
+    ...input,
+    requestedModeId: resolveEffectiveDictationModeId(input.settings, input.profile)
+  });
+}
+
+export function getCloudDictationReadinessForMode(input: {
+  settings: AppSettings;
+  profile: AppProfile | null;
+  hasApiKey: boolean;
+  requestedModeId: DictationModeId;
+}): CloudDictationReadiness {
+  const requestedModeId = input.requestedModeId;
   const profileForbidsCloud = Boolean(
     input.profile?.forbidCloudDictation && isCloudDictationMode(requestedModeId)
   );

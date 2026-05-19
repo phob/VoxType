@@ -260,6 +260,9 @@ grep_score 6 grep -R "settings-panel release-scroll-panel" -n src/renderer/src/A
 grep_score 6 grep -R "release-scroll-panel .settings-list" -n src/renderer/src/styles.css >/dev/null
 grep_score 6 grep -R "getCloudFailurePolicy" -n src/main/transcription-service.ts >/dev/null
 grep_score 6 grep -R "policy.userMessage" -n src/main/transcription-service.ts >/dev/null
+grep_score 6 grep -R "getCloudDictationReadinessForMode" -n src/shared/cloud-status.ts src/main/transcription-service.ts >/dev/null
+grep_score 6 grep -R "requestedModeId: mode.id" -n src/main/transcription-service.ts >/dev/null
+grep_score 6 bash -c '! grep -R "getCloudDictationBlockReason" -n src/main/transcription-service.ts'
 grep_score 6 grep -R "formatErrorMessage" -n src/main/transcription-service.ts >/dev/null
 grep_score 6 grep -R "isDictationModeId" -n src/main/history-store.ts >/dev/null
 grep_score 6 grep -R "entry.providerId === \"local-whisper\"" -n src/main/history-store.ts >/dev/null

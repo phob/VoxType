@@ -15,6 +15,7 @@ import {
   createCloudDictationLogEntry
 } from "../shared/cloud-logging";
 import { getCloudFailurePolicy } from "../shared/cloud-failure-policy";
+import { getCloudDictationReadinessForMode } from "../shared/cloud-status";
 import { getModelById } from "../shared/models";
 import { type OcrPromptContext } from "../shared/ocr-context";
 import { findAppProfile, type AppProfile, type AppSettings } from "../shared/settings";
@@ -167,10 +168,15 @@ export class TranscriptionService {
     context: { processName?: string | null; ocrContext?: OcrPromptContext | null } | undefined,
     startedAt: number
   ): Promise<TranscriptionResult> {
-    const blockReason = await this.getCloudDictationBlockReason(settings, profile);
+    const readiness = getCloudDictationReadinessForMode({
+      settings,
+      profile,
+      hasApiKey: await this.openAiCredentials.hasApiKey(),
+      requestedModeId: mode.id
+    });
 
-    if (blockReason) {
-      throw new Error(blockReason);
+    if (!readiness.ready || !readiness.cloud) {
+      throw new Error(readiness.reason ?? "Cloud Dictation is not ready.");
     }
 
     if (mode.kind !== "file") {
@@ -254,28 +260,6 @@ export class TranscriptionService {
     return { entry, promptContext: promptPack?.text ?? null };
   }
 
-  private async getCloudDictationBlockReason(
-    settings: AppSettings,
-    profile: AppProfile | null
-  ): Promise<string | null> {
-    if (settings.offlineMode) {
-      return "Cloud Dictation is disabled while Offline Mode is on.";
-    }
-
-    if (profile?.forbidCloudDictation) {
-      return "This App Profile forbids Cloud Dictation. Select a local Dictation Mode to dictate here.";
-    }
-
-    if (!settings.cloudDictationConsentAccepted) {
-      return "Cloud Dictation requires one-time consent before audio or Prompt Pack context can be sent to OpenAI.";
-    }
-
-    if (!(await this.openAiCredentials.hasApiKey())) {
-      return "Cloud Dictation is not connected yet. Add an OpenAI API key before recording.";
-    }
-
-    return null;
-  }
 }
 
 function cloudErrorCode(error: unknown): string {
