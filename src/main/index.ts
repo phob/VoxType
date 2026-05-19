@@ -1,6 +1,6 @@
 import { app, BrowserWindow, Menu, Tray, globalShortcut, ipcMain, nativeImage, screen } from "electron";
 import { join } from "node:path";
-import { getDictationMode } from "../shared/asr";
+import { getDictationMode, OPENAI_TRANSCRIBE_MODEL_ID } from "../shared/asr";
 import { getCloudDictationReadiness } from "../shared/cloud-status";
 import { type DictionaryCreateInput, type DictionaryPatch } from "../shared/dictionary";
 import { buildOcrPromptContext, type OcrPromptContext } from "../shared/ocr-context";
@@ -715,7 +715,7 @@ ipcMain.handle("openai:test-connection", async () => {
   });
 
   const dictationMode = getDictationMode(mode.modeId);
-  const modelId = dictationMode.providerId === "openai" ? dictationMode.modelId : "gpt-4o-transcribe";
+  const modelId = dictationMode.providerId === "openai" ? dictationMode.modelId : OPENAI_TRANSCRIBE_MODEL_ID;
 
   return openAiFileAsrProvider.testConnection(modelId);
 });

@@ -1,4 +1,5 @@
 import {
+  OPENAI_REALTIME_WHISPER_MODEL_ID,
   type PromptPack,
   type StreamingAsrProvider,
   type StreamingAsrRequest,
@@ -10,7 +11,7 @@ import { getOpenAiRealtimeVadConfig } from "../shared/realtime-latency";
 import { TranscriptTurnAccumulator } from "../shared/transcript-turns";
 import { OpenAiCredentialStore } from "./openai-credential-store";
 
-const OPENAI_REALTIME_URL = "wss://api.openai.com/v1/realtime?model=gpt-realtime-whisper";
+const OPENAI_REALTIME_URL = `wss://api.openai.com/v1/realtime?model=${OPENAI_REALTIME_WHISPER_MODEL_ID}`;
 
 export type RealtimePreviewCallback = (turns: TranscriptTurn[]) => void;
 export type RealtimeErrorCallback = (error: Error) => void;
@@ -33,7 +34,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
       throw new Error("OpenAI API key is required before Realtime Cloud Dictation can start.");
     }
 
-    if (request.mode.modelId !== "gpt-realtime-whisper") {
+    if (request.mode.modelId !== OPENAI_REALTIME_WHISPER_MODEL_ID) {
       throw new Error(`Unsupported realtime OpenAI model: ${request.mode.modelId}.`);
     }
 
@@ -178,7 +179,7 @@ function buildSessionUpdate(
     session: {
       input_audio_format: "pcm16",
       input_audio_transcription: {
-        model: "gpt-realtime-whisper",
+        model: OPENAI_REALTIME_WHISPER_MODEL_ID,
         language: languageHint.parameterValue ?? undefined
       },
       turn_detection: getOpenAiRealtimeVadConfig(latencyPreset, developerVadThresholdOverride),

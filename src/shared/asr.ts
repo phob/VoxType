@@ -10,6 +10,10 @@ export type DictationModeId =
   | "openai.accuracy"
   | "openai.economy";
 
+export const OPENAI_REALTIME_WHISPER_MODEL_ID = "gpt-realtime-whisper" as const;
+export const OPENAI_TRANSCRIBE_MODEL_ID = "gpt-4o-transcribe" as const;
+export const OPENAI_MINI_TRANSCRIBE_MODEL_ID = "gpt-4o-mini-transcribe" as const;
+
 export type DictationModeKind = "file" | "streaming";
 
 export type DictationMode = {
@@ -128,7 +132,7 @@ export const dictationModes: DictationMode[] = [
     providerId: "openai",
     kind: "streaming",
     label: "Realtime cloud",
-    modelId: "gpt-realtime-whisper",
+    modelId: OPENAI_REALTIME_WHISPER_MODEL_ID,
     secondaryText: "OpenAI gpt-realtime-whisper",
     requiresCloudConsent: true
   },
@@ -137,7 +141,7 @@ export const dictationModes: DictationMode[] = [
     providerId: "openai",
     kind: "file",
     label: "Cloud accuracy",
-    modelId: "gpt-4o-transcribe",
+    modelId: OPENAI_TRANSCRIBE_MODEL_ID,
     secondaryText: "OpenAI gpt-4o-transcribe",
     requiresCloudConsent: true
   },
@@ -146,7 +150,7 @@ export const dictationModes: DictationMode[] = [
     providerId: "openai",
     kind: "file",
     label: "Cloud economy",
-    modelId: "gpt-4o-mini-transcribe",
+    modelId: OPENAI_MINI_TRANSCRIBE_MODEL_ID,
     secondaryText: "OpenAI gpt-4o-mini-transcribe",
     requiresCloudConsent: true
   }
