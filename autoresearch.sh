@@ -313,6 +313,9 @@ grep_score 6 grep -R "areAllOpenAiModesReadyForRelease" -n src/shared/openai-rea
 grep_score 6 grep -R "fileAccuracyReady: true" -n src/shared/openai-readiness.ts >/dev/null
 grep_score 6 grep -R "fileEconomyReady: true" -n src/shared/openai-readiness.ts >/dev/null
 grep_score 6 grep -R "realtimeReady: false" -n src/shared/openai-readiness.ts >/dev/null
+grep_score 6 grep -R "realtimeSessionIpcReady: true" -n src/shared/openai-readiness.ts >/dev/null
+grep_score 6 grep -R "realtimeRendererLifecycleReady: true" -n src/shared/openai-readiness.ts >/dev/null
+grep_score 6 grep -R "realtimeNativePcmStreamingReady: false" -n src/shared/openai-readiness.ts >/dev/null
 grep_score 6 grep -R "isOpenAiModeImplemented" -n src/shared/openai-readiness.ts src/shared/dictation-mode-availability.ts >/dev/null
 grep_score 6 grep -R "openAiReadiness" -n src/shared/dictation-mode-availability.ts src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "is not implemented yet" -n src/shared/dictation-mode-availability.ts >/dev/null

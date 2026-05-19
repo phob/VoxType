@@ -3,12 +3,18 @@ import { type DictationModeId } from "./asr";
 export type OpenAiModeImplementationReadiness = {
   fileAccuracyReady: boolean;
   fileEconomyReady: boolean;
+  realtimeSessionIpcReady: boolean;
+  realtimeRendererLifecycleReady: boolean;
+  realtimeNativePcmStreamingReady: boolean;
   realtimeReady: boolean;
 };
 
 export const currentOpenAiModeImplementationReadiness: OpenAiModeImplementationReadiness = {
   fileAccuracyReady: true,
   fileEconomyReady: true,
+  realtimeSessionIpcReady: true,
+  realtimeRendererLifecycleReady: true,
+  realtimeNativePcmStreamingReady: false,
   realtimeReady: false
 };
 
