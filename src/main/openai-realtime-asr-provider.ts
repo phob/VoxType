@@ -143,9 +143,19 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
       }, { once: true });
 
       socket.addEventListener("message", (event) => this.handleMessage(event));
+      socket.addEventListener("close", () => {
+        if (this.finalTranscriptWaiters.length > 0) {
+          this.failRealtime(new Error("OpenAI realtime session closed before final transcript completed."));
+        }
+      });
       socket.addEventListener("error", () => {
         clearTimeout(timeout);
-        reject(new Error("OpenAI realtime session failed to connect."));
+        const error = new Error("OpenAI realtime session failed to connect.");
+        if (this.socket === socket) {
+          this.failRealtime(error);
+        } else {
+          reject(error);
+        }
       }, { once: true });
     });
   }

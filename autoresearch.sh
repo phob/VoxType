@@ -170,6 +170,8 @@ grep_score 6 grep -R "conversation.item.input_audio_transcription.completed" -n 
 grep_score 6 grep -R "conversation.item.input_audio_transcription.failed" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "throwIfRealtimeFailed" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "failRealtime" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "OpenAI realtime session closed before final transcript completed" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "finalTranscriptWaiters.length > 0" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "await session.finalize" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "cloudSessionWarnMs" -n src >/dev/null
 grep_score 6 grep -R "cloudSessionMaxMs" -n src >/dev/null
