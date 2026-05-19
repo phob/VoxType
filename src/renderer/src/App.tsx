@@ -207,6 +207,12 @@ const profileDictationModeOptions: Array<SelectOption<AppProfile["dictationModeI
   }))
 ];
 
+const profileCloudPromptPackOcrOptions: Array<SelectOption<AppProfile["cloudPromptPackOcrEnabled"]>> = [
+  { label: "Inherit", meta: "use global Cloud Prompt Pack OCR setting", value: "inherit" },
+  { label: "Allow", meta: "include selected OCR terms in cloud Prompt Pack", value: true },
+  { label: "Block", meta: "never include OCR terms for this profile", value: false }
+];
+
 const devTabs: Array<{ id: DevTab; label: string }> = [
   { id: "dictation", label: "Dictation" },
   { id: "models", label: "Models" },
@@ -1618,6 +1624,7 @@ export function App(): JSX.Element {
       whisperLanguage: patch.whisperLanguage ?? profile.whisperLanguage,
       dictationModeId: patch.dictationModeId ?? profile.dictationModeId,
       forbidCloudDictation: patch.forbidCloudDictation ?? profile.forbidCloudDictation,
+      cloudPromptPackOcrEnabled: patch.cloudPromptPackOcrEnabled ?? profile.cloudPromptPackOcrEnabled,
       neverSuspendDictationInFullscreen:
         patch.neverSuspendDictationInFullscreen ??
         profile.neverSuspendDictationInFullscreen
@@ -2832,6 +2839,19 @@ export function App(): JSX.Element {
                         }
                       />
                     </label>
+                    <div className="release-field">
+                      <span>Cloud Prompt Pack OCR</span>
+                      <ReleaseSelect
+                        ariaLabel={`Cloud Prompt Pack OCR for ${selectedProfile.displayName}`}
+                        options={profileCloudPromptPackOcrOptions}
+                        value={selectedProfile.cloudPromptPackOcrEnabled}
+                        onChange={(value) =>
+                          void updateAppProfile(selectedProfile, {
+                            cloudPromptPackOcrEnabled: value
+                          })
+                        }
+                      />
+                    </div>
                     <div className="release-field">
                       <span>Send after insert</span>
                       <button

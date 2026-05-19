@@ -102,6 +102,9 @@ grep_score 6 grep -R "OpenAI API key" -n src/renderer >/dev/null
 grep_score 6 grep -R "dictationModes" -n src/renderer >/dev/null
 grep_score 6 grep -R "profileDictationModeOptions" -n src/renderer >/dev/null
 grep_score 6 grep -R "Forbid Cloud Dictation" -n src/renderer >/dev/null
+grep_score 6 grep -R "profileCloudPromptPackOcrOptions" -n src/renderer/src/App.tsx >/dev/null
+grep_score 6 grep -R "Cloud Prompt Pack OCR" -n src/renderer/src/App.tsx >/dev/null
+grep_score 6 grep -R "cloudPromptPackOcrEnabled: value" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "dictationModeId: patch\.dictationModeId" -n src/renderer >/dev/null
 grep_score 6 grep -R "forbidCloudDictation: patch\.forbidCloudDictation" -n src/renderer >/dev/null
 grep_score 6 grep -R "openai:test-connection" -n src >/dev/null
