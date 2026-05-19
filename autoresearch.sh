@@ -82,6 +82,10 @@ grep_score 6 grep -R "CloudDictationReadiness" -n src >/dev/null
 grep_score 6 grep -R "transcription:get-readiness" -n src >/dev/null
 grep_score 6 grep -R "getReadiness" -n src/renderer src/preload >/dev/null
 grep_score 6 grep -R "!readiness\.ready" -n src/renderer >/dev/null
+grep_score 6 grep -R "CloudDictationReadinessReasonCode" -n src/shared/cloud-status.ts >/dev/null
+grep_score 6 grep -R "reasonCode: \"offline_mode\"" -n src/shared/cloud-status.ts >/dev/null
+grep_score 6 grep -R "reasonCode: \"consent_required\"" -n src/shared/cloud-status.ts >/dev/null
+grep_score 6 grep -R "reasonCode: \"api_key_required\"" -n src/shared/cloud-status.ts >/dev/null
 grep_score 6 grep -R "Cloud Dictation consent" -n src/renderer >/dev/null
 grep_score 6 grep -R "Allow OCR Context in cloud Prompt Pack" -n src/renderer >/dev/null
 grep_score 6 grep -R "OpenAI API key" -n src/renderer >/dev/null
