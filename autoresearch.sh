@@ -101,6 +101,7 @@ grep_score 6 grep -R "entry.turnStatus" -n src/renderer >/dev/null
 grep_score 6 grep -R "disabled in Offline Mode" -n src/renderer >/dev/null
 grep_score 6 grep -R "API key required" -n src/renderer >/dev/null
 grep_score 6 grep -R "option disabled" -n src/renderer >/dev/null
+grep_score 6 grep -R "API key required before recording" -n src/renderer >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null

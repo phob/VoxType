@@ -1960,13 +1960,15 @@ export function App(): JSX.Element {
                       const disabledReason =
                         state.settings.offlineMode && mode.providerId === "openai"
                           ? "disabled in Offline Mode"
-                          : mode.providerId === "openai" && !state.openaiCredentials?.hasApiKey
-                            ? "API key required"
-                            : null;
+                          : null;
+                      const setupHint =
+                        mode.providerId === "openai" && !state.openaiCredentials?.hasApiKey
+                          ? "API key required before recording"
+                          : null;
 
                       return (
                         <option disabled={Boolean(disabledReason)} key={mode.id} value={mode.id}>
-                          {mode.label} — {mode.secondaryText}{disabledReason ? ` (${disabledReason})` : ""}
+                          {mode.label} — {mode.secondaryText}{disabledReason ? ` (${disabledReason})` : setupHint ? ` (${setupHint})` : ""}
                         </option>
                       );
                     })}
