@@ -276,7 +276,9 @@ grep_score 6 grep -R "RealtimeErrorCallback" -n src/main/openai-realtime-asr-pro
 grep_score 6 grep -R "this.onError?.(new Error(formatRealtimeOpenAiError" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "message: error.message" -n src/main/realtime-cloud-session.ts >/dev/null
 grep_score 6 grep -R "private finalized = false" -n src/main/realtime-cloud-session.ts >/dev/null
-grep_score 6 grep -R "cancel(): RealtimeCloudSessionSnapshot" -n src/main/realtime-cloud-session.ts >/dev/null
+grep_score 6 grep -R "cancel(reason = \"Realtime Cloud Dictation session cancelled\")" -n src/main/realtime-cloud-session.ts >/dev/null
+grep_score 6 grep -R "cancelForOfflineMode" -n src/main/realtime-cloud-session.ts >/dev/null
+grep_score 6 grep -R "Realtime Cloud Dictation stopped because Offline Mode was enabled" -n src/main/realtime-cloud-session.ts >/dev/null
 grep_score 6 grep -R "private snapshot()" -n src/main/realtime-cloud-session.ts >/dev/null
 grep_score 6 grep -R "cloudProviderLabel: undefined" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "elapsedMs: undefined" -n src/main/index.ts >/dev/null

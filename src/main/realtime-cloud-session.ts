@@ -70,13 +70,23 @@ export class RealtimeCloudSession {
     return this.snapshot();
   }
 
-  cancel(): RealtimeCloudSessionSnapshot {
+  cancel(reason = "Realtime Cloud Dictation session cancelled"): RealtimeCloudSessionSnapshot {
     if (!this.finalized) {
       this.finalized = true;
       this.provider.stop();
+      this.updateOverlay({
+        mode: "finalizing",
+        cloudProviderLabel: "Cloud Dictation",
+        message: reason,
+        livePreviewTurns: this.turns
+      });
     }
 
     return this.snapshot();
+  }
+
+  cancelForOfflineMode(): RealtimeCloudSessionSnapshot {
+    return this.cancel("Realtime Cloud Dictation stopped because Offline Mode was enabled.");
   }
 
   private snapshot(): RealtimeCloudSessionSnapshot {
