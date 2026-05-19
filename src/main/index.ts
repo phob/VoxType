@@ -869,6 +869,14 @@ ipcMain.handle("transcription:realtime-append-pcm16", (_event, bytes: Uint8Array
     throw new Error("Realtime Cloud Dictation has not started.");
   }
 
+  if (!(bytes instanceof Uint8Array) || bytes.byteLength === 0) {
+    throw new Error("Realtime Cloud Dictation requires a non-empty PCM16 audio chunk.");
+  }
+
+  if (bytes.byteLength % 2 !== 0) {
+    throw new Error("Realtime Cloud Dictation PCM16 audio chunks must contain whole 16-bit samples.");
+  }
+
   activeRealtimeCloudSession.appendPcm16Audio(bytes);
 });
 
