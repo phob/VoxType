@@ -2,6 +2,7 @@ import { getDictationMode, isCloudDictationMode, type DictationModeId } from "./
 import { type AppProfile, type AppSettings } from "./settings";
 
 export const profileCloudFallbackModeId = "local.balanced" satisfies DictationModeId;
+export const profileCloudFallbackMode = getDictationMode(profileCloudFallbackModeId);
 
 export type CloudDictationReadinessReasonCode =
   | "local_ready"
@@ -62,7 +63,7 @@ export function getCloudDictationReadinessForMode(input: {
       cloud,
       ready: true,
       reason: profileForbidsCloud
-        ? "This App Profile forbids Cloud Dictation; using Local balanced instead."
+        ? `This App Profile forbids Cloud Dictation; using ${profileCloudFallbackMode.label} instead.`
         : null,
       reasonCode: "local_ready",
       profileForbidsCloud,
