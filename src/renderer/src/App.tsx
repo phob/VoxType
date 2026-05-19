@@ -1043,8 +1043,11 @@ export function App(): JSX.Element {
       return;
     }
 
-    if (!readiness.cloud && activeModel?.status !== "downloaded") {
-      setError("Download and select a Whisper model before recording.");
+    const readinessMode = getDictationMode(readiness.modeId);
+    const readinessLocalModel = state.models.find((model) => model.id === readinessMode.modelId);
+
+    if (!readiness.cloud && readinessLocalModel?.status !== "downloaded") {
+      setError(`Download ${readinessMode.label} (${readinessMode.modelId}) before recording.`);
       return;
     }
 

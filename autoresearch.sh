@@ -91,6 +91,9 @@ grep_score 6 grep -R "profileForbidsCloud: boolean" -n src/shared/cloud-status.t
 grep_score 6 grep -R "This App Profile forbids Cloud Dictation; using Local balanced instead" -n src/shared/cloud-status.ts >/dev/null
 grep_score 6 grep -R "readiness.profileForbidsCloud && readiness.reason" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "setBusyMessage(readiness.reason)" -n src/renderer/src/App.tsx >/dev/null
+grep_score 6 grep -R "const readinessMode = getDictationMode(readiness.modeId)" -n src/renderer/src/App.tsx >/dev/null
+grep_score 6 grep -R "readinessLocalModel.*readinessMode.modelId" -n src/renderer/src/App.tsx >/dev/null
+grep_score 6 grep -R "Download .*readinessMode.label.*readinessMode.modelId" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "Cloud Dictation consent" -n src/renderer >/dev/null
 grep_score 6 grep -R "Allow OCR Context in cloud Prompt Pack" -n src/renderer >/dev/null
 grep_score 6 grep -R "OpenAI API key" -n src/renderer >/dev/null
