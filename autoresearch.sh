@@ -165,6 +165,7 @@ grep_score 6 grep -R "OpenAI realtime requires 24 kHz PCM16 mono audio" -n src/m
 grep_score 6 grep -R "input_audio_transcription" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "type: \"transcription\"" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "commitAudioAndWaitForFinalTranscript" -n src/main src/shared >/dev/null
+grep_score 6 grep -R "markProvisionalTurnsAsFallback" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "conversation.item.input_audio_transcription.completed" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "await session.finalize" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "cloudSessionWarnMs" -n src >/dev/null

@@ -83,6 +83,10 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
       };
       this.finalTranscriptWaiters.push(waiter);
     });
+
+    if (this.finalTurnCount() === initialFinalTurnCount) {
+      this.markProvisionalTurnsAsFallback();
+    }
   }
 
   commitAudio(): void {
@@ -178,7 +182,19 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
   }
 
   private finalTurnCount(): number {
-    return this.turns.snapshot().filter((turn) => turn.status === "final" && turn.finalText?.trim()).length;
+    return this.turns.list().filter((turn) => turn.status === "final" && turn.finalText?.trim()).length;
+  }
+
+  private markProvisionalTurnsAsFallback(): void {
+    let turns = this.turns.list();
+
+    for (const turn of turns) {
+      if (turn.status === "provisional" && turn.provisionalText?.trim()) {
+        turns = this.turns.markFallback(turn.providerItemId);
+      }
+    }
+
+    this.onPreview?.(turns);
   }
 
   private resolveFinalTranscriptWaiters(): void {
