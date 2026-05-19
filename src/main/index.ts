@@ -770,7 +770,8 @@ ipcMain.handle(
     return buildCloudPromptPack(dictionaryStore, {
       processName,
       ocrContext: context?.ocrContext ?? null,
-      includeOcrContext: settings.cloudPromptPackOcrEnabled
+      includeOcrContext: settings.cloudPromptPackOcrEnabled,
+      consentAccepted: settings.cloudDictationConsentAccepted
     });
 });
 

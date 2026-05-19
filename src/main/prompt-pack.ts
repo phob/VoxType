@@ -9,12 +9,17 @@ export type CloudPromptPackOptions = {
   processName?: string | null;
   ocrContext?: OcrPromptContext | null;
   includeOcrContext: boolean;
+  consentAccepted: boolean;
 };
 
 export async function buildCloudPromptPack(
   dictionaryStore: DictionaryStore,
   options: CloudPromptPackOptions
 ): Promise<PromptPack | null> {
+  if (!options.consentAccepted) {
+    throw new Error("Cloud Prompt Pack requires Cloud Dictation consent before context can be prepared.");
+  }
+
   const ocrTerms = options.includeOcrContext ? options.ocrContext?.terms ?? [] : [];
   const promptContext = await dictionaryStore.buildPromptContext(options.processName, ocrTerms);
   const terms = extractPromptTerms(promptContext)

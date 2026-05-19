@@ -180,7 +180,8 @@ export class TranscriptionService {
     const promptPack = await buildCloudPromptPack(this.dictionaryStore, {
       processName: context?.processName,
       ocrContext: context?.ocrContext,
-      includeOcrContext: settings.cloudPromptPackOcrEnabled
+      includeOcrContext: settings.cloudPromptPackOcrEnabled,
+      consentAccepted: settings.cloudDictationConsentAccepted
     });
     const startedLogEntry = createCloudDictationLogEntry({
       providerId: "openai",
