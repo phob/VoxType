@@ -1123,6 +1123,10 @@ export function App(): JSX.Element {
         processName: options?.pasteTarget?.processName ?? hotkeyTargetRef.current?.processName,
         ocrContext: options?.ocrContext ?? hotkeyOcrContextRef.current
       });
+      await window.voxtype.recordingOverlay.showFinalizing({
+        cloudProviderLabel: readiness.cloud ? "Cloud Dictation" : undefined,
+        message: readiness.cloud ? "Finalizing cloud dictation" : "Finalizing local dictation"
+      });
       if (unmuteError) {
         setError(unmuteError);
       }

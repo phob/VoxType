@@ -896,6 +896,9 @@ ipcMain.handle("recording-overlay:show-recording", () => {
 ipcMain.handle("recording-overlay:show-transcribing", (_event, state?: Partial<RecordingOverlayState>) => {
   showOverlay({ mode: "transcribing", level: 0, message: "Transcribing", ...state });
 });
+ipcMain.handle("recording-overlay:show-finalizing", (_event, state?: Partial<RecordingOverlayState>) => {
+  showOverlay({ mode: "finalizing", level: 0, message: "Finalizing", ...state });
+});
 ipcMain.handle("recording-overlay:hide", () => {
   hideOverlay();
 });
