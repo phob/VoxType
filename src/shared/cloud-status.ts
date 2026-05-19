@@ -22,7 +22,11 @@ export function getCloudDictationReadiness(input: {
   profile: AppProfile | null;
   hasApiKey: boolean;
 }): CloudDictationReadiness {
-  const modeId = resolveEffectiveDictationModeId(input.settings, input.profile);
+  const requestedModeId = resolveEffectiveDictationModeId(input.settings, input.profile);
+  const modeId =
+    input.profile?.forbidCloudDictation && isCloudDictationMode(requestedModeId)
+      ? "local.balanced"
+      : requestedModeId;
   const cloud = isCloudDictationMode(modeId);
 
   if (!cloud) {
@@ -31,10 +35,6 @@ export function getCloudDictationReadiness(input: {
 
   if (input.settings.offlineMode) {
     return { modeId, cloud, ready: false, reason: "Cloud Dictation is disabled while Offline Mode is on." };
-  }
-
-  if (input.profile?.forbidCloudDictation) {
-    return { modeId, cloud, ready: false, reason: "This App Profile forbids Cloud Dictation." };
   }
 
   if (!input.settings.cloudDictationConsentAccepted) {

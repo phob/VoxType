@@ -233,10 +233,14 @@ export class TranscriptionService {
 }
 
 function resolveDictationMode(settings: AppSettings, profile: AppProfile | null): DictationMode {
-  const modeId: DictationModeId =
+  const requestedModeId: DictationModeId =
     profile?.dictationModeId && profile.dictationModeId !== "inherit"
       ? profile.dictationModeId
       : settings.dictationModeId;
+  const modeId =
+    profile?.forbidCloudDictation && isCloudDictationMode(requestedModeId)
+      ? "local.balanced"
+      : requestedModeId;
 
   return getDictationMode(modeId);
 }
