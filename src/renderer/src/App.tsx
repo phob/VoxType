@@ -174,6 +174,15 @@ const profileWhisperLanguageOptions: Array<SelectOption<ProfileWhisperLanguage>>
   ...whisperLanguageOptions
 ];
 
+const profileDictationModeOptions: Array<SelectOption<AppProfile["dictationModeId"]>> = [
+  { label: "Inherit", value: "inherit" },
+  ...dictationModes.map((mode) => ({
+    label: mode.label,
+    meta: mode.secondaryText,
+    value: mode.id
+  }))
+];
+
 const devTabs: Array<{ id: DevTab; label: string }> = [
   { id: "dictation", label: "Dictation" },
   { id: "models", label: "Models" },
@@ -1310,6 +1319,8 @@ export function App(): JSX.Element {
         | "recordingStopHotkey"
         | "postTranscriptionHotkey"
         | "whisperLanguage"
+        | "dictationModeId"
+        | "forbidCloudDictation"
         | "neverSuspendDictationInFullscreen"
       >
     >
@@ -1324,6 +1335,8 @@ export function App(): JSX.Element {
       postTranscriptionHotkey:
         patch.postTranscriptionHotkey ?? profile.postTranscriptionHotkey,
       whisperLanguage: patch.whisperLanguage ?? profile.whisperLanguage,
+      dictationModeId: patch.dictationModeId ?? profile.dictationModeId,
+      forbidCloudDictation: patch.forbidCloudDictation ?? profile.forbidCloudDictation,
       neverSuspendDictationInFullscreen:
         patch.neverSuspendDictationInFullscreen ??
         profile.neverSuspendDictationInFullscreen
@@ -2388,6 +2401,34 @@ export function App(): JSX.Element {
                         }
                       />
                     </div>
+                    <div className="release-field">
+                      <span>Dictation Mode</span>
+                      <ReleaseSelect
+                        ariaLabel={`Dictation Mode for ${selectedProfile.displayName}`}
+                        options={profileDictationModeOptions}
+                        value={selectedProfile.dictationModeId}
+                        onChange={(value) =>
+                          void updateAppProfile(selectedProfile, {
+                            dictationModeId: value
+                          })
+                        }
+                      />
+                    </div>
+                    <label className="setting-row">
+                      <span>
+                        <strong>Forbid Cloud Dictation</strong>
+                        <small>Use this for sensitive apps; cloud modes will be blocked here.</small>
+                      </span>
+                      <input
+                        checked={selectedProfile.forbidCloudDictation}
+                        type="checkbox"
+                        onChange={(event) =>
+                          void updateAppProfile(selectedProfile, {
+                            forbidCloudDictation: event.target.checked
+                          })
+                        }
+                      />
+                    </label>
                     <div className="release-field">
                       <span>Send after insert</span>
                       <button

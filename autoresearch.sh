@@ -86,6 +86,10 @@ grep_score 6 grep -R "Cloud Dictation consent" -n src/renderer >/dev/null
 grep_score 6 grep -R "Allow OCR Context in cloud Prompt Pack" -n src/renderer >/dev/null
 grep_score 6 grep -R "OpenAI API key" -n src/renderer >/dev/null
 grep_score 6 grep -R "dictationModes" -n src/renderer >/dev/null
+grep_score 6 grep -R "profileDictationModeOptions" -n src/renderer >/dev/null
+grep_score 6 grep -R "Forbid Cloud Dictation" -n src/renderer >/dev/null
+grep_score 6 grep -R "dictationModeId: patch\.dictationModeId" -n src/renderer >/dev/null
+grep_score 6 grep -R "forbidCloudDictation: patch\.forbidCloudDictation" -n src/renderer >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null
