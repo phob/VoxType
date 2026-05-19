@@ -41,6 +41,10 @@ import { type HotkeyStatus } from "../../shared/hotkeys";
 import { type LocalModel } from "../../shared/models";
 import { type OcrPromptContext } from "../../shared/ocr-context";
 import { type OcrResult } from "../../shared/ocr";
+import {
+  areAllOpenAiModesReadyForRelease,
+  currentOpenAiModeImplementationReadiness
+} from "../../shared/openai-readiness";
 import { buildWhisperPromptContext } from "../../shared/prompt-context";
 import { PROMPT_PACK_MAX_CHARS, PROMPT_PACK_MAX_TERMS } from "../../shared/prompt-pack-limits";
 import { type WhisperRuntime, type WhisperRuntimePreference } from "../../shared/runtimes";
@@ -315,8 +319,10 @@ export function App(): JSX.Element {
   const activeRuntimeLabel = state.runtime
     ? `${state.runtime.backend.toUpperCase()} · ${state.runtime.status}`
     : "Runtime not ready";
-  const openAiModesReadyForRelease = false;
-  const realtimeStreamingReady = false;
+  const openAiModesReadyForRelease = areAllOpenAiModesReadyForRelease(
+    currentOpenAiModeImplementationReadiness
+  );
+  const realtimeStreamingReady = currentOpenAiModeImplementationReadiness.realtimeReady;
   const developerCloudModePreviewEnabled = isDeveloperBuild;
   const cloudModeSelectionReady = openAiModesReadyForRelease || developerCloudModePreviewEnabled;
   const realtimeModeSelectionReady = realtimeStreamingReady || developerCloudModePreviewEnabled;

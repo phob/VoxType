@@ -265,8 +265,11 @@ grep_score 6 grep -R "allOpenAiModesReadyForRelease" -n src/shared/dictation-mod
 grep_score 6 grep -R "Cloud Dictation is available after all OpenAI modes are ready" -n src/shared/dictation-mode-availability.ts >/dev/null
 grep_score 6 grep -R "developerCloudModePreviewEnabled = isDeveloperBuild" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 bash -c '! grep -R "developerCloudModePreviewEnabled = isDeveloperBuild &&" -n src/renderer/src/App.tsx'
-grep_score 6 grep -R "openAiModesReadyForRelease = false" -n src/renderer/src/App.tsx >/dev/null
-grep_score 6 grep -R "realtimeStreamingReady = false" -n src/renderer/src/App.tsx >/dev/null
+grep_score 6 grep -R "currentOpenAiModeImplementationReadiness" -n src/shared/openai-readiness.ts src/renderer/src/App.tsx >/dev/null
+grep_score 6 grep -R "areAllOpenAiModesReadyForRelease" -n src/shared/openai-readiness.ts src/renderer/src/App.tsx >/dev/null
+grep_score 6 grep -R "fileAccuracyReady: true" -n src/shared/openai-readiness.ts >/dev/null
+grep_score 6 grep -R "fileEconomyReady: true" -n src/shared/openai-readiness.ts >/dev/null
+grep_score 6 grep -R "realtimeReady: false" -n src/shared/openai-readiness.ts >/dev/null
 grep_score 6 grep -R "cloudModeSelectionReady" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "realtimeModeSelectionReady" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "cloudModeGateLabel" -n src/renderer/src/App.tsx >/dev/null
