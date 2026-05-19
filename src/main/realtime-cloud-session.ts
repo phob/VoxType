@@ -1,0 +1,61 @@
+import {
+  getDictationMode,
+  openAiRealtimeAudioConfig,
+  type TranscriptTurn
+} from "../shared/asr";
+import { type AppSettings } from "../shared/settings";
+import { type RecordingOverlayState } from "../shared/windows-helper";
+import { OpenAiCredentialStore } from "./openai-credential-store";
+import { OpenAiRealtimeAsrProvider } from "./openai-realtime-asr-provider";
+import { type PromptPack } from "../shared/asr";
+
+export type RealtimeCloudSessionSnapshot = {
+  startedAtMs: number;
+  turns: TranscriptTurn[];
+};
+
+export class RealtimeCloudSession {
+  private readonly startedAtMs = Date.now();
+  private turns: TranscriptTurn[] = [];
+  private readonly provider: OpenAiRealtimeAsrProvider;
+
+  constructor(
+    credentials: OpenAiCredentialStore,
+    private readonly settings: AppSettings,
+    private readonly updateOverlay: (state: Partial<RecordingOverlayState>) => void
+  ) {
+    this.provider = new OpenAiRealtimeAsrProvider(credentials, (turns) => {
+      this.turns = turns;
+      this.updateOverlay({
+        mode: "recording",
+        cloudProviderLabel: "Cloud Dictation",
+        livePreviewTurns: turns
+      });
+    });
+  }
+
+  async start(promptPack: PromptPack | null): Promise<void> {
+    await this.provider.startStreaming({
+      mode: getDictationMode("openai.realtime"),
+      promptPack,
+      language: this.settings.whisperLanguage,
+      audioConfig: openAiRealtimeAudioConfig,
+      latencyPreset: this.settings.realtimeLatencyPreset,
+      developerVadThresholdOverride: this.settings.realtimeVadThresholdOverride
+    });
+  }
+
+  appendPcm16Audio(bytes: Uint8Array): void {
+    this.provider.appendPcm16Audio(bytes);
+  }
+
+  finalize(): RealtimeCloudSessionSnapshot {
+    this.provider.commitAudio();
+    this.provider.stop();
+
+    return {
+      startedAtMs: this.startedAtMs,
+      turns: this.turns
+    };
+  }
+}

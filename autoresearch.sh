@@ -218,6 +218,11 @@ grep_score 6 grep -R "historyStore.add(entry)" -n src/main/realtime-cloud-histor
 grep_score 6 grep -R "sanitizeRealtimeVadThresholdOverride" -n src/shared/settings.ts >/dev/null
 grep_score 6 grep -R "input.developerModeEnabled === true" -n src/shared/settings.ts >/dev/null
 grep_score 6 grep -R "realtimeVadThresholdOverride:.*null" -n src/shared/settings.ts >/dev/null
+grep_score 6 grep -R "RealtimeCloudSession" -n src/main/realtime-cloud-session.ts >/dev/null
+grep_score 6 grep -R "livePreviewTurns: turns" -n src/main/realtime-cloud-session.ts >/dev/null
+grep_score 6 grep -R "openAiRealtimeAudioConfig" -n src/main/realtime-cloud-session.ts >/dev/null
+grep_score 6 grep -R "appendPcm16Audio" -n src/main/realtime-cloud-session.ts >/dev/null
+grep_score 6 grep -R "developerVadThresholdOverride: this.settings.realtimeVadThresholdOverride" -n src/main/realtime-cloud-session.ts >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null
