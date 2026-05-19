@@ -273,6 +273,9 @@ grep_score 6 grep -R "realtimeReady: false" -n src/shared/openai-readiness.ts >/
 grep_score 6 grep -R "isOpenAiModeImplemented" -n src/shared/openai-readiness.ts src/shared/dictation-mode-availability.ts >/dev/null
 grep_score 6 grep -R "openAiReadiness" -n src/shared/dictation-mode-availability.ts src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "is not implemented yet" -n src/shared/dictation-mode-availability.ts >/dev/null
+grep_score 6 grep -R "DictationModeAvailabilityReasonCode" -n src/shared/dictation-mode-availability.ts >/dev/null
+grep_score 6 grep -R "reasonCode: \"release_gated\"" -n src/shared/dictation-mode-availability.ts >/dev/null
+grep_score 6 grep -R "reasonCode: \"api_key_required\"" -n src/shared/dictation-mode-availability.ts >/dev/null
 grep_score 6 grep -R "cloudModeSelectionReady" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "realtimeModeSelectionReady" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "cloudModeGateLabel" -n src/renderer/src/App.tsx >/dev/null

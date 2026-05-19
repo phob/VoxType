@@ -2,10 +2,18 @@ import { getDictationMode, isCloudDictationMode, type DictationModeId } from "./
 import { isOpenAiModeImplemented, type OpenAiModeImplementationReadiness } from "./openai-readiness";
 import { type AppSettings } from "./settings";
 
+export type DictationModeAvailabilityReasonCode =
+  | "offline"
+  | "mode_not_implemented"
+  | "release_gated"
+  | "realtime_not_ready"
+  | "api_key_required";
+
 export type DictationModeAvailability = {
   modeId: DictationModeId;
   selectable: boolean;
   reason: string | null;
+  reasonCode: DictationModeAvailabilityReasonCode | null;
 };
 
 export function getDictationModeAvailability(input: {
@@ -19,14 +27,15 @@ export function getDictationModeAvailability(input: {
   const mode = getDictationMode(input.modeId);
 
   if (input.settings.offlineMode && isCloudDictationMode(mode.id)) {
-    return { modeId: mode.id, selectable: false, reason: "disabled in Offline Mode" };
+    return { modeId: mode.id, selectable: false, reason: "disabled in Offline Mode", reasonCode: "offline" };
   }
 
   if (mode.providerId === "openai" && !isOpenAiModeImplemented(mode.id, input.openAiReadiness)) {
     return {
       modeId: mode.id,
       selectable: false,
-      reason: `${mode.label} is not implemented yet`
+      reason: `${mode.label} is not implemented yet`,
+      reasonCode: "mode_not_implemented"
     };
   }
 
@@ -34,7 +43,8 @@ export function getDictationModeAvailability(input: {
     return {
       modeId: mode.id,
       selectable: false,
-      reason: "Cloud Dictation is available after all OpenAI modes are ready"
+      reason: "Cloud Dictation is available after all OpenAI modes are ready",
+      reasonCode: "release_gated"
     };
   }
 
@@ -42,7 +52,8 @@ export function getDictationModeAvailability(input: {
     return {
       modeId: mode.id,
       selectable: false,
-      reason: "Realtime streaming is not available yet"
+      reason: "Realtime streaming is not available yet",
+      reasonCode: "realtime_not_ready"
     };
   }
 
@@ -50,9 +61,10 @@ export function getDictationModeAvailability(input: {
     return {
       modeId: mode.id,
       selectable: true,
-      reason: "API key required before recording"
+      reason: "API key required before recording",
+      reasonCode: "api_key_required"
     };
   }
 
-  return { modeId: mode.id, selectable: true, reason: null };
+  return { modeId: mode.id, selectable: true, reason: null, reasonCode: null };
 }
