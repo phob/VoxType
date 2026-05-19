@@ -261,6 +261,9 @@ grep_score 6 grep -R "state.settings.offlineMode} onClick={() => void testOpenAi
 grep_score 6 grep -R "formatRealtimeOpenAiError" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "payload.type === \"error\"" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "classifyOpenAiError" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "RealtimeErrorCallback" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "this.onError?.(new Error(formatRealtimeOpenAiError" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "message: error.message" -n src/main/realtime-cloud-session.ts >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null

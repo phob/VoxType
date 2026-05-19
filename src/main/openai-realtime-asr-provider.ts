@@ -13,6 +13,7 @@ import { OpenAiCredentialStore } from "./openai-credential-store";
 const OPENAI_REALTIME_URL = "wss://api.openai.com/v1/realtime?model=gpt-realtime-whisper";
 
 export type RealtimePreviewCallback = (turns: TranscriptTurn[]) => void;
+export type RealtimeErrorCallback = (error: Error) => void;
 
 export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
   readonly providerId = "openai" as const;
@@ -21,7 +22,8 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
 
   constructor(
     private readonly credentials: OpenAiCredentialStore,
-    private readonly onPreview?: RealtimePreviewCallback
+    private readonly onPreview?: RealtimePreviewCallback,
+    private readonly onError?: RealtimeErrorCallback
   ) {}
 
   async startStreaming(request: StreamingAsrRequest): Promise<void> {
@@ -129,7 +131,8 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
       };
 
       if (payload.type === "error") {
-        throw new Error(formatRealtimeOpenAiError(payload.error));
+        this.onError?.(new Error(formatRealtimeOpenAiError(payload.error)));
+        return;
       }
       const providerItemId = payload.item_id ?? "current";
       const final = payload.type?.includes("completed") ?? false;

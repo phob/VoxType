@@ -24,14 +24,24 @@ export class RealtimeCloudSession {
     private readonly settings: AppSettings,
     private readonly updateOverlay: (state: Partial<RecordingOverlayState>) => void
   ) {
-    this.provider = new OpenAiRealtimeAsrProvider(credentials, (turns) => {
-      this.turns = turns;
-      this.updateOverlay({
-        mode: "recording",
-        cloudProviderLabel: "Cloud Dictation",
-        livePreviewTurns: turns
-      });
-    });
+    this.provider = new OpenAiRealtimeAsrProvider(
+      credentials,
+      (turns) => {
+        this.turns = turns;
+        this.updateOverlay({
+          mode: "recording",
+          cloudProviderLabel: "Cloud Dictation",
+          livePreviewTurns: turns
+        });
+      },
+      (error) => {
+        this.updateOverlay({
+          mode: "finalizing",
+          cloudProviderLabel: "Cloud Dictation",
+          message: error.message
+        });
+      }
+    );
   }
 
   async start(promptPack: PromptPack | null): Promise<void> {
