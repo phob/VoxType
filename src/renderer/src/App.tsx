@@ -357,6 +357,15 @@ export function App(): JSX.Element {
   const cloudSetupReady =
     !activeModeIsCloud ||
     (Boolean(state.openaiCredentials?.hasApiKey) && Boolean(state.settings?.cloudDictationConsentAccepted));
+  const cloudSetupDetail = !activeModeIsCloud
+    ? "Not needed for local dictation."
+    : !state.settings?.cloudDictationConsentAccepted
+      ? "Accept Cloud Dictation consent before recording."
+      : !state.openaiCredentials?.hasApiKey
+        ? "Add an OpenAI API key before recording."
+        : state.openaiCredentials.source === "environment"
+          ? "Consent accepted and OPENAI_API_KEY is available from the environment."
+          : "Consent accepted and API key stored.";
   const modelReady = activeModeIsCloud || activeModel?.status === "downloaded";
   const runtimeReady = activeModeIsCloud || state.runtime?.status === "installed";
   const hotkeyReady = Boolean(state.settings?.dictationToggleHotkey.trim());
@@ -406,11 +415,7 @@ export function App(): JSX.Element {
     {
       id: "cloud-setup",
       label: "Cloud setup",
-      detail: !activeModeIsCloud
-        ? "Not needed for local dictation."
-        : cloudSetupReady
-          ? "Consent accepted and API key stored."
-          : "Accept Cloud Dictation consent and store an OpenAI API key.",
+      detail: cloudSetupDetail,
       ready: cloudSetupReady,
       tab: "settings" as ReleaseTab
     }
