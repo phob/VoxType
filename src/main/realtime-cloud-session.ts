@@ -1,6 +1,7 @@
 import {
   getDictationMode,
   openAiRealtimeAudioConfig,
+  type DictationMode,
   type TranscriptTurn
 } from "../shared/asr";
 import { type AppSettings } from "../shared/settings";
@@ -30,12 +31,14 @@ export class RealtimeCloudSession {
   private preConnectionDroppedBytes = 0;
   private readonly preConnectionBuffer: Uint8Array[] = [];
   private readonly provider: OpenAiRealtimeAsrProvider;
+  private readonly mode: DictationMode;
 
   constructor(
     credentials: OpenAiCredentialStore,
     private readonly settings: AppSettings,
     private readonly updateOverlay: (state: Partial<RecordingOverlayState>) => void
   ) {
+    this.mode = getDictationMode("openai.realtime");
     this.provider = new OpenAiRealtimeAsrProvider(
       credentials,
       (turns) => {
@@ -59,15 +62,15 @@ export class RealtimeCloudSession {
   async start(promptPack: PromptPack | null): Promise<void> {
     const startedLogEntry = createCloudDictationLogEntry({
       providerId: "openai",
-      modelId: getDictationMode("openai.realtime").modelId,
-      modeId: "openai.realtime",
+      modelId: this.mode.modelId,
+      modeId: this.mode.id,
       durationMs: 0,
       status: "started"
     });
     assertCloudDictationLogIsMetadataOnly(startedLogEntry);
 
     await this.provider.startStreaming({
-      mode: getDictationMode("openai.realtime"),
+      mode: this.mode,
       promptPack,
       language: this.settings.whisperLanguage,
       audioConfig: openAiRealtimeAudioConfig,
@@ -96,8 +99,8 @@ export class RealtimeCloudSession {
       this.finalized = true;
       const completedLogEntry = createCloudDictationLogEntry({
         providerId: "openai",
-        modelId: getDictationMode("openai.realtime").modelId,
-        modeId: "openai.realtime",
+        modelId: this.mode.modelId,
+        modeId: this.mode.id,
         durationMs: Date.now() - this.startedAtMs,
         status: "completed"
       });
@@ -114,8 +117,8 @@ export class RealtimeCloudSession {
       this.finalized = true;
       const cancelledLogEntry = createCloudDictationLogEntry({
         providerId: "openai",
-        modelId: getDictationMode("openai.realtime").modelId,
-        modeId: "openai.realtime",
+        modelId: this.mode.modelId,
+        modeId: this.mode.id,
         durationMs: Date.now() - this.startedAtMs,
         status: "cancelled"
       });
