@@ -108,6 +108,8 @@ grep_score 6 grep -R "isCloudDictationMode" -n src/renderer >/dev/null
 grep_score 6 grep -R "Transcribing with OpenAI" -n src/renderer >/dev/null
 grep_score 6 grep -R "showTranscribing: (state" -n src/preload >/dev/null
 grep_score 6 grep -R "cloudProviderLabel: readiness.cloud" -n src/renderer >/dev/null
+grep_score 6 grep -R "getDictationMode(mode.modeId)" -n src/main/index.ts >/dev/null
+grep_score 6 grep -R "openAiFileAsrProvider.testConnection(modelId)" -n src/main/index.ts >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null

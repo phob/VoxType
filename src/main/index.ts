@@ -1,5 +1,6 @@
 import { app, BrowserWindow, Menu, Tray, globalShortcut, ipcMain, nativeImage, screen } from "electron";
 import { join } from "node:path";
+import { getDictationMode } from "../shared/asr";
 import { getCloudDictationReadiness } from "../shared/cloud-status";
 import { type DictionaryCreateInput, type DictionaryPatch } from "../shared/dictionary";
 import { buildOcrPromptContext, type OcrPromptContext } from "../shared/ocr-context";
@@ -701,7 +702,10 @@ ipcMain.handle("openai:test-connection", async () => {
     hasApiKey: await openAiCredentialStore.hasApiKey()
   });
 
-  return openAiFileAsrProvider.testConnection(mode.modeId.startsWith("openai.") ? mode.modeId === "openai.economy" ? "gpt-4o-mini-transcribe" : mode.modeId === "openai.realtime" ? "gpt-realtime-whisper" : "gpt-4o-transcribe" : "gpt-4o-transcribe");
+  const dictationMode = getDictationMode(mode.modeId);
+  const modelId = dictationMode.providerId === "openai" ? dictationMode.modelId : "gpt-4o-transcribe";
+
+  return openAiFileAsrProvider.testConnection(modelId);
 });
 ipcMain.handle("models:list", () => modelService.list());
 ipcMain.handle("models:download", (_event, modelId: string) => modelService.download(modelId));
