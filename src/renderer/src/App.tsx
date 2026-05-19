@@ -2198,6 +2198,7 @@ export function App(): JSX.Element {
                     <strong>Cloud Dictation consent</strong>
                     <small>
                       {cloudDictationConsentSummary} {cloudDictationConsentExclusions} {cloudDictationConsentOfflineNotice}
+                      {state.settings.cloudDictationConsentAcceptedAt ? ` Accepted ${new Date(state.settings.cloudDictationConsentAcceptedAt).toLocaleDateString()}.` : ""}
                       <span className="inline-doc-links">
                         <a href="https://openai.com/api/pricing/" rel="noreferrer" target="_blank">Pricing</a>
                         <a href="https://openai.com/policies/privacy-policy/" rel="noreferrer" target="_blank">Privacy</a>

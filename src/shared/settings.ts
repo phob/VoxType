@@ -73,6 +73,7 @@ export type AppSettings = {
   whisperLanguage: WhisperLanguage;
   whisperPromptOverride: string;
   cloudDictationConsentAccepted: boolean;
+  cloudDictationConsentAcceptedAt: string | null;
   cloudPromptPackOcrEnabled: boolean;
   cloudSessionWarnMs: number;
   cloudSessionMaxMs: number | null;
@@ -198,6 +199,10 @@ export function sanitizeSettings(
       typeof input.cloudDictationConsentAccepted === "boolean"
         ? input.cloudDictationConsentAccepted
         : defaults.cloudDictationConsentAccepted,
+    cloudDictationConsentAcceptedAt:
+      typeof input.cloudDictationConsentAcceptedAt === "string" && !Number.isNaN(Date.parse(input.cloudDictationConsentAcceptedAt))
+        ? input.cloudDictationConsentAcceptedAt
+        : null,
     cloudPromptPackOcrEnabled:
       typeof input.cloudPromptPackOcrEnabled === "boolean"
         ? input.cloudPromptPackOcrEnabled
