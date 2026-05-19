@@ -12,6 +12,39 @@ export type RealtimeCloudHistoryInput = {
   correctionsApplied?: string[];
 };
 
+export type RealtimeCloudCorrectionInput = {
+  text: string;
+  processName?: string | null;
+};
+
+export type RealtimeCloudCorrectionResult = {
+  text: string;
+  correctionsApplied?: string[];
+};
+
+export type RealtimeCloudCorrectionApplier = (
+  input: RealtimeCloudCorrectionInput
+) => Promise<RealtimeCloudCorrectionResult>;
+
+export async function createCorrectedRealtimeCloudHistoryEntry(
+  input: RealtimeCloudHistoryInput & {
+    processName?: string | null;
+    applyCorrections: RealtimeCloudCorrectionApplier;
+  }
+): Promise<TranscriptEntry> {
+  const providerText = composeRealtimeTurns(input.turns);
+  const correction = await input.applyCorrections({
+    text: providerText,
+    processName: input.processName
+  });
+
+  return createRealtimeCloudHistoryEntry({
+    ...input,
+    correctedText: correction.text,
+    correctionsApplied: correction.correctionsApplied
+  });
+}
+
 export function createRealtimeCloudHistoryEntry(
   input: RealtimeCloudHistoryInput
 ): TranscriptEntry {
