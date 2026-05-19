@@ -75,7 +75,7 @@ export type AppSettings = {
   cloudDictationConsentAccepted: boolean;
   cloudPromptPackOcrEnabled: boolean;
   cloudSessionWarnMs: number;
-  cloudSessionMaxMs: number;
+  cloudSessionMaxMs: number | null;
   realtimeLatencyPreset: RealtimeLatencyPreset;
   realtimeVadThresholdOverride: number | null;
   showWindowHotkey: string;
@@ -207,9 +207,11 @@ export function sanitizeSettings(
         ? clamp(Math.round(input.cloudSessionWarnMs), 60_000, 60 * 60_000)
         : defaults.cloudSessionWarnMs,
     cloudSessionMaxMs:
-      typeof input.cloudSessionMaxMs === "number" && Number.isFinite(input.cloudSessionMaxMs)
-        ? clamp(Math.round(input.cloudSessionMaxMs), 60_000, 4 * 60 * 60_000)
-        : defaults.cloudSessionMaxMs,
+      input.cloudSessionMaxMs === null
+        ? null
+        : typeof input.cloudSessionMaxMs === "number" && Number.isFinite(input.cloudSessionMaxMs)
+          ? clamp(Math.round(input.cloudSessionMaxMs), 60_000, 4 * 60 * 60_000)
+          : defaults.cloudSessionMaxMs,
     realtimeLatencyPreset: isRealtimeLatencyPreset(input.realtimeLatencyPreset)
       ? input.realtimeLatencyPreset
       : defaults.realtimeLatencyPreset,

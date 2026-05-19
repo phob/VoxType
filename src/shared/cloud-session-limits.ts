@@ -22,7 +22,8 @@ export function getCloudSessionLimitState(input: {
     return { cloud, elapsedMs, shouldWarn: false, shouldStop: false, warningMessage: null };
   }
 
-  const shouldStop = elapsedMs >= input.settings.cloudSessionMaxMs;
+  const unlimited = input.settings.cloudSessionMaxMs === null;
+  const shouldStop = !unlimited && elapsedMs >= input.settings.cloudSessionMaxMs;
   const shouldWarn = !shouldStop && elapsedMs >= input.settings.cloudSessionWarnMs;
 
   return {

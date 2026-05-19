@@ -2165,14 +2165,16 @@ export function App(): JSX.Element {
                 <label className="setting-row">
                   <span>
                     <strong>Cloud session maximum</strong>
-                    <small>Automatically finalize after this many minutes; default is 10.</small>
+                    <small>Automatically finalize after this many minutes; leave blank for unlimited.</small>
                   </span>
                   <input
                     min={1}
                     type="number"
-                    value={Math.round(state.settings.cloudSessionMaxMs / 60000)}
+                    value={state.settings.cloudSessionMaxMs === null ? "" : Math.round(state.settings.cloudSessionMaxMs / 60000)}
                     onChange={(event) =>
-                      void updateSettings({ cloudSessionMaxMs: Number(event.target.value) * 60000 })
+                      void updateSettings({
+                        cloudSessionMaxMs: event.target.value === "" ? null : Number(event.target.value) * 60000
+                      })
                     }
                   />
                 </label>
