@@ -175,6 +175,8 @@ grep_score 6 grep -R "finalTranscriptWaiters.length > 0" -n src/main/openai-real
 grep_score 6 grep -R "removeFinalTranscriptWaiter" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "this.finalTranscriptWaiters.filter" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "sessionReadyWaiters" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "removeSessionReadyWaiter" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "this.sessionReadyWaiters.filter" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "session.updated" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "OpenAI realtime session closed before session configuration completed" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "OpenAI realtime session configuration did not complete before the pre-connection buffer expired" -n src/main/openai-realtime-asr-provider.ts >/dev/null

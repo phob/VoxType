@@ -149,22 +149,26 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
         if (this.socket === socket) {
           this.failRealtime(error);
         } else {
+          clearTimeout(timeout);
           reject(error);
         }
       }, 5000);
 
       socket.addEventListener("open", () => {
         this.socket = socket;
-        this.sessionReadyWaiters.push({
+        const waiter = {
           resolve: () => {
             clearTimeout(timeout);
+            this.removeSessionReadyWaiter(waiter);
             resolve();
           },
           reject: (error: Error) => {
             clearTimeout(timeout);
+            this.removeSessionReadyWaiter(waiter);
             reject(error);
           }
-        });
+        };
+        this.sessionReadyWaiters.push(waiter);
         socket.send(JSON.stringify(buildSessionUpdate(
           promptPack,
           language,
@@ -286,6 +290,13 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
     for (const waiter of waiters) {
       waiter.resolve();
     }
+  }
+
+  private removeSessionReadyWaiter(waiter: {
+    resolve: () => void;
+    reject: (error: Error) => void;
+  }): void {
+    this.sessionReadyWaiters = this.sessionReadyWaiters.filter((candidate) => candidate !== waiter);
   }
 
   private removeFinalTranscriptWaiter(waiter: {
