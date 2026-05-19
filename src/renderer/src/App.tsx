@@ -812,8 +812,8 @@ export function App(): JSX.Element {
     });
     setInsertionTestResult(
       promptPack
-        ? `Cloud Prompt Pack preview (${promptPack.terms.length}/${promptPack.termLimit} terms, ${promptPack.text.length}/${promptPack.characterLimit} chars, ${promptPack.source}${promptPack.truncated ? ", truncated" : ""}, OCR ${ocrPolicy.enabled ? "allowed" : "blocked"} by ${ocrPolicy.source}): ${promptPack.text}`
-        : `Cloud Prompt Pack preview is empty for the current app. OCR ${ocrPolicy.enabled ? "allowed" : "blocked"} by ${ocrPolicy.source}.`
+        ? `Cloud Prompt Pack preview (${promptPack.terms.length}/${promptPack.termLimit} terms, ${promptPack.text.length}/${promptPack.characterLimit} chars, ${promptPack.source}${promptPack.truncated ? ", truncated" : ""}, OCR ${ocrPolicy.enabled ? "allowed" : "blocked"} by ${ocrPolicy.source}). Screenshots, transcript history, full Dictionary, and insertion target contents are not included: ${promptPack.text}`
+        : `Cloud Prompt Pack preview is empty for the current app. OCR ${ocrPolicy.enabled ? "allowed" : "blocked"} by ${ocrPolicy.source}. Screenshots, transcript history, full Dictionary, and insertion target contents are not included.`
     );
   }
 

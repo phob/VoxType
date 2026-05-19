@@ -148,6 +148,7 @@ grep_score 6 grep -R "openAiFileAsrProvider.testConnection(modelId)" -n src/main
 grep_score 6 grep -R "transcription:preview-prompt-pack" -n src >/dev/null
 grep_score 6 grep -R "previewPromptPack" -n src/preload src/renderer >/dev/null
 grep_score 6 grep -R "Cloud Prompt Pack preview" -n src/renderer >/dev/null
+grep_score 6 grep -R "Screenshots, transcript history, full Dictionary, and insertion target contents are not included" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "includeOcrContext: false" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "forbidCloudDictation.*isCloudDictationMode" -n src/shared/cloud-status.ts src/main/transcription-service.ts >/dev/null
 grep_score 6 grep -R "local\.balanced" -n src/shared/cloud-status.ts src/main/transcription-service.ts >/dev/null
