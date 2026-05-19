@@ -71,6 +71,8 @@ grep_score 6 grep -R "Realtime Cloud Dictation is not available yet" -n src/main
 grep_score 6 grep -R "TranscriptTurnAccumulator" -n src >/dev/null
 grep_score 6 grep -R "firstSeenSequence" -n src >/dev/null
 grep_score 6 grep -R "markFallback" -n src >/dev/null
+grep_score 6 grep -R "append\?: boolean" -n src/shared/transcript-turns.ts >/dev/null
+grep_score 6 grep -R "conversation.item.input_audio_transcription.delta" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "composeFinalText" -n src >/dev/null
 grep_score 6 grep -R "OpenAiRealtimeAsrProvider" -n src >/dev/null
 grep_score 6 grep -R "gpt-realtime-whisper" -n src/main/openai-realtime-asr-provider.ts >/dev/null

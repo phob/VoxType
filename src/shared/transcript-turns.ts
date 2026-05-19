@@ -4,6 +4,7 @@ export type RealtimeTranscriptEvent = {
   providerItemId: string;
   text: string;
   final: boolean;
+  append?: boolean;
 };
 
 export class TranscriptTurnAccumulator {
@@ -22,7 +23,9 @@ export class TranscriptTurnAccumulator {
       turn.finalText = event.text;
       turn.status = "final";
     } else {
-      turn.provisionalText = event.text;
+      turn.provisionalText = event.append && turn.provisionalText
+        ? `${turn.provisionalText}${event.text}`
+        : event.text;
       turn.status = "provisional";
     }
 

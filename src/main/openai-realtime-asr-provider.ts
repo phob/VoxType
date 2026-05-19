@@ -241,7 +241,12 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
         return;
       }
 
-      this.onPreview?.(this.turns.apply({ providerItemId, text, final }));
+      this.onPreview?.(this.turns.apply({
+        providerItemId,
+        text,
+        final,
+        append: payload.type === "conversation.item.input_audio_transcription.delta"
+      }));
 
       if (final) {
         this.resolveFinalTranscriptWaiters();
