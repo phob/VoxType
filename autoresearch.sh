@@ -269,6 +269,9 @@ grep_score 6 grep -R "openAiModesReadyForRelease = false" -n src/renderer/src/Ap
 grep_score 6 grep -R "realtimeStreamingReady = false" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "cloudModeSelectionReady" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "realtimeModeSelectionReady" -n src/renderer/src/App.tsx >/dev/null
+grep_score 6 grep -R "cloudModeGateLabel" -n src/renderer/src/App.tsx >/dev/null
+grep_score 6 grep -R "Developer build cloud preview" -n src/renderer/src/App.tsx >/dev/null
+grep_score 6 grep -R "Cloud Dictation release-gated" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "mode: 0o600" -n src/main/openai-credential-store.ts >/dev/null
 grep_score 6 grep -R "chmod(this.credentialPath, 0o600)" -n src/main/openai-credential-store.ts >/dev/null
 grep_score 6 grep -R "OpenAI test connection is disabled while Offline Mode is on" -n src/main/index.ts >/dev/null

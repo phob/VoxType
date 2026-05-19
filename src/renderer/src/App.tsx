@@ -320,6 +320,11 @@ export function App(): JSX.Element {
   const developerCloudModePreviewEnabled = isDeveloperBuild;
   const cloudModeSelectionReady = openAiModesReadyForRelease || developerCloudModePreviewEnabled;
   const realtimeModeSelectionReady = realtimeStreamingReady || developerCloudModePreviewEnabled;
+  const cloudModeGateLabel = developerCloudModePreviewEnabled
+    ? "Developer build cloud preview"
+    : openAiModesReadyForRelease
+      ? "Cloud Dictation ready"
+      : "Cloud Dictation release-gated";
   const activeModeIsCloud = activeDictationMode.providerId === "openai";
   const cloudSetupReady =
     !activeModeIsCloud ||
@@ -2125,6 +2130,9 @@ export function App(): JSX.Element {
                 </div>
                 <ReleaseChip tone={activeDictationMode.providerId === "openai" ? "warning" : "success"}>
                   {activeProviderLabel}: {activeDictationMode.label}
+                </ReleaseChip>
+                <ReleaseChip tone={cloudModeSelectionReady ? "accent" : "neutral"}>
+                  {cloudModeGateLabel}
                 </ReleaseChip>
               </div>
               <div className="settings-list">
