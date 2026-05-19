@@ -41,13 +41,6 @@ export function getOpenAiModeImplementationStatus(
   modeId: DictationModeId,
   readiness: OpenAiModeImplementationReadiness
 ): { implemented: boolean; reason: string | null } {
-  if (modeId === "openai.realtime" && !readiness.releaseSmokeTested) {
-    return {
-      implemented: false,
-      reason: "Realtime Cloud Dictation needs release smoke testing before normal UI exposure"
-    };
-  }
-
   if (modeId === "openai.realtime" && !readiness.realtimeNativePcmStreamingReady) {
     return {
       implemented: false,
@@ -71,7 +64,9 @@ export function isOpenAiModeImplemented(
     case "openai.economy":
       return readiness.fileEconomyReady;
     case "openai.realtime":
-      return readiness.realtimeReady;
+      return readiness.realtimeSessionIpcReady &&
+        readiness.realtimeRendererLifecycleReady &&
+        readiness.realtimeNativePcmStreamingReady;
     default:
       return true;
   }
