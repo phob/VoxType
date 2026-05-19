@@ -69,6 +69,11 @@ grep_score 6 grep -R "TranscriptTurnAccumulator" -n src >/dev/null
 grep_score 6 grep -R "firstSeenSequence" -n src >/dev/null
 grep_score 6 grep -R "markFallback" -n src >/dev/null
 grep_score 6 grep -R "composeFinalText" -n src >/dev/null
+grep_score 6 grep -R "OpenAiRealtimeAsrProvider" -n src >/dev/null
+grep_score 6 grep -R "gpt-realtime-whisper" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "server_vad" -n src/main >/dev/null
+grep_score 6 grep -R "pcm16" -n src/main >/dev/null
+grep_score 6 grep -R "pre-connection buffer" -n src/main >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null
