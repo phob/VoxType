@@ -1085,8 +1085,9 @@ export function App(): JSX.Element {
       return;
     }
 
-    if (readiness.profileForbidsCloud && readiness.reason) {
-      setBusyMessage(readiness.reason);
+    if (readiness.fallbackModeId && readiness.reason) {
+      const fallbackMode = getDictationMode(readiness.fallbackModeId);
+      setBusyMessage(`${readiness.reason} Fallback mode: ${fallbackMode.label}.`);
     }
 
     try {
