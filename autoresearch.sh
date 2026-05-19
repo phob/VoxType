@@ -197,6 +197,9 @@ grep_score 6 grep -R "Cloud Dictation.*activeDictationMode.label" -n src/rendere
 grep_score 6 grep -R "activeModeIsCloud" -n src/renderer >/dev/null
 grep_score 6 grep -R "cloudSetupReady" -n src/renderer >/dev/null
 grep_score 6 grep -R "Cloud setup" -n src/renderer >/dev/null
+grep_score 6 grep -R "const cloudAudioHistoryDetail" -n src/renderer/src/App.tsx >/dev/null
+grep_score 6 grep -R "Cloud audio history" -n src/renderer/src/App.tsx >/dev/null
+grep_score 6 grep -R "Cloud processed WAV audio history is off" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "const cloudSetupDetail" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "Accept Cloud Dictation consent before recording" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "OPENAI_API_KEY is available from the environment" -n src/renderer/src/App.tsx >/dev/null

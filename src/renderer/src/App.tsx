@@ -370,6 +370,11 @@ export function App(): JSX.Element {
         : state.openaiCredentials.source === "environment"
           ? "Consent accepted and OPENAI_API_KEY is available from the environment."
           : "Consent accepted and API key stored.";
+  const cloudAudioHistoryDetail = !activeModeIsCloud
+    ? "Local audio history follows local dictation history behavior."
+    : state.settings?.cloudFileAudioHistoryEnabled
+      ? "Non-realtime cloud processed WAV audio will be saved in history; realtime cloud audio is never saved."
+      : "Cloud processed WAV audio history is off; realtime cloud audio is never saved.";
   const modelReady = activeModeIsCloud || activeModel?.status === "downloaded";
   const runtimeReady = activeModeIsCloud || state.runtime?.status === "installed";
   const hotkeyReady = Boolean(state.settings?.dictationToggleHotkey.trim());
@@ -421,6 +426,13 @@ export function App(): JSX.Element {
       label: "Cloud setup",
       detail: cloudSetupDetail,
       ready: cloudSetupReady,
+      tab: "settings" as ReleaseTab
+    },
+    {
+      id: "cloud-audio-history",
+      label: "Cloud audio history",
+      detail: cloudAudioHistoryDetail,
+      ready: true,
       tab: "settings" as ReleaseTab
     }
   ];
