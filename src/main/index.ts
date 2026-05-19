@@ -239,6 +239,12 @@ function stopAutomaticUpdateChecks(): void {
   updateCheckTimer = null;
 }
 
+function cancelActiveRealtimeCloudSession(reason: string): void {
+  activeRealtimeCloudSession?.cancel(reason);
+  activeRealtimeCloudSession = null;
+  activeRealtimeCloudProcessName = null;
+}
+
 function startAutomaticUpdateChecks(settings: AppSettings): void {
   stopAutomaticUpdateChecks();
 
@@ -843,7 +849,7 @@ ipcMain.handle(
       throw new Error(readiness.reason ?? "Realtime Cloud Dictation is not ready.");
     }
 
-    activeRealtimeCloudSession?.cancel("Realtime Cloud Dictation session replaced by a new recording.");
+    cancelActiveRealtimeCloudSession("Realtime Cloud Dictation session replaced by a new recording.");
     activeRealtimeCloudSession = new RealtimeCloudSession(openAiCredentialStore, settings, updateOverlay);
     activeRealtimeCloudProcessName = processName;
 
@@ -888,9 +894,7 @@ ipcMain.handle("transcription:realtime-finalize", async () => {
 });
 
 ipcMain.handle("transcription:realtime-cancel", (_event, reason?: string) => {
-  activeRealtimeCloudSession?.cancel(reason);
-  activeRealtimeCloudSession = null;
-  activeRealtimeCloudProcessName = null;
+  cancelActiveRealtimeCloudSession(reason ?? "Realtime Cloud Dictation session cancelled");
 });
 ipcMain.handle("history:list", () => historyStore.list());
 ipcMain.handle("history:audio", (_event, entryId: string) => historyStore.readAudio(entryId));
@@ -1029,6 +1033,7 @@ app.whenReady().then(async () => {
 });
 
 app.on("will-quit", () => {
+  cancelActiveRealtimeCloudSession("Realtime Cloud Dictation cancelled because VoxType is quitting.");
   stopAutomaticUpdateChecks();
   stopFullscreenSuspensionWatch();
   overlayWindow?.destroy();
