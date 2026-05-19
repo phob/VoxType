@@ -10,6 +10,10 @@ import {
   type DictationMode,
   type DictationModeId
 } from "../shared/asr";
+import {
+  assertCloudDictationLogIsMetadataOnly,
+  createCloudDictationLogEntry
+} from "../shared/cloud-logging";
 import { getModelById } from "../shared/models";
 import { type OcrPromptContext } from "../shared/ocr-context";
 import { findAppProfile, type AppProfile, type AppSettings } from "../shared/settings";
@@ -172,12 +176,29 @@ export class TranscriptionService {
       ocrContext: context?.ocrContext,
       includeOcrContext: settings.cloudPromptPackOcrEnabled
     });
+    const startedLogEntry = createCloudDictationLogEntry({
+      providerId: "openai",
+      modelId: mode.modelId,
+      modeId: mode.id,
+      durationMs: 0,
+      status: "started"
+    });
+    assertCloudDictationLogIsMetadataOnly(startedLogEntry);
+
     const asrResult = await this.openAiFileProvider.transcribeFile({
       audioBytes,
       mode,
       promptPack,
       language: whisperLanguage
     });
+    const completedLogEntry = createCloudDictationLogEntry({
+      providerId: asrResult.providerId,
+      modelId: asrResult.modelId,
+      modeId: asrResult.modeId,
+      durationMs: asrResult.durationMs,
+      status: "completed"
+    });
+    assertCloudDictationLogIsMetadataOnly(completedLogEntry);
     const normalizedText = normalizeTranscriptText(asrResult.providerText);
     const correction = await this.dictionaryStore.applyCorrections(
       normalizedText,

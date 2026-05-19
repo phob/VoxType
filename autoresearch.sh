@@ -140,6 +140,11 @@ grep_score 6 grep -R "getOpenAiRealtimeVadConfig" -n src >/dev/null
 grep_score 6 grep -R "silence_duration_ms" -n src/shared/realtime-latency.ts >/dev/null
 grep_score 6 grep -R "Realtime latency preset" -n src/renderer >/dev/null
 grep_score 6 grep -R "latencyPreset" -n src/main/openai-realtime-asr-provider.ts src/shared/asr.ts >/dev/null
+grep_score 6 grep -R "CloudDictationLogEntry" -n src >/dev/null
+grep_score 6 grep -R "assertCloudDictationLogIsMetadataOnly" -n src >/dev/null
+grep_score 6 grep -R "sensitive field" -n src/shared/cloud-logging.ts >/dev/null
+grep_score 6 grep -R "status: \"completed\"" -n src/main/transcription-service.ts >/dev/null
+grep_score 6 grep -R "status: \"started\"" -n src/main/transcription-service.ts >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null
