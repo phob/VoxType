@@ -77,6 +77,7 @@ export type AppSettings = {
   cloudPromptPackOcrEnabled: boolean;
   cloudSessionWarnMs: number;
   cloudSessionMaxMs: number | null;
+  cloudFileAudioHistoryEnabled: boolean;
   realtimeLatencyPreset: RealtimeLatencyPreset;
   realtimeVadThresholdOverride: number | null;
   showWindowHotkey: string;
@@ -216,6 +217,10 @@ export function sanitizeSettings(
       input.cloudSessionWarnMs,
       defaults.cloudSessionMaxMs
     ),
+    cloudFileAudioHistoryEnabled:
+      typeof input.cloudFileAudioHistoryEnabled === "boolean"
+        ? input.cloudFileAudioHistoryEnabled
+        : defaults.cloudFileAudioHistoryEnabled,
     realtimeLatencyPreset: isRealtimeLatencyPreset(input.realtimeLatencyPreset)
       ? input.realtimeLatencyPreset
       : defaults.realtimeLatencyPreset,

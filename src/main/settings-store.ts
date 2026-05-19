@@ -34,6 +34,7 @@ export class SettingsStore {
       cloudPromptPackOcrEnabled: false,
       cloudSessionWarnMs: 5 * 60 * 1000,
       cloudSessionMaxMs: 10 * 60 * 1000,
+      cloudFileAudioHistoryEnabled: false,
       realtimeLatencyPreset: "balanced",
       realtimeVadThresholdOverride: null,
       showWindowHotkey: "CommandOrControl+Shift+Space",

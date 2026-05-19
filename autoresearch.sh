@@ -223,6 +223,9 @@ grep_score 6 grep -R "Cloud session maximum" -n src/renderer >/dev/null
 grep_score 6 grep -R "cloudSessionWarnMs: Number(event.target.value) \* 60000" -n src/renderer >/dev/null
 grep_score 6 grep -R "cloudSessionMaxMs: Number(event.target.value) \* 60000" -n src/renderer >/dev/null
 grep_score 6 grep -R "cloudSessionMaxMs: number | null" -n src/shared/settings.ts >/dev/null
+grep_score 6 grep -R "cloudFileAudioHistoryEnabled: boolean" -n src/shared/settings.ts >/dev/null
+grep_score 6 grep -R "cloudFileAudioHistoryEnabled: false" -n src/main/settings-store.ts >/dev/null
+grep_score 6 grep -R "settings.cloudFileAudioHistoryEnabled" -n src/main/transcription-service.ts >/dev/null
 grep_score 6 grep -R "input.cloudSessionMaxMs === null" -n src/shared/settings.ts >/dev/null
 grep_score 6 grep -R "const unlimited = input.settings.cloudSessionMaxMs === null" -n src/shared/cloud-session-limits.ts >/dev/null
 grep_score 6 grep -R "leave blank for unlimited" -n src/renderer >/dev/null

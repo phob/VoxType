@@ -241,7 +241,9 @@ export class TranscriptionService {
       throw new Error("OpenAI completed but returned no transcript text.");
     }
 
-    const audioFileName = await this.historyStore.saveAudio(id, audioBytes);
+    const audioFileName = settings.cloudFileAudioHistoryEnabled
+      ? await this.historyStore.saveAudio(id, audioBytes)
+      : undefined;
     const entry: TranscriptEntry = {
       id,
       text,
