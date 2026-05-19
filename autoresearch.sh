@@ -118,6 +118,10 @@ grep_score 6 grep -R "forbidCloudDictation.*isCloudDictationMode" -n src/shared/
 grep_score 6 grep -R "local\.balanced" -n src/shared/cloud-status.ts src/main/transcription-service.ts >/dev/null
 grep_score 6 grep -R "dictationModeSettingsPatch" -n src/renderer >/dev/null
 grep_score 6 grep -R "activeModelId: mode.modelId" -n src/renderer >/dev/null
+grep_score 6 grep -R "appendPcm16Audio" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "input_audio_buffer.append" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "input_audio_buffer.commit" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "toString(\"base64\")" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null

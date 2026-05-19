@@ -35,6 +35,25 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
     await this.openSession(apiKey, request.promptPack);
   }
 
+  appendPcm16Audio(pcm16Audio: Uint8Array): void {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+      throw new Error("OpenAI realtime session is not connected.");
+    }
+
+    this.socket.send(JSON.stringify({
+      type: "input_audio_buffer.append",
+      audio: encodeBase64(pcm16Audio)
+    }));
+  }
+
+  commitAudio(): void {
+    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+      return;
+    }
+
+    this.socket.send(JSON.stringify({ type: "input_audio_buffer.commit" }));
+  }
+
   stop(): void {
     this.socket?.close();
     this.socket = null;
@@ -92,6 +111,10 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
       // Ignore malformed provider events; do not log transcripts or raw provider responses.
     }
   }
+}
+
+function encodeBase64(bytes: Uint8Array): string {
+  return Buffer.from(bytes).toString("base64");
 }
 
 function buildSessionUpdate(promptPack: PromptPack | null): unknown {
