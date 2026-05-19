@@ -79,6 +79,7 @@ export function getCloudDictationReadinessForMode(input: {
 
   if (!input.settings.cloudDictationConsentAccepted) {
     return {
+      requestedModeId,
       modeId,
       cloud,
       ready: false,
@@ -90,6 +91,7 @@ export function getCloudDictationReadinessForMode(input: {
 
   if (!input.hasApiKey) {
     return {
+      requestedModeId,
       modeId,
       cloud,
       ready: false,
@@ -100,6 +102,7 @@ export function getCloudDictationReadinessForMode(input: {
   }
 
   return {
+    requestedModeId,
     modeId,
     cloud,
     ready: true,
