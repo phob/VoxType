@@ -179,6 +179,8 @@ grep_score 6 grep -R "OpenAI realtime session configuration did not complete bef
 grep_score 6 grep -R "this.socket === socket" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "await session.finalize" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "appendRealtimePcm16AudioSafely" -n src/main/index.ts >/dev/null
+grep_score 6 grep -R "appendRealtimePcm16AudioSafely(bytes)" -n src/main/index.ts >/dev/null
+grep_score 6 grep -R "throw streamingError" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "Realtime Cloud Dictation stopped because audio streaming failed" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "cloudSessionWarnMs" -n src >/dev/null
 grep_score 6 grep -R "cloudSessionMaxMs" -n src >/dev/null

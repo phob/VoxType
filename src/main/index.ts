@@ -248,13 +248,14 @@ function cancelActiveRealtimeCloudSession(reason: string, error?: Error): void {
   lastRealtimeCloudSessionError = error ?? null;
 }
 
-function appendRealtimePcm16AudioSafely(bytes: Uint8Array): void {
+function appendRealtimePcm16AudioSafely(bytes: Uint8Array): Error | null {
   if (!activeRealtimeCloudSession) {
-    return;
+    return null;
   }
 
   try {
     activeRealtimeCloudSession.appendPcm16Audio(bytes);
+    return null;
   } catch (error) {
     const streamingError = error instanceof Error
       ? error
@@ -268,6 +269,7 @@ function appendRealtimePcm16AudioSafely(bytes: Uint8Array): void {
       cloudProviderLabel: "Cloud Dictation",
       message: streamingError.message
     });
+    return streamingError;
   }
 }
 
@@ -915,7 +917,11 @@ ipcMain.handle("transcription:realtime-append-pcm16", (_event, bytes: Uint8Array
     throw new Error("Realtime Cloud Dictation PCM16 audio chunks must contain whole 16-bit samples.");
   }
 
-  appendRealtimePcm16AudioSafely(bytes);
+  const streamingError = appendRealtimePcm16AudioSafely(bytes);
+
+  if (streamingError) {
+    throw streamingError;
+  }
 });
 
 ipcMain.handle("transcription:realtime-finalize", async () => {
