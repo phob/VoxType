@@ -1212,6 +1212,7 @@ export function App(): JSX.Element {
     clearCloudSessionLimitTimer();
     setRecording(false);
     setBusyMessage("Transcribing locally...");
+    let stopReadinessModeId: DictationModeId | null = null;
 
     try {
       const recordingResult = await recorderRef.current.stop();
@@ -1219,6 +1220,7 @@ export function App(): JSX.Element {
       const readiness = await window.voxtype.transcription.getReadiness(
         options?.pasteTarget?.processName ?? hotkeyTargetRef.current?.processName
       );
+      stopReadinessModeId = readiness.modeId;
       await window.voxtype.recordingOverlay.showTranscribing({
         cloudProviderLabel: readiness.cloud ? "Cloud Dictation" : undefined,
         message: readiness.cloud ? "Transcribing with OpenAI" : "Transcribing locally"
@@ -1229,6 +1231,9 @@ export function App(): JSX.Element {
       setLastRecordingResult(recordingResult);
 
       if (recordingResult.vad.enabled && !recordingResult.vad.speechDetected) {
+        if (stopReadinessModeId === "openai.realtime") {
+          await window.voxtype.transcription.cancelRealtime("Realtime Cloud Dictation cancelled because no speech was detected.").catch(() => undefined);
+        }
         const cleanupError = joinErrors(coordinationError ?? "", unmuteError).trim();
         if (cleanupError) {
           setError(`${recordingResult.vad.skippedReason ?? "No speech detected."} ${cleanupError}`);
@@ -1276,6 +1281,9 @@ export function App(): JSX.Element {
         history: history.length > 0 ? history : [entry, ...current.history]
       }));
     } catch (transcriptionError) {
+      if (stopReadinessModeId === "openai.realtime") {
+        await window.voxtype.transcription.cancelRealtime("Realtime Cloud Dictation cancelled after finalization failed.").catch(() => undefined);
+      }
       const coordinationError = await stopRecordingCoordination();
       const unmuteError = await unmuteSystemAudio();
       setError(joinErrors(joinErrors(formatError(transcriptionError), coordinationError), unmuteError));

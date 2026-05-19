@@ -352,6 +352,9 @@ grep_score 6 grep -R "flushPreConnectionBuffer" -n src/main/realtime-cloud-sessi
 grep_score 6 grep -R "this.streamingStarted = true" -n src/main/realtime-cloud-session.ts >/dev/null
 grep_score 6 grep -R "preConnectionDroppedBytes" -n src/main/realtime-cloud-session.ts src/main/index.ts >/dev/null
 grep_score 6 grep -R "Realtime pre-connection buffer limit reached; oldest audio was dropped" -n src/main/index.ts >/dev/null
+grep_score 6 grep -R "let stopReadinessModeId: DictationModeId | null" -n src/renderer/src/App.tsx >/dev/null
+grep_score 6 grep -R "Realtime Cloud Dictation cancelled because no speech was detected" -n src/renderer/src/App.tsx >/dev/null
+grep_score 6 grep -R "Realtime Cloud Dictation cancelled after finalization failed" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "cloudProviderLabel: undefined" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "elapsedMs: undefined" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "livePreviewTurns: undefined" -n src/main/index.ts >/dev/null
