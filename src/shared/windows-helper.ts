@@ -1,4 +1,5 @@
 import { type OcrPromptContext } from "./ocr-context";
+import { type TranscriptTurn } from "./asr";
 
 export type ActiveWindowInfo = {
   hwnd: string;
@@ -83,9 +84,11 @@ export type NativeRecordingLevel = {
 
 export type RecordingOverlayState = {
   visible: boolean;
-  mode: "recording" | "transcribing";
+  mode: "recording" | "transcribing" | "finalizing";
   level: number;
   message: string;
+  cloudProviderLabel?: string;
+  livePreviewTurns?: TranscriptTurn[];
 };
 
 export type CaptureSessionMuteEntry = {

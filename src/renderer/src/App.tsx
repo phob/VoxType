@@ -4291,7 +4291,13 @@ function RecordingOverlay({ state }: { state: RecordingOverlayState }): JSX.Elem
     };
   }, [state.mode]);
 
-  const statusLabel = state.mode === "recording" ? "Listening" : "Transcribing locally";
+  const statusLabel =
+    state.mode === "recording"
+      ? state.cloudProviderLabel ?? "Listening"
+      : state.mode === "finalizing"
+        ? "Finalizing"
+        : state.cloudProviderLabel ?? "Transcribing locally";
+  const previewTurns = state.livePreviewTurns?.slice(-5) ?? [];
 
   return (
     <main className="recording-overlay" aria-label={statusLabel}>
@@ -4304,14 +4310,31 @@ function RecordingOverlay({ state }: { state: RecordingOverlayState }): JSX.Elem
             aria-label="Input gain timeline"
             className="overlay-meter-canvas"
           />
+          {previewTurns.length > 0 ? <LivePreview turns={previewTurns} /> : null}
         </>
       ) : (
         <div className="overlay-transcribing">
           <span className="overlay-activity" aria-hidden="true" />
           <span>{statusLabel}</span>
+          {previewTurns.length > 0 ? <LivePreview turns={previewTurns} /> : null}
         </div>
       )}
     </main>
+  );
+}
+
+function LivePreview({ turns }: { turns: NonNullable<RecordingOverlayState["livePreviewTurns"]> }): JSX.Element {
+  return (
+    <div className="overlay-live-preview" aria-label="Live Preview">
+      {turns.map((turn) => (
+        <p
+          className={turn.status === "provisional" ? "overlay-preview-provisional" : "overlay-preview-final"}
+          key={turn.providerItemId}
+        >
+          {turn.finalText ?? turn.provisionalText}
+        </p>
+      ))}
+    </div>
   );
 }
 

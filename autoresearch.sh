@@ -74,6 +74,10 @@ grep_score 6 grep -R "gpt-realtime-whisper" -n src/main/openai-realtime-asr-prov
 grep_score 6 grep -R "server_vad" -n src/main >/dev/null
 grep_score 6 grep -R "pcm16" -n src/main >/dev/null
 grep_score 6 grep -R "pre-connection buffer" -n src/main >/dev/null
+grep_score 6 grep -R "livePreviewTurns" -n src >/dev/null
+grep_score 6 grep -R "overlay-live-preview" -n src/renderer >/dev/null
+grep_score 6 grep -R "finalizing" -n src/shared src/renderer >/dev/null
+grep_score 6 grep -R "cloudProviderLabel" -n src >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null

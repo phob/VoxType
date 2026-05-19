@@ -1572,7 +1572,7 @@ pre {
   gap: 8px;
   overflow: hidden;
   width: 196px;
-  height: 30px;
+  min-height: 30px;
   padding: 4px 8px;
   border: 1px solid rgb(75 91 107 / 0.78);
   border-radius: 5px;
@@ -1615,6 +1615,7 @@ pre {
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-wrap: wrap;
   gap: 8px;
   width: 100%;
   color: #d7dde7;
@@ -1622,6 +1623,35 @@ pre {
   font-weight: 700;
   line-height: 1;
   text-align: center;
+}
+
+.overlay-live-preview {
+  display: flex;
+  flex: 1 0 100%;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 5.4em;
+  overflow: hidden;
+  padding-top: 3px;
+  color: #d7dde7;
+  font-size: 0.68rem;
+  line-height: 1.08;
+}
+
+.overlay-live-preview p {
+  overflow: hidden;
+  margin: 0;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.overlay-preview-provisional {
+  opacity: 0.62;
+  font-style: italic;
+}
+
+.overlay-preview-final {
+  opacity: 0.95;
 }
 
 .overlay-activity {
