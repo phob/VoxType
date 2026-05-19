@@ -637,6 +637,14 @@ export function App(): JSX.Element {
     });
   }
 
+  function exactLocalModelSettingsPatch(modelId: string): Partial<AppSettings> {
+    return {
+      activeModelId: modelId,
+      localCustomModelId: modelId,
+      dictationModeId: "local.custom"
+    };
+  }
+
   function dictationModeSettingsPatch(modeId: DictationModeId): Partial<AppSettings> {
     const mode = dictationModes.find((item) => item.id === modeId);
 
@@ -2358,7 +2366,7 @@ export function App(): JSX.Element {
                     <button
                       className="release-secondary-button"
                       disabled={state.settings.activeModelId === model.id}
-                      onClick={() => void updateSettings({ activeModelId: model.id })}
+                      onClick={() => void updateSettings(exactLocalModelSettingsPatch(model.id))}
                       type="button"
                     >
                       {state.settings.activeModelId === model.id ? "Active" : "Use"}
@@ -2941,7 +2949,7 @@ export function App(): JSX.Element {
         <select
           disabled={!state.settings}
           value={state.settings?.activeModelId ?? ""}
-          onChange={(event) => void updateSettings({ activeModelId: event.target.value })}
+          onChange={(event) => void updateSettings(exactLocalModelSettingsPatch(event.target.value))}
         >
           <option value="">model</option>
           {state.models.map((model) => (
@@ -3294,7 +3302,7 @@ export function App(): JSX.Element {
                       <td><code>{model.localPath}</code></td>
                       <td>
                         <div className="table-actions">
-                          <button onClick={() => void updateSettings({ activeModelId: model.id })} type="button">
+                          <button onClick={() => void updateSettings(exactLocalModelSettingsPatch(model.id))} type="button">
                             Select
                           </button>
                           <button

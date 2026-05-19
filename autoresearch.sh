@@ -152,6 +152,10 @@ grep_score 6 grep -R "recording-overlay:show-finalizing" -n src >/dev/null
 grep_score 6 grep -R "showFinalizing" -n src/preload src/renderer >/dev/null
 grep_score 6 grep -R "Finalizing cloud dictation" -n src/renderer >/dev/null
 grep_score 6 grep -R "mode: \"finalizing\"" -n src/main >/dev/null
+grep_score 6 grep -R "exactLocalModelSettingsPatch" -n src/renderer >/dev/null
+grep_score 6 grep -R "localCustomModelId: modelId" -n src/renderer >/dev/null
+grep_score 6 grep -R "dictationModeId: \"local.custom\"" -n src/renderer >/dev/null
+grep_score 6 grep -R "exactLocalModelSettingsPatch(event.target.value)" -n src/renderer >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null
