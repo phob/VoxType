@@ -1,4 +1,5 @@
 import {
+  composeRealtimeTurns,
   createCorrectedRealtimeCloudHistoryEntry,
   type RealtimeCloudHistoryInput
 } from "../shared/realtime-history";
@@ -14,6 +15,12 @@ export class RealtimeCloudHistoryService {
   async save(
     input: RealtimeCloudHistoryInput & { processName?: string | null }
   ): Promise<Awaited<ReturnType<typeof createCorrectedRealtimeCloudHistoryEntry>>> {
+    const providerText = composeRealtimeTurns(input.turns).trim();
+
+    if (!providerText) {
+      throw new Error("Realtime Cloud Dictation completed but returned no transcript turns.");
+    }
+
     const entry = await createCorrectedRealtimeCloudHistoryEntry({
       ...input,
       applyCorrections: async ({ text, processName }) => {
