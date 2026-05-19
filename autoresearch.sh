@@ -330,6 +330,8 @@ grep_score 6 bash -c '! grep -R "parseRealtimePcm16ChunkEvents" -n src/main/wind
 grep_score 6 grep -R "appendRealtimePcm16AudioSafely(pcm16Chunk)" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "lastRealtimeCloudSessionError" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "previousRealtimeError" -n src/main/index.ts >/dev/null
+grep_score 6 grep -R "Realtime Cloud Dictation stopped because startup failed" -n src/main/index.ts >/dev/null
+grep_score 6 grep -R "startupError" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "realtimePcm16Chunk" -n native/windows-helper/src/main.rs >/dev/null
 grep_score 6 grep -R "emit_realtime_pcm16_chunk" -n native/windows-helper/src/main.rs >/dev/null
 grep_score 6 grep -R "audio_base64" -n native/windows-helper/src/main.rs >/dev/null

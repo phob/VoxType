@@ -887,7 +887,18 @@ ipcMain.handle(
       consentAccepted: settings.cloudDictationConsentAccepted
     });
 
-    await activeRealtimeCloudSession.start(promptPack);
+    try {
+      await activeRealtimeCloudSession.start(promptPack);
+    } catch (error) {
+      const startupError = error instanceof Error
+        ? error
+        : new Error("Realtime Cloud Dictation failed to start.");
+      cancelActiveRealtimeCloudSession(
+        "Realtime Cloud Dictation stopped because startup failed.",
+        startupError
+      );
+      throw startupError;
+    }
   }
 );
 
