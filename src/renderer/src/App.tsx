@@ -32,6 +32,7 @@ import {
   type PcmRecordingResult
 } from "./audio-recorder";
 import { eventToAccelerator } from "./hotkey-capture";
+import { dictationModes, type DictationModeId } from "../../../shared/asr";
 import { type DictionaryEntry } from "../../../shared/dictionary";
 import { type HardwareAccelerationReport } from "../../../shared/hardware";
 import { type HotkeyStatus } from "../../../shared/hotkeys";
@@ -76,6 +77,7 @@ type AppState = {
   inputDevices: NativeInputDevice[];
   activeWindow: ActiveWindowInfo | null;
   hotkeys: HotkeyStatus | null;
+  openaiCredentials: { hasApiKey: boolean } | null;
 };
 
 type ReleaseTab =
@@ -219,7 +221,8 @@ export function App(): JSX.Element {
     windowsHelper: null,
     inputDevices: [],
     activeWindow: null,
-    hotkeys: null
+    hotkeys: null,
+    openaiCredentials: null
   });
   const [recording, setRecording] = useState(false);
   const [busyMessage, setBusyMessage] = useState<string | null>(null);
@@ -575,7 +578,8 @@ export function App(): JSX.Element {
       dictionary,
       windowsHelper,
       inputDevices,
-      hotkeys
+      hotkeys,
+      openaiCredentials
     ] =
       await Promise.all([
       window.voxtype.getAppInfo(),
@@ -589,7 +593,8 @@ export function App(): JSX.Element {
       window.voxtype.dictionary.list(),
       window.voxtype.windowsHelper.status(),
       window.voxtype.windowsHelper.inputDevices().catch(() => []),
-      window.voxtype.hotkeys.status()
+      window.voxtype.hotkeys.status(),
+      window.voxtype.openaiCredentials.getStatus()
     ]);
 
     setVersion(appInfo.versionLabel);
@@ -606,7 +611,8 @@ export function App(): JSX.Element {
       windowsHelper,
       inputDevices,
       activeWindow: null,
-      hotkeys
+      hotkeys,
+      openaiCredentials
     });
   }
 
@@ -622,6 +628,22 @@ export function App(): JSX.Element {
       window.voxtype.hotkeys.status()
     ]);
     setState((current) => ({ ...current, settings, models, hotkeys }));
+  }
+
+  async function saveOpenAiApiKey(): Promise<void> {
+    const apiKey = window.prompt("Enter your OpenAI API key for Cloud Dictation") ?? "";
+
+    if (!apiKey.trim()) {
+      return;
+    }
+
+    const openaiCredentials = await window.voxtype.openaiCredentials.setApiKey(apiKey);
+    setState((current) => ({ ...current, openaiCredentials }));
+  }
+
+  async function clearOpenAiApiKey(): Promise<void> {
+    const openaiCredentials = await window.voxtype.openaiCredentials.clearApiKey();
+    setState((current) => ({ ...current, openaiCredentials }));
   }
 
   function captureHotkey(event: MouseEvent, target: HotkeyCaptureTarget): void {
@@ -1896,6 +1918,63 @@ export function App(): JSX.Element {
                 </div>
               </div>
               <div className="settings-list">
+                <label className="setting-row">
+                  <span>
+                    <strong>Dictation Mode</strong>
+                    <small>Local remains the default. Cloud modes send audio and a capped Prompt Pack to OpenAI.</small>
+                  </span>
+                  <select
+                    value={state.settings.dictationModeId}
+                    onChange={(event) =>
+                      void updateSettings({ dictationModeId: event.target.value as DictationModeId })
+                    }
+                  >
+                    {dictationModes.map((mode) => (
+                      <option key={mode.id} value={mode.id}>
+                        {mode.label} — {mode.secondaryText}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="setting-row">
+                  <span>
+                    <strong>Cloud Dictation consent</strong>
+                    <small>
+                      Sends microphone audio and compact Prompt Pack context to OpenAI; never screenshots,
+                      transcript history, or the full Dictionary.
+                    </small>
+                  </span>
+                  <input
+                    checked={state.settings.cloudDictationConsentAccepted}
+                    type="checkbox"
+                    onChange={(event) =>
+                      void updateSettings({ cloudDictationConsentAccepted: event.target.checked })
+                    }
+                  />
+                </label>
+                <label className="setting-row">
+                  <span>
+                    <strong>Allow OCR Context in cloud Prompt Pack</strong>
+                    <small>Off by default. Dictionary terms are still capped to 50 terms / 1,000 characters.</small>
+                  </span>
+                  <input
+                    checked={state.settings.cloudPromptPackOcrEnabled}
+                    type="checkbox"
+                    onChange={(event) =>
+                      void updateSettings({ cloudPromptPackOcrEnabled: event.target.checked })
+                    }
+                  />
+                </label>
+                <div className="setting-row">
+                  <span>
+                    <strong>OpenAI API key</strong>
+                    <small>{state.openaiCredentials?.hasApiKey ? "Stored in OS-encrypted app storage." : "Required before Cloud Dictation can record."}</small>
+                  </span>
+                  <div className="setting-actions">
+                    <button onClick={() => void saveOpenAiApiKey()} type="button">Save key</button>
+                    <button disabled={!state.openaiCredentials?.hasApiKey} onClick={() => void clearOpenAiApiKey()} type="button">Clear</button>
+                  </div>
+                </div>
                 <label className="setting-row">
                   <span>
                     <strong>Offline mode</strong>

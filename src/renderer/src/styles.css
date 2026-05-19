@@ -882,6 +882,16 @@ pre {
   white-space: nowrap;
 }
 
+.setting-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.setting-actions button {
+  min-width: 74px;
+}
+
 .setting-row input[type="checkbox"],
 .checkbox-field input {
   position: relative;
