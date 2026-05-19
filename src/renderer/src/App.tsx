@@ -2138,7 +2138,8 @@ export function App(): JSX.Element {
                         modeId: mode.id,
                         settings: state.settings,
                         hasOpenAiApiKey: Boolean(state.openaiCredentials?.hasApiKey),
-                        realtimeStreamingReady: false
+                        realtimeStreamingReady: false,
+                        allOpenAiModesReadyForRelease: false
                       });
 
                       return (

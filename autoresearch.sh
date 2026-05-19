@@ -259,6 +259,8 @@ grep_score 6 grep -R "OPENAI_REALTIME_WHISPER_MODEL_ID" -n src/main/openai-realt
 grep_score 6 grep -R "openAiModeModelIds" -n src/shared/openai-models.ts >/dev/null
 grep_score 6 grep -R "getOpenAiModelIdForMode" -n src/main/index.ts src/shared/openai-models.ts >/dev/null
 grep_score 6 grep -R "OPENAI_TRANSCRIBE_MODEL_ID" -n src/main/index.ts >/dev/null
+grep_score 6 grep -R "allOpenAiModesReadyForRelease" -n src/shared/dictation-mode-availability.ts src/renderer/src/App.tsx >/dev/null
+grep_score 6 grep -R "Cloud Dictation is available after all OpenAI modes are ready" -n src/shared/dictation-mode-availability.ts >/dev/null
 grep_score 6 grep -R "mode: 0o600" -n src/main/openai-credential-store.ts >/dev/null
 grep_score 6 grep -R "chmod(this.credentialPath, 0o600)" -n src/main/openai-credential-store.ts >/dev/null
 grep_score 6 grep -R "OpenAI test connection is disabled while Offline Mode is on" -n src/main/index.ts >/dev/null
