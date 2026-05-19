@@ -17,6 +17,7 @@ export type RealtimeCloudSessionSnapshot = {
 export class RealtimeCloudSession {
   private readonly startedAtMs = Date.now();
   private turns: TranscriptTurn[] = [];
+  private finalized = false;
   private readonly provider: OpenAiRealtimeAsrProvider;
 
   constructor(
@@ -60,9 +61,25 @@ export class RealtimeCloudSession {
   }
 
   finalize(): RealtimeCloudSessionSnapshot {
-    this.provider.commitAudio();
-    this.provider.stop();
+    if (!this.finalized) {
+      this.finalized = true;
+      this.provider.commitAudio();
+      this.provider.stop();
+    }
 
+    return this.snapshot();
+  }
+
+  cancel(): RealtimeCloudSessionSnapshot {
+    if (!this.finalized) {
+      this.finalized = true;
+      this.provider.stop();
+    }
+
+    return this.snapshot();
+  }
+
+  private snapshot(): RealtimeCloudSessionSnapshot {
     return {
       startedAtMs: this.startedAtMs,
       turns: this.turns
