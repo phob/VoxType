@@ -336,6 +336,8 @@ grep_score 6 grep -R "does not support an explicit" -n src/shared/provider-langu
 grep_score 6 grep -R "languageHint.parameterValue" -n src/main/openai-asr-provider.ts >/dev/null
 grep_score 6 grep -R "getProviderLanguageHint(\"openai\", language)" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "language: languageHint.parameterValue" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "activeProviderLanguageHint" -n src/renderer/src/App.tsx >/dev/null
+grep_score 6 grep -R "getProviderLanguageHint(activeDictationMode.providerId" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "OPENAI_REALTIME_WHISPER_MODEL_ID = \"gpt-realtime-whisper\"" -n src/shared/openai-models.ts >/dev/null
 grep_score 6 grep -R "OPENAI_REALTIME_WHISPER_MODEL_ID" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "openAiModeModelIds" -n src/shared/openai-models.ts >/dev/null

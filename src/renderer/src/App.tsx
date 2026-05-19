@@ -58,6 +58,7 @@ import {
 } from "../../shared/openai-readiness";
 import { buildWhisperPromptContext } from "../../shared/prompt-context";
 import { PROMPT_PACK_MAX_CHARS, PROMPT_PACK_MAX_TERMS } from "../../shared/prompt-pack-limits";
+import { getProviderLanguageHint } from "../../shared/provider-language";
 import { type WhisperRuntime, type WhisperRuntimePreference } from "../../shared/runtimes";
 import {
   type AppProfile,
@@ -365,6 +366,9 @@ export function App(): JSX.Element {
       ? "Cloud Dictation ready"
       : "Cloud Dictation release-gated";
   const activeModeIsCloud = activeDictationMode.providerId === "openai";
+  const activeProviderLanguageHint = state.settings
+    ? getProviderLanguageHint(activeDictationMode.providerId, state.settings.whisperLanguage)
+    : null;
   const cloudSetupReady =
     !activeModeIsCloud ||
     (Boolean(state.openaiCredentials?.hasApiKey) && Boolean(state.settings?.cloudDictationConsentAccepted));
@@ -2149,7 +2153,7 @@ export function App(): JSX.Element {
                 <label className="setting-row">
                   <span>
                     <strong>Language</strong>
-                    <small>Auto-detect or force Whisper to listen for one language.</small>
+                    <small>Auto-detect or force Whisper to listen for one language. {activeProviderLanguageHint?.reason ?? (activeProviderLanguageHint?.parameterValue ? `${activeDictationMode.label} will request ${activeProviderLanguageHint.parameterValue}.` : "")}</small>
                   </span>
                   <ReleaseSelect
                     ariaLabel="Whisper language"
