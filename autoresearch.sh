@@ -252,7 +252,8 @@ grep_score 6 grep -R "realtimeCloudHistoryService.save" -n src/main/index.ts >/d
 grep_score 6 grep -R "transcription.startRealtime" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "transcription.finalizeRealtime" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "onLevel\?: (level: NativeRecordingLevel, pcm16Chunk\?: Uint8Array)" -n src/main/windows-helper-service.ts >/dev/null
-grep_score 6 grep -R "extractRealtimePcm16Chunk" -n src/main/windows-helper-service.ts >/dev/null
+grep_score 6 grep -R "parseRealtimePcm16ChunkEvents" -n src/main/windows-helper-service.ts >/dev/null
+grep_score 6 grep -R "isRealtimePcm16ChunkLine" -n src/main/windows-helper-service.ts >/dev/null
 grep_score 6 grep -R "activeRealtimeCloudSession.appendPcm16Audio(pcm16Chunk)" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "realtimePcm16Chunk" -n native/windows-helper/src/main.rs >/dev/null
 grep_score 6 grep -R "emit_realtime_pcm16_chunk" -n native/windows-helper/src/main.rs >/dev/null
@@ -319,7 +320,7 @@ grep_score 6 grep -R "fileEconomyReady: true" -n src/shared/openai-readiness.ts 
 grep_score 6 grep -R "realtimeReady: false" -n src/shared/openai-readiness.ts >/dev/null
 grep_score 6 grep -R "realtimeSessionIpcReady: true" -n src/shared/openai-readiness.ts >/dev/null
 grep_score 6 grep -R "realtimeRendererLifecycleReady: true" -n src/shared/openai-readiness.ts >/dev/null
-grep_score 6 grep -R "realtimeNativePcmStreamingReady: false" -n src/shared/openai-readiness.ts >/dev/null
+grep_score 6 grep -R "realtimeNativePcmStreamingReady: true" -n src/shared/openai-readiness.ts >/dev/null
 grep_score 6 grep -R "createOpenAiModeImplementationReadiness" -n src/shared/openai-readiness.ts >/dev/null
 grep_score 6 grep -R "input.realtimeSessionIpcReady &&" -n src/shared/openai-readiness.ts >/dev/null
 grep_score 6 grep -R "Realtime readiness: IPC" -n src/renderer/src/App.tsx >/dev/null

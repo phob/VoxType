@@ -14,7 +14,7 @@ export const currentOpenAiModeImplementationReadiness = createOpenAiModeImplemen
   fileEconomyReady: true,
   realtimeSessionIpcReady: true,
   realtimeRendererLifecycleReady: true,
-  realtimeNativePcmStreamingReady: false
+  realtimeNativePcmStreamingReady: true
 });
 
 export function createOpenAiModeImplementationReadiness(input: Omit<OpenAiModeImplementationReadiness, "realtimeReady">): OpenAiModeImplementationReadiness {

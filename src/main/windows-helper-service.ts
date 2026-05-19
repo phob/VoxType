@@ -369,8 +369,17 @@ export class WindowsHelperService {
 
     child.stdout.on("data", (chunk: Buffer) => {
       stdout.push(chunk);
-      for (const level of parseRecordingLevelEvents(chunk.toString("utf8"))) {
-        onLevel?.(level, extractRealtimePcm16Chunk(level));
+      const text = chunk.toString("utf8");
+      const pcm16Chunks = parseRealtimePcm16ChunkEvents(text);
+      let chunkIndex = 0;
+
+      for (const level of parseRecordingLevelEvents(text)) {
+        onLevel?.(level, pcm16Chunks[chunkIndex]);
+        chunkIndex += 1;
+      }
+
+      for (; chunkIndex < pcm16Chunks.length; chunkIndex += 1) {
+        onLevel?.({ rms: 0, peak: 0 }, pcm16Chunks[chunkIndex]);
       }
     });
     child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk));
@@ -558,9 +567,33 @@ function parseRecordingLevelEvents(stdout: string): NativeRecordingLevel[] {
     }));
 }
 
-function extractRealtimePcm16Chunk(_level: NativeRecordingLevel): Uint8Array | undefined {
-  // TODO: pipe 24 kHz PCM16 mono chunks from the native helper once streaming output is available.
-  return undefined;
+function parseRealtimePcm16ChunkEvents(stdout: string): Uint8Array[] {
+  return stdout
+    .split(/\r?\n/)
+    .map((item) => item.trim())
+    .filter(isRealtimePcm16ChunkLine)
+    .map((line) => JSON.parse(line) as Record<string, unknown>)
+    .flatMap((parsed) => {
+      if (
+        parsed.encoding !== "pcm16" ||
+        parsed.sampleRateHz !== 24000 ||
+        parsed.channelCount !== 1 ||
+        typeof parsed.audioBase64 !== "string"
+      ) {
+        return [];
+      }
+
+      return [new Uint8Array(Buffer.from(parsed.audioBase64, "base64"))];
+    });
+}
+
+function isRealtimePcm16ChunkLine(line: string): boolean {
+  try {
+    const parsed = JSON.parse(line) as Record<string, unknown>;
+    return parsed.type === "realtimePcm16Chunk";
+  } catch {
+    return false;
+  }
 }
 
 function isRecordingLevelLine(line: string): boolean {
