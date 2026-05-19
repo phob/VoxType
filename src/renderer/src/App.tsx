@@ -721,9 +721,10 @@ export function App(): JSX.Element {
   }
 
   async function previewCloudPromptPack(): Promise<void> {
-    const promptPack = await window.voxtype.transcription.previewPromptPack(
-      state.activeWindow?.processName
-    );
+    const promptPack = await window.voxtype.transcription.previewPromptPack({
+      processName: state.activeWindow?.processName,
+      ocrContext: state.settings?.cloudPromptPackOcrEnabled ? latestOcrContext : null
+    });
     setInsertionTestResult(
       promptPack
         ? `Cloud Prompt Pack preview (${promptPack.terms.length} terms, ${promptPack.source}): ${promptPack.text}`

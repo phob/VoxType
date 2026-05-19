@@ -748,24 +748,30 @@ ipcMain.handle(
   (_event, imagePath: string, mode: "screen" | "activeWindow") =>
     ocrService.recognizeImage(imagePath, mode)
 );
-ipcMain.handle("transcription:preview-prompt-pack", async (_event, processName?: string | null) => {
-  const settings = await settingsStore.get();
-  const profile = findAppProfile(settings.appProfiles, processName ?? null);
-  const readiness = getCloudDictationReadiness({
-    settings,
-    profile,
-    hasApiKey: await openAiCredentialStore.hasApiKey()
-  });
+ipcMain.handle(
+  "transcription:preview-prompt-pack",
+  async (
+    _event,
+    context?: { processName?: string | null; ocrContext?: OcrPromptContext | null }
+  ) => {
+    const settings = await settingsStore.get();
+    const processName = context?.processName ?? null;
+    const profile = findAppProfile(settings.appProfiles, processName);
+    const readiness = getCloudDictationReadiness({
+      settings,
+      profile,
+      hasApiKey: await openAiCredentialStore.hasApiKey()
+    });
 
-  if (!readiness.cloud) {
-    return null;
-  }
+    if (!readiness.cloud) {
+      return null;
+    }
 
-  return buildCloudPromptPack(dictionaryStore, {
-    processName,
-    ocrContext: null,
-    includeOcrContext: false
-  });
+    return buildCloudPromptPack(dictionaryStore, {
+      processName,
+      ocrContext: context?.ocrContext ?? null,
+      includeOcrContext: settings.cloudPromptPackOcrEnabled
+    });
 });
 
 ipcMain.handle("transcription:get-readiness", async (_event, processName?: string | null) => {

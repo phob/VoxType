@@ -104,8 +104,11 @@ const voxtype = {
       ipcRenderer.invoke("ocr:recognize-screenshot", imagePath, mode) as Promise<OcrResult>
   },
   transcription: {
-    previewPromptPack: (processName?: string | null) =>
-      ipcRenderer.invoke("transcription:preview-prompt-pack", processName) as Promise<PromptPack | null>,
+    previewPromptPack: (context?: {
+      processName?: string | null;
+      ocrContext?: OcrPromptContext | null;
+    }) =>
+      ipcRenderer.invoke("transcription:preview-prompt-pack", context) as Promise<PromptPack | null>,
     getReadiness: (processName?: string | null) =>
       ipcRenderer.invoke("transcription:get-readiness", processName) as Promise<CloudDictationReadiness>,
     transcribeWav: (

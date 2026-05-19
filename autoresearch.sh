@@ -182,6 +182,10 @@ grep_score 6 grep -R "looksLikeWhisperPromptOverride" -n src/main/prompt-pack.ts
 grep_score 6 grep -R "whisper prompt override" -ni src/main/prompt-pack.ts >/dev/null
 grep_score 6 grep -R "style:" -n src/main/prompt-pack.ts >/dev/null
 grep_score 6 grep -R "format as" -n src/main/prompt-pack.ts >/dev/null
+grep_score 6 grep -R "previewPromptPack: (context" -n src/preload >/dev/null
+grep_score 6 grep -R "transcription:preview-prompt-pack" -n src/main/index.ts >/dev/null
+grep_score 6 grep -R "includeOcrContext: settings.cloudPromptPackOcrEnabled" -n src/main/index.ts >/dev/null
+grep_score 6 grep -R "ocrContext: state.settings\?\.cloudPromptPackOcrEnabled" -n src/renderer >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null
