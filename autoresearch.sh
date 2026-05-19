@@ -108,6 +108,8 @@ grep_score 6 grep -R "option disabled" -n src/renderer >/dev/null
 grep_score 6 grep -R "API key required before recording" -n src/renderer >/dev/null
 grep_score 6 grep -R "terminateActiveCloudDictationForOfflineMode" -n src/renderer >/dev/null
 grep_score 6 grep -R "Cloud Dictation stopped because Offline Mode" -n src/renderer >/dev/null
+grep_score 6 grep -R "patch.offlineMode === true && recording && activeModeIsCloud" -n src/renderer/src/App.tsx >/dev/null
+grep_score 6 bash -c '! grep -R "patch.offlineMode === true && recording && isCloudDictationMode(settings.dictationModeId)" -n src/renderer/src/App.tsx'
 grep_score 6 grep -R "isCloudDictationMode" -n src/renderer >/dev/null
 grep_score 6 grep -R "Transcribing with OpenAI" -n src/renderer >/dev/null
 grep_score 6 grep -R "showTranscribing: (state" -n src/preload >/dev/null

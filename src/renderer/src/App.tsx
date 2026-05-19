@@ -745,7 +745,7 @@ export function App(): JSX.Element {
     setState((current) => current);
     const settings = await window.voxtype.settings.update(patch);
 
-    if (patch.offlineMode === true && recording && isCloudDictationMode(settings.dictationModeId)) {
+    if (patch.offlineMode === true && recording && activeModeIsCloud) {
       await terminateActiveCloudDictationForOfflineMode();
     }
 
