@@ -368,7 +368,7 @@ export class WindowsHelperService {
     const stderr: Buffer[] = [];
 
     child.stdout.on("data", (chunk: Buffer) => {
-      stdout.push(chunk);
+      stdout.push(Buffer.from(stripRealtimePcm16ChunkEvents(chunk.toString("utf8"))));
       for (const event of parseRecordingStdoutEvents(chunk.toString("utf8"))) {
         onLevel?.(event.level, event.pcm16Chunk);
       }
@@ -548,6 +548,20 @@ function parseNativeRecordingMetadata(stdout: string): Omit<NativeRecordingResul
 
 function parseRecordingLevelEvents(stdout: string): NativeRecordingLevel[] {
   return parseRecordingStdoutEvents(stdout).map((event) => event.level);
+}
+
+function stripRealtimePcm16ChunkEvents(stdout: string): string {
+  return stdout
+    .split(/\r?\n/)
+    .filter((line) => {
+      try {
+        const parsed = JSON.parse(line) as Record<string, unknown>;
+        return parsed.type !== "realtimePcm16Chunk";
+      } catch {
+        return true;
+      }
+    })
+    .join("\n");
 }
 
 function parseRecordingStdoutEvents(stdout: string): Array<{
