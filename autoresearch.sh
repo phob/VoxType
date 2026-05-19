@@ -167,6 +167,9 @@ grep_score 6 grep -R "type: \"transcription\"" -n src/main/openai-realtime-asr-p
 grep_score 6 grep -R "commitAudioAndWaitForFinalTranscript" -n src/main src/shared >/dev/null
 grep_score 6 grep -R "markProvisionalTurnsAsFallback" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "conversation.item.input_audio_transcription.completed" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "conversation.item.input_audio_transcription.failed" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "throwIfRealtimeFailed" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "failRealtime" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "await session.finalize" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "cloudSessionWarnMs" -n src >/dev/null
 grep_score 6 grep -R "cloudSessionMaxMs" -n src >/dev/null

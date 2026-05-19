@@ -20,7 +20,11 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
   readonly providerId = "openai" as const;
   private socket: WebSocket | null = null;
   private readonly turns = new TranscriptTurnAccumulator();
-  private finalTranscriptWaiters: Array<() => void> = [];
+  private finalTranscriptWaiters: Array<{
+    resolve: () => void;
+    reject: (error: Error) => void;
+  }> = [];
+  private lastError: Error | null = null;
 
   constructor(
     private readonly credentials: OpenAiCredentialStore,
@@ -68,20 +72,29 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
     }
 
     const initialFinalTurnCount = this.finalTurnCount();
+    this.throwIfRealtimeFailed();
     this.socket.send(JSON.stringify({ type: "input_audio_buffer.commit" }));
 
     if (this.finalTurnCount() > initialFinalTurnCount) {
       return;
     }
 
-    await new Promise<void>((resolve) => {
+    await new Promise<void>((resolve, reject) => {
       const timeout = setTimeout(resolve, timeoutMs);
-      const waiter = () => {
-        clearTimeout(timeout);
-        resolve();
+      const waiter = {
+        resolve: () => {
+          clearTimeout(timeout);
+          resolve();
+        },
+        reject: (error: Error) => {
+          clearTimeout(timeout);
+          reject(error);
+        }
       };
       this.finalTranscriptWaiters.push(waiter);
     });
+
+    this.throwIfRealtimeFailed();
 
     if (this.finalTurnCount() === initialFinalTurnCount) {
       this.markProvisionalTurnsAsFallback();
@@ -155,8 +168,8 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
         };
       };
 
-      if (payload.type === "error") {
-        this.onError?.(new Error(formatRealtimeOpenAiError(payload.error)));
+      if (payload.type === "error" || payload.type === "conversation.item.input_audio_transcription.failed") {
+        this.failRealtime(new Error(formatRealtimeOpenAiError(payload.error)));
         return;
       }
       const providerItemId = payload.item_id ?? "current";
@@ -194,11 +207,27 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
     this.onPreview?.(turns);
   }
 
+  private throwIfRealtimeFailed(): void {
+    if (this.lastError) {
+      throw this.lastError;
+    }
+  }
+
+  private failRealtime(error: Error): void {
+    this.lastError = error;
+    this.onError?.(error);
+    const waiters = this.finalTranscriptWaiters;
+    this.finalTranscriptWaiters = [];
+    for (const waiter of waiters) {
+      waiter.reject(error);
+    }
+  }
+
   private resolveFinalTranscriptWaiters(): void {
     const waiters = this.finalTranscriptWaiters;
     this.finalTranscriptWaiters = [];
-    for (const resolve of waiters) {
-      resolve();
+    for (const waiter of waiters) {
+      waiter.resolve();
     }
   }
 }
