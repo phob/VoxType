@@ -190,6 +190,10 @@ grep_score 6 grep -R "openai.com/api/pricing" -n src/renderer >/dev/null
 grep_score 6 grep -R "openai.com/policies/privacy-policy" -n src/renderer >/dev/null
 grep_score 6 grep -R "platform.openai.com/docs/models" -n src/renderer >/dev/null
 grep_score 6 grep -R "inline-doc-links" -n src/renderer >/dev/null
+grep_score 6 grep -R "openAiApiKeyDraft" -n src/renderer >/dev/null
+grep_score 6 grep -R "type=\"password\"" -n src/renderer >/dev/null
+grep_score 6 grep -R "setOpenAiApiKeyDraft(\"\")" -n src/renderer >/dev/null
+grep_score 6 grep -R "setting-actions-with-input" -n src/renderer >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null

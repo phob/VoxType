@@ -260,6 +260,7 @@ export function App(): JSX.Element {
   const [editingDictionaryEntryId, setEditingDictionaryEntryId] = useState<string | null>(null);
   const [dictionaryModalOpen, setDictionaryModalOpen] = useState(false);
   const [fixLastText, setFixLastText] = useState("");
+  const [openAiApiKeyDraft, setOpenAiApiKeyDraft] = useState("");
   const [lastRecordingResult, setLastRecordingResult] = useState<PcmRecordingResult | null>(null);
   const [screenshotMode, setScreenshotMode] = useState<ScreenshotCaptureMode>("activeWindow");
   const [latestScreenshot, setLatestScreenshot] = useState<ScreenshotCaptureResult | null>(null);
@@ -705,13 +706,13 @@ export function App(): JSX.Element {
   }
 
   async function saveOpenAiApiKey(): Promise<void> {
-    const apiKey = window.prompt("Enter your OpenAI API key for Cloud Dictation") ?? "";
-
-    if (!apiKey.trim()) {
+    if (!openAiApiKeyDraft.trim()) {
+      setError("Enter an OpenAI API key before saving.");
       return;
     }
 
-    const openaiCredentials = await window.voxtype.openaiCredentials.setApiKey(apiKey);
+    const openaiCredentials = await window.voxtype.openaiCredentials.setApiKey(openAiApiKeyDraft);
+    setOpenAiApiKeyDraft("");
     setState((current) => ({ ...current, openaiCredentials }));
   }
 
@@ -2203,8 +2204,16 @@ export function App(): JSX.Element {
                     <strong>OpenAI API key</strong>
                     <small>{state.openaiCredentials?.hasApiKey ? "Stored in OS-encrypted app storage." : "Required before Cloud Dictation can record."}</small>
                   </span>
-                  <div className="setting-actions">
-                    <button onClick={() => void saveOpenAiApiKey()} type="button">Save key</button>
+                  <div className="setting-actions setting-actions-with-input">
+                    <input
+                      aria-label="OpenAI API key"
+                      autoComplete="off"
+                      placeholder="sk-..."
+                      type="password"
+                      value={openAiApiKeyDraft}
+                      onChange={(event) => setOpenAiApiKeyDraft(event.target.value)}
+                    />
+                    <button disabled={!openAiApiKeyDraft.trim()} onClick={() => void saveOpenAiApiKey()} type="button">Save key</button>
                     <button onClick={() => void previewCloudPromptPack()} type="button">Prompt Pack preview</button>
                     <button disabled={!state.openaiCredentials?.hasApiKey} onClick={() => void testOpenAiConnection()} type="button">Test connection</button>
                     <button disabled={!state.openaiCredentials?.hasApiKey} onClick={() => void clearOpenAiApiKey()} type="button">Clear</button>

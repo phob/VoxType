@@ -907,6 +907,14 @@ pre {
   min-width: 74px;
 }
 
+.setting-actions-with-input {
+  flex-wrap: wrap;
+}
+
+.setting-actions-with-input input {
+  min-width: 180px;
+}
+
 .setting-row input[type="checkbox"],
 .checkbox-field input {
   position: relative;
