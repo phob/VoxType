@@ -206,12 +206,11 @@ export function sanitizeSettings(
       typeof input.cloudSessionWarnMs === "number" && Number.isFinite(input.cloudSessionWarnMs)
         ? clamp(Math.round(input.cloudSessionWarnMs), 60_000, 60 * 60_000)
         : defaults.cloudSessionWarnMs,
-    cloudSessionMaxMs:
-      input.cloudSessionMaxMs === null
-        ? null
-        : typeof input.cloudSessionMaxMs === "number" && Number.isFinite(input.cloudSessionMaxMs)
-          ? clamp(Math.round(input.cloudSessionMaxMs), 60_000, 4 * 60 * 60_000)
-          : defaults.cloudSessionMaxMs,
+    cloudSessionMaxMs: sanitizeCloudSessionMaxMs(
+      input.cloudSessionMaxMs,
+      input.cloudSessionWarnMs,
+      defaults.cloudSessionMaxMs
+    ),
     realtimeLatencyPreset: isRealtimeLatencyPreset(input.realtimeLatencyPreset)
       ? input.realtimeLatencyPreset
       : defaults.realtimeLatencyPreset,
@@ -598,6 +597,27 @@ function normalizeProcessName(processName: unknown): string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function sanitizeCloudSessionMaxMs(
+  value: unknown,
+  warnValue: unknown,
+  defaultValue: number | null
+): number | null {
+  if (value === null) {
+    return null;
+  }
+
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return defaultValue;
+  }
+
+  const warnMs =
+    typeof warnValue === "number" && Number.isFinite(warnValue)
+      ? clamp(Math.round(warnValue), 60_000, 60 * 60_000)
+      : 60_000;
+
+  return clamp(Math.round(value), Math.max(60_000, warnMs), 4 * 60 * 60_000);
 }
 
 function sanitizeRealtimeVadThresholdOverride(value: unknown): number | null {

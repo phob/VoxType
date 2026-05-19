@@ -304,6 +304,13 @@ export function App(): JSX.Element {
   const activeDictationMode = getDictationMode(state.settings?.dictationModeId ?? "local.balanced");
   const activeProviderLabel = activeDictationMode.providerId === "openai" ? "Cloud Dictation" : "Local dictation";
   const appStatus = error ? "Error" : recording ? "Recording" : busyMessage ? busyMessage : "Ready";
+  const normalizedCloudSessionMaxMinutes =
+    state.settings?.cloudSessionMaxMs === null
+      ? ""
+      : Math.max(
+          Math.round((state.settings?.cloudSessionMaxMs ?? 10 * 60000) / 60000),
+          Math.round((state.settings?.cloudSessionWarnMs ?? 5 * 60000) / 60000)
+        );
   const activeRuntimeLabel = state.runtime
     ? `${state.runtime.backend.toUpperCase()} · ${state.runtime.status}`
     : "Runtime not ready";
@@ -2184,7 +2191,7 @@ export function App(): JSX.Element {
                   <input
                     min={1}
                     type="number"
-                    value={state.settings.cloudSessionMaxMs === null ? "" : Math.round(state.settings.cloudSessionMaxMs / 60000)}
+                    value={normalizedCloudSessionMaxMinutes}
                     onChange={(event) =>
                       void updateSettings({
                         cloudSessionMaxMs: event.target.value === "" ? null : Number(event.target.value) * 60000

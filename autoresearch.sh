@@ -226,6 +226,9 @@ grep_score 6 grep -R "developerVadThresholdOverride: this.settings.realtimeVadTh
 grep_score 6 grep -R "consentAccepted: boolean" -n src/main/prompt-pack.ts >/dev/null
 grep_score 6 grep -R "requires Cloud Dictation consent" -n src/main/prompt-pack.ts >/dev/null
 grep_score 6 grep -R "consentAccepted: settings.cloudDictationConsentAccepted" -n src/main src/main/index.ts >/dev/null
+grep_score 6 grep -R "sanitizeCloudSessionMaxMs" -n src/shared/settings.ts >/dev/null
+grep_score 6 grep -R "Math.max(60_000, warnMs)" -n src/shared/settings.ts >/dev/null
+grep_score 6 grep -R "normalizedCloudSessionMaxMinutes" -n src/renderer >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null
