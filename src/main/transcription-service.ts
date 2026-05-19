@@ -16,6 +16,9 @@ import { findAppProfile, type AppProfile, type AppSettings } from "../shared/set
 import { type TranscriptEntry, type TranscriptionResult } from "../shared/transcripts";
 import { DictionaryStore } from "./dictionary-store";
 import { HistoryStore } from "./history-store";
+import { OpenAiFileAsrProvider } from "./openai-asr-provider";
+import { OpenAiCredentialStore } from "./openai-credential-store";
+import { buildCloudPromptPack } from "./prompt-pack";
 import { RuntimeService } from "./runtime-service";
 import { SettingsStore } from "./settings-store";
 
@@ -26,7 +29,9 @@ export class TranscriptionService {
     private readonly settingsStore: SettingsStore,
     private readonly historyStore: HistoryStore,
     private readonly runtimeService: RuntimeService,
-    private readonly dictionaryStore: DictionaryStore
+    private readonly dictionaryStore: DictionaryStore,
+    private readonly openAiCredentials = new OpenAiCredentialStore(),
+    private readonly openAiFileProvider = new OpenAiFileAsrProvider(openAiCredentials)
   ) {}
 
   async transcribeWav(
@@ -45,7 +50,7 @@ export class TranscriptionService {
         : settings.whisperLanguage;
 
     if (isCloudDictationMode(mode.id)) {
-      throw new Error(getCloudDictationBlockReason(settings, profile));
+      return this.transcribeCloudFile(audioBytes, mode, settings, profile, whisperLanguage, context, startedAt);
     }
 
     if (!model) {
@@ -141,6 +146,90 @@ export class TranscriptionService {
       await rm(outputTextPath, { force: true });
     }
   }
+
+  private async transcribeCloudFile(
+    audioBytes: Uint8Array,
+    mode: DictationMode,
+    settings: AppSettings,
+    profile: AppProfile | null,
+    whisperLanguage: AppSettings["whisperLanguage"],
+    context: { processName?: string | null; ocrContext?: OcrPromptContext | null } | undefined,
+    startedAt: number
+  ): Promise<TranscriptionResult> {
+    const blockReason = await this.getCloudDictationBlockReason(settings, profile);
+
+    if (blockReason) {
+      throw new Error(blockReason);
+    }
+
+    if (mode.kind !== "file") {
+      throw new Error("Realtime Cloud Dictation is not available yet.");
+    }
+
+    const id = randomUUID();
+    const promptPack = await buildCloudPromptPack(this.dictionaryStore, {
+      processName: context?.processName,
+      ocrContext: context?.ocrContext,
+      includeOcrContext: settings.cloudPromptPackOcrEnabled
+    });
+    const asrResult = await this.openAiFileProvider.transcribeFile({
+      audioBytes,
+      mode,
+      promptPack,
+      language: whisperLanguage
+    });
+    const normalizedText = normalizeTranscriptText(asrResult.providerText);
+    const correction = await this.dictionaryStore.applyCorrections(
+      normalizedText,
+      context?.processName
+    );
+    const text = correction.text.trim();
+
+    if (!text) {
+      throw new Error("OpenAI completed but returned no transcript text.");
+    }
+
+    const audioFileName = await this.historyStore.saveAudio(id, audioBytes);
+    const entry: TranscriptEntry = {
+      id,
+      text,
+      rawText: asrResult.providerText !== text ? asrResult.providerText : undefined,
+      correctionsApplied: correction.applied.length > 0 ? correction.applied : undefined,
+      audioFileName,
+      providerId: asrResult.providerId,
+      dictationModeId: asrResult.modeId,
+      modelId: asrResult.modelId,
+      createdAt: new Date().toISOString(),
+      durationMs: Date.now() - startedAt
+    };
+
+    await this.historyStore.add(entry);
+
+    return { entry, promptContext: promptPack?.text ?? null };
+  }
+
+  private async getCloudDictationBlockReason(
+    settings: AppSettings,
+    profile: AppProfile | null
+  ): Promise<string | null> {
+    if (settings.offlineMode) {
+      return "Cloud Dictation is disabled while Offline Mode is on.";
+    }
+
+    if (profile?.forbidCloudDictation) {
+      return "This App Profile forbids Cloud Dictation. Select a local Dictation Mode to dictate here.";
+    }
+
+    if (!settings.cloudDictationConsentAccepted) {
+      return "Cloud Dictation requires one-time consent before audio or Prompt Pack context can be sent to OpenAI.";
+    }
+
+    if (!(await this.openAiCredentials.hasApiKey())) {
+      return "Cloud Dictation is not connected yet. Add an OpenAI API key before recording.";
+    }
+
+    return null;
+  }
 }
 
 function resolveDictationMode(settings: AppSettings, profile: AppProfile | null): DictationMode {
@@ -162,22 +251,6 @@ function resolveLocalModelId(settings: AppSettings, mode: DictationMode): string
   }
 
   return settings.activeModelId;
-}
-
-function getCloudDictationBlockReason(settings: AppSettings, profile: AppProfile | null): string {
-  if (settings.offlineMode) {
-    return "Cloud Dictation is disabled while Offline Mode is on.";
-  }
-
-  if (profile?.forbidCloudDictation) {
-    return "This App Profile forbids Cloud Dictation. Select a local Dictation Mode to dictate here.";
-  }
-
-  if (!settings.cloudDictationConsentAccepted) {
-    return "Cloud Dictation requires one-time consent before audio or Prompt Pack context can be sent to OpenAI.";
-  }
-
-  return "Cloud Dictation is not connected yet. Add an OpenAI API key before recording.";
 }
 
 async function readTextOutput(path: string, fallback: string): Promise<string> {
