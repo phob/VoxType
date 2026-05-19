@@ -1,3 +1,5 @@
+import { type AsrProviderId, type DictationModeId } from "./asr";
+
 export type TranscriptEntry = {
   id: string;
   text: string;
@@ -6,7 +8,11 @@ export type TranscriptEntry = {
   ocrCorrectionsApplied?: string[];
   promptContext?: string;
   audioFileName?: string;
+  providerId?: AsrProviderId;
+  dictationModeId?: DictationModeId;
   modelId: string;
+  turnCount?: number;
+  turnStatus?: string;
   createdAt: string;
   durationMs: number;
 };

@@ -14,6 +14,8 @@ export const recorderCaptureModes = [
 ] as const;
 export const ocrTermModes = ["strict", "balanced", "broad"] as const;
 export const whisperRuntimePreferences = ["auto", "cpu", "cuda", "vulkan"] as const;
+import { isDictationModeId, type DictationModeId } from "./asr";
+
 export const whisperLanguages = [
   "auto",
   "en",
@@ -52,6 +54,8 @@ export type AppProfile = {
   recordingStopHotkey: string;
   postTranscriptionHotkey: string;
   whisperLanguage: ProfileWhisperLanguage;
+  dictationModeId: DictationModeId | "inherit";
+  forbidCloudDictation: boolean;
   neverSuspendDictationInFullscreen: boolean;
   createdAt: string;
   updatedAt: string;
@@ -60,10 +64,14 @@ export type AppProfile = {
 export type AppSettings = {
   modelDirectory: string;
   activeModelId: string;
+  dictationModeId: DictationModeId;
+  localCustomModelId: string;
   whisperExecutablePath: string;
   whisperRuntimeBackend: WhisperRuntimePreference;
   whisperLanguage: WhisperLanguage;
   whisperPromptOverride: string;
+  cloudDictationConsentAccepted: boolean;
+  cloudPromptPackOcrEnabled: boolean;
   showWindowHotkey: string;
   dictationToggleHotkey: string;
   dictationHoldHotkey: string;
@@ -155,6 +163,13 @@ export function sanitizeSettings(
       typeof input.activeModelId === "string" && input.activeModelId.trim().length > 0
         ? input.activeModelId
         : defaults.activeModelId,
+    dictationModeId: isDictationModeId(input.dictationModeId)
+      ? input.dictationModeId
+      : defaults.dictationModeId,
+    localCustomModelId:
+      typeof input.localCustomModelId === "string" && input.localCustomModelId.trim().length > 0
+        ? input.localCustomModelId.trim().slice(0, 120)
+        : defaults.localCustomModelId,
     whisperExecutablePath:
       typeof input.whisperExecutablePath === "string"
         ? input.whisperExecutablePath
@@ -169,6 +184,14 @@ export function sanitizeSettings(
       typeof input.whisperPromptOverride === "string"
         ? input.whisperPromptOverride.slice(0, 2000)
         : defaults.whisperPromptOverride,
+    cloudDictationConsentAccepted:
+      typeof input.cloudDictationConsentAccepted === "boolean"
+        ? input.cloudDictationConsentAccepted
+        : defaults.cloudDictationConsentAccepted,
+    cloudPromptPackOcrEnabled:
+      typeof input.cloudPromptPackOcrEnabled === "boolean"
+        ? input.cloudPromptPackOcrEnabled
+        : defaults.cloudPromptPackOcrEnabled,
     showWindowHotkey:
       typeof input.showWindowHotkey === "string"
         ? input.showWindowHotkey
@@ -305,6 +328,8 @@ export function createAppProfile(input: {
     recordingStopHotkey: defaults.recordingStopHotkey ?? "",
     postTranscriptionHotkey: "",
     whisperLanguage: defaults.whisperLanguage,
+    dictationModeId: "inherit",
+    forbidCloudDictation: false,
     neverSuspendDictationInFullscreen: false,
     createdAt: now,
     updatedAt: now
@@ -362,6 +387,12 @@ function sanitizeAppProfiles(value: unknown): AppProfile[] {
       whisperLanguage: isProfileWhisperLanguage(item.whisperLanguage)
         ? item.whisperLanguage
         : "inherit",
+      dictationModeId:
+        item.dictationModeId === "inherit" || isDictationModeId(item.dictationModeId)
+          ? item.dictationModeId
+          : "inherit",
+      forbidCloudDictation:
+        typeof item.forbidCloudDictation === "boolean" ? item.forbidCloudDictation : false,
       neverSuspendDictationInFullscreen:
         typeof item.neverSuspendDictationInFullscreen === "boolean"
           ? item.neverSuspendDictationInFullscreen
@@ -388,6 +419,8 @@ function getProfileDefaults(processName: string): {
   recordingStartHotkey?: string;
   recordingStopHotkey?: string;
   whisperLanguage: ProfileWhisperLanguage;
+  dictationModeId?: DictationModeId | "inherit";
+  forbidCloudDictation?: boolean;
 } {
   if (["chrome.exe", "msedge.exe", "firefox.exe", "brave.exe"].includes(processName)) {
     return {

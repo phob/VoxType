@@ -23,10 +23,14 @@ export class SettingsStore {
     this.defaults = {
       modelDirectory: join(userDataPath, "models"),
       activeModelId: "small",
+      dictationModeId: "local.balanced",
+      localCustomModelId: "small",
       whisperExecutablePath: "",
       whisperRuntimeBackend: "auto",
       whisperLanguage: "auto",
       whisperPromptOverride: "",
+      cloudDictationConsentAccepted: false,
+      cloudPromptPackOcrEnabled: false,
       showWindowHotkey: "CommandOrControl+Shift+Space",
       dictationToggleHotkey: "CommandOrControl+Alt+Space",
       dictationHoldHotkey: "CommandOrControl+Alt+Space",
@@ -121,6 +125,8 @@ export class SettingsStore {
       | "recordingStopHotkey"
       | "postTranscriptionHotkey"
       | "whisperLanguage"
+      | "dictationModeId"
+      | "forbidCloudDictation"
       | "neverSuspendDictationInFullscreen"
     >
   ): Promise<AppSettings> {
@@ -143,6 +149,8 @@ export class SettingsStore {
               recordingStopHotkey: patch.recordingStopHotkey,
               postTranscriptionHotkey: patch.postTranscriptionHotkey,
               whisperLanguage: patch.whisperLanguage,
+              dictationModeId: patch.dictationModeId,
+              forbidCloudDictation: patch.forbidCloudDictation,
               neverSuspendDictationInFullscreen: patch.neverSuspendDictationInFullscreen,
               updatedAt: new Date().toISOString()
             }
