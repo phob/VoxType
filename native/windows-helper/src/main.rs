@@ -1,3 +1,4 @@
+use base64::{engine::general_purpose::STANDARD as BASE64_STANDARD, Engine as _};
 use serde::Serialize;
 use std::env;
 use std::io::{self, Read};
@@ -2014,10 +2015,46 @@ mod windows_impl {
         level_meter.push(chunk);
         resampler.push(chunk, &mut |resampled| {
             *raw_samples += resampled.len();
+            emit_realtime_pcm16_chunk(resampled);
             frame_emitter.push(resampled, &mut |frame| {
                 process_vad_frame(frame, vad.as_deref_mut(), samples, speech_frames);
             });
         });
+    }
+
+    fn emit_realtime_pcm16_chunk(samples: &[f32]) {
+        if samples.is_empty() {
+            return;
+        }
+
+        let mut pcm16 = Vec::with_capacity(samples.len() * 2);
+        for sample in samples {
+            let clamped = sample.clamp(-1.0, 1.0);
+            let value = (clamped * i16::MAX as f32).round() as i16;
+            pcm16.extend_from_slice(&value.to_le_bytes());
+        }
+
+        if let Ok(payload) = serde_json::to_string(&RealtimePcm16ChunkResponse {
+            type_: "realtimePcm16Chunk",
+            encoding: "pcm16",
+            sample_rate_hz: VOXTYPE_SAMPLE_RATE as u32,
+            channel_count: 1,
+            audio_base64: BASE64_STANDARD.encode(pcm16),
+        }) {
+            println!("{payload}");
+            let _ = io::stdout().flush();
+        }
+    }
+
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct RealtimePcm16ChunkResponse {
+        #[serde(rename = "type")]
+        type_: &'static str,
+        encoding: &'static str,
+        sample_rate_hz: u32,
+        channel_count: u32,
+        audio_base64: String,
     }
 
     struct LevelMeter {
