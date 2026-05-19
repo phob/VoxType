@@ -697,6 +697,14 @@ ipcMain.handle("openai-credentials:clear-api-key", async () => {
 
 ipcMain.handle("openai:test-connection", async () => {
   const settings = await settingsStore.get();
+
+  if (settings.offlineMode) {
+    return {
+      ok: false,
+      message: "OpenAI test connection is disabled while Offline Mode is on."
+    };
+  }
+
   const mode = getCloudDictationReadiness({
     settings,
     profile: null,

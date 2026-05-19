@@ -256,6 +256,8 @@ grep_score 6 grep -R "getProviderLanguageHint(\"openai\", language)" -n src/main
 grep_score 6 grep -R "language: languageHint.parameterValue" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "mode: 0o600" -n src/main/openai-credential-store.ts >/dev/null
 grep_score 6 grep -R "chmod(this.credentialPath, 0o600)" -n src/main/openai-credential-store.ts >/dev/null
+grep_score 6 grep -R "OpenAI test connection is disabled while Offline Mode is on" -n src/main/index.ts >/dev/null
+grep_score 6 grep -R "state.settings.offlineMode} onClick={() => void testOpenAiConnection" -n src/renderer/src/App.tsx >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null
