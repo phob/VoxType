@@ -234,6 +234,9 @@ grep_score 6 grep -R "invalid_key" -n src/shared/openai-errors.ts >/dev/null
 grep_score 6 grep -R "rate_limit" -n src/shared/openai-errors.ts >/dev/null
 grep_score 6 grep -R "model_access" -n src/shared/openai-errors.ts >/dev/null
 grep_score 6 grep -R "Technical details" -n src/shared/openai-errors.ts >/dev/null
+grep_score 6 grep -R "getCloudFailurePolicy" -n src/shared/cloud-failure-policy.ts >/dev/null
+grep_score 6 grep -R "allowAutomaticLocalFallback: false" -n src/shared/cloud-failure-policy.ts >/dev/null
+grep_score 6 grep -R "will not automatically retry with local dictation" -n src/shared/cloud-failure-policy.ts >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null
