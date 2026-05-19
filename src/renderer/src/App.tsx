@@ -49,7 +49,7 @@ import {
   currentCloudReleaseSmokeTestChecklist,
   formatCloudReleaseSmokeTestStatus
 } from "../../shared/cloud-release-smoke-test";
-import { resolveCloudPromptPackOcrEnabled } from "../../shared/cloud-prompt-pack-settings";
+import { resolveCloudPromptPackOcrPolicy } from "../../shared/cloud-prompt-pack-settings";
 import { type OcrResult } from "../../shared/ocr";
 import { type OpenAiCredentialStatus } from "../../shared/openai-credentials";
 import {
@@ -799,17 +799,17 @@ export function App(): JSX.Element {
     const activeProfile = state.settings
       ? state.settings.appProfiles.find((profile) => profile.processName === state.activeWindow?.processName) ?? null
       : null;
-    const includeOcrContext = state.settings
-      ? resolveCloudPromptPackOcrEnabled(state.settings, activeProfile)
-      : false;
+    const ocrPolicy = state.settings
+      ? resolveCloudPromptPackOcrPolicy(state.settings, activeProfile)
+      : { enabled: false, source: "global" as const };
     const promptPack = await window.voxtype.transcription.previewPromptPack({
       processName: state.activeWindow?.processName,
-      ocrContext: includeOcrContext ? latestOcrContext : null
+      ocrContext: ocrPolicy.enabled ? latestOcrContext : null
     });
     setInsertionTestResult(
       promptPack
-        ? `Cloud Prompt Pack preview (${promptPack.terms.length}/${promptPack.termLimit} terms, ${promptPack.text.length}/${promptPack.characterLimit} chars, ${promptPack.source}${promptPack.truncated ? ", truncated" : ""}): ${promptPack.text}`
-        : "Cloud Prompt Pack preview is empty for the current app."
+        ? `Cloud Prompt Pack preview (${promptPack.terms.length}/${promptPack.termLimit} terms, ${promptPack.text.length}/${promptPack.characterLimit} chars, ${promptPack.source}${promptPack.truncated ? ", truncated" : ""}, OCR ${ocrPolicy.enabled ? "allowed" : "blocked"} by ${ocrPolicy.source}): ${promptPack.text}`
+        : `Cloud Prompt Pack preview is empty for the current app. OCR ${ocrPolicy.enabled ? "allowed" : "blocked"} by ${ocrPolicy.source}.`
     );
   }
 

@@ -4,9 +4,16 @@ export function resolveCloudPromptPackOcrEnabled(
   settings: AppSettings,
   profile: AppProfile | null
 ): boolean {
+  return resolveCloudPromptPackOcrPolicy(settings, profile).enabled;
+}
+
+export function resolveCloudPromptPackOcrPolicy(
+  settings: AppSettings,
+  profile: AppProfile | null
+): { enabled: boolean; source: "profile" | "global" } {
   if (typeof profile?.cloudPromptPackOcrEnabled === "boolean") {
-    return profile.cloudPromptPackOcrEnabled;
+    return { enabled: profile.cloudPromptPackOcrEnabled, source: "profile" };
   }
 
-  return settings.cloudPromptPackOcrEnabled;
+  return { enabled: settings.cloudPromptPackOcrEnabled, source: "global" };
 }
