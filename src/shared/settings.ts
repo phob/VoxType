@@ -13,6 +13,7 @@ export const recorderCaptureModes = [
   "exclusiveCaptureRequired"
 ] as const;
 export const ocrTermModes = ["strict", "balanced", "broad"] as const;
+export const realtimeLatencyPresets = ["fast", "balanced", "accurate"] as const;
 export const whisperRuntimePreferences = ["auto", "cpu", "cuda", "vulkan"] as const;
 import { isDictationModeId, type DictationModeId } from "./asr";
 
@@ -38,6 +39,7 @@ export type WritingStyle = (typeof writingStyles)[number];
 export type RecordingCoordinationMode = (typeof recordingCoordinationModes)[number];
 export type RecorderCaptureMode = (typeof recorderCaptureModes)[number];
 export type OcrTermMode = (typeof ocrTermModes)[number];
+export type RealtimeLatencyPreset = (typeof realtimeLatencyPresets)[number];
 export type WhisperRuntimePreference = (typeof whisperRuntimePreferences)[number];
 export type WhisperLanguage = (typeof whisperLanguages)[number];
 export type ProfileWhisperLanguage = (typeof profileWhisperLanguages)[number];
@@ -74,6 +76,7 @@ export type AppSettings = {
   cloudPromptPackOcrEnabled: boolean;
   cloudSessionWarnMs: number;
   cloudSessionMaxMs: number;
+  realtimeLatencyPreset: RealtimeLatencyPreset;
   showWindowHotkey: string;
   dictationToggleHotkey: string;
   dictationHoldHotkey: string;
@@ -130,6 +133,10 @@ export function isRecorderCaptureMode(value: unknown): value is RecorderCaptureM
 
 export function isOcrTermMode(value: unknown): value is OcrTermMode {
   return typeof value === "string" && ocrTermModes.includes(value as OcrTermMode);
+}
+
+export function isRealtimeLatencyPreset(value: unknown): value is RealtimeLatencyPreset {
+  return typeof value === "string" && realtimeLatencyPresets.includes(value as RealtimeLatencyPreset);
 }
 
 export function isWhisperRuntimePreference(value: unknown): value is WhisperRuntimePreference {
@@ -202,6 +209,9 @@ export function sanitizeSettings(
       typeof input.cloudSessionMaxMs === "number" && Number.isFinite(input.cloudSessionMaxMs)
         ? clamp(Math.round(input.cloudSessionMaxMs), 60_000, 4 * 60 * 60_000)
         : defaults.cloudSessionMaxMs,
+    realtimeLatencyPreset: isRealtimeLatencyPreset(input.realtimeLatencyPreset)
+      ? input.realtimeLatencyPreset
+      : defaults.realtimeLatencyPreset,
     showWindowHotkey:
       typeof input.showWindowHotkey === "string"
         ? input.showWindowHotkey

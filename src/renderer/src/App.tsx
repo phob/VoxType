@@ -48,6 +48,7 @@ import {
   type InsertionMode,
   type OcrTermMode,
   type ProfileWhisperLanguage,
+  type RealtimeLatencyPreset,
   type RecorderCaptureMode,
   type RecordingCoordinationMode,
   type WhisperLanguage
@@ -173,6 +174,12 @@ const whisperLanguageOptions: Array<SelectOption<WhisperLanguage>> = [
 const profileWhisperLanguageOptions: Array<SelectOption<ProfileWhisperLanguage>> = [
   { label: "Inherit", value: "inherit" },
   ...whisperLanguageOptions
+];
+
+const realtimeLatencyPresetOptions: Array<SelectOption<RealtimeLatencyPreset>> = [
+  { label: "Fast", meta: "lower preview latency", value: "fast" },
+  { label: "Balanced", meta: "recommended", value: "balanced" },
+  { label: "Accurate", meta: "longer turn timing", value: "accurate" }
 ];
 
 const profileDictationModeOptions: Array<SelectOption<AppProfile["dictationModeId"]>> = [
@@ -2093,6 +2100,24 @@ export function App(): JSX.Element {
                       void updateSettings({ cloudDictationConsentAccepted: event.target.checked })
                     }
                   />
+                </label>
+                <label className="setting-row">
+                  <span>
+                    <strong>Realtime latency preset</strong>
+                    <small>Advanced OpenAI realtime VAD timing; Balanced is recommended.</small>
+                  </span>
+                  <select
+                    value={state.settings.realtimeLatencyPreset}
+                    onChange={(event) =>
+                      void updateSettings({ realtimeLatencyPreset: event.target.value as RealtimeLatencyPreset })
+                    }
+                  >
+                    {realtimeLatencyPresetOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label} — {option.meta}
+                      </option>
+                    ))}
+                  </select>
                 </label>
                 <label className="setting-row">
                   <span>

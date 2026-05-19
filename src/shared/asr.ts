@@ -1,4 +1,4 @@
-import { type WhisperLanguage } from "./settings";
+import { type RealtimeLatencyPreset, type WhisperLanguage } from "./settings";
 
 export type AsrProviderId = "local-whisper" | "openai";
 export type DictationModeId =
@@ -66,6 +66,7 @@ export type StreamingAsrRequest = {
   promptPack: PromptPack | null;
   language: WhisperLanguage;
   audioConfig: StreamingAudioConfig;
+  latencyPreset: RealtimeLatencyPreset;
 };
 
 export const openAiRealtimeAudioConfig: StreamingAudioConfig = {

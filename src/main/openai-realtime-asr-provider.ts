@@ -4,6 +4,7 @@ import {
   type StreamingAsrRequest,
   type TranscriptTurn
 } from "../shared/asr";
+import { getOpenAiRealtimeVadConfig } from "../shared/realtime-latency";
 import { TranscriptTurnAccumulator } from "../shared/transcript-turns";
 import { OpenAiCredentialStore } from "./openai-credential-store";
 
@@ -36,7 +37,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
       throw new Error("OpenAI realtime requires 24 kHz PCM16 mono audio.");
     }
 
-    await this.openSession(apiKey, request.promptPack);
+    await this.openSession(apiKey, request.promptPack, request.latencyPreset);
   }
 
   appendPcm16Audio(pcm16Audio: Uint8Array): void {
@@ -63,7 +64,11 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
     this.socket = null;
   }
 
-  private async openSession(apiKey: string, promptPack: PromptPack | null): Promise<void> {
+  private async openSession(
+    apiKey: string,
+    promptPack: PromptPack | null,
+    latencyPreset: StreamingAsrRequest["latencyPreset"]
+  ): Promise<void> {
     await new Promise<void>((resolve, reject) => {
       const socket = new WebSocket(OPENAI_REALTIME_URL, [
         "realtime",
@@ -78,7 +83,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
       socket.addEventListener("open", () => {
         clearTimeout(timeout);
         this.socket = socket;
-        socket.send(JSON.stringify(buildSessionUpdate(promptPack)));
+        socket.send(JSON.stringify(buildSessionUpdate(promptPack, latencyPreset)));
         resolve();
       }, { once: true });
 
@@ -121,13 +126,16 @@ function encodeBase64(bytes: Uint8Array): string {
   return Buffer.from(bytes).toString("base64");
 }
 
-function buildSessionUpdate(promptPack: PromptPack | null): unknown {
+function buildSessionUpdate(
+  promptPack: PromptPack | null,
+  latencyPreset: StreamingAsrRequest["latencyPreset"]
+): unknown {
   return {
     type: "session.update",
     session: {
       input_audio_format: "pcm16",
       input_audio_transcription: { model: "gpt-realtime-whisper" },
-      turn_detection: { type: "server_vad" },
+      turn_detection: getOpenAiRealtimeVadConfig(latencyPreset),
       instructions: promptPack?.text
         ? `Transcribe speech. Prefer these context terms when acoustically plausible: ${promptPack.text}`
         : "Transcribe speech accurately."
