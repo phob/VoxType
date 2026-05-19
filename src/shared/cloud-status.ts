@@ -16,6 +16,7 @@ export type CloudDictationReadiness = {
   reason: string | null;
   reasonCode: CloudDictationReadinessReasonCode;
   profileForbidsCloud: boolean;
+  fallbackModeId: DictationModeId | null;
 };
 
 export function resolveEffectiveDictationModeId(
@@ -49,6 +50,7 @@ export function getCloudDictationReadinessForMode(input: {
     input.profile?.forbidCloudDictation && isCloudDictationMode(requestedModeId)
   );
   const modeId = profileForbidsCloud ? "local.balanced" : requestedModeId;
+  const fallbackModeId = profileForbidsCloud ? modeId : null;
   const cloud = isCloudDictationMode(modeId);
 
   if (!cloud) {
@@ -61,7 +63,8 @@ export function getCloudDictationReadinessForMode(input: {
         ? "This App Profile forbids Cloud Dictation; using Local balanced instead."
         : null,
       reasonCode: "local_ready",
-      profileForbidsCloud
+      profileForbidsCloud,
+      fallbackModeId
     };
   }
 
@@ -73,7 +76,8 @@ export function getCloudDictationReadinessForMode(input: {
       ready: false,
       reason: "Cloud Dictation is disabled while Offline Mode is on.",
       reasonCode: "offline_mode",
-      profileForbidsCloud
+      profileForbidsCloud,
+      fallbackModeId
     };
   }
 
@@ -85,7 +89,8 @@ export function getCloudDictationReadinessForMode(input: {
       ready: false,
       reason: "Cloud Dictation requires one-time consent.",
       reasonCode: "consent_required",
-      profileForbidsCloud
+      profileForbidsCloud,
+      fallbackModeId
     };
   }
 
@@ -97,7 +102,8 @@ export function getCloudDictationReadinessForMode(input: {
       ready: false,
       reason: "Add an OpenAI API key before recording.",
       reasonCode: "api_key_required",
-      profileForbidsCloud
+      profileForbidsCloud,
+      fallbackModeId
     };
   }
 
@@ -108,6 +114,7 @@ export function getCloudDictationReadinessForMode(input: {
     ready: true,
     reason: `${getDictationMode(modeId).label} ready.`,
     reasonCode: "cloud_ready",
-    profileForbidsCloud
+    profileForbidsCloud,
+    fallbackModeId
   };
 }
