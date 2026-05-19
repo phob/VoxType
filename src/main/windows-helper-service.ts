@@ -366,11 +366,13 @@ export class WindowsHelperService {
     });
     const stdout: Buffer[] = [];
     const stderr: Buffer[] = [];
+    let stdoutRemainder = "";
 
     child.stdout.on("data", (chunk: Buffer) => {
-      const text = chunk.toString("utf8");
-      stdout.push(Buffer.from(stripRealtimePcm16ChunkEvents(text)));
-      for (const event of parseRecordingStdoutEvents(text)) {
+      const { complete, remainder } = splitCompleteStdoutLines(`${stdoutRemainder}${chunk.toString("utf8")}`);
+      stdoutRemainder = remainder;
+      stdout.push(Buffer.from(stripRealtimePcm16ChunkEvents(complete)));
+      for (const event of parseRecordingStdoutEvents(complete)) {
         onLevel?.(event.level, event.pcm16Chunk);
       }
     });
@@ -549,6 +551,19 @@ function parseNativeRecordingMetadata(stdout: string): Omit<NativeRecordingResul
 
 function parseRecordingLevelEvents(stdout: string): NativeRecordingLevel[] {
   return parseRecordingStdoutEvents(stdout).map((event) => event.level);
+}
+
+function splitCompleteStdoutLines(stdout: string): { complete: string; remainder: string } {
+  const lastNewlineIndex = Math.max(stdout.lastIndexOf("\n"), stdout.lastIndexOf("\r"));
+
+  if (lastNewlineIndex < 0) {
+    return { complete: "", remainder: stdout };
+  }
+
+  return {
+    complete: stdout.slice(0, lastNewlineIndex + 1),
+    remainder: stdout.slice(lastNewlineIndex + 1)
+  };
 }
 
 function stripRealtimePcm16ChunkEvents(stdout: string): string {
