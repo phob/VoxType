@@ -48,8 +48,8 @@ export async function createCorrectedRealtimeCloudHistoryEntry(
 export function createRealtimeCloudHistoryEntry(
   input: RealtimeCloudHistoryInput
 ): TranscriptEntry {
-  const providerText = composeRealtimeTurns(input.turns);
-  const text = (input.correctedText?.trim() || providerText).trim();
+  const providerText = normalizeRealtimeProviderText(composeRealtimeTurns(input.turns));
+  const text = normalizeRealtimeProviderText(input.correctedText || providerText);
 
   return {
     id: randomUUID(),
@@ -68,6 +68,10 @@ export function createRealtimeCloudHistoryEntry(
     createdAt: new Date(input.startedAtMs).toISOString(),
     durationMs: Math.max(0, Math.round(input.endedAtMs - input.startedAtMs))
   };
+}
+
+function normalizeRealtimeProviderText(text: string): string {
+  return text.replace(/\s+/g, " ").trim();
 }
 
 export function composeRealtimeTurns(turns: TranscriptTurn[]): string {

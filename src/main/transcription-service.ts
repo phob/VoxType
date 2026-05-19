@@ -239,7 +239,7 @@ export class TranscriptionService {
     const entry: TranscriptEntry = {
       id,
       text,
-      rawText: asrResult.providerText !== text ? asrResult.providerText : undefined,
+      rawText: normalizedText !== text ? normalizedText : undefined,
       correctionsApplied: correction.applied.length > 0 ? correction.applied : undefined,
       audioFileName,
       providerId: asrResult.providerId,

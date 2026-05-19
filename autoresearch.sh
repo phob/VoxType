@@ -285,6 +285,8 @@ grep_score 6 grep -R "PromptPackTermLimit" -n src/shared/asr.ts >/dev/null
 grep_score 6 grep -R "termLimit: PROMPT_PACK_MAX_TERMS" -n src/main/prompt-pack.ts >/dev/null
 grep_score 6 grep -R "PROMPT_PACK_MAX_TERMS" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "promptPack.termLimit" -n src/renderer/src/App.tsx >/dev/null
+grep_score 6 grep -R "rawText: normalizedText !== text" -n src/main/transcription-service.ts >/dev/null
+grep_score 6 grep -R "normalizeRealtimeProviderText" -n src/shared/realtime-history.ts >/dev/null
 grep_score 6 grep -R "Realtime Cloud Dictation stopped because Offline Mode was enabled" -n src/main/realtime-cloud-session.ts >/dev/null
 grep_score 6 grep -R "private snapshot()" -n src/main/realtime-cloud-session.ts >/dev/null
 grep_score 6 grep -R "cloudProviderLabel: undefined" -n src/main/index.ts >/dev/null
