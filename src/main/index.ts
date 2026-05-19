@@ -87,6 +87,7 @@ const transcriptionService = new TranscriptionService(
 const realtimeCloudHistoryService = new RealtimeCloudHistoryService(dictionaryStore, historyStore);
 let activeRealtimeCloudSession: RealtimeCloudSession | null = null;
 let activeRealtimeCloudProcessName: string | null = null;
+let lastRealtimeCloudSessionError: Error | null = null;
 const insertionService = new InsertionService(windowsHelperService, settingsStore);
 
 app.setName("VoxType");
@@ -240,10 +241,11 @@ function stopAutomaticUpdateChecks(): void {
   updateCheckTimer = null;
 }
 
-function cancelActiveRealtimeCloudSession(reason: string): void {
+function cancelActiveRealtimeCloudSession(reason: string, error?: Error): void {
   activeRealtimeCloudSession?.cancel(reason);
   activeRealtimeCloudSession = null;
   activeRealtimeCloudProcessName = null;
+  lastRealtimeCloudSessionError = error ?? null;
 }
 
 function appendRealtimePcm16AudioSafely(bytes: Uint8Array): void {
@@ -254,11 +256,17 @@ function appendRealtimePcm16AudioSafely(bytes: Uint8Array): void {
   try {
     activeRealtimeCloudSession.appendPcm16Audio(bytes);
   } catch (error) {
-    cancelActiveRealtimeCloudSession("Realtime Cloud Dictation stopped because audio streaming failed.");
+    const streamingError = error instanceof Error
+      ? error
+      : new Error("Realtime Cloud Dictation audio streaming failed.");
+    cancelActiveRealtimeCloudSession(
+      "Realtime Cloud Dictation stopped because audio streaming failed.",
+      streamingError
+    );
     updateOverlay({
       mode: "finalizing",
       cloudProviderLabel: "Cloud Dictation",
-      message: error instanceof Error ? error.message : "Realtime Cloud Dictation audio streaming failed."
+      message: streamingError.message
     });
   }
 }
@@ -868,6 +876,7 @@ ipcMain.handle(
     }
 
     cancelActiveRealtimeCloudSession("Realtime Cloud Dictation session replaced by a new recording.");
+    lastRealtimeCloudSessionError = null;
     activeRealtimeCloudSession = new RealtimeCloudSession(openAiCredentialStore, settings, updateOverlay);
     activeRealtimeCloudProcessName = processName;
 
@@ -900,7 +909,9 @@ ipcMain.handle("transcription:realtime-append-pcm16", (_event, bytes: Uint8Array
 
 ipcMain.handle("transcription:realtime-finalize", async () => {
   if (!activeRealtimeCloudSession) {
-    throw new Error("Realtime Cloud Dictation has not started.");
+    const previousRealtimeError = lastRealtimeCloudSessionError;
+    lastRealtimeCloudSessionError = null;
+    throw previousRealtimeError ?? new Error("Realtime Cloud Dictation has not started.");
   }
 
   const session = activeRealtimeCloudSession;
