@@ -51,6 +51,8 @@ export type PromptPack = {
   text: string;
   source: "dictionary" | "dictionary+ocr";
   truncated: boolean;
+  termLimit: 50;
+  characterLimit: 1000;
 };
 
 export type FileAsrRequest = {

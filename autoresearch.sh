@@ -278,6 +278,10 @@ grep_score 6 grep -R "message: error.message" -n src/main/realtime-cloud-session
 grep_score 6 grep -R "private finalized = false" -n src/main/realtime-cloud-session.ts >/dev/null
 grep_score 6 grep -R "cancel(reason = \"Realtime Cloud Dictation session cancelled\")" -n src/main/realtime-cloud-session.ts >/dev/null
 grep_score 6 grep -R "cancelForOfflineMode" -n src/main/realtime-cloud-session.ts >/dev/null
+grep_score 6 grep -R "termLimit: 50" -n src/shared/asr.ts >/dev/null
+grep_score 6 grep -R "characterLimit: 1000" -n src/shared/asr.ts >/dev/null
+grep_score 6 grep -R "termLimit: PROMPT_PACK_MAX_TERMS" -n src/main/prompt-pack.ts >/dev/null
+grep_score 6 grep -R "promptPack.termLimit" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "Realtime Cloud Dictation stopped because Offline Mode was enabled" -n src/main/realtime-cloud-session.ts >/dev/null
 grep_score 6 grep -R "private snapshot()" -n src/main/realtime-cloud-session.ts >/dev/null
 grep_score 6 grep -R "cloudProviderLabel: undefined" -n src/main/index.ts >/dev/null

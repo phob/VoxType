@@ -736,7 +736,7 @@ export function App(): JSX.Element {
     });
     setInsertionTestResult(
       promptPack
-        ? `Cloud Prompt Pack preview (${promptPack.terms.length} terms, ${promptPack.source}): ${promptPack.text}`
+        ? `Cloud Prompt Pack preview (${promptPack.terms.length}/${promptPack.termLimit} terms, ${promptPack.text.length}/${promptPack.characterLimit} chars, ${promptPack.source}${promptPack.truncated ? ", truncated" : ""}): ${promptPack.text}`
         : "Cloud Prompt Pack preview is empty for the current app."
     );
   }

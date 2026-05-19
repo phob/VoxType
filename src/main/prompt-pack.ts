@@ -35,7 +35,9 @@ export async function buildCloudPromptPack(
     terms,
     text,
     source: ocrTerms.length > 0 ? "dictionary+ocr" : "dictionary",
-    truncated: terms.length >= PROMPT_PACK_MAX_TERMS || terms.join(", ").length > PROMPT_PACK_MAX_CHARS
+    truncated: terms.length >= PROMPT_PACK_MAX_TERMS || terms.join(", ").length > PROMPT_PACK_MAX_CHARS,
+    termLimit: PROMPT_PACK_MAX_TERMS,
+    characterLimit: PROMPT_PACK_MAX_CHARS
   };
 }
 
