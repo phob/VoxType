@@ -4,6 +4,7 @@ import {
   type StreamingAsrRequest,
   type TranscriptTurn
 } from "../shared/asr";
+import { classifyOpenAiError, formatOpenAiFriendlyError } from "../shared/openai-errors";
 import { getProviderLanguageHint } from "../shared/provider-language";
 import { getOpenAiRealtimeVadConfig } from "../shared/realtime-latency";
 import { TranscriptTurnAccumulator } from "../shared/transcript-turns";
@@ -120,7 +121,16 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
         item_id?: string;
         transcript?: string;
         delta?: string;
+        error?: {
+          code?: unknown;
+          type?: unknown;
+          message?: unknown;
+        };
       };
+
+      if (payload.type === "error") {
+        throw new Error(formatRealtimeOpenAiError(payload.error));
+      }
       const providerItemId = payload.item_id ?? "current";
       const final = payload.type?.includes("completed") ?? false;
       const text = payload.transcript ?? payload.delta ?? "";
@@ -134,6 +144,18 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
       // Ignore malformed provider events; do not log transcripts or raw provider responses.
     }
   }
+}
+
+function formatRealtimeOpenAiError(error: {
+  code?: unknown;
+  type?: unknown;
+  message?: unknown;
+} | undefined): string {
+  return formatOpenAiFriendlyError(classifyOpenAiError({
+    code: typeof error?.code === "string" ? error.code : null,
+    type: typeof error?.type === "string" ? error.type : null,
+    message: typeof error?.message === "string" ? error.message : null
+  }));
 }
 
 function encodeBase64(bytes: Uint8Array): string {
