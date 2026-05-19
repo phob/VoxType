@@ -306,10 +306,14 @@ export function App(): JSX.Element {
   const activeRuntimeLabel = state.runtime
     ? `${state.runtime.backend.toUpperCase()} · ${state.runtime.status}`
     : "Runtime not ready";
-  const modelReady = activeModel?.status === "downloaded";
-  const runtimeReady = state.runtime?.status === "installed";
+  const activeModeIsCloud = activeDictationMode.providerId === "openai";
+  const cloudSetupReady =
+    !activeModeIsCloud ||
+    (Boolean(state.openaiCredentials?.hasApiKey) && Boolean(state.settings?.cloudDictationConsentAccepted));
+  const modelReady = activeModeIsCloud || activeModel?.status === "downloaded";
+  const runtimeReady = activeModeIsCloud || state.runtime?.status === "installed";
   const hotkeyReady = Boolean(state.settings?.dictationToggleHotkey.trim());
-  const readyToDictate = modelReady && runtimeReady && hotkeyReady && !error;
+  const readyToDictate = modelReady && runtimeReady && cloudSetupReady && hotkeyReady && !error;
   const readinessTitle = error
     ? "Attention needed"
     : readyToDictate
@@ -324,7 +328,11 @@ export function App(): JSX.Element {
     {
       id: "model",
       label: "Choose a model",
-      detail: modelReady ? (activeModel?.name ?? "Model ready") : "Download a local Whisper model.",
+      detail: activeModeIsCloud
+        ? "Cloud mode uses OpenAI instead of a local Whisper model."
+        : modelReady
+          ? (activeModel?.name ?? "Model ready")
+          : "Download a local Whisper model.",
       ready: modelReady,
       tab: "models" as ReleaseTab
     },
@@ -340,9 +348,24 @@ export function App(): JSX.Element {
     {
       id: "runtime",
       label: "Speech engine",
-      detail: runtimeReady ? activeRuntimeLabel : "Install or select a local runtime.",
+      detail: activeModeIsCloud
+        ? "Cloud mode does not require a local whisper.cpp runtime."
+        : runtimeReady
+          ? activeRuntimeLabel
+          : "Install or select a local runtime.",
       ready: runtimeReady,
       tab: "models" as ReleaseTab
+    },
+    {
+      id: "cloud-setup",
+      label: "Cloud setup",
+      detail: !activeModeIsCloud
+        ? "Not needed for local dictation."
+        : cloudSetupReady
+          ? "Consent accepted and API key stored."
+          : "Accept Cloud Dictation consent and store an OpenAI API key.",
+      ready: cloudSetupReady,
+      tab: "settings" as ReleaseTab
     }
   ];
   const releaseModels = state.models.filter((model) => {

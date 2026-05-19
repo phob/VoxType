@@ -173,6 +173,11 @@ grep_score 6 grep -R "context\?\.forceModeId === \"local.custom\"" -n src/main/t
 grep_score 6 grep -R "activeProviderLabel" -n src/renderer >/dev/null
 grep_score 6 grep -R "getDictationMode(state.settings" -n src/renderer >/dev/null
 grep_score 6 grep -R "Cloud Dictation.*activeDictationMode.label" -n src/renderer >/dev/null
+grep_score 6 grep -R "activeModeIsCloud" -n src/renderer >/dev/null
+grep_score 6 grep -R "cloudSetupReady" -n src/renderer >/dev/null
+grep_score 6 grep -R "Cloud setup" -n src/renderer >/dev/null
+grep_score 6 grep -R "Cloud mode uses OpenAI instead of a local Whisper model" -n src/renderer >/dev/null
+grep_score 6 grep -R "Cloud mode does not require a local whisper.cpp runtime" -n src/renderer >/dev/null
 
 grep_privacy grep -R "never.*screenshot\|Screenshots.*never\|screenshot.*never" -ni src planning/cloud-dictation-prd.md >/dev/null
 grep_privacy grep -R "full Dictionary\|full dictionary" -ni src planning/cloud-dictation-prd.md >/dev/null
