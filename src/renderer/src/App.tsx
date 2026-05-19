@@ -32,7 +32,7 @@ import {
   type PcmRecordingResult
 } from "./audio-recorder";
 import { eventToAccelerator } from "./hotkey-capture";
-import { dictationModes, type DictationModeId } from "../../../shared/asr";
+import { dictationModes, isCloudDictationMode, type DictationModeId } from "../../../shared/asr";
 import { type DictionaryEntry } from "../../../shared/dictionary";
 import { type HardwareAccelerationReport } from "../../../shared/hardware";
 import { type HotkeyStatus } from "../../../shared/hotkeys";
@@ -632,6 +632,11 @@ export function App(): JSX.Element {
     }));
     setState((current) => current);
     const settings = await window.voxtype.settings.update(patch);
+
+    if (patch.offlineMode === true && recording && isCloudDictationMode(settings.dictationModeId)) {
+      await terminateActiveCloudDictationForOfflineMode();
+    }
+
     const [models, hotkeys] = await Promise.all([
       window.voxtype.models.list(),
       window.voxtype.hotkeys.status()
@@ -667,6 +672,22 @@ export function App(): JSX.Element {
     } finally {
       setBusyMessage(null);
     }
+  }
+
+  async function terminateActiveCloudDictationForOfflineMode(): Promise<void> {
+    const recorder = recorderRef.current;
+    recorderRef.current = null;
+    setRecording(false);
+    await window.voxtype.recordingOverlay.hide();
+    await window.voxtype.dictation.setHotkeyRecording(false);
+
+    if (recorder) {
+      await recorder.stop().catch(() => undefined);
+    }
+
+    await stopRecordingCoordination();
+    await unmuteSystemAudio();
+    setError("Cloud Dictation stopped because Offline Mode was enabled.");
   }
 
   function captureHotkey(event: MouseEvent, target: HotkeyCaptureTarget): void {
