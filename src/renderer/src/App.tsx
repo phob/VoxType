@@ -2717,7 +2717,9 @@ export function App(): JSX.Element {
                       <strong>{formatTimestamp(entry.createdAt)}</strong>
                       <p>{entry.text}</p>
                       <small>
-                        {entry.modelId} · {formatDuration(entry.durationMs)}
+                        {entry.providerId === "openai" ? "Cloud Dictation" : "Local dictation"} · {entry.dictationModeId ?? "local.custom"} · {entry.modelId} · {formatDuration(entry.durationMs)}
+                        {entry.turnCount ? ` · ${entry.turnCount} turns` : ""}
+                        {entry.turnStatus ? ` · ${entry.turnStatus}` : ""}
                         {entry.audioFileName ? " · audio saved" : ""}
                       </small>
                     </div>
