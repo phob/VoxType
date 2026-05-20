@@ -143,7 +143,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
     await new Promise<void>((resolve, reject) => {
       const socket = new WebSocket(OPENAI_REALTIME_URL, {
         headers: {
-          Authorization: `Bearer ${apiKey}`
+          Authorization: buildOpenAiRealtimeAuthorizationHeader(apiKey)
         }
       } as NodeWebSocketInit);
       const timeout = setTimeout(() => {
@@ -331,6 +331,10 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
       waiter.resolve();
     }
   }
+}
+
+function buildOpenAiRealtimeAuthorizationHeader(apiKey: string): string {
+  return `Bearer ${apiKey}`;
 }
 
 function getRealtimeTranscriptKey(itemId: string | undefined, contentIndex: number | undefined): string {

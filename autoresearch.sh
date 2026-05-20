@@ -78,7 +78,8 @@ grep_score 6 grep -R "conversation.item.input_audio_transcription.delta" -n src/
 grep_score 6 grep -R "composeFinalText" -n src >/dev/null
 grep_score 6 grep -R "OpenAiRealtimeAsrProvider" -n src >/dev/null
 grep_score 6 grep -R "gpt-realtime-whisper" -n src/main/openai-realtime-asr-provider.ts >/dev/null
-grep_score 6 grep -R "Authorization:.*Bearer" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "Authorization: buildOpenAiRealtimeAuthorizationHeader" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R 'return `Bearer ${apiKey}`' -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "type NodeWebSocketInit" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 bash -c '! grep -R "as unknown as string" -n src/main/openai-realtime-asr-provider.ts'
 grep_score 6 bash -c '! grep -R "openai-beta.realtime-v1\|openai-insecure-api-key" -n src/main/openai-realtime-asr-provider.ts'
