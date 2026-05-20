@@ -88,7 +88,8 @@ export class RealtimeCloudSession {
       promptPack: this.promptPack,
       language: this.language,
       audioConfig: openAiRealtimeAudioConfig,
-      latencyPreset: this.settings.realtimeLatencyPreset
+      latencyPreset: this.settings.realtimeLatencyPreset,
+      vadThresholdOverride: this.settings.realtimeVadThresholdOverride
     });
     this.streamingStarted = true;
     this.flushPreConnectionBuffer();
