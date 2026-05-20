@@ -137,6 +137,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
     language: StreamingAsrRequest["language"],
     latencyPreset: StreamingAsrRequest["latencyPreset"]
   ): Promise<void> {
+    this.lastError = null;
     this.sessionCreatedSeen = false;
 
     await new Promise<void>((resolve, reject) => {
