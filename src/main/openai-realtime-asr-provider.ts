@@ -73,12 +73,13 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
   }
 
   async commitAudioAndWaitForFinalTranscript(timeoutMs = 10000): Promise<void> {
+    this.throwIfRealtimeFailed();
+
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
       return;
     }
 
     const initialFinalTurnCount = this.finalTurnCount();
-    this.throwIfRealtimeFailed();
     this.socket.send(JSON.stringify({ type: "input_audio_buffer.commit" }));
 
     if (this.finalTurnCount() > initialFinalTurnCount) {
