@@ -8,6 +8,9 @@
 - Updated the Cloud Dictation implementation status after adding native
   recording diagnostics, leaving realtime app-path reproduction as the next
   debugging step.
+- Added the next ten-point Cloud Dictation implementation plan covering
+  explicit realtime PCM capture, realtime Prompt Pack support, server VAD
+  alignment, copy cleanup, verification, and final status refresh.
 
 ## 2026-05-20
 

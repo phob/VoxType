@@ -178,6 +178,30 @@ Suggested order:
 5. Mark the realtime smoke test only after a real hotkey-driven dictation
    succeeds end to end.
 
+## Active Ten-Point Implementation Plan
+
+The next logical implementation pass is to close the gap between "realtime
+session shape is known" and "the app can reliably stream live native PCM into
+OpenAI":
+
+1. Update this status file with a concrete ten-point implementation plan.
+2. Make native realtime PCM streaming an explicit recording option instead of
+   relying on implicit helper behavior.
+3. Surface whether realtime PCM was requested in metadata-only native recording
+   diagnostics.
+4. Have the renderer request realtime PCM only for `openai.realtime` sessions.
+5. Preserve file-mode recording behavior by keeping realtime PCM disabled for
+   local and OpenAI file modes.
+6. Send the Cloud Prompt Pack to realtime transcription sessions.
+7. Replace `turn_detection: null` with OpenAI server VAD for realtime
+   transcription sessions.
+8. Tune realtime latency presets through server VAD timing, while retaining the
+   transcription `delay` hint.
+9. Update the Cloud settings copy so realtime Prompt Pack and server VAD
+   behavior no longer look unsupported/stale.
+10. Run static verification and refresh this status file with the completed
+    implementation notes.
+
 ## Implementation Log
 
 ### 2026-05-21
@@ -191,6 +215,9 @@ Suggested order:
   counts in the developer Dictation panel.
 - Next step: run a hotkey-driven realtime dictation in the app and check
   `realtimeChunks`, `realtimeBytes`, and `levelEvents`.
+- Added the active ten-point implementation plan for explicit realtime PCM
+  capture, realtime Prompt Pack support, server VAD alignment, UI copy cleanup,
+  verification, and final status refresh.
 
 ## Release Gate
 
