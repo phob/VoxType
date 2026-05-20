@@ -200,6 +200,8 @@ grep_score 6 grep -R "this.lastError = null" -n src/main/openai-realtime-asr-pro
 grep_score 6 grep -R "this.failRealtime(new Error(reason))" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "session.updated" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "session.created" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "sessionCreatedSeen" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 bash -c '! grep -R "payload.type === \"session.updated\" || payload.type === \"session.created\"" -n src/main/openai-realtime-asr-provider.ts'
 grep_score 6 grep -R "OpenAI realtime session closed before session configuration completed" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "OpenAI realtime session configuration did not complete before the pre-connection buffer expired" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "this.socket === socket" -n src/main/openai-realtime-asr-provider.ts >/dev/null

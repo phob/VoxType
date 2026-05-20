@@ -32,6 +32,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
     reject: (error: Error) => void;
   }> = [];
   private lastError: Error | null = null;
+  private sessionCreatedSeen = false;
 
   constructor(
     private readonly credentials: OpenAiCredentialStore,
@@ -224,7 +225,12 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
         return;
       }
 
-      if (payload.type === "session.updated" || payload.type === "session.created") {
+      if (payload.type === "session.created") {
+        this.sessionCreatedSeen = true;
+        return;
+      }
+
+      if (payload.type === "session.updated") {
         this.resolveSessionReadyWaiters();
         return;
       }
