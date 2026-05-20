@@ -2248,7 +2248,7 @@ export function App(): JSX.Element {
                 <label className="setting-row">
                   <span>
                     <strong>Dictation Mode</strong>
-                    <small>Local remains the default. Cloud modes send audio and a capped Prompt Pack to OpenAI.</small>
+                    <small>Local remains the default. File cloud modes send audio and a capped Prompt Pack to OpenAI; realtime uses OpenAI /v1/realtime/transcription_sessions without Prompt Pack text.</small>
                   </span>
                   <select
                     value={state.settings.dictationModeId}

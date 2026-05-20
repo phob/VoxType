@@ -305,6 +305,7 @@ grep_score 6 grep -R "Accept Cloud Dictation consent before recording" -n src/re
 grep_score 6 grep -R "OPENAI_API_KEY is available from the environment" -n src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "Cloud mode uses OpenAI instead of a local Whisper model" -n src/renderer >/dev/null
 grep_score 6 grep -R "Cloud mode does not require a local whisper.cpp runtime" -n src/renderer >/dev/null
+grep_score 6 grep -R "realtime uses OpenAI /v1/realtime/transcription_sessions without Prompt Pack text" -n src/renderer >/dev/null
 grep_score 6 grep -R "looksLikeWhisperPromptOverride" -n src/main/prompt-pack.ts >/dev/null
 grep_score 6 grep -R "whisper prompt override" -ni src/main/prompt-pack.ts >/dev/null
 grep_score 6 grep -R "style:" -n src/main/prompt-pack.ts >/dev/null
