@@ -2,13 +2,13 @@ import { type ScreenshotCaptureMode } from "./windows-helper";
 
 export type OcrProvider = "windowsMediaOcr";
 
-export type OcrTextLine = {
+export interface OcrTextLine {
   text: string;
   confidence: number | null;
   box: [number, number, number, number] | null;
-};
+}
 
-export type OcrResult = {
+export interface OcrResult {
   provider: OcrProvider;
   engine: string;
   imagePath: string;
@@ -17,4 +17,4 @@ export type OcrResult = {
   lines: OcrTextLine[];
   durationMs: number;
   capturedAt: string;
-};
+}

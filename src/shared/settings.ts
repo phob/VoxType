@@ -44,7 +44,7 @@ export type WhisperRuntimePreference = (typeof whisperRuntimePreferences)[number
 export type WhisperLanguage = (typeof whisperLanguages)[number];
 export type ProfileWhisperLanguage = (typeof profileWhisperLanguages)[number];
 
-export type AppProfile = {
+export interface AppProfile {
   id: string;
   displayName: string;
   processName: string;
@@ -62,9 +62,9 @@ export type AppProfile = {
   neverSuspendDictationInFullscreen: boolean;
   createdAt: string;
   updatedAt: string;
-};
+}
 
-export type AppSettings = {
+export interface AppSettings {
   modelDirectory: string;
   activeModelId: string;
   dictationModeId: DictationModeId;
@@ -110,7 +110,7 @@ export type AppSettings = {
   remoteTypingDelayMs: number;
   remoteTypingChunkSize: number;
   appProfiles: AppProfile[];
-};
+}
 
 export type SettingsPatch = Partial<AppSettings>;
 

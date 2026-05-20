@@ -277,7 +277,7 @@ function cloudErrorCode(error: unknown): string {
     return "unknown";
   }
 
-  const match = error.message.match(/\(([^)]+)\)/);
+  const match = /\(([^)]+)\)/.exec(error.message);
   return match?.[1] ?? error.name;
 }
 

@@ -1,6 +1,6 @@
 import { type AsrProviderId, type DictationModeId } from "./asr";
 
-export type TranscriptEntry = {
+export interface TranscriptEntry {
   id: string;
   text: string;
   rawText?: string;
@@ -17,9 +17,9 @@ export type TranscriptEntry = {
   turnStatus?: string;
   createdAt: string;
   durationMs: number;
-};
+}
 
-export type TranscriptionResult = {
+export interface TranscriptionResult {
   entry: TranscriptEntry;
   promptContext: string | null;
-};
+}

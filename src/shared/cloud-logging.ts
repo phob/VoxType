@@ -1,13 +1,13 @@
 import { type AsrProviderId, type DictationModeId } from "./asr";
 
-export type CloudDictationLogInput = {
+export interface CloudDictationLogInput {
   providerId: AsrProviderId;
   modelId: string;
   modeId: DictationModeId;
   durationMs: number;
   status: "started" | "completed" | "failed" | "cancelled";
   errorCode?: string | null;
-};
+}
 
 export type CloudDictationLogEntry = CloudDictationLogInput & {
   createdAt: string;
@@ -48,7 +48,7 @@ export function createCloudDictationLogEntry(
   };
 }
 
-export function assertCloudDictationLogIsMetadataOnly(entry: Record<string, unknown>): void {
+export function assertCloudDictationLogIsMetadataOnly(entry: object): void {
   for (const key of Object.keys(entry)) {
     const normalized = key.toLowerCase();
 

@@ -1,11 +1,11 @@
-export type CloudReleaseSmokeTestChecklist = {
+export interface CloudReleaseSmokeTestChecklist {
   realtimeEndToEndDictation: boolean;
   accuracyFileDictation: boolean;
   economyFileDictation: boolean;
   offlineKillSwitch: boolean;
   profileCloudForbidFallback: boolean;
   noSensitiveCloudLogs: boolean;
-};
+}
 
 export const currentCloudReleaseSmokeTestChecklist: CloudReleaseSmokeTestChecklist = {
   realtimeEndToEndDictation: false,
@@ -27,8 +27,8 @@ export const cloudReleaseSmokeTestLabels: Record<keyof CloudReleaseSmokeTestChec
 
 export function getPendingCloudReleaseSmokeTests(
   checklist: CloudReleaseSmokeTestChecklist
-): Array<keyof CloudReleaseSmokeTestChecklist> {
-  return (Object.keys(checklist) as Array<keyof CloudReleaseSmokeTestChecklist>).filter(
+): (keyof CloudReleaseSmokeTestChecklist)[] {
+  return (Object.keys(checklist) as (keyof CloudReleaseSmokeTestChecklist)[]).filter(
     (key) => !checklist[key]
   );
 }

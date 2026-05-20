@@ -13,20 +13,20 @@ import {
 import { OpenAiCredentialStore } from "./openai-credential-store";
 import { OpenAiRealtimeAsrProvider } from "./openai-realtime-asr-provider";
 
-export type RealtimeCloudSessionSnapshot = {
+export interface RealtimeCloudSessionSnapshot {
   startedAtMs: number;
   turns: TranscriptTurn[];
   preConnectionDroppedBytes: number;
-};
+}
 
-export type RealtimeCloudSessionAudioDiagnostics = {
+export interface RealtimeCloudSessionAudioDiagnostics {
   sessionReceivedChunks: number;
   sessionReceivedBytes: number;
   sessionBufferedBytes: number;
   sessionDroppedBytes: number;
   providerAppendedBytes: number;
   streamingStarted: boolean;
-};
+}
 
 const openAiRealtimePreConnectionBufferBytes = openAiRealtimeAudioConfig.sampleRateHz * 2 * 5;
 

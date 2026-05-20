@@ -11,7 +11,7 @@ export type CloudDictationReadinessReasonCode =
   | "api_key_required"
   | "cloud_ready";
 
-export type CloudDictationReadiness = {
+export interface CloudDictationReadiness {
   requestedModeId: DictationModeId;
   modeId: DictationModeId;
   cloud: boolean;
@@ -20,7 +20,7 @@ export type CloudDictationReadiness = {
   reasonCode: CloudDictationReadinessReasonCode;
   profileForbidsCloud: boolean;
   fallbackModeId: DictationModeId | null;
-};
+}
 
 export function resolveEffectiveDictationModeId(
   settings: AppSettings,

@@ -14,9 +14,11 @@ const OPENAI_REALTIME_URL = "wss://api.openai.com/v1/realtime?intent=transcripti
 const OPENAI_REALTIME_MAX_APPEND_BYTES = 15 * 1024 * 1024;
 const OPENAI_REALTIME_MIN_COMMIT_BYTES = Math.ceil(24000 * 2 * 0.1);
 
-type NodeWebSocketInit = {
+interface NodeWebSocketInit {
   headers: Record<string, string>;
-};
+}
+
+type NodeWebSocketConstructor = new (url: string, init: NodeWebSocketInit) => WebSocket;
 
 export type RealtimePreviewCallback = (turns: TranscriptTurn[]) => void;
 export type RealtimeErrorCallback = (error: Error) => void;
@@ -25,14 +27,14 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
   readonly providerId = "openai" as const;
   private socket: WebSocket | null = null;
   private readonly turns = new TranscriptTurnAccumulator();
-  private finalTranscriptWaiters: Array<{
+  private finalTranscriptWaiters: {
     resolve: () => void;
     reject: (error: Error) => void;
-  }> = [];
-  private sessionReadyWaiters: Array<{
+  }[] = [];
+  private sessionReadyWaiters: {
     resolve: () => void;
     reject: (error: Error) => void;
-  }> = [];
+  }[] = [];
   private lastError: Error | null = null;
   private sessionCreatedSeen = false;
   private appendedAudioBytes = 0;
@@ -68,7 +70,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
   appendPcm16Audio(pcm16Audio: Uint8Array): void {
     this.throwIfRealtimeFailed();
 
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+    if (this.socket?.readyState !== WebSocket.OPEN) {
       throw new Error("OpenAI realtime session is not connected.");
     }
 
@@ -90,7 +92,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
   async commitAudioAndWaitForFinalTranscript(timeoutMs = 10000): Promise<void> {
     this.throwIfRealtimeFailed();
 
-    if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
+    if (this.socket?.readyState !== WebSocket.OPEN) {
       return;
     }
 
@@ -163,11 +165,12 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
     this.sessionCreatedSeen = false;
 
     await new Promise<void>((resolve, reject) => {
-      const socket = new WebSocket(OPENAI_REALTIME_URL, {
+      const NodeWebSocket = WebSocket as unknown as NodeWebSocketConstructor;
+      const socket = new NodeWebSocket(OPENAI_REALTIME_URL, {
         headers: {
           Authorization: buildOpenAiRealtimeAuthorizationHeader(apiKey)
         }
-      } as NodeWebSocketInit);
+      });
       const timeout = setTimeout(() => {
         socket.close();
         const error = this.socket === socket
@@ -205,7 +208,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
         )));
       }, { once: true });
 
-      socket.addEventListener("message", (event) => this.handleMessage(event));
+      socket.addEventListener("message", (event) => { this.handleMessage(event); });
       socket.addEventListener("close", () => {
         if (this.sessionReadyWaiters.length > 0) {
           this.failRealtime(new Error("OpenAI realtime session closed before session configuration completed."));

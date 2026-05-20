@@ -84,9 +84,11 @@ function buildOpenAiAuthorizationHeader(apiKey: string): string {
   return `Bearer ${apiKey.trim()}`;
 }
 
-function copyAudioBytesForUpload(audioBytes: Uint8Array): Uint8Array {
+function copyAudioBytesForUpload(audioBytes: Uint8Array): ArrayBuffer {
   // Copy processed WAV bytes at the provider boundary so later local mutations cannot affect the upload body.
-  return new Uint8Array(audioBytes);
+  const copy = new Uint8Array(audioBytes.byteLength);
+  copy.set(audioBytes);
+  return copy.buffer;
 }
 
 async function formatOpenAiError(response: Response): Promise<string> {

@@ -1,13 +1,13 @@
 import { isCloudDictationMode, type DictationModeId } from "./asr";
 import { type AppSettings } from "./settings";
 
-export type CloudSessionLimitState = {
+export interface CloudSessionLimitState {
   cloud: boolean;
   elapsedMs: number;
   shouldWarn: boolean;
   shouldStop: boolean;
   warningMessage: string | null;
-};
+}
 
 export function getCloudSessionLimitState(input: {
   settings: AppSettings;
@@ -22,8 +22,9 @@ export function getCloudSessionLimitState(input: {
     return { cloud, elapsedMs, shouldWarn: false, shouldStop: false, warningMessage: null };
   }
 
-  const unlimited = input.settings.cloudSessionMaxMs === null;
-  const shouldStop = !unlimited && elapsedMs >= input.settings.cloudSessionMaxMs;
+  const maxSessionMs = input.settings.cloudSessionMaxMs;
+  const unlimited = maxSessionMs === null;
+  const shouldStop = maxSessionMs !== null && elapsedMs >= maxSessionMs;
   const shouldWarn = !shouldStop && elapsedMs >= input.settings.cloudSessionWarnMs;
 
   return {

@@ -1,9 +1,9 @@
 import { isCloudDictationMode, type DictationModeId } from "./asr";
 
-export type CloudFailurePolicy = {
+export interface CloudFailurePolicy {
   allowAutomaticLocalFallback: false;
   userMessage: string;
-};
+}
 
 export function getCloudFailurePolicy(modeId: DictationModeId): CloudFailurePolicy {
   if (!isCloudDictationMode(modeId)) {

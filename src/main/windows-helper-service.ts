@@ -20,12 +20,12 @@ import { retainLatestFiles } from "./file-retention";
 const execFileAsync = promisify(execFile);
 const retainedScreenshotCount = 10;
 
-type NativeRecording = {
+interface NativeRecording {
   child: ChildProcessWithoutNullStreams;
   outputPath: string;
   stdout: Buffer[];
   stderr: Buffer[];
-};
+}
 
 export class WindowsHelperService {
   private recording: NativeRecording | null = null;
@@ -588,10 +588,10 @@ function stripRealtimePcm16ChunkEvents(stdout: string): string {
     .join("\n");
 }
 
-function parseRecordingStdoutEvents(stdout: string): Array<{
+function parseRecordingStdoutEvents(stdout: string): {
   level: NativeRecordingLevel;
   pcm16Chunk?: Uint8Array;
-}> {
+}[] {
   return stdout
     .split(/\r?\n/)
     .map((item) => item.trim())
@@ -766,7 +766,7 @@ function normalizeActiveWindowInfo(value: ActiveWindowInfo): ActiveWindowInfo {
   return {
     ...value,
     bounds: value.bounds ?? null,
-    fullscreen: value.fullscreen === true
+    fullscreen: value.fullscreen
   };
 }
 

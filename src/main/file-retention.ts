@@ -1,11 +1,11 @@
 import { readdir, rm, stat } from "node:fs/promises";
 import { join } from "node:path";
 
-type RetainedFile = {
+interface RetainedFile {
   path: string;
   name: string;
   modifiedAt: number;
-};
+}
 
 export async function retainLatestFiles(
   directory: string,

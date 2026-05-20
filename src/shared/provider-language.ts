@@ -1,13 +1,13 @@
 import { type AsrProviderId } from "./asr";
 import { type WhisperLanguage } from "./settings";
 
-export type ProviderLanguageHint = {
+export interface ProviderLanguageHint {
   providerId: AsrProviderId;
   language: WhisperLanguage;
   parameterValue: string | null;
   supported: boolean;
   reason: string | null;
-};
+}
 
 const openAiSupportedLanguageHints = new Set<WhisperLanguage>([
   "en",

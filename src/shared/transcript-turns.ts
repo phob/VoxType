@@ -1,11 +1,11 @@
 import { type TranscriptTurn } from "./asr";
 
-export type RealtimeTranscriptEvent = {
+export interface RealtimeTranscriptEvent {
   providerItemId: string;
   text: string;
   final: boolean;
   append?: boolean;
-};
+}
 
 export class TranscriptTurnAccumulator {
   private readonly turns = new Map<string, TranscriptTurn>();

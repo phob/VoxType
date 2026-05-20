@@ -11,25 +11,25 @@ const updateRequestTimeoutMs = 15000;
 const staleCheckingTimeoutMs = 30000;
 const updateDirectory = join(app.getPath("userData"), "updates");
 
-type GitHubReleaseAsset = {
+interface GitHubReleaseAsset {
   name: string;
   browser_download_url: string;
-};
+}
 
-type GitHubRelease = {
+interface GitHubRelease {
   tag_name?: string;
   name?: string;
   html_url?: string;
   assets?: GitHubReleaseAsset[];
-};
+}
 
-type UpdateCandidate = {
+interface UpdateCandidate {
   version: string;
   releaseName: string | null;
   releaseUrl: string | null;
   installerName: string;
   installerUrl: string;
-};
+}
 
 export class UpdateService {
   private status: UpdateStatus = {
@@ -356,7 +356,7 @@ function downloadFile(url: string, destination: string): Promise<void> {
         const file = createWriteStream(destination);
         response.pipe(file);
         file.on("finish", () => {
-          file.close(() => resolve());
+          file.close(() => { resolve(); });
         });
         file.on("error", reject);
       }

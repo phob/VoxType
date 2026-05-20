@@ -18,7 +18,7 @@ export type DictationModeId =
 
 export type DictationModeKind = "file" | "streaming";
 
-export type DictationMode = {
+export interface DictationMode {
   id: DictationModeId;
   providerId: AsrProviderId;
   kind: DictationModeKind;
@@ -26,55 +26,55 @@ export type DictationMode = {
   modelId: string;
   secondaryText: string;
   requiresCloudConsent: boolean;
-};
+}
 
 export type TranscriptTurnStatus = "provisional" | "final" | "fallback";
 
-export type TranscriptTurn = {
+export interface TranscriptTurn {
   providerItemId: string;
   provisionalText?: string;
   finalText?: string;
   status: TranscriptTurnStatus;
   firstSeenSequence: number;
-};
+}
 
-export type AsrResult = {
+export interface AsrResult {
   providerId: AsrProviderId;
   modelId: string;
   modeId: DictationModeId;
   providerText: string;
   turns?: TranscriptTurn[];
   durationMs: number;
-};
+}
 
-export type PromptPack = {
+export interface PromptPack {
   terms: string[];
   text: string;
   source: "dictionary" | "dictionary+ocr";
   truncated: boolean;
   termLimit: PromptPackTermLimit;
   characterLimit: PromptPackCharacterLimit;
-};
+}
 
-export type FileAsrRequest = {
+export interface FileAsrRequest {
   audioBytes: Uint8Array;
   mode: DictationMode;
   promptPack: PromptPack | null;
   language: WhisperLanguage;
-};
+}
 
-export type StreamingAudioConfig = {
+export interface StreamingAudioConfig {
   sampleRateHz: 24000;
   encoding: "pcm16";
   channelCount: 1;
-};
+}
 
-export type StreamingAsrRequest = {
+export interface StreamingAsrRequest {
   mode: DictationMode;
   language: WhisperLanguage;
   audioConfig: StreamingAudioConfig;
   latencyPreset: RealtimeLatencyPreset;
-};
+}
 
 export const openAiRealtimeAudioConfig: StreamingAudioConfig = {
   sampleRateHz: 24000,

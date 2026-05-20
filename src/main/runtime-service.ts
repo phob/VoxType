@@ -82,7 +82,7 @@ export class RuntimeService {
       }
 
       await pipeline(
-        Readable.fromWeb(response.body as ReadableStream<Uint8Array>),
+        Readable.fromWeb(response.body as unknown as Parameters<typeof Readable.fromWeb>[0]),
         createWriteStream(temporaryArchivePath)
       );
       await rm(archivePath, { force: true });

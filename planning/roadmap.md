@@ -7,7 +7,7 @@
 - Decide native helper language. Done: Rust.
 - Decide first Whisper runtime and model download source.
 - Define minimal app UX. Initial shell created with a status screen and planned capability cards.
-- Add CI build checks. Done: GitHub Actions runs `npm ci` and `npm run build`.
+- Add CI build checks. Done: GitHub Actions runs `bun install --frozen-lockfile` and `bun run build`.
 
 ## Phase 1: MVP Dictation
 

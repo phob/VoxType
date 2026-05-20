@@ -1,6 +1,6 @@
 export type DictionaryEntrySource = "user" | "correction" | "ocr";
 
-export type DictionaryEntry = {
+export interface DictionaryEntry {
   id: string;
   preferred: string;
   matches: string[];
@@ -10,7 +10,7 @@ export type DictionaryEntry = {
   enabled: boolean;
   createdAt: string;
   updatedAt: string;
-};
+}
 
 export type DictionaryPatch = Partial<
   Pick<

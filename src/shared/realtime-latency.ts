@@ -2,12 +2,12 @@ import { type RealtimeLatencyPreset } from "./settings";
 
 export type OpenAiRealtimeTranscriptionDelay = "minimal" | "medium" | "high";
 
-export type OpenAiRealtimeVadConfig = {
+export interface OpenAiRealtimeVadConfig {
   type: "server_vad";
   threshold: number;
   prefix_padding_ms: number;
   silence_duration_ms: number;
-};
+}
 
 export function getOpenAiRealtimeTranscriptionDelay(
   preset: RealtimeLatencyPreset
@@ -28,7 +28,7 @@ export function getOpenAiRealtimeVadConfig(
   developerThresholdOverride: number | null = null
 ): OpenAiRealtimeVadConfig {
   const override = sanitizeDeveloperVadThresholdOverride(developerThresholdOverride);
-  const config = (() => {
+  const config: OpenAiRealtimeVadConfig = (() => {
     switch (preset) {
     case "fast":
       return {

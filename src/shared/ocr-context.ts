@@ -2,7 +2,7 @@ import { type OcrResult, type OcrTextLine } from "./ocr";
 import { type OcrTermMode } from "./settings";
 import { type ActiveWindowInfo } from "./windows-helper";
 
-export type OcrPromptContext = {
+export interface OcrPromptContext {
   source: "activeWindow";
   provider: OcrResult["provider"];
   engine: string;
@@ -16,7 +16,7 @@ export type OcrPromptContext = {
   terms: string[];
   rejectedTerms: string[];
   termMode: OcrTermMode;
-};
+}
 
 const MAX_OCR_TERMS = 160;
 const MAX_TERM_LENGTH = 72;

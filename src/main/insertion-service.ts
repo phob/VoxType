@@ -7,20 +7,20 @@ const FOCUS_SETTLE_DELAY_MS = 120;
 const CLIPBOARD_RESTORE_DELAY_MS = 250;
 const REMOTE_CLIPBOARD_RESTORE_DELAY_MS = 1500;
 
-type InsertOptions = {
+interface InsertOptions {
   mode?: InsertionMode;
   hwnd?: string | null;
   processName?: string | null;
-};
+}
 
-type ClipboardSnapshot = {
+interface ClipboardSnapshot {
   formats: string[];
   data: Electron.Data;
-  buffers: Array<{
+  buffers: {
     format: string;
     buffer: Buffer;
-  }>;
-};
+  }[];
+}
 
 export class InsertionService {
   constructor(

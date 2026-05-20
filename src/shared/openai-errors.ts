@@ -7,11 +7,11 @@ export type OpenAiErrorCategory =
   | "network"
   | "unknown";
 
-export type OpenAiFriendlyError = {
+export interface OpenAiFriendlyError {
   category: OpenAiErrorCategory;
   summary: string;
   technicalDetail: string;
-};
+}
 
 export function classifyOpenAiError(input: {
   status?: number;

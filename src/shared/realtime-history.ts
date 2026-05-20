@@ -5,7 +5,7 @@ import { type WhisperLanguage } from "./settings";
 import { TranscriptTurnAccumulator } from "./transcript-turns";
 import { type TranscriptEntry } from "./transcripts";
 
-export type RealtimeCloudHistoryInput = {
+export interface RealtimeCloudHistoryInput {
   mode: DictationMode;
   turns: TranscriptTurn[];
   startedAtMs: number;
@@ -13,17 +13,17 @@ export type RealtimeCloudHistoryInput = {
   correctedText?: string | null;
   correctionsApplied?: string[];
   language?: WhisperLanguage;
-};
+}
 
-export type RealtimeCloudCorrectionInput = {
+export interface RealtimeCloudCorrectionInput {
   text: string;
   processName?: string | null;
-};
+}
 
-export type RealtimeCloudCorrectionResult = {
+export interface RealtimeCloudCorrectionResult {
   text: string;
   correctionsApplied?: string[];
-};
+}
 
 export type RealtimeCloudCorrectionApplier = (
   input: RealtimeCloudCorrectionInput

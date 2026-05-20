@@ -9,12 +9,12 @@ export type DictationModeAvailabilityReasonCode =
   | "realtime_not_ready"
   | "api_key_required";
 
-export type DictationModeAvailability = {
+export interface DictationModeAvailability {
   modeId: DictationModeId;
   selectable: boolean;
   reason: string | null;
   reasonCode: DictationModeAvailabilityReasonCode | null;
-};
+}
 
 export function getDictationModeAvailability(input: {
   modeId: DictationModeId;

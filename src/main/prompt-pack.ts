@@ -3,12 +3,12 @@ import { type OcrPromptContext } from "../shared/ocr-context";
 import { PROMPT_PACK_MAX_CHARS, PROMPT_PACK_MAX_TERMS } from "../shared/prompt-pack-limits";
 import { DictionaryStore } from "./dictionary-store";
 
-export type CloudPromptPackOptions = {
+export interface CloudPromptPackOptions {
   processName?: string | null;
   ocrContext?: OcrPromptContext | null;
   includeOcrContext: boolean;
   consentAccepted: boolean;
-};
+}
 
 export async function buildCloudPromptPack(
   dictionaryStore: DictionaryStore,

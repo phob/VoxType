@@ -48,9 +48,11 @@ const voxtype = {
     check: () => ipcRenderer.invoke("app:check-for-updates") as Promise<UpdateStatus>,
     install: () => ipcRenderer.invoke("app:install-update") as Promise<UpdateStatus>,
     onStatus: (callback: (status: UpdateStatus) => void) => {
-      const listener = (_event: Electron.IpcRendererEvent, status: UpdateStatus) => callback(status);
+      const listener = (_event: Electron.IpcRendererEvent, status: UpdateStatus) => { callback(status); };
       ipcRenderer.on("app-update-status", listener);
-      return () => ipcRenderer.off("app-update-status", listener);
+      return () => {
+        ipcRenderer.off("app-update-status", listener);
+      };
     }
   },
   window: {
@@ -171,21 +173,27 @@ const voxtype = {
       ) as Promise<DictationHotkeyState>,
     onHotkeyStart: (callback: (payload: DictationHotkeyPayload) => void) => {
       const listener = (_event: Electron.IpcRendererEvent, payload: DictationHotkeyPayload) =>
-        callback(payload);
+        { callback(payload); };
       ipcRenderer.on("dictation-hotkey-start", listener);
-      return () => ipcRenderer.off("dictation-hotkey-start", listener);
+      return () => {
+        ipcRenderer.off("dictation-hotkey-start", listener);
+      };
     },
     onHotkeyStop: (callback: (payload: DictationHotkeyPayload) => void) => {
       const listener = (_event: Electron.IpcRendererEvent, payload: DictationHotkeyPayload) =>
-        callback(payload);
+        { callback(payload); };
       ipcRenderer.on("dictation-hotkey-stop", listener);
-      return () => ipcRenderer.off("dictation-hotkey-stop", listener);
+      return () => {
+        ipcRenderer.off("dictation-hotkey-stop", listener);
+      };
     },
     onOcrContext: (callback: (payload: DictationOcrContextPayload) => void) => {
       const listener = (_event: Electron.IpcRendererEvent, payload: DictationOcrContextPayload) =>
-        callback(payload);
+        { callback(payload); };
       ipcRenderer.on("dictation-ocr-context", listener);
-      return () => ipcRenderer.off("dictation-ocr-context", listener);
+      return () => {
+        ipcRenderer.off("dictation-ocr-context", listener);
+      };
     }
   },
   hotkeys: {
@@ -205,9 +213,11 @@ const voxtype = {
       ipcRenderer.invoke("recording-overlay:get-state") as Promise<RecordingOverlayState>,
     onState: (callback: (state: RecordingOverlayState) => void) => {
       const listener = (_event: Electron.IpcRendererEvent, state: RecordingOverlayState) =>
-        callback(state);
+        { callback(state); };
       ipcRenderer.on("recording-overlay-state", listener);
-      return () => ipcRenderer.off("recording-overlay-state", listener);
+      return () => {
+        ipcRenderer.off("recording-overlay-state", listener);
+      };
     }
   },
   appProfiles: {

@@ -2,7 +2,7 @@ import { whisperModelCatalog } from "./models";
 
 export type GpuVendor = "nvidia" | "amd" | "intel" | "unknown";
 
-export type GpuDevice = {
+export interface GpuDevice {
   name: string;
   vendor: GpuVendor;
   dedicatedVramMb: number | null;
@@ -10,16 +10,16 @@ export type GpuDevice = {
   source: "nvidia-smi" | "windows-video-controller";
   supportsCuda: boolean;
   supportsVulkan: boolean | null;
-};
+}
 
-export type ModelGpuFit = {
+export interface ModelGpuFit {
   modelId: string;
   requiredVramMb: number;
   status: "fits" | "low-vram" | "unknown-vram" | "no-gpu";
   note: string;
-};
+}
 
-export type HardwareAccelerationReport = {
+export interface HardwareAccelerationReport {
   checkedAt: string;
   gpus: GpuDevice[];
   bestGpu: GpuDevice | null;
@@ -27,7 +27,7 @@ export type HardwareAccelerationReport = {
   recommendedBackend: "cuda" | "vulkan" | "cpu";
   modelFits: ModelGpuFit[];
   notes: string[];
-};
+}
 
 const vramSafetyMarginMb = 512;
 

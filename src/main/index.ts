@@ -1,24 +1,13 @@
 import { app, BrowserWindow, Menu, Tray, globalShortcut, ipcMain, nativeImage, screen } from "electron";
 import { join } from "node:path";
-import { getDictationMode, openAiRealtimeAudioConfig } from "../shared/asr";
+import { getDictationMode } from "../shared/asr";
 import { getOpenAiModelIdForMode, OPENAI_TRANSCRIBE_MODEL_ID } from "../shared/openai-models";
 import { resolveCloudPromptPackOcrEnabled } from "../shared/cloud-prompt-pack-settings";
 import { getCloudDictationReadiness } from "../shared/cloud-status";
 import { type DictionaryCreateInput, type DictionaryPatch } from "../shared/dictionary";
 import { buildOcrPromptContext, type OcrPromptContext } from "../shared/ocr-context";
-import {
-  type AppProfile,
-  type AppSettings,
-  type InsertionMode,
-  type SettingsPatch,
-  findAppProfile
-} from "../shared/settings";
-import {
-  type ActiveWindowInfo,
-  type DictationHotkeyState,
-  type NativeRecordingOptions,
-  type RecordingOverlayState
-} from "../shared/windows-helper";
+import { type AppProfile, type AppSettings, type InsertionMode, type SettingsPatch, findAppProfile } from "../shared/settings";
+import { type ActiveWindowInfo, type DictationHotkeyState, type NativeRecordingOptions, type RecordingOverlayState } from "../shared/windows-helper";
 import { DictionaryStore } from "./dictionary-store";
 import { HardwareService } from "./hardware-service";
 import { HistoryStore } from "./history-store";
@@ -28,6 +17,7 @@ import { OcrService } from "./ocr-service";
 import { OpenAiFileAsrProvider } from "./openai-asr-provider";
 import { OpenAiCredentialStore } from "./openai-credential-store";
 import { buildCloudPromptPack } from "./prompt-pack";
+import { RealtimeAudioBuffer } from "./realtime-audio-buffer";
 import { RealtimeCloudHistoryService } from "./realtime-cloud-history-service";
 import { RealtimeCloudSession } from "./realtime-cloud-session";
 import { RuntimeService } from "./runtime-service";
@@ -35,24 +25,12 @@ import { SettingsStore } from "./settings-store";
 import { cleanupStartupStorage } from "./startup-cleanup";
 import { TranscriptionService } from "./transcription-service";
 import { UpdateService } from "./update-service";
-import { wavToMonoPcm16 } from "./wav-pcm";
 import { WindowsHelperService } from "./windows-helper-service";
-
 let mainWindow: BrowserWindow | null = null;
 let overlayWindow: BrowserWindow | null = null;
-let overlayState: RecordingOverlayState = {
-  visible: false,
-  mode: "recording",
-  level: 0,
-  message: "Recording"
-};
+let overlayState: RecordingOverlayState = { visible: false, mode: "recording", level: 0, message: "Recording" };
 let tray: Tray | null = null;
-let dictationHotkeyState: DictationHotkeyState = {
-  recording: false,
-  sessionId: 0,
-  target: null,
-  ocrContext: null
-};
+let dictationHotkeyState: DictationHotkeyState = { recording: false, sessionId: 0, target: null, ocrContext: null };
 let nextDictationSessionId = 1;
 let registeredShowWindowHotkey: string | null = null;
 let registeredDictationHotkey: string | null = null;
@@ -65,8 +43,6 @@ let hotkeysManuallySuspended = false;
 let revealMainWindowOnReady = false;
 const holdToDictateThresholdMs = 700;
 const updateCheckIntervalMs = 60 * 60 * 1000;
-const realtimeFallbackAppendChunkBytes = 1024 * 1024;
-
 const isDeveloperBuild = !app.isPackaged;
 const hasDevRendererUrl = Boolean(process.env.ELECTRON_RENDERER_URL);
 const settingsStore = new SettingsStore();
@@ -89,97 +65,61 @@ const transcriptionService = new TranscriptionService(
 const realtimeCloudHistoryService = new RealtimeCloudHistoryService(dictionaryStore, historyStore);
 let activeRealtimeCloudSession: RealtimeCloudSession | null = null;
 let activeRealtimeCloudProcessName: string | null = null;
-let pendingRealtimePcm16Bytes = 0;
-let pendingRealtimePcm16DroppedBytes = 0;
-let recordingRealtimePcm16ChunkCount = 0;
-let recordingRealtimePcm16ByteCount = 0;
-const pendingRealtimePcm16Buffer: Uint8Array[] = [];
-const pendingRealtimePcm16BufferLimitBytes = openAiRealtimeAudioConfig.sampleRateHz * 2 * 5;
+const realtimeAudioBuffer = new RealtimeAudioBuffer();
 let lastRealtimeCloudSessionError: {
   error: Error;
   recordedAtMs: number;
 } | null = null;
 const lastRealtimeCloudSessionErrorTtlMs = 30000;
 const insertionService = new InsertionService(windowsHelperService, settingsStore);
-
 app.setName("VoxType");
-
 if (process.platform === "win32") {
   app.setAppUserModelId("com.voxtype.app");
 }
-
 const gotSingleInstanceLock = app.requestSingleInstanceLock();
-
 if (!gotSingleInstanceLock) {
   app.quit();
 } else {
   app.on("second-instance", showMainWindow);
 }
-
 function getAppIconPath(): string {
   const resourcesRoot = app.isPackaged ? process.resourcesPath : join(app.getAppPath(), "resources");
   return join(resourcesRoot, "icons", "voxtype.ico");
 }
-
 function applyStartupSettings(settings: AppSettings): void {
   if (process.platform !== "win32") {
     return;
   }
-
-  app.setLoginItemSettings({
-    openAtLogin: settings.startWithWindows,
-    openAsHidden: shouldStartMinimized(settings)
-  });
+  app.setLoginItemSettings({ openAtLogin: settings.startWithWindows, openAsHidden: shouldStartMinimized(settings) });
 }
-
 function shouldStartMinimized(settings: AppSettings): boolean {
   return !isDeveloperBuild && settings.startMinimized;
 }
-
 function createWindow(): void {
   mainWindow = new BrowserWindow({
-    width: 1100,
-    height: 760,
-    minWidth: 900,
-    minHeight: 620,
-    resizable: false,
-    maximizable: false,
-    title: "VoxType",
-    icon: getAppIconPath(),
-    frame: false,
-    autoHideMenuBar: true,
-    backgroundColor: "#101114",
-    show: false,
-    webPreferences: {
-      preload: join(__dirname, "../preload/index.mjs"),
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: false
-    }
+    width: 1100, height: 760, minWidth: 900, minHeight: 620,
+    resizable: false, maximizable: false, title: "VoxType",
+    icon: getAppIconPath(), frame: false, autoHideMenuBar: true,
+    backgroundColor: "#101114", show: false,
+    webPreferences: { preload: join(__dirname, "../preload/index.mjs"), contextIsolation: true, nodeIntegration: false, sandbox: false }
   });
-
   mainWindow.once("ready-to-show", () => {
     void (async () => {
       const settings = await settingsStore.get();
-
       if (shouldStartMinimized(settings) && !revealMainWindowOnReady) {
         mainWindow?.hide();
         return;
       }
-
       mainWindow?.show();
     })();
   });
-
   mainWindow.on("closed", () => {
     mainWindow = null;
-
     if (overlayWindow && !overlayState.visible) {
       overlayWindow.destroy();
       overlayWindow = null;
     }
   });
-
   if (hasDevRendererUrl && process.env.ELECTRON_RENDERER_URL) {
     void mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
     mainWindow.webContents.openDevTools({ mode: "detach" });
@@ -187,7 +127,6 @@ function createWindow(): void {
     void mainWindow.loadFile(join(__dirname, "../renderer/index.html"));
   }
 }
-
 function createTray(): void {
   const icon = nativeImage.createFromPath(getAppIconPath());
   tray = new Tray(icon);
@@ -201,58 +140,47 @@ function createTray(): void {
       },
       {
         label: "Quit",
-        click: () => app.quit()
+        click: () => { app.quit(); }
       }
     ])
   );
 }
-
 function showMainWindow(): void {
   if (!mainWindow) {
     createWindow();
     return;
   }
-
   if (mainWindow.isMinimized()) {
     mainWindow.restore();
   }
-
   mainWindow.setSkipTaskbar(false);
   mainWindow.show();
   mainWindow.focus();
 }
-
 function sendUpdateStatus(): void {
   mainWindow?.webContents.send("app-update-status", updateService.getStatus());
 }
-
 async function checkForUpdates(options: { revealWindowOnAvailable?: boolean } = {}): Promise<void> {
   const settings = await settingsStore.get();
-
   if (!settings.automaticUpdateChecksEnabled) {
     return;
   }
-
   const checkPromise = updateService.check();
   sendUpdateStatus();
   const status = await checkPromise;
   sendUpdateStatus();
-
   if (options.revealWindowOnAvailable && status.available) {
     revealMainWindowOnReady = true;
     showMainWindow();
   }
 }
-
 function stopAutomaticUpdateChecks(): void {
   if (!updateCheckTimer) {
     return;
   }
-
   clearInterval(updateCheckTimer);
   updateCheckTimer = null;
 }
-
 function cancelActiveRealtimeCloudSession(reason: string, error?: Error): void {
   activeRealtimeCloudSession?.cancel(reason);
   activeRealtimeCloudSession = null;
@@ -264,20 +192,8 @@ function cancelActiveRealtimeCloudSession(reason: string, error?: Error): void {
       }
     : null;
 }
-
 function appendRealtimePcm16AudioSafely(bytes: Uint8Array): Error | null {
-  if (!activeRealtimeCloudSession) {
-    bufferPendingRealtimePcm16Audio(bytes);
-    return null;
-  }
-
-  try {
-    activeRealtimeCloudSession.appendPcm16Audio(bytes);
-    return null;
-  } catch (error) {
-    const streamingError = error instanceof Error
-      ? error
-      : new Error("Realtime Cloud Dictation audio streaming failed.");
+  return realtimeAudioBuffer.appendSafely(activeRealtimeCloudSession, bytes, (streamingError) => {
     cancelActiveRealtimeCloudSession(
       "Realtime Cloud Dictation stopped because audio streaming failed.",
       streamingError
@@ -287,155 +203,90 @@ function appendRealtimePcm16AudioSafely(bytes: Uint8Array): Error | null {
       cloudProviderLabel: "Cloud Dictation",
       message: streamingError.message
     });
-    return streamingError;
-  }
+  });
 }
-
 function resetPendingRealtimePcm16Audio(): void {
-  pendingRealtimePcm16Buffer.length = 0;
-  pendingRealtimePcm16Bytes = 0;
-  pendingRealtimePcm16DroppedBytes = 0;
+  realtimeAudioBuffer.resetPending();
 }
-
 function resetRecordingRealtimePcm16Counters(): void {
-  recordingRealtimePcm16ChunkCount = 0;
-  recordingRealtimePcm16ByteCount = 0;
+  realtimeAudioBuffer.resetRecordingCounters();
 }
-
-function bufferPendingRealtimePcm16Audio(bytes: Uint8Array): void {
-  if (bytes.byteLength === 0) {
-    return;
-  }
-
-  pendingRealtimePcm16Buffer.push(bytes);
-  pendingRealtimePcm16Bytes += bytes.byteLength;
-
-  while (pendingRealtimePcm16Bytes > pendingRealtimePcm16BufferLimitBytes) {
-    const removed = pendingRealtimePcm16Buffer.shift();
-    const removedBytes = removed?.byteLength ?? 0;
-    pendingRealtimePcm16Bytes -= removedBytes;
-    pendingRealtimePcm16DroppedBytes += removedBytes;
-  }
-}
-
 function drainPendingRealtimePcm16Audio(): Error | null {
-  if (!activeRealtimeCloudSession) {
-    resetPendingRealtimePcm16Audio();
-    return null;
-  }
-
-  for (const bytes of pendingRealtimePcm16Buffer) {
-    const error = appendRealtimePcm16AudioSafely(bytes);
-
-    if (error) {
-      resetPendingRealtimePcm16Audio();
-      return error;
-    }
-  }
-
-  if (pendingRealtimePcm16DroppedBytes > 0) {
+  return realtimeAudioBuffer.drainPending(
+    activeRealtimeCloudSession,
+    appendRealtimePcm16AudioSafely,
+    () => {
     updateOverlay({
       mode: "finalizing",
       cloudProviderLabel: "Cloud Dictation",
       message: "Realtime startup buffer limit reached; oldest microphone audio was dropped."
     });
-  }
-
-  resetPendingRealtimePcm16Audio();
-  return null;
+    }
+  );
 }
-
 function appendRealtimeFallbackWavAudio(
   session: RealtimeCloudSession,
   wavBytes: Uint8Array | undefined
 ): void {
-  if (!wavBytes || wavBytes.byteLength === 0 || session.getAudioDiagnostics().providerAppendedBytes > 0) {
-    return;
-  }
-
-  const pcm16Audio = wavToMonoPcm16(wavBytes, openAiRealtimeAudioConfig.sampleRateHz);
-
-  for (let offset = 0; offset < pcm16Audio.byteLength; offset += realtimeFallbackAppendChunkBytes) {
-    const end = Math.min(offset + realtimeFallbackAppendChunkBytes, pcm16Audio.byteLength);
-    const alignedEnd = end % 2 === 0 ? end : end - 1;
-
-    if (alignedEnd > offset) {
-      session.appendPcm16Audio(pcm16Audio.slice(offset, alignedEnd));
-    }
-  }
+  realtimeAudioBuffer.appendFallbackWav(session, wavBytes);
 }
-
 function startAutomaticUpdateChecks(settings: AppSettings): void {
   stopAutomaticUpdateChecks();
-
   if (!settings.automaticUpdateChecksEnabled) {
     return;
   }
-
   updateCheckTimer = setInterval(() => {
     void checkForUpdates();
   }, updateCheckIntervalMs);
 }
-
 function stopDictationHotkey(): boolean {
   if (!dictationHotkeyState.recording) {
     return false;
   }
-
   const payload = {
     sessionId: dictationHotkeyState.sessionId,
     target: dictationHotkeyState.target,
     ocrContext: dictationHotkeyState.ocrContext
   };
-
   dictationHotkeyState = {
     ...dictationHotkeyState,
     recording: false,
     ocrContext: null
   };
   mainWindow?.webContents.send("dictation-hotkey-stop", payload);
-
   return true;
 }
-
 async function startDictationHotkey(): Promise<number | null> {
   if (dictationHotkeyState.recording) {
     return null;
   }
-
   const target = await windowsHelperService.getActiveWindow().catch(() => null);
   await settingsStore.ensureAppProfile(target);
   const sessionId = nextDictationSessionId++;
-
   dictationHotkeyState = {
     recording: true,
     sessionId,
     target,
     ocrContext: null
   };
-
   void captureActiveWindowOcrContext(target).then((ocrContext) => {
     if (!dictationHotkeyState.recording || dictationHotkeyState.sessionId !== sessionId) {
       return;
     }
-
     dictationHotkeyState = {
       ...dictationHotkeyState,
       ocrContext
     };
     mainWindow?.webContents.send("dictation-ocr-context", { sessionId, ocrContext });
   });
-
   if (!mainWindow) {
     createWindow();
   }
-
   if (mainWindow?.webContents.isLoading()) {
     mainWindow.webContents.once("did-finish-load", () => {
       if (!dictationHotkeyState.recording || dictationHotkeyState.sessionId !== sessionId) {
         return;
       }
-
       mainWindow?.webContents.send("dictation-hotkey-start", {
         sessionId,
         target,
@@ -444,19 +295,15 @@ async function startDictationHotkey(): Promise<number | null> {
     });
     return sessionId;
   }
-
   mainWindow?.webContents.send("dictation-hotkey-start", { sessionId, target, ocrContext: null });
   return sessionId;
 }
-
 async function holdDictationHotkey(): Promise<void> {
   const settings = await settingsStore.get();
   const sessionId = await startDictationHotkey();
-
   if (sessionId === null) {
     return;
   }
-
   try {
     await windowsHelperService.waitForHotkeyRelease(settings.dictationHoldHotkey);
   } finally {
@@ -465,40 +312,32 @@ async function holdDictationHotkey(): Promise<void> {
     }
   }
 }
-
 async function durationAwareDictationHotkey(accelerator: string): Promise<void> {
   if (stopDictationHotkey()) {
     return;
   }
-
   const startedAt = Date.now();
   const releasePromise = windowsHelperService.waitForHotkeyRelease(accelerator);
   const sessionId = await startDictationHotkey();
-
   try {
     await releasePromise;
   } catch {
     return;
   }
-
   if (sessionId === null) {
     return;
   }
-
   if (Date.now() - startedAt < holdToDictateThresholdMs) {
     return;
   }
-
   if (dictationHotkeyState.recording && dictationHotkeyState.sessionId === sessionId) {
     stopDictationHotkey();
   }
 }
-
 function createOverlayWindow(): BrowserWindow {
   if (overlayWindow && !overlayWindow.isDestroyed()) {
     return overlayWindow;
   }
-
   overlayWindow = new BrowserWindow({
     width: 196,
     height: 30,
@@ -529,7 +368,6 @@ function createOverlayWindow(): BrowserWindow {
   overlayWindow.webContents.once("did-finish-load", () => {
     sendOverlayState();
   });
-
   if (hasDevRendererUrl && process.env.ELECTRON_RENDERER_URL) {
     void overlayWindow.loadURL(`${process.env.ELECTRON_RENDERER_URL}?overlay=1`);
   } else {
@@ -537,10 +375,8 @@ function createOverlayWindow(): BrowserWindow {
       query: { overlay: "1" }
     });
   }
-
   return overlayWindow;
 }
-
 function positionOverlayWindow(): void {
   const window = createOverlayWindow();
   const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
@@ -550,7 +386,6 @@ function positionOverlayWindow(): void {
   const y = Math.round(bounds.y + bounds.height - height - 24);
   window.setPosition(x, y, false);
 }
-
 function showOverlay(next: Partial<RecordingOverlayState>): void {
   overlayState = {
     ...overlayState,
@@ -562,7 +397,6 @@ function showOverlay(next: Partial<RecordingOverlayState>): void {
   window.showInactive();
   sendOverlayState();
 }
-
 function updateOverlay(next: Partial<RecordingOverlayState>): void {
   overlayState = {
     ...overlayState,
@@ -570,7 +404,6 @@ function updateOverlay(next: Partial<RecordingOverlayState>): void {
   };
   sendOverlayState();
 }
-
 function hideOverlay(): void {
   overlayState = {
     ...overlayState,
@@ -584,26 +417,21 @@ function hideOverlay(): void {
   overlayWindow?.destroy();
   overlayWindow = null;
 }
-
 function getFocusedWindow(): BrowserWindow | null {
   return BrowserWindow.getFocusedWindow() ?? mainWindow;
 }
-
 function sendOverlayState(): void {
   if (!overlayWindow || overlayWindow.isDestroyed()) {
     return;
   }
-
   overlayWindow.webContents.send("recording-overlay-state", overlayState);
 }
-
 async function captureActiveWindowOcrContext(
   target: ActiveWindowInfo | null
 ): Promise<OcrPromptContext | null> {
   if (!target) {
     return null;
   }
-
   try {
     const settings = await settingsStore.get();
     const screenshot = await windowsHelperService.captureScreenshot("activeWindow", target.hwnd);
@@ -613,20 +441,16 @@ async function captureActiveWindowOcrContext(
     return null;
   }
 }
-
 async function registerConfiguredHotkeys(): Promise<void> {
   const settings = await settingsStore.get();
   unregisterConfiguredHotkeys();
-
   if (hotkeysManuallySuspended) {
     return;
   }
-
   if (settings.showWindowHotkey.trim()) {
     const registered = globalShortcut.register(settings.showWindowHotkey, showMainWindow);
     registeredShowWindowHotkey = registered ? settings.showWindowHotkey : null;
   }
-
   if (
     settings.dictationToggleHotkey.trim() &&
     settings.dictationToggleHotkey !== settings.showWindowHotkey
@@ -636,7 +460,6 @@ async function registerConfiguredHotkeys(): Promise<void> {
     });
     registeredDictationHotkey = registered ? settings.dictationToggleHotkey : null;
   }
-
   if (
     settings.dictationHoldHotkey.trim() &&
     settings.dictationHoldHotkey !== settings.showWindowHotkey &&
@@ -647,39 +470,32 @@ async function registerConfiguredHotkeys(): Promise<void> {
     });
     registeredDictationHoldHotkey = registered ? settings.dictationHoldHotkey : null;
   }
-
   await refreshFullscreenHotkeySuspension();
 }
-
 function unregisterConfiguredHotkeys(): void {
   if (registeredShowWindowHotkey) {
     globalShortcut.unregister(registeredShowWindowHotkey);
     registeredShowWindowHotkey = null;
   }
-
   if (registeredDictationHotkey) {
     globalShortcut.unregister(registeredDictationHotkey);
     registeredDictationHotkey = null;
   }
-
   if (registeredDictationHoldHotkey) {
     globalShortcut.unregister(registeredDictationHoldHotkey);
     registeredDictationHoldHotkey = null;
   }
 }
-
 function unregisterDictationHotkeys(): void {
   if (registeredDictationHotkey) {
     globalShortcut.unregister(registeredDictationHotkey);
     registeredDictationHotkey = null;
   }
-
   if (registeredDictationHoldHotkey) {
     globalShortcut.unregister(registeredDictationHoldHotkey);
     registeredDictationHoldHotkey = null;
   }
 }
-
 async function registerDictationHotkeys(settings: AppSettings): Promise<void> {
   if (
     settings.dictationToggleHotkey.trim() &&
@@ -691,7 +507,6 @@ async function registerDictationHotkeys(settings: AppSettings): Promise<void> {
     });
     registeredDictationHotkey = registered ? settings.dictationToggleHotkey : null;
   }
-
   if (
     settings.dictationHoldHotkey.trim() &&
     settings.dictationHoldHotkey !== settings.showWindowHotkey &&
@@ -704,33 +519,26 @@ async function registerDictationHotkeys(settings: AppSettings): Promise<void> {
     registeredDictationHoldHotkey = registered ? settings.dictationHoldHotkey : null;
   }
 }
-
 function startFullscreenSuspensionWatch(): void {
   if (fullscreenSuspensionTimer) {
     return;
   }
-
   fullscreenSuspensionTimer = setInterval(() => {
     void refreshFullscreenHotkeySuspension();
   }, 2000);
 }
-
 function stopFullscreenSuspensionWatch(): void {
   if (!fullscreenSuspensionTimer) {
     return;
   }
-
   clearInterval(fullscreenSuspensionTimer);
   fullscreenSuspensionTimer = null;
 }
-
 async function refreshFullscreenHotkeySuspension(): Promise<void> {
   const settings = await settingsStore.get();
-
   if (hotkeysManuallySuspended) {
     return;
   }
-
   if (!settings.suspendDictationHotkeysInFullscreenApps) {
     stopFullscreenSuspensionWatch();
     dictationSuspendedForFullscreen = false;
@@ -738,27 +546,22 @@ async function refreshFullscreenHotkeySuspension(): Promise<void> {
     await registerDictationHotkeys(settings);
     return;
   }
-
   startFullscreenSuspensionWatch();
-
   const activeWindow = await windowsHelperService.getActiveWindow().catch(() => null);
   const profile = findAppProfile(settings.appProfiles, activeWindow?.processName ?? null);
   const shouldSuspend = Boolean(
     activeWindow?.fullscreen && !profile?.neverSuspendDictationInFullscreen
   );
-
   if (shouldSuspend) {
     unregisterDictationHotkeys();
     dictationSuspendedForFullscreen = true;
     fullscreenSuspensionProcessName = activeWindow?.processName ?? null;
     return;
   }
-
   dictationSuspendedForFullscreen = false;
   fullscreenSuspensionProcessName = null;
   await registerDictationHotkeys(settings);
 }
-
 function getHotkeyStatus(): {
   showWindowHotkey: string | null;
   dictationToggleHotkey: string | null;
@@ -774,11 +577,9 @@ function getHotkeyStatus(): {
     fullscreenProcessName: fullscreenSuspensionProcessName
   };
 }
-
 ipcMain.handle("app:get-version", () => app.getVersion());
 ipcMain.handle("app:get-info", () => {
   const version = app.getVersion();
-
   return {
     isDeveloperBuild,
     version,
@@ -815,47 +616,37 @@ ipcMain.handle("settings:reset", async () => {
   await registerConfiguredHotkeys();
   return settings;
 });
-
 ipcMain.handle("openai-credentials:get-status", () => openAiCredentialStore.getStatus());
-
 ipcMain.handle("openai-credentials:set-api-key", async (_event, apiKey: string) => {
   await openAiCredentialStore.setApiKey(apiKey);
   return openAiCredentialStore.getStatus();
 });
-
 ipcMain.handle("openai-credentials:clear-api-key", async () => {
   await openAiCredentialStore.clearApiKey();
   return openAiCredentialStore.getStatus();
 });
-
 ipcMain.handle("openai:test-connection", async () => {
   const settings = await settingsStore.get();
-
   if (settings.offlineMode) {
     return {
       ok: false,
       message: "OpenAI test connection is disabled while Offline Mode is on."
     };
   }
-
   const hasApiKey = await openAiCredentialStore.hasApiKey();
-
   if (!hasApiKey) {
     return {
       ok: false,
       message: "OpenAI test connection requires an API key before any network request."
     };
   }
-
   const mode = getCloudDictationReadiness({
     settings,
     profile: null,
     hasApiKey
   });
-
   const dictationMode = getDictationMode(mode.modeId);
   const modelId = getOpenAiModelIdForMode(dictationMode.id) ?? OPENAI_TRANSCRIBE_MODEL_ID;
-
   return openAiFileAsrProvider.testConnection(modelId);
 });
 ipcMain.handle("models:list", () => modelService.list());
@@ -868,7 +659,6 @@ ipcMain.handle("runtime:install-whisper", (_event, runtimeId?: string) =>
 );
 ipcMain.handle("runtime:setup-first-run-cuda", async () => {
   const target = await runtimeService.getFirstRunCudaRuntimeTarget();
-
   if (!target) {
     return {
       runtime: await runtimeService.getPreferredRuntime("auto"),
@@ -878,10 +668,8 @@ ipcMain.handle("runtime:setup-first-run-cuda", async () => {
       message: "No suitable NVIDIA CUDA runtime was detected. CPU remains the fallback."
     };
   }
-
   const runtime = await runtimeService.installWhisperRuntime(target.id);
   const settings = await settingsStore.update({ whisperRuntimeBackend: "auto" });
-
   return {
     runtime,
     settings,
@@ -912,11 +700,9 @@ ipcMain.handle(
       profile,
       hasApiKey: await openAiCredentialStore.hasApiKey()
     });
-
     if (!readiness.cloud) {
       return null;
     }
-
     return buildCloudPromptPack(dictionaryStore, {
       processName,
       ocrContext: context?.ocrContext ?? null,
@@ -924,18 +710,15 @@ ipcMain.handle(
       consentAccepted: settings.cloudDictationConsentAccepted
     });
 });
-
 ipcMain.handle("transcription:get-readiness", async (_event, processName?: string | null) => {
   const settings = await settingsStore.get();
   const profile = findAppProfile(settings.appProfiles, processName ?? null);
-
   return getCloudDictationReadiness({
     settings,
     profile,
     hasApiKey: await openAiCredentialStore.hasApiKey()
   });
 });
-
 ipcMain.handle(
   "transcription:transcribe-wav",
   (
@@ -949,7 +732,6 @@ ipcMain.handle(
   ) =>
     transcriptionService.transcribeWav(bytes, context)
 );
-
 ipcMain.handle(
   "transcription:realtime-start",
   async (
@@ -964,21 +746,17 @@ ipcMain.handle(
       profile,
       hasApiKey: await openAiCredentialStore.hasApiKey()
     });
-
     if (!readiness.ready || readiness.modeId !== "openai.realtime") {
       throw new Error(readiness.reason ?? "Realtime Cloud Dictation is not ready.");
     }
-
     cancelActiveRealtimeCloudSession("Realtime Cloud Dictation session replaced by a new recording.");
     lastRealtimeCloudSessionError = null;
     activeRealtimeCloudSession = new RealtimeCloudSession(openAiCredentialStore, settings, updateOverlay);
     activeRealtimeCloudProcessName = processName;
     const pendingAudioError = drainPendingRealtimePcm16Audio();
-
     if (pendingAudioError) {
       throw pendingAudioError;
     }
-
     try {
       await activeRealtimeCloudSession.start();
     } catch (error) {
@@ -993,27 +771,21 @@ ipcMain.handle(
     }
   }
 );
-
 ipcMain.handle("transcription:realtime-append-pcm16", (_event, bytes: Uint8Array) => {
   if (!activeRealtimeCloudSession) {
     throw new Error("Realtime Cloud Dictation has not started.");
   }
-
   if (!(bytes instanceof Uint8Array) || bytes.byteLength === 0) {
     throw new Error("Realtime Cloud Dictation requires a non-empty PCM16 audio chunk.");
   }
-
   if (bytes.byteLength % 2 !== 0) {
     throw new Error("Realtime Cloud Dictation PCM16 audio chunks must contain whole 16-bit samples.");
   }
-
   const streamingError = appendRealtimePcm16AudioSafely(bytes);
-
   if (streamingError) {
     throw streamingError;
   }
 });
-
 ipcMain.handle("transcription:realtime-finalize", async (_event, fallbackWavBytes?: Uint8Array) => {
   if (!activeRealtimeCloudSession) {
     const previousRealtimeError = lastRealtimeCloudSessionError;
@@ -1024,10 +796,8 @@ ipcMain.handle("transcription:realtime-finalize", async (_event, fallbackWavByte
     ) {
       throw previousRealtimeError.error;
     }
-
     throw new Error("Realtime Cloud Dictation has not started.");
   }
-
   const session = activeRealtimeCloudSession;
   activeRealtimeCloudSession = null;
   const processName = activeRealtimeCloudProcessName;
@@ -1036,13 +806,11 @@ ipcMain.handle("transcription:realtime-finalize", async (_event, fallbackWavByte
   const snapshot = await session.finalize().catch((error) => {
     const message = error instanceof Error ? error.message : "Realtime Cloud Dictation finalization failed.";
     const diagnostics = session.getAudioDiagnostics();
-
     throw new Error(
-      `${message} Diagnostics: nativeChunks=${recordingRealtimePcm16ChunkCount}, nativeBytes=${recordingRealtimePcm16ByteCount}, pendingBytes=${pendingRealtimePcm16Bytes}, sessionReceivedChunks=${diagnostics.sessionReceivedChunks}, sessionReceivedBytes=${diagnostics.sessionReceivedBytes}, sessionBufferedBytes=${diagnostics.sessionBufferedBytes}, sessionDroppedBytes=${diagnostics.sessionDroppedBytes}, providerAppendedBytes=${diagnostics.providerAppendedBytes}, streamingStarted=${diagnostics.streamingStarted}.`
+      `${message} Diagnostics: nativeChunks=${realtimeAudioBuffer.recordingChunkCount}, nativeBytes=${realtimeAudioBuffer.recordingByteCount}, pendingBytes=${realtimeAudioBuffer.pendingByteCount}, sessionReceivedChunks=${diagnostics.sessionReceivedChunks}, sessionReceivedBytes=${diagnostics.sessionReceivedBytes}, sessionBufferedBytes=${diagnostics.sessionBufferedBytes}, sessionDroppedBytes=${diagnostics.sessionDroppedBytes}, providerAppendedBytes=${diagnostics.providerAppendedBytes}, streamingStarted=${diagnostics.streamingStarted}.`
     );
   });
   const mode = getDictationMode("openai.realtime");
-
   if (snapshot.preConnectionDroppedBytes > 0) {
     updateOverlay({
       mode: "finalizing",
@@ -1050,7 +818,6 @@ ipcMain.handle("transcription:realtime-finalize", async (_event, fallbackWavByte
       message: "Realtime pre-connection buffer limit reached; oldest audio was dropped."
     });
   }
-
   try {
     const settings = await settingsStore.get();
     return await realtimeCloudHistoryService.save({
@@ -1070,7 +837,6 @@ ipcMain.handle("transcription:realtime-finalize", async (_event, fallbackWavByte
     throw error;
   }
 });
-
 ipcMain.handle("transcription:realtime-cancel", (_event, reason?: string) => {
   cancelActiveRealtimeCloudSession(reason ?? "Realtime Cloud Dictation session cancelled");
 });
@@ -1149,6 +915,9 @@ ipcMain.handle(
       | "recordingStopHotkey"
       | "postTranscriptionHotkey"
       | "whisperLanguage"
+      | "dictationModeId"
+      | "cloudPromptPackOcrEnabled"
+      | "forbidCloudDictation"
       | "neverSuspendDictationInFullscreen"
     >
   ) =>
@@ -1170,15 +939,12 @@ ipcMain.handle("windows-helper:start-recording", (_event, options: NativeRecordi
   {
     resetPendingRealtimePcm16Audio();
     resetRecordingRealtimePcm16Counters();
-
     return windowsHelperService.startRecording(options, (level, pcm16Chunk) => {
       updateOverlay({
         level: Math.max(level.rms * 3, level.peak)
       });
-
       if (pcm16Chunk) {
-        recordingRealtimePcm16ChunkCount += 1;
-        recordingRealtimePcm16ByteCount += pcm16Chunk.byteLength;
+        realtimeAudioBuffer.addRecordingChunk(pcm16Chunk);
         appendRealtimePcm16AudioSafely(pcm16Chunk);
       }
     });
@@ -1186,11 +952,9 @@ ipcMain.handle("windows-helper:start-recording", (_event, options: NativeRecordi
 );
 ipcMain.handle("windows-helper:stop-recording", async () => {
   const result = await windowsHelperService.stopRecording();
-
   if (!activeRealtimeCloudSession) {
     resetPendingRealtimePcm16Audio();
   }
-
   return result;
 });
 ipcMain.handle("recording-overlay:show-recording", (_event, state?: Partial<RecordingOverlayState>) => {
@@ -1206,7 +970,6 @@ ipcMain.handle("recording-overlay:hide", () => {
   hideOverlay();
 });
 ipcMain.handle("recording-overlay:get-state", () => overlayState);
-
 app.whenReady().then(async () => {
   await cleanupStartupStorage().catch(() => undefined);
   await historyStore.cleanup().catch(() => undefined);
@@ -1219,14 +982,12 @@ app.whenReady().then(async () => {
   createWindow();
   createTray();
   void registerConfiguredHotkeys();
-
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
     }
   });
 });
-
 app.on("will-quit", () => {
   cancelActiveRealtimeCloudSession("Realtime Cloud Dictation cancelled because VoxType is quitting.");
   stopAutomaticUpdateChecks();
@@ -1234,9 +995,9 @@ app.on("will-quit", () => {
   overlayWindow?.destroy();
   globalShortcut.unregisterAll();
 });
-
 app.on("window-all-closed", () => {
   if (process.platform !== "darwin") {
     app.quit();
   }
 });
+

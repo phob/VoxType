@@ -22,7 +22,6 @@ Use a T3-style stable release workflow, simplified for VoxType:
 2. CI validates the version and checks that the tag does not already exist.
 3. `scripts/sync-release-version.mjs` updates:
    - `package.json`
-   - `package-lock.json`
    - `native/windows-helper/Cargo.toml`
    - `native/windows-helper/Cargo.lock`
 4. CI builds the app to catch version-sync or TypeScript failures.
@@ -67,7 +66,7 @@ Commit messages no longer need to follow Conventional Commits for the release sy
 
 The Electron package version and Rust Windows helper version should stay aligned for public releases.
 
-The release workflow and local `npm run release:version -- <version>` script update all version files together. The release tag should point at the commit that contains the final synchronized version values.
+The release workflow and local `bun run release:version -- <version>` script update all version files together. The release tag should point at the commit that contains the final synchronized version values.
 
 ## Release Artifact Automation
 
