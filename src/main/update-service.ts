@@ -1,6 +1,6 @@
 import { app } from "electron";
 import { createWriteStream } from "node:fs";
-import { mkdir } from "node:fs/promises";
+import { mkdir, rename, rm } from "node:fs/promises";
 import { get } from "node:https";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
@@ -9,26 +9,27 @@ import { type UpdateStatus } from "../shared/updates";
 const latestReleaseUrl = "https://api.github.com/repos/phob/VoxType/releases/latest";
 const updateRequestTimeoutMs = 15000;
 const staleCheckingTimeoutMs = 30000;
+const updateDirectory = join(app.getPath("userData"), "updates");
 
-type GitHubReleaseAsset = {
+interface GitHubReleaseAsset {
   name: string;
   browser_download_url: string;
-};
+}
 
-type GitHubRelease = {
+interface GitHubRelease {
   tag_name?: string;
   name?: string;
   html_url?: string;
   assets?: GitHubReleaseAsset[];
-};
+}
 
-type UpdateCandidate = {
+interface UpdateCandidate {
   version: string;
   releaseName: string | null;
   releaseUrl: string | null;
   installerName: string;
   installerUrl: string;
-};
+}
 
 export class UpdateService {
   private status: UpdateStatus = {
@@ -44,6 +45,11 @@ export class UpdateService {
   private candidate: UpdateCandidate | null = null;
   private checkPromise: Promise<UpdateStatus> | null = null;
   private checkingStartedAt: number | null = null;
+  private readonly updateCleanupPromise: Promise<void>;
+
+  constructor() {
+    this.updateCleanupPromise = cleanupUpdateDirectory();
+  }
 
   getStatus(): UpdateStatus {
     if (
@@ -137,12 +143,18 @@ export class UpdateService {
       error: null
     };
 
+    let temporaryInstallerPath: string | null = null;
+
     try {
-      const updateDirectory = join(app.getPath("userData"), "updates");
+      await this.updateCleanupPromise;
       const installerPath = join(updateDirectory, candidate.installerName);
+      temporaryInstallerPath = `${installerPath}.download`;
 
       await mkdir(updateDirectory, { recursive: true });
-      await downloadFile(candidate.installerUrl, installerPath);
+      await rm(temporaryInstallerPath, { force: true });
+      await downloadFile(candidate.installerUrl, temporaryInstallerPath);
+      await rm(installerPath, { force: true });
+      await rename(temporaryInstallerPath, installerPath);
 
       this.status = {
         ...this.status,
@@ -157,6 +169,10 @@ export class UpdateService {
 
       app.quit();
     } catch (error) {
+      if (temporaryInstallerPath) {
+        await rm(temporaryInstallerPath, { force: true }).catch(() => undefined);
+      }
+
       this.status = {
         ...this.status,
         state: "error",
@@ -166,6 +182,10 @@ export class UpdateService {
 
     return this.status;
   }
+}
+
+async function cleanupUpdateDirectory(): Promise<void> {
+  await rm(updateDirectory, { recursive: true, force: true }).catch(() => undefined);
 }
 
 function releaseToCandidate(release: GitHubRelease): UpdateCandidate | null {
@@ -234,7 +254,7 @@ function fetchJson<T>(url: string): Promise<T> {
       }
 
       settled = true;
-      reject(error);
+      reject(error instanceof Error ? error : new Error(String(error)));
     };
     const request = get(
       url,
@@ -262,13 +282,13 @@ function fetchJson<T>(url: string): Promise<T> {
 
         if (response.statusCode !== 200) {
           response.resume();
-          rejectOnce(new Error(`GitHub returned ${response.statusCode ?? "an unknown status"}.`));
+          rejectOnce(new Error(`GitHub returned ${String(response.statusCode ?? "an unknown status")}.`));
           return;
         }
 
         let body = "";
         response.setEncoding("utf8");
-        response.on("data", (chunk) => {
+        response.on("data", (chunk: string) => {
           body += chunk;
         });
         response.on("end", () => {
@@ -300,9 +320,9 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string)
         clearTimeout(timer);
         resolve(value);
       },
-      (error) => {
-        clearTimeout(timer);
-        reject(error);
+        (error: unknown) => {
+          clearTimeout(timer);
+          reject(error instanceof Error ? error : new Error(String(error)));
       }
     );
   });
@@ -329,14 +349,14 @@ function downloadFile(url: string, destination: string): Promise<void> {
 
         if (response.statusCode !== 200) {
           response.resume();
-          reject(new Error(`Download returned ${response.statusCode ?? "an unknown status"}.`));
+          reject(new Error(`Download returned ${String(response.statusCode ?? "an unknown status")}.`));
           return;
         }
 
         const file = createWriteStream(destination);
         response.pipe(file);
         file.on("finish", () => {
-          file.close(() => resolve());
+          file.close(() => { resolve(); });
         });
         file.on("error", reject);
       }

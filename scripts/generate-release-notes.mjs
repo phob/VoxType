@@ -5,14 +5,14 @@ import process from "node:process";
 
 const repo = "phob/VoxType";
 
-const usage = `Usage: npm run changelog [-- <version>]
+const usage = `Usage: bun run changelog [-- <version>]
 
 Generates the GitHub Release notes that would be used if VoxType released now.
 
 Examples:
-  npm run changelog
-  npm run changelog -- 0.3.8
-  npm run changelog -- v0.3.8`;
+  bun run changelog
+  bun run changelog -- 0.3.8
+  bun run changelog -- v0.3.8`;
 
 function run(command, args) {
   return execFileSync(command, args, {

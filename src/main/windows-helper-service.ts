@@ -15,15 +15,17 @@ import {
   type ScreenshotCaptureResult,
   type WindowsHelperStatus
 } from "../shared/windows-helper";
+import { retainLatestFiles } from "./file-retention";
 
 const execFileAsync = promisify(execFile);
+const retainedScreenshotCount = 10;
 
-type NativeRecording = {
+interface NativeRecording {
   child: ChildProcessWithoutNullStreams;
   outputPath: string;
   stdout: Buffer[];
   stderr: Buffer[];
-};
+}
 
 export class WindowsHelperService {
   private recording: NativeRecording | null = null;
@@ -189,7 +191,7 @@ export class WindowsHelperService {
 
     const outputDirectory = join(app.getPath("userData"), "screenshots");
     await mkdir(outputDirectory, { recursive: true });
-    const outputPath = join(outputDirectory, `screenshot-${Date.now()}.png`);
+    const outputPath = join(outputDirectory, `screenshot-${String(Date.now())}.png`);
     const args = ["capture-screenshot", outputPath];
 
     if (mode === "activeWindow") {
@@ -203,6 +205,12 @@ export class WindowsHelperService {
     await execFileAsync(helperPath, args, {
       windowsHide: true
     });
+
+    await retainLatestFiles(
+      outputDirectory,
+      retainedScreenshotCount,
+      (fileName) => /^screenshot-\d+\.png$/i.test(fileName)
+    );
 
     return {
       path: outputPath,
@@ -302,7 +310,7 @@ export class WindowsHelperService {
 
   async startRecording(
     options: NativeRecordingOptions,
-    onLevel?: (level: NativeRecordingLevel) => void
+    onLevel?: (level: NativeRecordingLevel, pcm16Chunk?: Uint8Array) => void
   ): Promise<void> {
     if (this.recording) {
       throw new Error("Native recording is already active.");
@@ -318,7 +326,7 @@ export class WindowsHelperService {
 
     const outputDirectory = join(app.getPath("userData"), "native-recordings");
     await mkdir(outputDirectory, { recursive: true });
-    const outputPath = join(outputDirectory, `recording-${Date.now()}.wav`);
+    const outputPath = join(outputDirectory, `recording-${String(Date.now())}.wav`);
     const args = ["record-wav", outputPath];
     const vadModelPath = await this.resolveSileroVadModelPath();
     const captureModeArg = nativeCaptureModeArg(options.captureMode);
@@ -358,14 +366,25 @@ export class WindowsHelperService {
     });
     const stdout: Buffer[] = [];
     const stderr: Buffer[] = [];
+    let stdoutRemainder = "";
 
     child.stdout.on("data", (chunk: Buffer) => {
-      stdout.push(chunk);
-      for (const level of parseRecordingLevelEvents(chunk.toString("utf8"))) {
-        onLevel?.(level);
+      const { complete, remainder } = splitCompleteStdoutLines(`${stdoutRemainder}${chunk.toString("utf8")}`);
+      stdoutRemainder = remainder;
+      stdout.push(Buffer.from(stripRealtimePcm16ChunkEvents(complete)));
+      for (const event of parseRecordingStdoutEvents(complete)) {
+        onLevel?.(event.level, event.pcm16Chunk);
       }
     });
     child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk));
+    child.once("close", () => {
+      const complete = stdoutRemainder;
+      stdoutRemainder = "";
+      stdout.push(Buffer.from(stripRealtimePcm16ChunkEvents(complete)));
+      for (const event of parseRecordingStdoutEvents(complete)) {
+        onLevel?.(event.level, event.pcm16Chunk);
+      }
+    });
     child.once("exit", (code) => {
       if (this.recording?.child === child && code !== null && code !== 0) {
         this.recording = null;
@@ -382,7 +401,7 @@ export class WindowsHelperService {
     try {
       await waitForHelperStartup(child, stdout, stderr);
     } catch (error) {
-      if (this.recording?.child === child) {
+      if (this.recording.child === child) {
         this.recording = null;
       }
 
@@ -396,7 +415,7 @@ export class WindowsHelperService {
         return this.startRecording({
           ...options,
           captureMode: "sharedCapture"
-        });
+        }, onLevel);
       }
 
       throw error;
@@ -424,7 +443,7 @@ export class WindowsHelperService {
         const message =
           Buffer.concat(recording.stdout).toString("utf8").trim() ||
           Buffer.concat(recording.stderr).toString("utf8").trim() ||
-          `Windows helper exited with code ${code}.`;
+          `Windows helper exited with code ${String(code)}.`;
 
         reject(new Error(message));
       });
@@ -538,16 +557,78 @@ function parseNativeRecordingMetadata(stdout: string): Omit<NativeRecordingResul
   };
 }
 
-function parseRecordingLevelEvents(stdout: string): NativeRecordingLevel[] {
+function splitCompleteStdoutLines(stdout: string): { complete: string; remainder: string } {
+  const lastNewlineIndex = Math.max(stdout.lastIndexOf("\n"), stdout.lastIndexOf("\r"));
+
+  if (lastNewlineIndex < 0) {
+    return { complete: "", remainder: stdout };
+  }
+
+  return {
+    complete: stdout.slice(0, lastNewlineIndex + 1),
+    remainder: stdout.slice(lastNewlineIndex + 1)
+  };
+}
+
+function stripRealtimePcm16ChunkEvents(stdout: string): string {
+  return stdout
+    .split(/\r?\n/)
+    .filter((line) => {
+      try {
+        const parsed = JSON.parse(line) as Record<string, unknown>;
+        return parsed.type !== "realtimePcm16Chunk";
+      } catch {
+        return true;
+      }
+    })
+    .join("\n");
+}
+
+function parseRecordingStdoutEvents(stdout: string): {
+  level: NativeRecordingLevel;
+  pcm16Chunk?: Uint8Array;
+}[] {
   return stdout
     .split(/\r?\n/)
     .map((item) => item.trim())
-    .filter(isRecordingLevelLine)
-    .map((line) => JSON.parse(line) as Record<string, unknown>)
-    .map((parsed) => ({
-      rms: typeof parsed.rms === "number" ? clamp01(parsed.rms) : 0,
-      peak: typeof parsed.peak === "number" ? clamp01(parsed.peak) : 0
-    }));
+    .filter(Boolean)
+    .flatMap((line) => {
+      try {
+        const parsed = JSON.parse(line) as Record<string, unknown>;
+
+        if (parsed.type === "recordingLevel") {
+          return [{
+            level: {
+              rms: typeof parsed.rms === "number" ? clamp01(parsed.rms) : 0,
+              peak: typeof parsed.peak === "number" ? clamp01(parsed.peak) : 0
+            }
+          }];
+        }
+
+        if (
+          parsed.type === "realtimePcm16Chunk" &&
+          parsed.encoding === "pcm16" &&
+          parsed.sampleRateHz === 24000 &&
+          parsed.channelCount === 1 &&
+          typeof parsed.audioBase64 === "string"
+        ) {
+          const pcm16Chunk = new Uint8Array(Buffer.from(parsed.audioBase64, "base64"));
+
+          if (pcm16Chunk.byteLength === 0 || pcm16Chunk.byteLength % 2 !== 0) {
+            return [];
+          }
+
+          return [{
+            level: { rms: 0, peak: 0 },
+            pcm16Chunk
+          }];
+        }
+      } catch {
+        return [];
+      }
+
+      return [];
+    });
 }
 
 function isRecordingLevelLine(line: string): boolean {
@@ -600,7 +681,7 @@ function waitForHelperStartup(
       const message =
         Buffer.concat(stdout).toString("utf8").trim() ||
         Buffer.concat(stderr).toString("utf8").trim() ||
-        `Windows helper exited before recording started with code ${code}.`;
+        `Windows helper exited before recording started with code ${String(code)}.`;
 
       reject(new Error(message));
     };
@@ -641,7 +722,7 @@ function runHelperWithStdin(
       const message =
         Buffer.concat(stdout).toString("utf8").trim() ||
         Buffer.concat(stderr).toString("utf8").trim() ||
-        `Windows helper exited with code ${code}.`;
+        `Windows helper exited with code ${String(code)}.`;
 
       reject(new Error(message));
     });
@@ -681,7 +762,7 @@ function normalizeActiveWindowInfo(value: ActiveWindowInfo): ActiveWindowInfo {
   return {
     ...value,
     bounds: value.bounds ?? null,
-    fullscreen: value.fullscreen === true
+    fullscreen: value.fullscreen
   };
 }
 

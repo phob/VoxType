@@ -2,9 +2,11 @@
 
 ## Current Decision
 
-Use Whisper as the main ASR engine.
+Use Whisper as the main local ASR engine.
 
-Parakeet V3 should remain a later optional engine because its custom vocabulary and hotword behavior is more runtime-dependent, especially for Windows-friendly ONNX deployments.
+OpenAI Cloud Dictation is the planned opt-in cloud ASR path for users who choose online transcription for higher accuracy or realtime preview. The detailed product, privacy, and integration plan lives in [cloud-dictation.md](cloud-dictation.md).
+
+Parakeet V3 should remain a later optional local engine because its custom vocabulary and hotword behavior is more runtime-dependent, especially for Windows-friendly ONNX deployments.
 
 ## Whisper-First Strategy
 

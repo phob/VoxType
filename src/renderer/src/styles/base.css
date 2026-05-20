@@ -1,0 +1,221 @@
+:root {
+  color: #d7dde7;
+  background: #0a1015;
+  font-family:
+    "Segoe UI Variable Text", "Segoe UI", Inter, ui-sans-serif, system-ui, sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  --windows-accent: #23d6cf;
+  --windows-accent-strong: #168f8b;
+  --windows-bg: #0a1015;
+  --windows-chrome: #0f171d;
+  --windows-sidebar: #0b1218;
+  --windows-panel: #111a22;
+  --windows-panel-raised: #151f28;
+  --windows-field: #0d161d;
+  --windows-border: #334250;
+  --windows-border-muted: #25313b;
+  --windows-text: #f1f4f8;
+  --windows-text-secondary: #d7dde7;
+  --windows-text-muted: #9ca8b6;
+  --windows-control-radius: 4px;
+  --windows-panel-radius: 6px;
+  --winui-switch-track: #232a30;
+  --winui-switch-track-hover: #2d353d;
+  --winui-switch-track-pressed: #353e47;
+  --winui-switch-border: #8c969f;
+  --winui-switch-thumb: #d9dee5;
+  --winui-switch-thumb-checked: #071a1b;
+  --winui-switch-on: #4cc9e8;
+  --winui-switch-on-hover: #62d2ed;
+  --winui-switch-on-pressed: #31add1;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-width: 760px;
+  min-height: 100vh;
+  overflow: hidden;
+  background: var(--windows-bg);
+  scrollbar-color: #4b5b6b #0d161d;
+  scrollbar-width: auto;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0d161d;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 2px solid #0d161d;
+  border-radius: 0;
+  background: #4b5b6b;
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: #6a7888;
+}
+
+::-webkit-scrollbar-corner {
+  background: #0d161d;
+}
+
+body:has(.recording-overlay) {
+  overflow: hidden;
+  min-width: 0;
+  min-height: 0;
+  background: transparent;
+}
+
+.window-titlebar {
+  position: fixed;
+  z-index: 50;
+  top: 0;
+  right: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 38px;
+  padding: 0 0 0 14px;
+  border-bottom: 1px solid var(--windows-border-muted);
+  color: var(--windows-text-secondary);
+  background: var(--windows-chrome);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.03) inset;
+  user-select: none;
+  -webkit-app-region: drag;
+}
+
+.dev-shell .window-titlebar {
+  margin: 0;
+}
+
+.window-titlebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.window-titlebar-mark {
+  width: 24px;
+  height: 24px;
+  border: 1px solid rgb(75 91 107 / 0.48);
+  border-radius: 4px;
+  background: #111a22;
+  object-fit: contain;
+}
+
+.window-controls {
+  display: flex;
+  height: 100%;
+  -webkit-app-region: no-drag;
+}
+
+.window-controls button {
+  width: 46px;
+  height: 100%;
+  min-height: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  color: #e4e9ef;
+  background: transparent;
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.window-controls button .release-icon-svg {
+  width: 17px;
+  height: 17px;
+  margin: auto;
+  stroke-width: 2;
+}
+
+.window-controls button:hover {
+  background: #20262d;
+}
+
+.window-controls .window-close-button:hover {
+  color: #f7f2f2;
+  background: #b84242;
+}
+
+button,
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+button,
+select,
+input,
+textarea {
+  border: 1px solid #313841;
+  border-radius: 4px;
+  color: #d7dce2;
+  background: #171b20;
+}
+
+button {
+  min-height: 28px;
+  padding: 0 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  border-color: #4b5663;
+  background: #20262d;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.45;
+}
+
+input,
+select {
+  min-height: 28px;
+  padding: 0 8px;
+  font-size: 0.78rem;
+}
+
+textarea {
+  width: 100%;
+  min-height: 84px;
+  padding: 8px;
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  resize: vertical;
+}
+
+code,
+pre {
+  font-family: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+}
+
+code {
+  color: #b9c3ce;
+  font-size: 0.76rem;
+}
+
+pre {
+  margin: 0;
+  white-space: pre-wrap;
+}
+

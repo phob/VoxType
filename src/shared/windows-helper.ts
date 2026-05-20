@@ -1,6 +1,7 @@
 import { type OcrPromptContext } from "./ocr-context";
+import { type TranscriptTurn } from "./asr";
 
-export type ActiveWindowInfo = {
+export interface ActiveWindowInfo {
   hwnd: string;
   title: string;
   processId: number;
@@ -15,42 +16,42 @@ export type ActiveWindowInfo = {
     height: number;
   } | null;
   fullscreen: boolean;
-};
+}
 
-export type WindowsHelperStatus = {
+export interface WindowsHelperStatus {
   available: boolean;
   helperPath: string | null;
   helperModifiedAt: string | null;
   helperCreatedAt: string | null;
   helperSizeBytes: number | null;
   error: string | null;
-};
+}
 
 export type ScreenshotCaptureMode = "screen" | "activeWindow";
 
-export type ScreenshotCaptureResult = {
+export interface ScreenshotCaptureResult {
   path: string;
   bytes: Uint8Array;
   capturedAt: string;
   mode: ScreenshotCaptureMode;
-};
+}
 
-export type WindowsMediaOcrLine = {
+export interface WindowsMediaOcrLine {
   text: string;
   confidence: number | null;
   box: [number, number, number, number] | null;
-};
+}
 
-export type WindowsMediaOcrResult = {
+export interface WindowsMediaOcrResult {
   provider: "windowsMediaOcr";
   engine: string;
   imagePath: string;
   text: string;
   lines: WindowsMediaOcrLine[];
   durationMs: number;
-};
+}
 
-export type NativeRecordingOptions = {
+export interface NativeRecordingOptions {
   captureMode: "sharedCapture" | "exclusiveCapturePreferred" | "exclusiveCaptureRequired";
   inputDeviceId: string;
   vadEnabled: boolean;
@@ -58,15 +59,15 @@ export type NativeRecordingOptions = {
   vadPreSpeechPadMs: number;
   vadRedemptionMs: number;
   vadPreservedPauseMs: number;
-};
+}
 
-export type NativeInputDevice = {
+export interface NativeInputDevice {
   id: string;
   name: string;
   isDefault: boolean;
-};
+}
 
-export type NativeRecordingResult = {
+export interface NativeRecordingResult {
   wavBytes: Uint8Array;
   sampleRate: number;
   samples: number;
@@ -74,45 +75,48 @@ export type NativeRecordingResult = {
   vadEnabled: boolean;
   captureMode: "sharedCapture" | "exclusiveCapture";
   speechFrames: number;
-};
+}
 
-export type NativeRecordingLevel = {
+export interface NativeRecordingLevel {
   rms: number;
   peak: number;
-};
+}
 
-export type RecordingOverlayState = {
+export interface RecordingOverlayState {
   visible: boolean;
-  mode: "recording" | "transcribing";
+  mode: "recording" | "transcribing" | "finalizing";
   level: number;
   message: string;
-};
+  cloudProviderLabel?: string;
+  elapsedMs?: number;
+  livePreviewTurns?: TranscriptTurn[];
+}
 
-export type CaptureSessionMuteEntry = {
+export interface CaptureSessionMuteEntry {
   sessionInstanceIdentifier: string;
   processId: number;
   processName: string | null;
   mutedBefore: boolean;
-};
+}
 
-export type CaptureSessionMuteState = {
+export interface CaptureSessionMuteState {
   sessions: CaptureSessionMuteEntry[];
-};
+}
 
-export type DictationHotkeyPayload = {
+export interface DictationHotkeyPayload {
   sessionId: number;
   target: ActiveWindowInfo | null;
   ocrContext: OcrPromptContext | null;
-};
+}
 
-export type DictationOcrContextPayload = {
+export interface DictationOcrContextPayload {
   sessionId: number;
   ocrContext: OcrPromptContext | null;
-};
+}
 
-export type DictationHotkeyState = {
+export interface DictationHotkeyState {
   recording: boolean;
   sessionId: number;
   target: ActiveWindowInfo | null;
   ocrContext: OcrPromptContext | null;
-};
+}

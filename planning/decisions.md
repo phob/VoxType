@@ -2,6 +2,36 @@
 
 Record important decisions here so future sessions do not reopen settled topics without a reason.
 
+## 2026-05-15: Introduce Context Engine As A Separate Layer
+
+Decision:
+
+VoxType should introduce a distinct local Context Engine between raw context sources and transcription output. The Dictionary remains stored user vocabulary and learned corrections, OCR Context remains visible text extracted from the target window or screen, App Profiles remain app-scoped behavior, and the Context Engine ranks those signals into a compact Whisper prompt pack before ASR and applies confidence-scored corrections after ASR.
+
+Reason:
+
+The existing app already has dictionary entries, OCR terms, and per-app profiles, but they mostly coexist instead of cooperating. A named Context Engine gives the next implementation work a clear boundary without pretending Whisper can consume the full dictionary or OCR dump.
+
+## 2026-05-15: Start Context Engine With Post-ASR Corrections
+
+Decision:
+
+The first Context Engine implementation slice should improve post-ASR correction quality before improving prompt ranking.
+
+Reason:
+
+Prompt ranking is useful but constrained by Whisper's small and unreliable prompt budget. Users will feel improvement sooner if VoxType reliably fixes obvious mishearings, spellings, abbreviations, and visible OCR terms after transcription, while recording explanations for why each correction happened.
+
+## 2026-05-15: Auto-Apply Only High-Confidence Context Corrections
+
+Decision:
+
+The first Context Engine correction pass should auto-apply only high-confidence corrections. Medium-confidence candidates should be recorded for diagnostics and future review UI, and low-confidence candidates should be ignored.
+
+Reason:
+
+Wrong automatic replacements are more damaging to trust than missed smart corrections. VoxType should feel conservative and explainable while the correction model matures.
+
 ## 2026-05-09: Beginner-Friendly Windows Product Direction
 
 Decision:

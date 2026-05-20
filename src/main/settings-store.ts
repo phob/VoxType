@@ -23,10 +23,20 @@ export class SettingsStore {
     this.defaults = {
       modelDirectory: join(userDataPath, "models"),
       activeModelId: "small",
+      dictationModeId: "local.balanced",
+      localCustomModelId: "small",
       whisperExecutablePath: "",
       whisperRuntimeBackend: "auto",
       whisperLanguage: "auto",
       whisperPromptOverride: "",
+      cloudDictationConsentAccepted: false,
+      cloudDictationConsentAcceptedAt: null,
+      cloudPromptPackOcrEnabled: false,
+      cloudSessionWarnMs: 5 * 60 * 1000,
+      cloudSessionMaxMs: 10 * 60 * 1000,
+      cloudFileAudioHistoryEnabled: false,
+      realtimeLatencyPreset: "balanced",
+      realtimeVadThresholdOverride: null,
       showWindowHotkey: "CommandOrControl+Shift+Space",
       dictationToggleHotkey: "CommandOrControl+Alt+Space",
       dictationHoldHotkey: "CommandOrControl+Alt+Space",
@@ -77,7 +87,13 @@ export class SettingsStore {
 
   async update(patch: SettingsPatch): Promise<AppSettings> {
     const current = await this.get();
-    const next = sanitizeSettings({ ...current, ...patch }, this.defaults);
+    const consentAcceptedAt =
+      patch.cloudDictationConsentAccepted === true && !current.cloudDictationConsentAccepted
+        ? new Date().toISOString()
+        : patch.cloudDictationConsentAccepted === false
+          ? null
+          : current.cloudDictationConsentAcceptedAt;
+    const next = sanitizeSettings({ ...current, ...patch, cloudDictationConsentAcceptedAt: consentAcceptedAt }, this.defaults);
 
     this.current = next;
     await this.save(next);
@@ -121,6 +137,9 @@ export class SettingsStore {
       | "recordingStopHotkey"
       | "postTranscriptionHotkey"
       | "whisperLanguage"
+      | "dictationModeId"
+      | "forbidCloudDictation"
+      | "cloudPromptPackOcrEnabled"
       | "neverSuspendDictationInFullscreen"
     >
   ): Promise<AppSettings> {
@@ -143,6 +162,9 @@ export class SettingsStore {
               recordingStopHotkey: patch.recordingStopHotkey,
               postTranscriptionHotkey: patch.postTranscriptionHotkey,
               whisperLanguage: patch.whisperLanguage,
+              dictationModeId: patch.dictationModeId,
+              forbidCloudDictation: patch.forbidCloudDictation,
+              cloudPromptPackOcrEnabled: patch.cloudPromptPackOcrEnabled,
               neverSuspendDictationInFullscreen: patch.neverSuspendDictationInFullscreen,
               updatedAt: new Date().toISOString()
             }

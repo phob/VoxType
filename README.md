@@ -54,16 +54,16 @@ Until signing is in place, releases should include checksums so users can verify
 ## Development
 
 ```powershell
-npm install
-npm run build
+bun install
+bun run build
 ```
 
 Useful scripts:
 
-- `npm run dev`: start the Electron development app.
-- `npm run build`: typecheck and build the Electron app.
-- `npm run build:native:release`: build the Rust Windows helper.
-- `npm run release:win`: build the native helper and Windows installer.
+- `bun run dev`: start the Electron development app.
+- `bun run build`: typecheck and build the Electron app.
+- `bun run build:native:release`: build the Rust Windows helper.
+- `bun run release:win`: build the native helper and Windows installer.
 
 ## Project Notes
 

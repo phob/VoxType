@@ -43,11 +43,11 @@ export class ModelService {
     const response = await fetch(model.url);
 
     if (!response.ok || !response.body) {
-      throw new Error(`Failed to download ${model.name}: ${response.status} ${response.statusText}`);
+      throw new Error(`Failed to download ${model.name}: ${String(response.status)} ${response.statusText}`);
     }
 
     await pipeline(
-      Readable.fromWeb(response.body as ReadableStream<Uint8Array>),
+      Readable.fromWeb(response.body as unknown as Parameters<typeof Readable.fromWeb>[0]),
       createWriteStream(temporaryDestination)
     );
     await rm(destination, { force: true });

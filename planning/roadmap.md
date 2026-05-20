@@ -7,7 +7,7 @@
 - Decide native helper language. Done: Rust.
 - Decide first Whisper runtime and model download source.
 - Define minimal app UX. Initial shell created with a status screen and planned capability cards.
-- Add CI build checks. Done: GitHub Actions runs `npm ci` and `npm run build`.
+- Add CI build checks. Done: GitHub Actions runs `bun install --frozen-lockfile` and `bun run build`.
 
 ## Phase 1: MVP Dictation
 
@@ -149,12 +149,14 @@ Features:
 - GPU acceleration as the first Phase 5 priority. Initial implementation adds automatic GPU/VRAM detection, per-model fit checks, CPU/CUDA managed runtime downloads, backend preference selection, and Vulkan custom-runtime support.
 - Release-ready UI separation: the dense current interface is now treated as a developer UI behind a developer/debug switch, while the default app surface should become a simple end-user dictation home.
 - First-run NVIDIA setup: the developer UI now has a CUDA setup action that detects a capable NVIDIA GPU, chooses CUDA 12.4 or CUDA 11.8 from the driver version, installs the managed `whisper.cpp` runtime, and keeps backend selection on `auto`.
+- Context Engine as the next dictionary/context integration layer. First slice: improve post-ASR correction quality with correction candidates, confidence scores, safe auto-apply rules, and correction explanations in history. Later slices should reuse that scoring model for prompt-pack ranking.
 - Dictation modes.
 - Confidence review.
 - Local formatting engine.
 - Transcript consistency layer for stable punctuation, casing, spacing, and style level.
 - Separate raw ASR text from final inserted text in transcript history.
 - Better model manager.
+- Opt-in OpenAI Cloud Dictation through provider-backed Dictation Modes, with detailed scope in [cloud-dictation.md](cloud-dictation.md).
 - Offline mode.
 - Auto-start with Windows.
 - Signed installer.
@@ -169,5 +171,6 @@ Possible additions:
 
 - Parakeet V3 or newer Parakeet model.
 - Faster Whisper/CTranslate2.
+- Additional cloud ASR providers after the OpenAI Cloud Dictation path is validated.
 - Additional OCR engines only if Windows Media OCR proves insufficient.
 - Local LLM formatting provider.

@@ -22,7 +22,6 @@ Use a T3-style stable release workflow, simplified for VoxType:
 2. CI validates the version and checks that the tag does not already exist.
 3. `scripts/sync-release-version.mjs` updates:
    - `package.json`
-   - `package-lock.json`
    - `native/windows-helper/Cargo.toml`
    - `native/windows-helper/Cargo.lock`
 4. CI builds the app to catch version-sync or TypeScript failures.
@@ -67,7 +66,7 @@ Commit messages no longer need to follow Conventional Commits for the release sy
 
 The Electron package version and Rust Windows helper version should stay aligned for public releases.
 
-The release workflow and local `npm run release:version -- <version>` script update all version files together. The release tag should point at the commit that contains the final synchronized version values.
+The release workflow and local `bun run release:version -- <version>` script update all version files together. The release tag should point at the commit that contains the final synchronized version values.
 
 ## Release Artifact Automation
 
@@ -91,7 +90,7 @@ The non-developer sidebar footer doubles as the update affordance:
 - `Update` appears in orange when the latest GitHub Release has a newer `VoxType-Setup-*-x64.exe` asset.
 - Automatic update checks are user-configurable. When enabled, VoxType checks at startup and then about once per hour.
 - If the startup check finds an update, VoxType shows the main window even when Start minimized is enabled. Periodic checks after startup should not force the window open.
-- Clicking `Update` downloads the installer into the app's user-data update cache, starts the normal one-click NSIS installer, and immediately quits the running VoxType process so the installer can replace the executable. The installer should use its normal finish behavior, including launching VoxType after installation.
+- Clicking `Update` downloads the installer into the app's user-data update cache, starts the normal one-click NSIS installer, and immediately quits the running VoxType process so the installer can replace the executable. The installer should use its normal finish behavior, including launching VoxType after installation. On the next VoxType startup, the update cache is deleted because the installer artifact is no longer needed.
 
 This first updater path intentionally uses the same GitHub Release artifacts produced by the stable release workflow instead of a separate update feed.
 

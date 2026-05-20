@@ -4,6 +4,7 @@ version = "0.3.7"
 edition = "2021"
 
 [dependencies]
+base64 = "0.22"
 cpal = "0.16"
 hound = "3.5"
 image = { version = "0.25", default-features = false, features = ["png"] }

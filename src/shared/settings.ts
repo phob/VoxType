@@ -13,7 +13,10 @@ export const recorderCaptureModes = [
   "exclusiveCaptureRequired"
 ] as const;
 export const ocrTermModes = ["strict", "balanced", "broad"] as const;
+export const realtimeLatencyPresets = ["fast", "balanced", "accurate"] as const;
 export const whisperRuntimePreferences = ["auto", "cpu", "cuda", "vulkan"] as const;
+import { isDictationModeId, type DictationModeId } from "./asr";
+
 export const whisperLanguages = [
   "auto",
   "en",
@@ -36,11 +39,12 @@ export type WritingStyle = (typeof writingStyles)[number];
 export type RecordingCoordinationMode = (typeof recordingCoordinationModes)[number];
 export type RecorderCaptureMode = (typeof recorderCaptureModes)[number];
 export type OcrTermMode = (typeof ocrTermModes)[number];
+export type RealtimeLatencyPreset = (typeof realtimeLatencyPresets)[number];
 export type WhisperRuntimePreference = (typeof whisperRuntimePreferences)[number];
 export type WhisperLanguage = (typeof whisperLanguages)[number];
 export type ProfileWhisperLanguage = (typeof profileWhisperLanguages)[number];
 
-export type AppProfile = {
+export interface AppProfile {
   id: string;
   displayName: string;
   processName: string;
@@ -52,18 +56,31 @@ export type AppProfile = {
   recordingStopHotkey: string;
   postTranscriptionHotkey: string;
   whisperLanguage: ProfileWhisperLanguage;
+  dictationModeId: DictationModeId | "inherit";
+  forbidCloudDictation: boolean;
+  cloudPromptPackOcrEnabled: "inherit" | boolean;
   neverSuspendDictationInFullscreen: boolean;
   createdAt: string;
   updatedAt: string;
-};
+}
 
-export type AppSettings = {
+export interface AppSettings {
   modelDirectory: string;
   activeModelId: string;
+  dictationModeId: DictationModeId;
+  localCustomModelId: string;
   whisperExecutablePath: string;
   whisperRuntimeBackend: WhisperRuntimePreference;
   whisperLanguage: WhisperLanguage;
   whisperPromptOverride: string;
+  cloudDictationConsentAccepted: boolean;
+  cloudDictationConsentAcceptedAt: string | null;
+  cloudPromptPackOcrEnabled: boolean;
+  cloudSessionWarnMs: number;
+  cloudSessionMaxMs: number | null;
+  cloudFileAudioHistoryEnabled: boolean;
+  realtimeLatencyPreset: RealtimeLatencyPreset;
+  realtimeVadThresholdOverride: number | null;
   showWindowHotkey: string;
   dictationToggleHotkey: string;
   dictationHoldHotkey: string;
@@ -93,7 +110,7 @@ export type AppSettings = {
   remoteTypingDelayMs: number;
   remoteTypingChunkSize: number;
   appProfiles: AppProfile[];
-};
+}
 
 export type SettingsPatch = Partial<AppSettings>;
 
@@ -120,6 +137,10 @@ export function isRecorderCaptureMode(value: unknown): value is RecorderCaptureM
 
 export function isOcrTermMode(value: unknown): value is OcrTermMode {
   return typeof value === "string" && ocrTermModes.includes(value as OcrTermMode);
+}
+
+export function isRealtimeLatencyPreset(value: unknown): value is RealtimeLatencyPreset {
+  return typeof value === "string" && realtimeLatencyPresets.includes(value as RealtimeLatencyPreset);
 }
 
 export function isWhisperRuntimePreference(value: unknown): value is WhisperRuntimePreference {
@@ -155,6 +176,13 @@ export function sanitizeSettings(
       typeof input.activeModelId === "string" && input.activeModelId.trim().length > 0
         ? input.activeModelId
         : defaults.activeModelId,
+    dictationModeId: isDictationModeId(input.dictationModeId)
+      ? input.dictationModeId
+      : defaults.dictationModeId,
+    localCustomModelId:
+      typeof input.localCustomModelId === "string" && input.localCustomModelId.trim().length > 0
+        ? input.localCustomModelId.trim().slice(0, 120)
+        : defaults.localCustomModelId,
     whisperExecutablePath:
       typeof input.whisperExecutablePath === "string"
         ? input.whisperExecutablePath
@@ -169,6 +197,34 @@ export function sanitizeSettings(
       typeof input.whisperPromptOverride === "string"
         ? input.whisperPromptOverride.slice(0, 2000)
         : defaults.whisperPromptOverride,
+    cloudDictationConsentAccepted:
+      typeof input.cloudDictationConsentAccepted === "boolean"
+        ? input.cloudDictationConsentAccepted
+        : defaults.cloudDictationConsentAccepted,
+    cloudDictationConsentAcceptedAt:
+      typeof input.cloudDictationConsentAcceptedAt === "string" && !Number.isNaN(Date.parse(input.cloudDictationConsentAcceptedAt))
+        ? input.cloudDictationConsentAcceptedAt
+        : null,
+    cloudPromptPackOcrEnabled:
+      typeof input.cloudPromptPackOcrEnabled === "boolean"
+        ? input.cloudPromptPackOcrEnabled
+        : defaults.cloudPromptPackOcrEnabled,
+    cloudSessionWarnMs:
+      typeof input.cloudSessionWarnMs === "number" && Number.isFinite(input.cloudSessionWarnMs)
+        ? clamp(Math.round(input.cloudSessionWarnMs), 60_000, 60 * 60_000)
+        : defaults.cloudSessionWarnMs,
+    cloudSessionMaxMs: sanitizeCloudSessionMaxMs(
+      input.cloudSessionMaxMs,
+      input.cloudSessionWarnMs,
+      defaults.cloudSessionMaxMs
+    ),
+    cloudFileAudioHistoryEnabled:
+      typeof input.cloudFileAudioHistoryEnabled === "boolean"
+        ? input.cloudFileAudioHistoryEnabled
+        : defaults.cloudFileAudioHistoryEnabled,
+    realtimeLatencyPreset: isRealtimeLatencyPreset(input.realtimeLatencyPreset)
+      ? input.realtimeLatencyPreset
+      : defaults.realtimeLatencyPreset,
     showWindowHotkey:
       typeof input.showWindowHotkey === "string"
         ? input.showWindowHotkey
@@ -223,6 +279,10 @@ export function sanitizeSettings(
       typeof input.developerModeEnabled === "boolean"
         ? input.developerModeEnabled
         : defaults.developerModeEnabled,
+    realtimeVadThresholdOverride:
+      input.developerModeEnabled === true
+        ? sanitizeRealtimeVadThresholdOverride(input.realtimeVadThresholdOverride)
+        : null,
     suspendDictationHotkeysInFullscreenApps:
       typeof input.suspendDictationHotkeysInFullscreenApps === "boolean"
         ? input.suspendDictationHotkeysInFullscreenApps
@@ -305,6 +365,9 @@ export function createAppProfile(input: {
     recordingStopHotkey: defaults.recordingStopHotkey ?? "",
     postTranscriptionHotkey: "",
     whisperLanguage: defaults.whisperLanguage,
+    dictationModeId: "inherit",
+    forbidCloudDictation: false,
+    cloudPromptPackOcrEnabled: "inherit",
     neverSuspendDictationInFullscreen: false,
     createdAt: now,
     updatedAt: now
@@ -362,6 +425,16 @@ function sanitizeAppProfiles(value: unknown): AppProfile[] {
       whisperLanguage: isProfileWhisperLanguage(item.whisperLanguage)
         ? item.whisperLanguage
         : "inherit",
+      dictationModeId:
+        item.dictationModeId === "inherit" || isDictationModeId(item.dictationModeId)
+          ? item.dictationModeId
+          : "inherit",
+      forbidCloudDictation:
+        typeof item.forbidCloudDictation === "boolean" ? item.forbidCloudDictation : false,
+      cloudPromptPackOcrEnabled:
+        item.cloudPromptPackOcrEnabled === "inherit" || typeof item.cloudPromptPackOcrEnabled === "boolean"
+          ? item.cloudPromptPackOcrEnabled
+          : "inherit",
       neverSuspendDictationInFullscreen:
         typeof item.neverSuspendDictationInFullscreen === "boolean"
           ? item.neverSuspendDictationInFullscreen
@@ -388,6 +461,9 @@ function getProfileDefaults(processName: string): {
   recordingStartHotkey?: string;
   recordingStopHotkey?: string;
   whisperLanguage: ProfileWhisperLanguage;
+  dictationModeId?: DictationModeId | "inherit";
+  forbidCloudDictation?: boolean;
+  cloudPromptPackOcrEnabled?: "inherit" | boolean;
 } {
   if (["chrome.exe", "msedge.exe", "firefox.exe", "brave.exe"].includes(processName)) {
     return {
@@ -531,13 +607,38 @@ function normalizeProcessName(processName: unknown): string {
     return "unknown.exe";
   }
 
-  const fileName = trimmed.split(/[\\\/]/).filter(Boolean).at(-1) ?? trimmed;
+  const fileName = trimmed.split(/[\\/]/).filter(Boolean).at(-1) ?? trimmed;
 
   return fileName.toLowerCase();
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function sanitizeCloudSessionMaxMs(
+  value: unknown,
+  warnValue: unknown,
+  defaultValue: number | null
+): number | null {
+  if (value === null) {
+    return null;
+  }
+
+  if (typeof value !== "number" || !Number.isFinite(value)) {
+    return defaultValue;
+  }
+
+  const warnMs =
+    typeof warnValue === "number" && Number.isFinite(warnValue)
+      ? clamp(Math.round(warnValue), 60_000, 60 * 60_000)
+      : 60_000;
+
+  return clamp(Math.round(value), Math.max(60_000, warnMs), 4 * 60 * 60_000);
+}
+
+function sanitizeRealtimeVadThresholdOverride(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? clamp(value, 0.05, 0.95) : null;
 }
 
 function clamp(value: number, min: number, max: number): number {

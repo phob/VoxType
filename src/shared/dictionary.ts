@@ -1,6 +1,6 @@
 export type DictionaryEntrySource = "user" | "correction" | "ocr";
 
-export type DictionaryEntry = {
+export interface DictionaryEntry {
   id: string;
   preferred: string;
   matches: string[];
@@ -10,7 +10,7 @@ export type DictionaryEntry = {
   enabled: boolean;
   createdAt: string;
   updatedAt: string;
-};
+}
 
 export type DictionaryPatch = Partial<
   Pick<
@@ -45,7 +45,7 @@ export function normalizeDictionaryCreateInput(
   return {
     preferred: input.preferred.trim(),
     matches: uniqueStrings((input.matches ?? []).map((match) => match.trim()).filter(Boolean)),
-    category: input.category?.trim() || "general",
+    category: input.category?.trim() ?? "general",
     appProcessName: normalizeNullableString(input.appProcessName ?? null),
     source: input.source ?? "user",
     enabled: input.enabled ?? true

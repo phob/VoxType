@@ -1,9 +1,22 @@
 # Planning Changelog
 
+## 2026-05-20
+
+- Added a Cloud Dictation implementation status handoff summarizing what is implemented, what is partial, what is missing, and the next realtime debugging milestone.
+- Added the Cloud Dictation implementation status document to the planning index.
+- Clarified the Cloud Dictation release UI: Dictation Mode belongs on Home, while cloud-only setup and safety controls live on a Cloud page hidden by Offline Mode.
+- Added a technical backlog idea to refactor source files over 1,000 lines into deeper renderer, Electron main, and native helper modules.
+- Clarified the renderer refactor shape: `App.tsx` owns lifecycle/action wiring, while release/dev view projections moved behind `app-derived-state.ts` and shared state shape lives in `app-state.ts`.
+
 ## 2026-05-15
 
 - Clarified the native Silero VAD direction around preserving internal thinking pauses up to a cap so resumed speech and first words remain available to Whisper.
 - Added an open question about future VAD presets for natural dictation, low latency, and noisy-room trimming.
+- Added the Context Engine as the next dictionary/context integration layer, with glossary language, architecture placement, and roadmap direction.
+- Sequenced the first Context Engine slice around post-ASR correction quality before prompt ranking.
+- Defined Context Engine correction confidence bands and limited first-version auto-apply behavior to high-confidence corrections.
+- Clarified storage cleanup behavior for managed Whisper runtime archives, OCR screenshots, and in-app update installers.
+- Added startup cleanup planning for disposable Electron cache folders, partial download/temp files, native recording leftovers, and orphaned transcript audio.
 
 ## 2026-05-10
 
@@ -137,7 +150,7 @@
 - Added release and changelog strategy using Conventional Commits plus Release Please as the initial recommendation.
 - Started the basic Electron app scaffold with TypeScript, React, electron-vite, a preload bridge, tray setup, and an initial VoxType status screen.
 - Added concrete Release Please configuration, GitHub Actions workflow, PR template, and contribution notes for consistent public changelogs.
-- Added GitHub CI build checks for `npm ci` and `npm run build`.
+- Added GitHub CI build checks for `bun install --frozen-lockfile` and `bun run build`.
 - Added the first persistent settings foundation with typed settings, main-process JSON storage, preload IPC methods, and a renderer settings panel.
 - Added Release Please troubleshooting note for GitHub Actions pull request permission errors.
 - Completed the first Phase 1 dictation vertical slice: Whisper model catalog/downloads, microphone WAV recording, configured `whisper-cli` transcription, clipboard-ready insertion, global shortcut to show VoxType, and local transcript history.
