@@ -78,6 +78,7 @@ grep_score 6 grep -R "conversation.item.input_audio_transcription.delta" -n src/
 grep_score 6 grep -R "composeFinalText" -n src >/dev/null
 grep_score 6 grep -R "OpenAiRealtimeAsrProvider" -n src >/dev/null
 grep_score 6 grep -R "gpt-realtime-whisper" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "realtime/transcription_sessions" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "Authorization: buildOpenAiRealtimeAuthorizationHeader" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R 'return `Bearer ${apiKey.trim()}`' -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "getApiKey())?.trim()" -n src/main/openai-realtime-asr-provider.ts >/dev/null
@@ -183,6 +184,7 @@ grep_score 6 grep -R "sampleRateHz: 24000" -n src/shared/asr.ts >/dev/null
 grep_score 6 grep -R "OpenAI realtime requires 24 kHz PCM16 mono audio" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "input_audio_transcription" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "type: \"transcription\"" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "transcription_session.update" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "commitAudioAndWaitForFinalTranscript" -n src/main src/shared >/dev/null
 grep_score 6 bash -c 'awk "/commitAudioAndWaitForFinalTranscript/,/const initialFinalTurnCount/" src/main/openai-realtime-asr-provider.ts | grep "this.throwIfRealtimeFailed"'
 grep_score 6 grep -R "markProvisionalTurnsAsFallback" -n src/main/openai-realtime-asr-provider.ts >/dev/null
@@ -211,7 +213,7 @@ grep_score 6 bash -c 'awk "/private async openSession/,/await new Promise/" src/
 grep_score 6 bash -c '! grep -R "payload.type === \"session.updated\" || payload.type === \"session.created\"" -n src/main/openai-realtime-asr-provider.ts'
 grep_score 6 grep -R "OpenAI realtime session closed before session configuration completed" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "OpenAI realtime session configuration did not complete before the pre-connection buffer expired" -n src/main/openai-realtime-asr-provider.ts >/dev/null
-grep_score 6 grep -R "OpenAI realtime session.update was not acknowledged before the pre-connection buffer expired" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "OpenAI realtime transcription_session.update was not acknowledged before the pre-connection buffer expired" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "this.socket === socket" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "await session.finalize" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "appendRealtimePcm16AudioSafely" -n src/main/index.ts >/dev/null

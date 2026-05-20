@@ -10,7 +10,7 @@ import { getOpenAiRealtimeTranscriptionDelay } from "../shared/realtime-latency"
 import { TranscriptTurnAccumulator } from "../shared/transcript-turns";
 import { OpenAiCredentialStore } from "./openai-credential-store";
 
-const OPENAI_REALTIME_URL = `wss://api.openai.com/v1/realtime?model=${OPENAI_REALTIME_WHISPER_MODEL_ID}`;
+const OPENAI_REALTIME_URL = `wss://api.openai.com/v1/realtime/transcription_sessions?model=${OPENAI_REALTIME_WHISPER_MODEL_ID}`;
 
 type NodeWebSocketInit = {
   headers: Record<string, string>;
@@ -150,7 +150,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
         socket.close();
         const error = this.socket === socket
           ? new Error(this.sessionCreatedSeen
-            ? "OpenAI realtime session.update was not acknowledged before the pre-connection buffer expired."
+            ? "OpenAI realtime transcription_session.update was not acknowledged before the pre-connection buffer expired."
             : "OpenAI realtime session configuration did not complete before the pre-connection buffer expired.")
           : new Error("OpenAI realtime session did not connect before the pre-connection buffer expired.");
 
@@ -367,7 +367,7 @@ function buildSessionUpdate(
   const languageHint = getProviderLanguageHint("openai", language);
 
   return {
-    type: "session.update",
+    type: "transcription_session.update",
     session: {
       type: "transcription",
       audio: {
