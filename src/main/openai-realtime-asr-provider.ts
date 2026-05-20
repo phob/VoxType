@@ -428,6 +428,7 @@ function buildSessionUpdate(
   vadThresholdOverride: StreamingAsrRequest["vadThresholdOverride"]
 ): unknown {
   const languageHint = getProviderLanguageHint("openai", language);
+  const promptText = prompt?.trim();
   const turnDetection = getOpenAiRealtimeVadConfig(latencyPreset, vadThresholdOverride);
 
   return {
@@ -442,7 +443,7 @@ function buildSessionUpdate(
           },
           transcription: {
             model: OPENAI_REALTIME_WHISPER_MODEL_ID,
-            prompt: prompt?.trim() || undefined,
+            prompt: promptText && promptText.length > 0 ? promptText : undefined,
             language: languageHint.parameterValue ?? undefined,
             delay: getOpenAiRealtimeTranscriptionDelay(latencyPreset)
           },
