@@ -12,6 +12,10 @@ import { OpenAiCredentialStore } from "./openai-credential-store";
 
 const OPENAI_REALTIME_URL = `wss://api.openai.com/v1/realtime?model=${OPENAI_REALTIME_WHISPER_MODEL_ID}`;
 
+type NodeWebSocketInit = {
+  headers: Record<string, string>;
+};
+
 export type RealtimePreviewCallback = (turns: TranscriptTurn[]) => void;
 export type RealtimeErrorCallback = (error: Error) => void;
 
@@ -132,7 +136,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
         headers: {
           Authorization: `Bearer ${apiKey}`
         }
-      } as unknown as string | string[]);
+      } as NodeWebSocketInit);
       const timeout = setTimeout(() => {
         socket.close();
         const error = this.socket === socket

@@ -79,6 +79,8 @@ grep_score 6 grep -R "composeFinalText" -n src >/dev/null
 grep_score 6 grep -R "OpenAiRealtimeAsrProvider" -n src >/dev/null
 grep_score 6 grep -R "gpt-realtime-whisper" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "Authorization:.*Bearer" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "type NodeWebSocketInit" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 bash -c '! grep -R "as unknown as string" -n src/main/openai-realtime-asr-provider.ts'
 grep_score 6 bash -c '! grep -R "openai-beta.realtime-v1\|openai-insecure-api-key" -n src/main/openai-realtime-asr-provider.ts'
 grep_score 6 bash -c '! grep -R "realtimePromptPack" -n src/main/index.ts'
 grep_score 6 grep -R "activeRealtimeCloudSession.start()" -n src/main/index.ts >/dev/null
