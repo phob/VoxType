@@ -11,6 +11,7 @@ import { TranscriptTurnAccumulator } from "../shared/transcript-turns";
 import { OpenAiCredentialStore } from "./openai-credential-store";
 
 const OPENAI_REALTIME_URL = `wss://api.openai.com/v1/realtime/transcription_sessions?model=${OPENAI_REALTIME_WHISPER_MODEL_ID}`;
+const OPENAI_REALTIME_MAX_APPEND_BYTES = 15 * 1024 * 1024;
 
 type NodeWebSocketInit = {
   headers: Record<string, string>;
@@ -65,6 +66,10 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
   appendPcm16Audio(pcm16Audio: Uint8Array): void {
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
       throw new Error("OpenAI realtime session is not connected.");
+    }
+
+    if (pcm16Audio.byteLength > OPENAI_REALTIME_MAX_APPEND_BYTES) {
+      throw new Error("OpenAI realtime PCM16 audio chunks must be 15 MB or smaller.");
     }
 
     this.socket.send(JSON.stringify({
