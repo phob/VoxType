@@ -175,6 +175,7 @@ grep_score 6 grep -R "local\.balanced" -n src/shared/cloud-status.ts src/main/tr
 grep_score 6 grep -R "dictationModeSettingsPatch" -n src/renderer >/dev/null
 grep_score 6 grep -R "activeModelId: mode.modelId" -n src/renderer >/dev/null
 grep_score 6 grep -R "appendPcm16Audio" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 bash -c 'awk "/appendPcm16Audio/,/if \(!this.socket/" src/main/openai-realtime-asr-provider.ts | grep "this.throwIfRealtimeFailed"'
 grep_score 6 grep -R "input_audio_buffer.append" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "OPENAI_REALTIME_MAX_APPEND_BYTES" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "15 MB or smaller" -n src/main/openai-realtime-asr-provider.ts >/dev/null

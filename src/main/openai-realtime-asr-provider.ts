@@ -64,6 +64,8 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
   }
 
   appendPcm16Audio(pcm16Audio: Uint8Array): void {
+    this.throwIfRealtimeFailed();
+
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
       throw new Error("OpenAI realtime session is not connected.");
     }
