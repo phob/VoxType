@@ -235,6 +235,14 @@ function appendRealtimeFallbackWavAudio(
 ): void {
   realtimeAudioBuffer.appendFallbackWav(session, wavBytes);
 }
+function resolveProfileWhisperLanguage(
+  settings: AppSettings,
+  profile: AppProfile | null
+): AppSettings["whisperLanguage"] {
+  return profile?.whisperLanguage && profile.whisperLanguage !== "inherit"
+    ? profile.whisperLanguage
+    : settings.whisperLanguage;
+}
 function startAutomaticUpdateChecks(settings: AppSettings): void {
   stopAutomaticUpdateChecks();
   if (!settings.automaticUpdateChecksEnabled) {
@@ -746,7 +754,12 @@ ipcMain.handle(
     }
     cancelActiveRealtimeCloudSession("Realtime Cloud Dictation session replaced by a new recording.");
     lastRealtimeCloudSessionError = null;
-    activeRealtimeCloudSession = new RealtimeCloudSession(openAiCredentialStore, settings, updateOverlay);
+    activeRealtimeCloudSession = new RealtimeCloudSession(
+      openAiCredentialStore,
+      settings,
+      resolveProfileWhisperLanguage(settings, profile),
+      updateOverlay
+    );
     activeRealtimeCloudProcessName = processName;
     const pendingAudioError = drainPendingRealtimePcm16Audio();
     if (pendingAudioError) {
@@ -814,14 +827,13 @@ ipcMain.handle("transcription:realtime-finalize", async (_event, fallbackWavByte
     });
   }
   try {
-    const settings = await settingsStore.get();
     return await realtimeCloudHistoryService.save({
       mode,
       turns: snapshot.turns,
       startedAtMs: snapshot.startedAtMs,
       endedAtMs: Date.now(),
       processName,
-      language: settings.whisperLanguage
+      language: snapshot.language
     });
   } catch (error) {
     updateOverlay({

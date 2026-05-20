@@ -415,7 +415,7 @@ export class WindowsHelperService {
         return this.startRecording({
           ...options,
           captureMode: "sharedCapture"
-        });
+        }, onLevel);
       }
 
       throw error;

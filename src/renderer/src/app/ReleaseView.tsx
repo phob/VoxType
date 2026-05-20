@@ -23,10 +23,20 @@ import { whisperLanguageOptions, type ReleaseModelFilter, type ReleaseTab } from
 import { ReleaseCloudSection } from "./ReleaseCloudSection";
 import { ReleaseProfilesSection } from "./ReleaseProfilesSection";
 import { ReleaseDictionarySection } from "./ReleaseDictionarySection";
-import { type ReadyAppViewProps } from "./app-types";
+import { type ReadyAppViewProps, type SetupStep } from "./app-types";
 
 export function ReleaseView(props: ReadyAppViewProps): ReactElement {
-  const { activeDictationMode, activeModel, activeProviderLanguageHint, activeRuntimeLabel, appStatus, busyMessage, captureHotkey, capturingHotkey, cleanupHistory, clearHotkey, cloudModeSelectionReady, confirmingDeleteModelId, copyTranscript, deleteModel, dictationModeSettingsPatch, downloadModel, error, exactLocalModelSettingsPatch, handleUpdateButtonClick, insertTranscript, isDeveloperBuild, manualUpdateCooldownSeconds, playingTranscriptId, playTranscriptAudio, readinessDetail, readinessTitle, readyToDictate, realtimeModeSelectionReady, recording, releaseModelFilter, releaseModels, releaseTab, releaseTooltip, retranscribingTranscriptId, setReleaseModelFilter, setReleaseTab, setReleaseTooltip, setupSteps, state, transcribeSavedTranscript, updateButtonDisabled, updateButtonLabel, updateSettings, updateStatus, version } = props;
+  const { activeDictationMode, activeModel, activeProviderLanguageHint, activeRuntimeLabel, appStatus, busyMessage, captureHotkey, capturingHotkey, clearHotkey, cloudModeSelectionReady, confirmingDeleteModelId, copyTranscript, deleteModel, dictationModeSettingsPatch, downloadModel, error, exactLocalModelSettingsPatch, handleUpdateButtonClick, insertTranscript, isDeveloperBuild, manualUpdateCooldownSeconds, playingTranscriptId, playTranscriptAudio, readinessDetail, readinessTitle, readyToDictate, realtimeModeSelectionReady, recording, releaseModelFilter, releaseModels, releaseTab, releaseTooltip, retranscribingTranscriptId, setReleaseModelFilter, setReleaseTab, setReleaseTooltip, setupSteps, state, transcribeSavedTranscript, updateButtonDisabled, updateButtonLabel, updateSettings, updateStatus, version } = props;
+  const incompleteSetupSteps = setupSteps.filter((step: SetupStep) => !step.ready);
+  const readinessPanelClassName = [
+    "release-panel",
+    "release-readiness-panel",
+    readyToDictate ? "ready" : "needs-setup",
+    incompleteSetupSteps.length ? null : "no-checklist"
+  ]
+    .filter(Boolean)
+    .join(" ");
+
     return (
       <main className="app-shell release-shell">
         <WindowTitleBar title="VoxType" />
@@ -56,6 +66,18 @@ export function ReleaseView(props: ReadyAppViewProps): ReactElement {
             ))}
           </nav>
           <div className="release-sidebar-bottom">
+            {isDeveloperBuild ? (
+              <button
+                className="release-developer-link"
+                onClick={() => void updateSettings({ developerModeEnabled: true })}
+                type="button"
+              >
+                <span className="release-nav-icon" aria-hidden="true">
+                  <ReleaseIcon name="code" decorative />
+                </span>
+                <span>Developer</span>
+              </button>
+            ) : null}
             <button
               className={
                 releaseTab === "settings" ? "release-settings-link active" : "release-settings-link"
@@ -124,23 +146,6 @@ export function ReleaseView(props: ReadyAppViewProps): ReactElement {
             setReleaseTooltip(null);
           }}
         >
-          <header className="release-hero">
-            <div className="release-hero-copy">
-              <h1>VoxType</h1>
-              <p>Local dictation for Windows</p>
-            </div>
-            {isDeveloperBuild ? (
-              <button
-                className="developer-button"
-                onClick={() => void updateSettings({ developerModeEnabled: true })}
-                type="button"
-              >
-                <ReleaseIcon name="code" decorative />
-                <span>Developer</span>
-              </button>
-            ) : null}
-          </header>
-
           {error ? (
             <div className="inline-error release-error">
               <code>error</code>
@@ -166,13 +171,7 @@ export function ReleaseView(props: ReadyAppViewProps): ReactElement {
 
           {releaseTab === "general" ? (
             <div className="release-home-stack">
-            <section
-              className={
-                readyToDictate
-                  ? "release-panel release-readiness-panel ready"
-                  : "release-panel release-readiness-panel needs-setup"
-              }
-            >
+            <section className={readinessPanelClassName}>
               <div className="readiness-main">
                 <span className="readiness-icon" aria-hidden="true">
                   <ReleaseIcon name={readyToDictate ? "shield" : "bolt"} decorative />
@@ -182,22 +181,24 @@ export function ReleaseView(props: ReadyAppViewProps): ReactElement {
                   <p>{readinessDetail}</p>
                 </div>
               </div>
-              <div className="readiness-steps" aria-label="Setup checklist">
-                {setupSteps.map((step: { id: string; label: string; detail: string; ready: boolean; tab: ReleaseTab }) => (
-                  <button
-                    className={step.ready ? "ready" : "needs-setup"}
-                    key={step.id}
-                    onClick={() => { setReleaseTab(step.tab); }}
-                    type="button"
-                  >
-                    <span className="step-dot" aria-hidden="true" />
-                    <span>
-                      <strong>{step.label}</strong>
-                      <small>{step.detail}</small>
-                    </span>
-                  </button>
-                ))}
-              </div>
+              {incompleteSetupSteps.length ? (
+                <div className="readiness-steps" aria-label="Setup checklist">
+                  {incompleteSetupSteps.map((step: SetupStep) => (
+                    <button
+                      className="needs-setup"
+                      key={step.id}
+                      onClick={() => { setReleaseTab(step.tab); }}
+                      type="button"
+                    >
+                      <span className="step-dot" aria-hidden="true" />
+                      <span>
+                        <strong>{step.label}</strong>
+                        <small>{step.detail}</small>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              ) : null}
             </section>
             <section className="release-panel release-summary-panel">
               <dl className="home-summary">
@@ -307,7 +308,13 @@ export function ReleaseView(props: ReadyAppViewProps): ReactElement {
                       <p>{entry.text}</p>
                       <small>{entry.providerId === "openai" ? "Cloud Dictation" : "Local dictation"}{entry.languageHint ? ` · ${entry.languageHint}` : " · auto"}</small>
                       <time>{formatRelativeTimestamp(entry.createdAt)}</time>
-                      <button aria-label="Transcript actions" type="button">
+                      <button
+                        aria-label="View transcript actions"
+                        data-tooltip="View actions in History"
+                        onClick={() => { setReleaseTab("history"); }}
+                        title="View actions in History"
+                        type="button"
+                      >
                         <MoreVertical aria-hidden="true" className="release-icon-svg" />
                       </button>
                     </article>
@@ -584,23 +591,13 @@ export function ReleaseView(props: ReadyAppViewProps): ReactElement {
         <ReleaseDictionarySection {...props} />
         {releaseTab === "history" ? (
           <section className="release-panel release-scroll-panel">
-            <div className="release-panel-heading">
-              <div className="release-panel-title">
-                <ReleaseIcon name="history" decorative />
-                <h2>Latest Transcriptions</h2>
-              </div>
-              <button
-                className="release-secondary-button"
-                disabled={state.history.length === 0}
-                onClick={() => void cleanupHistory()}
-                type="button"
-              >
-                Cleanup
-              </button>
+            <div className="release-panel-title">
+              <ReleaseIcon name="history" decorative />
+              <h2>Latest Transcriptions</h2>
             </div>
             <div className="history-list">
               {state.history.length ? (
-                state.history.slice(0, 10).map((entry: TranscriptEntry) => (
+                state.history.map((entry: TranscriptEntry) => (
                   <article className="history-row" key={entry.id}>
                     <div>
                       <strong>{formatTimestamp(entry.createdAt)}</strong>

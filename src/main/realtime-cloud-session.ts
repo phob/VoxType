@@ -4,7 +4,7 @@ import {
   type DictationMode,
   type TranscriptTurn
 } from "../shared/asr";
-import { type AppSettings } from "../shared/settings";
+import { type AppSettings, type WhisperLanguage } from "../shared/settings";
 import { type RecordingOverlayState } from "../shared/windows-helper";
 import {
   assertCloudDictationLogIsMetadataOnly,
@@ -15,6 +15,7 @@ import { OpenAiRealtimeAsrProvider } from "./openai-realtime-asr-provider";
 
 export interface RealtimeCloudSessionSnapshot {
   startedAtMs: number;
+  language: WhisperLanguage;
   turns: TranscriptTurn[];
   preConnectionDroppedBytes: number;
 }
@@ -46,6 +47,7 @@ export class RealtimeCloudSession {
   constructor(
     credentials: OpenAiCredentialStore,
     private readonly settings: AppSettings,
+    private readonly language: WhisperLanguage,
     private readonly updateOverlay: (state: Partial<RecordingOverlayState>) => void
   ) {
     this.mode = getDictationMode("openai.realtime");
@@ -81,7 +83,7 @@ export class RealtimeCloudSession {
 
     await this.provider.startStreaming({
       mode: this.mode,
-      language: this.settings.whisperLanguage,
+      language: this.language,
       audioConfig: openAiRealtimeAudioConfig,
       latencyPreset: this.settings.realtimeLatencyPreset
     });
@@ -116,10 +118,13 @@ export class RealtimeCloudSession {
         status: "completed"
       });
       assertCloudDictationLogIsMetadataOnly(completedLogEntry);
-      await this.provider.commitAudioAndWaitForFinalTranscript();
-      this.provider.stop("Realtime Cloud Dictation stopped after final transcript processing.", {
-        preserveLastError: true
-      });
+      try {
+        await this.provider.commitAudioAndWaitForFinalTranscript();
+      } finally {
+        this.provider.stop("Realtime Cloud Dictation stopped after final transcript processing.", {
+          preserveLastError: true
+        });
+      }
     }
 
     return this.snapshot();
@@ -180,6 +185,7 @@ export class RealtimeCloudSession {
   private snapshot(): RealtimeCloudSessionSnapshot {
     return {
       startedAtMs: this.startedAtMs,
+      language: this.language,
       turns: this.turns,
       preConnectionDroppedBytes: this.preConnectionDroppedBytes
     };
