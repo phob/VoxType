@@ -475,11 +475,14 @@ export function RecordingOverlay({ state }: { state: RecordingOverlayState }): R
         ? "Finalizing"
         : state.cloudProviderLabel ?? "Transcribing locally";
   const previewTurns = state.livePreviewTurns?.slice(-5) ?? [];
+  const hasPreviewText = previewTurns.some((turn) =>
+    Boolean((turn.finalText ?? turn.provisionalText ?? "").trim())
+  );
   const elapsedLabel =
     typeof state.elapsedMs === "number" ? formatElapsedCloudSession(state.elapsedMs) : null;
 
   return (
-    <main className="recording-overlay" aria-label={statusLabel}>
+    <main className={`recording-overlay${hasPreviewText ? " recording-overlay-live" : ""}`} aria-label={statusLabel}>
       {state.mode === "recording" ? (
         <>
           <span className="overlay-status-dot" aria-hidden="true" />
@@ -503,14 +506,21 @@ export function RecordingOverlay({ state }: { state: RecordingOverlayState }): R
 }
 
 export function LivePreview({ turns }: { turns: NonNullable<RecordingOverlayState["livePreviewTurns"]> }): ReactElement {
+  const visibleTurns = turns
+    .map((turn) => ({
+      ...turn,
+      text: (turn.finalText ?? turn.provisionalText ?? "").trim()
+    }))
+    .filter((turn) => turn.text.length > 0);
+
   return (
     <div className="overlay-live-preview" aria-label="Live Preview">
-      {turns.map((turn) => (
+      {visibleTurns.map((turn) => (
         <p
           className={turn.status === "provisional" ? "overlay-preview-provisional" : "overlay-preview-final"}
           key={turn.providerItemId}
         >
-          {turn.finalText ?? turn.provisionalText}
+          {turn.text}
         </p>
       ))}
     </div>

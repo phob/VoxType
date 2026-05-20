@@ -360,6 +360,16 @@
     0 1px 0 rgb(255 255 255 / 0.04) inset;
 }
 
+.recording-overlay-live {
+  align-content: flex-start;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  width: 520px;
+  min-height: 180px;
+  padding: 10px 12px 12px;
+  border-color: rgb(35 214 207 / 0.5);
+}
+
 .overlay-meter-canvas {
   display: block;
   width: 74px;
@@ -388,6 +398,12 @@
   white-space: nowrap;
 }
 
+.recording-overlay-live .overlay-status-label {
+  min-width: auto;
+  max-width: 370px;
+  line-height: 1.2;
+}
+
 .overlay-transcribing {
   display: flex;
   align-items: center;
@@ -406,8 +422,8 @@
   display: flex;
   flex: 1 0 100%;
   flex-direction: column;
-  gap: 2px;
-  max-height: 5.4em;
+  gap: 6px;
+  max-height: 132px;
   overflow: hidden;
   padding-top: 3px;
   color: #d7dde7;
@@ -415,11 +431,21 @@
   line-height: 1.08;
 }
 
+.recording-overlay-live .overlay-live-preview {
+  margin-top: 2px;
+  padding-top: 8px;
+  border-top: 1px solid rgb(75 91 107 / 0.46);
+  font-size: 0.86rem;
+  line-height: 1.35;
+}
+
 .overlay-live-preview p {
   overflow: hidden;
   margin: 0;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow-wrap: anywhere;
 }
 
 .overlay-preview-provisional {

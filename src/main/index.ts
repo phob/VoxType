@@ -45,6 +45,14 @@ const holdToDictateThresholdMs = 700;
 const updateCheckIntervalMs = 60 * 60 * 1000;
 const isDeveloperBuild = !app.isPackaged;
 const hasDevRendererUrl = Boolean(process.env.ELECTRON_RENDERER_URL);
+const compactOverlayBounds = {
+  width: 196,
+  height: 30
+};
+const livePreviewOverlayBounds = {
+  width: 520,
+  height: 180
+};
 const settingsStore = new SettingsStore();
 const dictionaryStore = new DictionaryStore();
 const historyStore = new HistoryStore();
@@ -352,8 +360,8 @@ function createOverlayWindow(): BrowserWindow {
     return overlayWindow;
   }
   overlayWindow = new BrowserWindow({
-    width: 196,
-    height: 30,
+    width: compactOverlayBounds.width,
+    height: compactOverlayBounds.height,
     frame: false,
     resizable: false,
     movable: false,
@@ -392,12 +400,26 @@ function createOverlayWindow(): BrowserWindow {
 }
 function positionOverlayWindow(): void {
   const window = createOverlayWindow();
+  const bounds = getOverlayWindowBounds();
+
+  if (window.getSize()[0] !== bounds.width || window.getSize()[1] !== bounds.height) {
+    window.setSize(bounds.width, bounds.height, false);
+  }
+
   const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
-  const bounds = display.workArea;
+  const workArea = display.workArea;
   const [width, height] = window.getSize();
-  const x = Math.round(bounds.x + (bounds.width - width) / 2);
-  const y = Math.round(bounds.y + bounds.height - height - 24);
+  const x = Math.round(workArea.x + (workArea.width - width) / 2);
+  const y = Math.round(workArea.y + workArea.height - height - 24);
   window.setPosition(x, y, false);
+}
+function getOverlayWindowBounds(): { width: number; height: number } {
+  return hasLivePreviewText(overlayState) ? livePreviewOverlayBounds : compactOverlayBounds;
+}
+function hasLivePreviewText(state: RecordingOverlayState): boolean {
+  return state.livePreviewTurns?.some((turn) =>
+    Boolean((turn.finalText ?? turn.provisionalText ?? "").trim())
+  ) ?? false;
 }
 function showOverlay(next: Partial<RecordingOverlayState>): void {
   overlayState = {
@@ -422,6 +444,9 @@ function updateOverlay(next: Partial<RecordingOverlayState>): void {
     ...overlayState,
     ...next
   };
+  if (overlayWindow && !overlayWindow.isDestroyed()) {
+    positionOverlayWindow();
+  }
   sendOverlayState();
 }
 function hideOverlay(): void {
