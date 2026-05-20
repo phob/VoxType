@@ -118,13 +118,17 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
     }
   }
 
-  stop(reason = "OpenAI realtime session stopped."): void {
+  stop(reason = "OpenAI realtime session stopped.", options: { preserveLastError?: boolean } = {}): void {
     if (this.sessionReadyWaiters.length > 0 || this.finalTranscriptWaiters.length > 0) {
       this.failRealtime(new Error(reason));
     }
 
     this.socket?.close();
     this.socket = null;
+
+    if (!options.preserveLastError) {
+      this.lastError = null;
+    }
   }
 
   private async openSession(

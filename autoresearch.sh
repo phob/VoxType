@@ -195,6 +195,8 @@ grep_score 6 grep -R "sessionReadyWaiters" -n src/main/openai-realtime-asr-provi
 grep_score 6 grep -R "removeSessionReadyWaiter" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "this.sessionReadyWaiters.filter" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "stop(reason" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "preserveLastError" -n src/main/openai-realtime-asr-provider.ts src/main/realtime-cloud-session.ts >/dev/null
+grep_score 6 grep -R "this.lastError = null" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "this.failRealtime(new Error(reason))" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "session.updated" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "session.created" -n src/main/openai-realtime-asr-provider.ts >/dev/null

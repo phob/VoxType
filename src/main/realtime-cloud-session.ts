@@ -103,7 +103,9 @@ export class RealtimeCloudSession {
       });
       assertCloudDictationLogIsMetadataOnly(completedLogEntry);
       await this.provider.commitAudioAndWaitForFinalTranscript();
-      this.provider.stop("Realtime Cloud Dictation stopped after final transcript processing.");
+      this.provider.stop("Realtime Cloud Dictation stopped after final transcript processing.", {
+        preserveLastError: true
+      });
     }
 
     return this.snapshot();
