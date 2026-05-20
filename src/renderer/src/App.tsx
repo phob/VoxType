@@ -6,6 +6,7 @@ import {
   Check,
   CheckCircle2,
   ChevronDown,
+  Cloud,
   Clipboard,
   Code2,
   Download,
@@ -107,6 +108,7 @@ type ReleaseTab =
   | "profiles"
   | "dictionary"
   | "history"
+  | "cloud"
   | "settings";
 type ReleaseModelFilter = "all" | "installed" | "available";
 type ReleaseIconName =
@@ -117,6 +119,7 @@ type ReleaseIconName =
   | "file"
   | "user"
   | "history"
+  | "cloud"
   | "settings"
   | "code"
   | "bolt"
@@ -131,6 +134,7 @@ const releaseIcons: Record<ReleaseIconName, LucideIcon> = {
   file: FileText,
   user: UserPlus,
   history: History,
+  cloud: Cloud,
   settings: Settings,
   code: Code2,
   bolt: Zap,
@@ -437,14 +441,14 @@ export function App(): JSX.Element {
       label: "Cloud setup",
       detail: cloudSetupDetail,
       ready: cloudSetupReady,
-      tab: "settings" as ReleaseTab
+      tab: state.settings?.offlineMode ? "settings" as ReleaseTab : "cloud" as ReleaseTab
     },
     {
       id: "cloud-audio-history",
       label: "Cloud audio history",
       detail: cloudAudioHistoryDetail,
       ready: true,
-      tab: "settings" as ReleaseTab
+      tab: state.settings?.offlineMode ? "settings" as ReleaseTab : "cloud" as ReleaseTab
     }
   ];
   const releaseModels = state.models.filter((model) => {
@@ -627,6 +631,12 @@ export function App(): JSX.Element {
       window.clearInterval(timer);
     };
   }, [manualUpdateCooldownSeconds]);
+
+  useEffect(() => {
+    if (releaseTab === "cloud" && state.settings?.offlineMode) {
+      setReleaseTab("settings");
+    }
+  }, [releaseTab, state.settings?.offlineMode]);
 
   useEffect(() => {
     if (isOverlay) {
@@ -1975,7 +1985,8 @@ export function App(): JSX.Element {
               ["models", "Models", "box"],
               ["profiles", "Profiles", "user"],
               ["dictionary", "Dictionary", "book"],
-              ["history", "History", "history"]
+              ["history", "History", "history"],
+              ...(!state.settings.offlineMode ? [["cloud", "Cloud", "cloud"] as [ReleaseTab, string, ReleaseIconName]] : [])
             ] as Array<[ReleaseTab, string, ReleaseIconName]>).map(([tab, label, icon]) => (
               <button
                 className={releaseTab === tab ? "active" : ""}
@@ -2158,6 +2169,35 @@ export function App(): JSX.Element {
               <div className="settings-list">
                 <label className="setting-row">
                   <span>
+                    <strong>Dictation Mode</strong>
+                    <small>Choose local dictation or an available cloud mode for your default transcription path.</small>
+                  </span>
+                  <select
+                    value={state.settings.dictationModeId}
+                    onChange={(event) =>
+                      void updateSettings(dictationModeSettingsPatch(event.target.value as DictationModeId))
+                    }
+                  >
+                    {dictationModes.map((mode) => {
+                      const availability = getDictationModeAvailability({
+                        modeId: mode.id,
+                        settings: state.settings,
+                        hasOpenAiApiKey: Boolean(state.openaiCredentials?.hasApiKey),
+                        realtimeStreamingReady: realtimeModeSelectionReady,
+                        allOpenAiModesReadyForRelease: cloudModeSelectionReady,
+                        openAiReadiness: currentOpenAiModeImplementationReadiness
+                      });
+
+                      return (
+                        <option disabled={!availability.selectable} key={mode.id} value={mode.id}>
+                          {mode.label} - {mode.secondaryText}{availability.reason ? ` (${availability.reason})` : ""}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </label>
+                <label className="setting-row">
+                  <span>
                     <strong>Language</strong>
                     <small>Auto-detect or force Whisper to listen for one language. {activeProviderLanguageHint?.reason ?? (activeProviderLanguageHint?.parameterValue ? `${activeDictationMode.label} will request ${activeProviderLanguageHint.parameterValue}.` : "")}</small>
                   </span>
@@ -2228,74 +2268,65 @@ export function App(): JSX.Element {
             </div>
           ) : null}
 
-          {releaseTab === "settings" ? (
-            <section className="release-panel settings-panel release-scroll-panel">
-              <div className="section-title-row">
+          {releaseTab === "cloud" && !state.settings.offlineMode ? (
+            <section className="release-panel cloud-page release-scroll-panel">
+              <div className="release-panel-heading cloud-page-heading">
                 <div className="release-panel-title">
-                  <ReleaseIcon name="settings" decorative />
-                  <h2>Settings</h2>
+                  <ReleaseIcon name="cloud" decorative />
+                  <h2>Cloud</h2>
                 </div>
-                <ReleaseChip tone={activeDictationMode.providerId === "openai" ? "warning" : "success"}>
-                  {activeProviderLabel}: {activeDictationMode.label}
-                </ReleaseChip>
-                <ReleaseChip tone={cloudModeSelectionReady ? "accent" : "neutral"}>
-                  {cloudModeGateLabel}
-                </ReleaseChip>
+                <div className="release-chip-row cloud-page-chips">
+                  <ReleaseChip tone={activeDictationMode.providerId === "openai" ? "warning" : "success"}>
+                    {activeProviderLabel}: {activeDictationMode.label}
+                  </ReleaseChip>
+                  <ReleaseChip tone={cloudModeSelectionReady ? "accent" : "neutral"}>
+                    {cloudModeGateLabel}
+                  </ReleaseChip>
+                </div>
               </div>
-              <p className="settings-note">
-                Realtime readiness: IPC {currentOpenAiModeImplementationReadiness.realtimeSessionIpcReady ? "ready" : "pending"}, renderer lifecycle {currentOpenAiModeImplementationReadiness.realtimeRendererLifecycleReady ? "ready" : "pending"}, native PCM streaming {currentOpenAiModeImplementationReadiness.realtimeNativePcmStreamingReady ? "ready" : "pending"}, release smoke test {currentOpenAiModeImplementationReadiness.releaseSmokeTested ? "ready" : "pending"}. {formatCloudReleaseSmokeTestStatus(currentCloudReleaseSmokeTestChecklist)}.
+              <p className="cloud-page-intro">
+                Configure the opt-in OpenAI path. Offline Mode hides this page and blocks cloud sessions.
               </p>
-              <div className="settings-list">
-                <label className="setting-row">
-                  <span>
-                    <strong>Dictation Mode</strong>
-                    <small>Local remains the default. File cloud modes send audio and a capped Prompt Pack to OpenAI; realtime uses OpenAI realtime transcription WebSocket without Prompt Pack text.</small>
-                  </span>
-                  <select
-                    value={state.settings.dictationModeId}
-                    onChange={(event) =>
-                      void updateSettings(dictationModeSettingsPatch(event.target.value as DictationModeId))
-                    }
-                  >
-                    {dictationModes.map((mode) => {
-                      const availability = getDictationModeAvailability({
-                        modeId: mode.id,
-                        settings: state.settings,
-                        hasOpenAiApiKey: Boolean(state.openaiCredentials?.hasApiKey),
-                        realtimeStreamingReady: realtimeModeSelectionReady,
-                        allOpenAiModesReadyForRelease: cloudModeSelectionReady,
-                        openAiReadiness: currentOpenAiModeImplementationReadiness
-                      });
-
-                      return (
-                        <option disabled={!availability.selectable} key={mode.id} value={mode.id}>
-                          {mode.label} — {mode.secondaryText}{availability.reason ? ` (${availability.reason})` : ""}
-                        </option>
-                      );
-                    })}
-                  </select>
-                </label>
-                <label className="setting-row">
-                  <span>
-                    <strong>Cloud Dictation consent</strong>
-                    <small>
-                      {cloudDictationConsentSummary} {cloudDictationConsentExclusions} {cloudDictationConsentOfflineNotice}
-                      {state.settings.cloudDictationConsentAcceptedAt ? ` Accepted ${new Date(state.settings.cloudDictationConsentAcceptedAt).toLocaleDateString()}.` : ""}
-                      <span className="inline-doc-links">
-                        <a href="https://openai.com/api/pricing/" rel="noreferrer" target="_blank">Pricing</a>
-                        <a href="https://openai.com/policies/privacy-policy/" rel="noreferrer" target="_blank">Privacy</a>
-                        <a href="https://platform.openai.com/docs/models" rel="noreferrer" target="_blank">API docs</a>
-                      </span>
-                    </small>
-                  </span>
-                  <input
-                    checked={state.settings.cloudDictationConsentAccepted}
-                    type="checkbox"
-                    onChange={(event) =>
-                      void updateSettings({ cloudDictationConsentAccepted: event.target.checked })
-                    }
-                  />
-                </label>
+              <div className="cloud-readiness-strip" aria-label="Cloud readiness">
+                <ReleaseStatusBadge tone={currentOpenAiModeImplementationReadiness.realtimeSessionIpcReady ? "ready" : "disabled"}>
+                  IPC {currentOpenAiModeImplementationReadiness.realtimeSessionIpcReady ? "ready" : "pending"}
+                </ReleaseStatusBadge>
+                <ReleaseStatusBadge tone={currentOpenAiModeImplementationReadiness.realtimeRendererLifecycleReady ? "ready" : "disabled"}>
+                  Renderer {currentOpenAiModeImplementationReadiness.realtimeRendererLifecycleReady ? "ready" : "pending"}
+                </ReleaseStatusBadge>
+                <ReleaseStatusBadge tone={currentOpenAiModeImplementationReadiness.realtimeNativePcmStreamingReady ? "ready" : "disabled"}>
+                  PCM {currentOpenAiModeImplementationReadiness.realtimeNativePcmStreamingReady ? "ready" : "pending"}
+                </ReleaseStatusBadge>
+                <ReleaseStatusBadge tone={currentOpenAiModeImplementationReadiness.releaseSmokeTested ? "ready" : "disabled"}>
+                  {formatCloudReleaseSmokeTestStatus(currentCloudReleaseSmokeTestChecklist)}
+                </ReleaseStatusBadge>
+              </div>
+              <div className="cloud-scroll-body">
+                <section className="cloud-consent-block" aria-labelledby="cloud-consent-heading">
+                  <div className="cloud-setting-copy">
+                    <h3 id="cloud-consent-heading">Cloud Dictation consent</h3>
+                    <p>{cloudDictationConsentSummary} {cloudDictationConsentExclusions} {cloudDictationConsentOfflineNotice}</p>
+                    {state.settings.cloudDictationConsentAcceptedAt ? (
+                      <p>Accepted {new Date(state.settings.cloudDictationConsentAcceptedAt).toLocaleDateString()}.</p>
+                    ) : null}
+                    <span className="inline-doc-links">
+                      <a href="https://openai.com/api/pricing/" rel="noreferrer" target="_blank">Pricing</a>
+                      <a href="https://openai.com/policies/privacy-policy/" rel="noreferrer" target="_blank">Privacy</a>
+                      <a href="https://platform.openai.com/docs/models" rel="noreferrer" target="_blank">API docs</a>
+                    </span>
+                  </div>
+                  <label className="cloud-consent-switch">
+                    <span>Consent</span>
+                    <input
+                      checked={state.settings.cloudDictationConsentAccepted}
+                      type="checkbox"
+                      onChange={(event) =>
+                        void updateSettings({ cloudDictationConsentAccepted: event.target.checked })
+                      }
+                    />
+                  </label>
+                </section>
+                <div className="settings-list cloud-settings-list">
                 <label className="setting-row">
                   <span>
                     <strong>Cloud session warning</strong>
@@ -2352,7 +2383,7 @@ export function App(): JSX.Element {
                   >
                     {realtimeLatencyPresetOptions.map((option) => (
                       <option key={option.value} value={option.value}>
-                        {option.label} — {option.meta}
+                        {option.label} - {option.meta}
                       </option>
                     ))}
                   </select>
@@ -2384,12 +2415,12 @@ export function App(): JSX.Element {
                     }
                   />
                 </label>
-                <div className="setting-row">
+                <div className="setting-row cloud-setting-wide">
                   <span>
                     <strong>OpenAI API key</strong>
                     <small>{getOpenAiCredentialStatusText(state.openaiCredentials)}</small>
                   </span>
-                  <div className="setting-actions setting-actions-with-input">
+                  <div className="setting-actions setting-actions-with-input cloud-key-actions">
                     <input
                       aria-label="OpenAI API key"
                       autoComplete="off"
@@ -2414,6 +2445,20 @@ export function App(): JSX.Element {
                     <button disabled={!state.openaiCredentials?.hasApiKey || state.openaiCredentials.source === "environment"} onClick={() => void clearOpenAiApiKey()} type="button">Clear stored key</button>
                   </div>
                 </div>
+                </div>
+              </div>
+            </section>
+          ) : null}
+
+          {releaseTab === "settings" ? (
+            <section className="release-panel settings-panel release-scroll-panel">
+              <div className="section-title-row">
+                <div className="release-panel-title">
+                  <ReleaseIcon name="settings" decorative />
+                  <h2>Settings</h2>
+                </div>
+              </div>
+              <div className="settings-list">
                 <label className="setting-row">
                   <span>
                     <strong>Offline mode</strong>

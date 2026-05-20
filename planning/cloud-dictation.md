@@ -95,6 +95,9 @@ The exact Whisper model remains visible as secondary text. Beginner modes should
 
 ## Setup And Validation
 
+- The release Home page owns the global Dictation Mode selector so the default transcription path is part of everyday setup.
+- Cloud-specific controls live on a dedicated Cloud page instead of the general Settings page.
+- The Cloud page is only visible when Offline Mode is off; Offline Mode remains the general Settings kill switch for network use.
 - Cloud modes can be selected before an API key exists, but dictation is blocked before recording until setup is complete.
 - The setup surface should include a Test connection action.
 - Default testing validates the API key plus the currently selected OpenAI mode. A future advanced action may test all OpenAI modes.

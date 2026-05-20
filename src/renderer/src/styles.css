@@ -1455,6 +1455,191 @@ pre {
   margin-bottom: 0;
 }
 
+.cloud-page {
+  gap: 0;
+  padding: 18px 18px 16px;
+}
+
+.cloud-page-heading {
+  align-items: flex-start;
+  margin-bottom: 8px;
+}
+
+.cloud-page-chips {
+  justify-content: flex-end;
+  max-width: 48%;
+}
+
+.cloud-page-intro {
+  max-width: 68ch;
+  margin: 0 0 14px;
+  color: #aab5c2;
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.cloud-readiness-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgb(75 91 107 / 0.28);
+}
+
+.cloud-scroll-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  padding-right: 2px;
+}
+
+.release-scroll-panel .cloud-scroll-body .cloud-settings-list {
+  overflow: visible;
+  padding-right: 0;
+}
+
+.cloud-settings-list {
+  gap: 0;
+}
+
+.cloud-consent-block {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 24px;
+  align-items: start;
+  margin: 0 0 4px;
+  padding: 18px 2px 18px;
+  border-bottom: 1px solid rgb(75 91 107 / 0.28);
+}
+
+.cloud-consent-block h3 {
+  margin: 0;
+  color: #f1f4f8;
+  font-size: 0.86rem;
+  line-height: 1.2;
+}
+
+.cloud-consent-block p {
+  max-width: 72ch;
+  margin: 0;
+  color: #9ca8b6;
+  font-size: 0.82rem;
+  line-height: 1.42;
+}
+
+.cloud-consent-switch {
+  display: inline-grid;
+  gap: 8px;
+  justify-items: end;
+  color: #9ca8b6;
+  font-size: 0.72rem;
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.release-shell .cloud-consent-switch input {
+  position: relative;
+  width: 40px;
+  height: 20px;
+  min-width: 40px;
+  min-height: 20px;
+  max-width: 40px;
+  padding: 0;
+  border: 1px solid var(--winui-switch-border);
+  border-radius: 999px;
+  appearance: none;
+  background: var(--winui-switch-track);
+  box-shadow: 0 1px 0 rgb(255 255 255 / 0.04) inset;
+  cursor: pointer;
+}
+
+.release-shell .cloud-consent-switch input::before {
+  position: absolute;
+  top: 50%;
+  left: 3px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--winui-switch-thumb);
+  content: "";
+  transform: translate3d(0, -50%, 0);
+}
+
+.release-shell .cloud-consent-switch input:checked {
+  border-color: var(--winui-switch-on);
+  background: var(--winui-switch-on);
+}
+
+.release-shell .cloud-consent-switch input:checked::before {
+  background: var(--winui-switch-thumb-checked);
+  transform: translate3d(20px, -50%, 0);
+}
+
+.release-shell .cloud-settings-list .setting-row {
+  grid-template-columns: minmax(280px, 1fr) minmax(190px, 280px);
+  gap: 24px;
+  align-items: center;
+  min-height: 60px;
+  padding: 14px 2px;
+}
+
+.release-shell .cloud-settings-list .cloud-setting-wide {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.cloud-setting-copy {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  overflow: visible;
+}
+
+.release-shell .cloud-settings-list .setting-row small {
+  max-width: 72ch;
+  overflow: visible;
+  line-height: 1.42;
+  text-overflow: clip;
+  white-space: normal;
+}
+
+.release-shell .cloud-settings-list select,
+.release-shell .cloud-settings-list input[type="number"] {
+  justify-self: end;
+  width: min(100%, 220px);
+}
+
+.cloud-settings-list .inline-doc-links {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 2px 0 0;
+  max-width: 100%;
+  overflow: visible;
+  line-height: 1.2;
+}
+
+.cloud-settings-list .inline-doc-links a {
+  flex: 0 0 auto;
+}
+
+.cloud-key-actions {
+  display: flex;
+  justify-content: flex-start;
+  gap: 8px;
+}
+
+.cloud-key-actions input {
+  flex: 1 1 260px;
+  max-width: 420px;
+}
+
+.cloud-key-actions button {
+  flex: 0 0 auto;
+}
+
 .release-toast {
   display: inline-flex;
   gap: 8px;
@@ -2982,6 +3167,37 @@ td select {
     grid-template-columns: 1fr;
   }
 
+  .cloud-page-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .cloud-page-chips {
+    justify-content: flex-start;
+    max-width: none;
+  }
+
+  .cloud-consent-block {
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+
+  .cloud-consent-switch {
+    justify-items: start;
+  }
+
+  .release-shell .cloud-settings-list .setting-row,
+  .release-shell .cloud-settings-list .cloud-setting-wide {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .release-shell .cloud-settings-list select,
+  .release-shell .cloud-settings-list input[type="number"] {
+    justify-self: stretch;
+    width: 100%;
+  }
+
   .profile-row-main {
     grid-template-columns: 1fr;
   }
@@ -3000,4 +3216,3 @@ td select {
     overflow-x: auto;
   }
 }
-

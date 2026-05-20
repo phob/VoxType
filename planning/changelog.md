@@ -4,6 +4,7 @@
 
 - Added a Cloud Dictation implementation status handoff summarizing what is implemented, what is partial, what is missing, and the next realtime debugging milestone.
 - Added the Cloud Dictation implementation status document to the planning index.
+- Clarified the Cloud Dictation release UI: Dictation Mode belongs on Home, while cloud-only setup and safety controls live on a Cloud page hidden by Offline Mode.
 
 ## 2026-05-15
 
