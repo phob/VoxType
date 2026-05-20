@@ -78,6 +78,8 @@ grep_score 6 grep -R "conversation.item.input_audio_transcription.delta" -n src/
 grep_score 6 grep -R "composeFinalText" -n src >/dev/null
 grep_score 6 grep -R "OpenAiRealtimeAsrProvider" -n src >/dev/null
 grep_score 6 grep -R "gpt-realtime-whisper" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "Authorization:.*Bearer" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 bash -c '! grep -R "openai-beta.realtime-v1\|openai-insecure-api-key" -n src/main/openai-realtime-asr-provider.ts'
 grep_score 6 grep -R "server_vad" -n src/main >/dev/null
 grep_score 6 grep -R "pcm16" -n src/main >/dev/null
 grep_score 6 grep -R "pre-connection buffer" -n src/main >/dev/null

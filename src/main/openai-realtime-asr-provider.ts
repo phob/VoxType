@@ -131,11 +131,11 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
     latencyPreset: StreamingAsrRequest["latencyPreset"]
   ): Promise<void> {
     await new Promise<void>((resolve, reject) => {
-      const socket = new WebSocket(OPENAI_REALTIME_URL, [
-        "realtime",
-        `openai-insecure-api-key.${apiKey}`,
-        "openai-beta.realtime-v1"
-      ]);
+      const socket = new WebSocket(OPENAI_REALTIME_URL, {
+        headers: {
+          Authorization: `Bearer ${apiKey}`
+        }
+      } as unknown as string | string[]);
       const timeout = setTimeout(() => {
         socket.close();
         const error = this.socket === socket
@@ -341,7 +341,7 @@ function encodeBase64(bytes: Uint8Array): string {
 }
 
 function buildSessionUpdate(
-  promptPack: PromptPack | null,
+  _promptPack: PromptPack | null,
   language: StreamingAsrRequest["language"],
   latencyPreset: StreamingAsrRequest["latencyPreset"]
 ): unknown {
@@ -360,10 +360,7 @@ function buildSessionUpdate(
           transcription: {
             model: OPENAI_REALTIME_WHISPER_MODEL_ID,
             language: languageHint.parameterValue ?? undefined,
-            delay: getOpenAiRealtimeTranscriptionDelay(latencyPreset),
-            prompt: promptPack?.text
-              ? `Transcribe speech. Prefer these context terms when acoustically plausible: ${promptPack.text}`
-              : undefined
+            delay: getOpenAiRealtimeTranscriptionDelay(latencyPreset)
           },
           turn_detection: null
         }
