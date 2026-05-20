@@ -222,6 +222,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
         contentIndex?: number;
         transcript?: string;
         delta?: string;
+        text?: string;
         error?: {
           code?: unknown;
           type?: unknown;
@@ -249,7 +250,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
         payload.content_index ?? payload.contentIndex
       );
       const final = isRealtimeTranscriptionCompletedEvent(payload.type);
-      const text = payload.transcript ?? payload.delta ?? "";
+      const text = payload.transcript ?? payload.delta ?? payload.text ?? "";
 
       if (!text) {
         return;

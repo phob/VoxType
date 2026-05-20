@@ -199,6 +199,8 @@ grep_score 6 grep -R "contentIndex" -n src/main/openai-realtime-asr-provider.ts 
 grep_score 6 grep -R "item\?:" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "payload.item?.id" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "getRealtimeTranscriptKey" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "text\?: string" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "payload.text" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "throwIfRealtimeFailed" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "failRealtime" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "OpenAI realtime session closed before final transcript completed" -n src/main/openai-realtime-asr-provider.ts >/dev/null
