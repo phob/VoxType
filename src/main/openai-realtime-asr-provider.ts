@@ -348,7 +348,8 @@ function isRealtimeTranscriptionDeltaEvent(type: string | undefined): boolean {
 function isRealtimeTranscriptionCompletedEvent(type: string | undefined): boolean {
   return type === "conversation.item.input_audio_transcription.completed" ||
     type === "transcription_session.input_audio_transcription.completed" ||
-    (type?.includes("input_audio_transcription") === true && type.includes("completed"));
+    (type?.includes("input_audio_transcription") === true &&
+      (type.includes("completed") || type.endsWith(".done")));
 }
 
 function isRealtimeTranscriptionFailedEvent(type: string | undefined): boolean {
