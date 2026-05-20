@@ -190,6 +190,10 @@ grep_score 6 bash -c 'awk "/commitAudioAndWaitForFinalTranscript/,/const initial
 grep_score 6 grep -R "markProvisionalTurnsAsFallback" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "conversation.item.input_audio_transcription.completed" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "conversation.item.input_audio_transcription.failed" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "transcription_session.input_audio_transcription.failed" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "isRealtimeTranscriptionDeltaEvent" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "isRealtimeTranscriptionCompletedEvent" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "isRealtimeTranscriptionFailedEvent" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "content_index" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "getRealtimeTranscriptKey" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "throwIfRealtimeFailed" -n src/main/openai-realtime-asr-provider.ts >/dev/null

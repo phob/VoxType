@@ -225,7 +225,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
         };
       };
 
-      if (payload.type === "error" || payload.type === "conversation.item.input_audio_transcription.failed") {
+      if (payload.type === "error" || isRealtimeTranscriptionFailedEvent(payload.type)) {
         this.failRealtime(new Error(formatRealtimeOpenAiError(payload.error)));
         return;
       }
@@ -241,8 +241,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
       }
 
       const providerItemId = getRealtimeTranscriptKey(payload.item_id, payload.content_index);
-      const final = payload.type === "conversation.item.input_audio_transcription.completed" ||
-        (payload.type?.includes("completed") ?? false);
+      const final = isRealtimeTranscriptionCompletedEvent(payload.type);
       const text = payload.transcript ?? payload.delta ?? "";
 
       if (!text) {
@@ -253,7 +252,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
         providerItemId,
         text,
         final,
-        append: payload.type === "conversation.item.input_audio_transcription.delta"
+        append: isRealtimeTranscriptionDeltaEvent(payload.type)
       }));
 
       if (final) {
@@ -331,6 +330,22 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
       waiter.resolve();
     }
   }
+}
+
+function isRealtimeTranscriptionDeltaEvent(type: string | undefined): boolean {
+  return type === "conversation.item.input_audio_transcription.delta" ||
+    type === "transcription_session.input_audio_transcription.delta";
+}
+
+function isRealtimeTranscriptionCompletedEvent(type: string | undefined): boolean {
+  return type === "conversation.item.input_audio_transcription.completed" ||
+    type === "transcription_session.input_audio_transcription.completed" ||
+    (type?.includes("input_audio_transcription") === true && type.includes("completed"));
+}
+
+function isRealtimeTranscriptionFailedEvent(type: string | undefined): boolean {
+  return type === "conversation.item.input_audio_transcription.failed" ||
+    type === "transcription_session.input_audio_transcription.failed";
 }
 
 function isRealtimeTranscriptionSessionCreatedEvent(type: string | undefined): boolean {
