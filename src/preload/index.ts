@@ -35,85 +35,100 @@ import {
   type WindowsHelperStatus
 } from "../shared/windows-helper";
 
+type IpcInvoke = <T>(channel: string, ...args: unknown[]) => Promise<T>;
+
+const invoke: IpcInvoke = (channel, ...args) => ipcRenderer.invoke(channel, ...args) as Promise<never>;
+
+function invokeVoid(channel: string, ...args: unknown[]): Promise<void> {
+  return ipcRenderer.invoke(channel, ...args) as Promise<void>;
+}
+
+function onChannel(channel: string, callback: (payload: unknown) => void): () => void {
+  const listener = (_event: Electron.IpcRendererEvent, payload: unknown) => {
+    callback(payload);
+  };
+  ipcRenderer.on(channel, listener);
+  return () => {
+    ipcRenderer.off(channel, listener);
+  };
+}
+
 const voxtype = {
-  getVersion: () => ipcRenderer.invoke("app:get-version") as Promise<string>,
+  getVersion: () => invoke<string>("app:get-version"),
   getAppInfo: () =>
-    ipcRenderer.invoke("app:get-info") as Promise<{
+    invoke<{
       isDeveloperBuild: boolean;
       version: string;
       versionLabel: string;
-    }>,
+    }>("app:get-info"),
   updates: {
-    status: () => ipcRenderer.invoke("app:update-status") as Promise<UpdateStatus>,
-    check: () => ipcRenderer.invoke("app:check-for-updates") as Promise<UpdateStatus>,
-    install: () => ipcRenderer.invoke("app:install-update") as Promise<UpdateStatus>,
-    onStatus: (callback: (status: UpdateStatus) => void) => {
-      const listener = (_event: Electron.IpcRendererEvent, status: UpdateStatus) => { callback(status); };
-      ipcRenderer.on("app-update-status", listener);
-      return () => {
-        ipcRenderer.off("app-update-status", listener);
-      };
-    }
+    status: () => invoke<UpdateStatus>("app:update-status"),
+    check: () => invoke<UpdateStatus>("app:check-for-updates"),
+    install: () => invoke<UpdateStatus>("app:install-update"),
+    onStatus: (callback: (status: UpdateStatus) => void) =>
+      onChannel("app-update-status", (payload) => {
+        callback(payload as UpdateStatus);
+      })
   },
   window: {
-    minimize: () => ipcRenderer.invoke("window:minimize") as Promise<void>,
-    close: () => ipcRenderer.invoke("window:close") as Promise<void>
+    minimize: () => invokeVoid("window:minimize"),
+    close: () => invokeVoid("window:close")
   },
   settings: {
-    get: () => ipcRenderer.invoke("settings:get") as Promise<AppSettings>,
+    get: () => invoke<AppSettings>("settings:get"),
     update: (patch: SettingsPatch) =>
-      ipcRenderer.invoke("settings:update", patch) as Promise<AppSettings>,
-    reset: () => ipcRenderer.invoke("settings:reset") as Promise<AppSettings>
+      invoke<AppSettings>("settings:update", patch),
+    reset: () => invoke<AppSettings>("settings:reset")
   },
   openaiCredentials: {
     testConnection: () =>
-      ipcRenderer.invoke("openai:test-connection") as Promise<{ ok: boolean; message: string }>,
+      invoke<{ ok: boolean; message: string }>("openai:test-connection"),
     getStatus: () =>
-      ipcRenderer.invoke("openai-credentials:get-status") as Promise<OpenAiCredentialStatus>,
+      invoke<OpenAiCredentialStatus>("openai-credentials:get-status"),
     setApiKey: (apiKey: string) =>
-      ipcRenderer.invoke("openai-credentials:set-api-key", apiKey) as Promise<OpenAiCredentialStatus>,
+      invoke<OpenAiCredentialStatus>("openai-credentials:set-api-key", apiKey),
     clearApiKey: () =>
-      ipcRenderer.invoke("openai-credentials:clear-api-key") as Promise<OpenAiCredentialStatus>
+      invoke<OpenAiCredentialStatus>("openai-credentials:clear-api-key")
   },
   models: {
-    list: () => ipcRenderer.invoke("models:list") as Promise<LocalModel[]>,
+    list: () => invoke<LocalModel[]>("models:list"),
     download: (modelId: string) =>
-      ipcRenderer.invoke("models:download", modelId) as Promise<LocalModel[]>,
+      invoke<LocalModel[]>("models:download", modelId),
     delete: (modelId: string) =>
-      ipcRenderer.invoke("models:delete", modelId) as Promise<LocalModel[]>
+      invoke<LocalModel[]>("models:delete", modelId)
   },
   runtime: {
-    getWhisper: () => ipcRenderer.invoke("runtime:get-whisper") as Promise<WhisperRuntime>,
-    listWhisper: () => ipcRenderer.invoke("runtime:list-whisper") as Promise<WhisperRuntime[]>,
+    getWhisper: () => invoke<WhisperRuntime>("runtime:get-whisper"),
+    listWhisper: () => invoke<WhisperRuntime[]>("runtime:list-whisper"),
     installWhisper: () =>
-      ipcRenderer.invoke("runtime:install-whisper") as Promise<WhisperRuntime>,
+      invoke<WhisperRuntime>("runtime:install-whisper"),
     installWhisperRuntime: (runtimeId: string) =>
-      ipcRenderer.invoke("runtime:install-whisper", runtimeId) as Promise<WhisperRuntime>,
+      invoke<WhisperRuntime>("runtime:install-whisper", runtimeId),
     setupFirstRunCuda: () =>
-      ipcRenderer.invoke("runtime:setup-first-run-cuda") as Promise<{
+      invoke<{
         runtime: WhisperRuntime;
         settings: AppSettings;
         hardware: HardwareAccelerationReport;
         installed: boolean;
         message: string;
-      }>
+      }>("runtime:setup-first-run-cuda")
   },
   hardware: {
     getAccelerationReport: () =>
-      ipcRenderer.invoke("hardware:get-acceleration-report") as Promise<HardwareAccelerationReport>
+      invoke<HardwareAccelerationReport>("hardware:get-acceleration-report")
   },
   ocr: {
     recognizeScreenshot: (imagePath: string, mode: ScreenshotCaptureMode) =>
-      ipcRenderer.invoke("ocr:recognize-screenshot", imagePath, mode) as Promise<OcrResult>
+      invoke<OcrResult>("ocr:recognize-screenshot", imagePath, mode)
   },
   transcription: {
     previewPromptPack: (context?: {
       processName?: string | null;
       ocrContext?: OcrPromptContext | null;
     }) =>
-      ipcRenderer.invoke("transcription:preview-prompt-pack", context) as Promise<PromptPack | null>,
+      invoke<PromptPack | null>("transcription:preview-prompt-pack", context),
     getReadiness: (processName?: string | null) =>
-      ipcRenderer.invoke("transcription:get-readiness", processName) as Promise<CloudDictationReadiness>,
+      invoke<CloudDictationReadiness>("transcription:get-readiness", processName),
     transcribeWav: (
       bytes: Uint8Array,
       context?: {
@@ -122,107 +137,91 @@ const voxtype = {
         forceModeId?: "local.custom";
       }
     ) =>
-      ipcRenderer.invoke(
+      invoke<TranscriptionResult>(
         "transcription:transcribe-wav",
         bytes,
         context
-      ) as Promise<TranscriptionResult>,
+      ),
     startRealtime: (context?: { processName?: string | null; ocrContext?: OcrPromptContext | null }) =>
-      ipcRenderer.invoke("transcription:realtime-start", context) as Promise<void>,
+      invokeVoid("transcription:realtime-start", context),
     appendRealtimePcm16: (bytes: Uint8Array) =>
-      ipcRenderer.invoke("transcription:realtime-append-pcm16", bytes) as Promise<void>,
+      invokeVoid("transcription:realtime-append-pcm16", bytes),
     finalizeRealtime: (fallbackWavBytes?: Uint8Array) =>
-      ipcRenderer.invoke("transcription:realtime-finalize", fallbackWavBytes) as Promise<TranscriptEntry>,
+      invoke<TranscriptEntry>("transcription:realtime-finalize", fallbackWavBytes),
     cancelRealtime: (reason?: string) =>
-      ipcRenderer.invoke("transcription:realtime-cancel", reason) as Promise<void>
+      invokeVoid("transcription:realtime-cancel", reason)
   },
   history: {
-    list: () => ipcRenderer.invoke("history:list") as Promise<TranscriptEntry[]>,
-    audio: (entryId: string) => ipcRenderer.invoke("history:audio", entryId) as Promise<Uint8Array>,
-    cleanup: () => ipcRenderer.invoke("history:cleanup") as Promise<TranscriptEntry[]>
+    list: () => invoke<TranscriptEntry[]>("history:list"),
+    audio: (entryId: string) => invoke<Uint8Array>("history:audio", entryId),
+    cleanup: () => invoke<TranscriptEntry[]>("history:cleanup")
   },
   dictionary: {
-    list: () => ipcRenderer.invoke("dictionary:list") as Promise<DictionaryEntry[]>,
+    list: () => invoke<DictionaryEntry[]>("dictionary:list"),
     add: (input: DictionaryCreateInput) =>
-      ipcRenderer.invoke("dictionary:add", input) as Promise<DictionaryEntry[]>,
+      invoke<DictionaryEntry[]>("dictionary:add", input),
     update: (id: string, patch: DictionaryPatch) =>
-      ipcRenderer.invoke("dictionary:update", id, patch) as Promise<DictionaryEntry[]>,
+      invoke<DictionaryEntry[]>("dictionary:update", id, patch),
     remove: (id: string) =>
-      ipcRenderer.invoke("dictionary:remove", id) as Promise<DictionaryEntry[]>
+      invoke<DictionaryEntry[]>("dictionary:remove", id)
   },
   insertion: {
-    copy: (text: string) => ipcRenderer.invoke("insertion:copy", text) as Promise<void>,
+    copy: (text: string) => invokeVoid("insertion:copy", text),
     insertActive: (text: string) =>
-      ipcRenderer.invoke("insertion:insert-active", text) as Promise<void>,
+      invokeVoid("insertion:insert-active", text),
     insertWindow: (text: string, hwnd: string, processName?: string | null) =>
-      ipcRenderer.invoke("insertion:insert-window", text, hwnd, processName) as Promise<void>,
+      invokeVoid("insertion:insert-window", text, hwnd, processName),
     testWindow: (text: string, hwnd: string, mode: InsertionMode, processName?: string | null) =>
-      ipcRenderer.invoke("insertion:test-window", text, hwnd, mode, processName) as Promise<void>,
+      invokeVoid("insertion:test-window", text, hwnd, mode, processName),
     pasteActive: (text: string) =>
-      ipcRenderer.invoke("insertion:paste-active", text) as Promise<void>,
+      invokeVoid("insertion:paste-active", text),
     pasteWindow: (text: string, hwnd: string) =>
-      ipcRenderer.invoke("insertion:paste-window", text, hwnd) as Promise<void>
+      invokeVoid("insertion:paste-window", text, hwnd)
   },
   dictation: {
     getHotkeyState: () =>
-      ipcRenderer.invoke("dictation:get-hotkey-state") as Promise<DictationHotkeyState>,
+      invoke<DictationHotkeyState>("dictation:get-hotkey-state"),
     setHotkeyRecording: (recording: boolean) =>
-      ipcRenderer.invoke(
+      invoke<DictationHotkeyState>(
         "dictation:set-hotkey-recording",
         recording
-      ) as Promise<DictationHotkeyState>,
-    onHotkeyStart: (callback: (payload: DictationHotkeyPayload) => void) => {
-      const listener = (_event: Electron.IpcRendererEvent, payload: DictationHotkeyPayload) =>
-        { callback(payload); };
-      ipcRenderer.on("dictation-hotkey-start", listener);
-      return () => {
-        ipcRenderer.off("dictation-hotkey-start", listener);
-      };
-    },
-    onHotkeyStop: (callback: (payload: DictationHotkeyPayload) => void) => {
-      const listener = (_event: Electron.IpcRendererEvent, payload: DictationHotkeyPayload) =>
-        { callback(payload); };
-      ipcRenderer.on("dictation-hotkey-stop", listener);
-      return () => {
-        ipcRenderer.off("dictation-hotkey-stop", listener);
-      };
-    },
-    onOcrContext: (callback: (payload: DictationOcrContextPayload) => void) => {
-      const listener = (_event: Electron.IpcRendererEvent, payload: DictationOcrContextPayload) =>
-        { callback(payload); };
-      ipcRenderer.on("dictation-ocr-context", listener);
-      return () => {
-        ipcRenderer.off("dictation-ocr-context", listener);
-      };
-    }
+      ),
+    onHotkeyStart: (callback: (payload: DictationHotkeyPayload) => void) =>
+      onChannel("dictation-hotkey-start", (payload) => {
+        callback(payload as DictationHotkeyPayload);
+      }),
+    onHotkeyStop: (callback: (payload: DictationHotkeyPayload) => void) =>
+      onChannel("dictation-hotkey-stop", (payload) => {
+        callback(payload as DictationHotkeyPayload);
+      }),
+    onOcrContext: (callback: (payload: DictationOcrContextPayload) => void) =>
+      onChannel("dictation-ocr-context", (payload) => {
+        callback(payload as DictationOcrContextPayload);
+      })
   },
   hotkeys: {
-    status: () => ipcRenderer.invoke("hotkeys:status") as Promise<HotkeyStatus>,
-    suspend: () => ipcRenderer.invoke("hotkeys:suspend") as Promise<HotkeyStatus>,
-    resume: () => ipcRenderer.invoke("hotkeys:resume") as Promise<HotkeyStatus>
+    status: () => invoke<HotkeyStatus>("hotkeys:status"),
+    suspend: () => invoke<HotkeyStatus>("hotkeys:suspend"),
+    resume: () => invoke<HotkeyStatus>("hotkeys:resume")
   },
   recordingOverlay: {
     showRecording: (state?: Partial<RecordingOverlayState>) =>
-      ipcRenderer.invoke("recording-overlay:show-recording", state) as Promise<void>,
+      invokeVoid("recording-overlay:show-recording", state),
     showTranscribing: (state?: Partial<RecordingOverlayState>) =>
-      ipcRenderer.invoke("recording-overlay:show-transcribing", state) as Promise<void>,
+      invokeVoid("recording-overlay:show-transcribing", state),
     showFinalizing: (state?: Partial<RecordingOverlayState>) =>
-      ipcRenderer.invoke("recording-overlay:show-finalizing", state) as Promise<void>,
-    hide: () => ipcRenderer.invoke("recording-overlay:hide") as Promise<void>,
+      invokeVoid("recording-overlay:show-finalizing", state),
+    hide: () => invokeVoid("recording-overlay:hide"),
     getState: () =>
-      ipcRenderer.invoke("recording-overlay:get-state") as Promise<RecordingOverlayState>,
-    onState: (callback: (state: RecordingOverlayState) => void) => {
-      const listener = (_event: Electron.IpcRendererEvent, state: RecordingOverlayState) =>
-        { callback(state); };
-      ipcRenderer.on("recording-overlay-state", listener);
-      return () => {
-        ipcRenderer.off("recording-overlay-state", listener);
-      };
-    }
+      invoke<RecordingOverlayState>("recording-overlay:get-state"),
+    onState: (callback: (state: RecordingOverlayState) => void) =>
+      onChannel("recording-overlay-state", (payload) => {
+        callback(payload as RecordingOverlayState);
+      })
   },
   appProfiles: {
     ensure: (windowInfo: ActiveWindowInfo | null) =>
-      ipcRenderer.invoke("app-profiles:ensure", windowInfo) as Promise<AppProfile | null>,
+      invoke<AppProfile | null>("app-profiles:ensure", windowInfo),
     update: (
       processName: string,
       patch: Pick<
@@ -239,30 +238,30 @@ const voxtype = {
         | "cloudPromptPackOcrEnabled"
         | "neverSuspendDictationInFullscreen"
       >
-    ) => ipcRenderer.invoke("app-profiles:update", processName, patch) as Promise<AppSettings>,
+    ) => invoke<AppSettings>("app-profiles:update", processName, patch),
     remove: (processName: string) =>
-      ipcRenderer.invoke("app-profiles:remove", processName) as Promise<AppSettings>
+      invoke<AppSettings>("app-profiles:remove", processName)
   },
   windowsHelper: {
     status: () =>
-      ipcRenderer.invoke("windows-helper:status") as Promise<WindowsHelperStatus>,
+      invoke<WindowsHelperStatus>("windows-helper:status"),
     activeWindow: () =>
-      ipcRenderer.invoke("windows-helper:active-window") as Promise<ActiveWindowInfo>,
+      invoke<ActiveWindowInfo>("windows-helper:active-window"),
     inputDevices: () =>
-      ipcRenderer.invoke("windows-helper:input-devices") as Promise<NativeInputDevice[]>,
+      invoke<NativeInputDevice[]>("windows-helper:input-devices"),
     startRecording: (options: NativeRecordingOptions) =>
-      ipcRenderer.invoke("windows-helper:start-recording", options) as Promise<void>,
+      invokeVoid("windows-helper:start-recording", options),
     stopRecording: () =>
-      ipcRenderer.invoke("windows-helper:stop-recording") as Promise<NativeRecordingResult>,
+      invoke<NativeRecordingResult>("windows-helper:stop-recording"),
     sendHotkey: (accelerator: string) =>
-      ipcRenderer.invoke("windows-helper:send-hotkey", accelerator) as Promise<void>,
+      invokeVoid("windows-helper:send-hotkey", accelerator),
     captureScreenshot: (mode: ScreenshotCaptureMode) =>
-      ipcRenderer.invoke(
+      invoke<ScreenshotCaptureResult>(
         "windows-helper:capture-screenshot",
         mode
-      ) as Promise<ScreenshotCaptureResult>,
+      ),
     setSystemMute: (muted: boolean) =>
-      ipcRenderer.invoke("windows-helper:set-system-mute", muted) as Promise<void>
+      invokeVoid("windows-helper:set-system-mute", muted)
   }
 };
 

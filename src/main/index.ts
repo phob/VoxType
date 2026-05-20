@@ -92,6 +92,11 @@ function applyStartupSettings(settings: AppSettings): void {
   }
   app.setLoginItemSettings({ openAtLogin: settings.startWithWindows, openAsHidden: shouldStartMinimized(settings) });
 }
+async function applySettingsSideEffects(settings: AppSettings): Promise<void> {
+  applyStartupSettings(settings);
+  startAutomaticUpdateChecks(settings);
+  await registerConfiguredHotkeys();
+}
 function shouldStartMinimized(settings: AppSettings): boolean {
   return !isDeveloperBuild && settings.startMinimized;
 }
@@ -397,6 +402,13 @@ function showOverlay(next: Partial<RecordingOverlayState>): void {
   window.showInactive();
   sendOverlayState();
 }
+function showOverlayMode(
+  mode: RecordingOverlayState["mode"],
+  message: string,
+  state?: Partial<RecordingOverlayState>
+): void {
+  showOverlay({ mode, level: 0, message, ...state });
+}
 function updateOverlay(next: Partial<RecordingOverlayState>): void {
   overlayState = {
     ...overlayState,
@@ -447,30 +459,36 @@ async function registerConfiguredHotkeys(): Promise<void> {
   if (hotkeysManuallySuspended) {
     return;
   }
-  if (settings.showWindowHotkey.trim()) {
-    const registered = globalShortcut.register(settings.showWindowHotkey, showMainWindow);
-    registeredShowWindowHotkey = registered ? settings.showWindowHotkey : null;
-  }
-  if (
-    settings.dictationToggleHotkey.trim() &&
-    settings.dictationToggleHotkey !== settings.showWindowHotkey
-  ) {
-    const registered = globalShortcut.register(settings.dictationToggleHotkey, () => {
-      void durationAwareDictationHotkey(settings.dictationToggleHotkey);
-    });
-    registeredDictationHotkey = registered ? settings.dictationToggleHotkey : null;
-  }
-  if (
-    settings.dictationHoldHotkey.trim() &&
-    settings.dictationHoldHotkey !== settings.showWindowHotkey &&
-    settings.dictationHoldHotkey !== settings.dictationToggleHotkey
-  ) {
-    const registered = globalShortcut.register(settings.dictationHoldHotkey, () => {
-      void holdDictationHotkey();
-    });
-    registeredDictationHoldHotkey = registered ? settings.dictationHoldHotkey : null;
-  }
+  registeredShowWindowHotkey = registerHotkey(settings.showWindowHotkey, showMainWindow);
+  registeredDictationHotkey = registerDictationToggleHotkey(settings);
+  registeredDictationHoldHotkey = registerDictationHoldHotkey(settings);
   await refreshFullscreenHotkeySuspension();
+}
+function registerHotkey(accelerator: string, callback: () => void): string | null {
+  const trimmed = accelerator.trim();
+  if (!trimmed) {
+    return null;
+  }
+  return globalShortcut.register(trimmed, callback) ? trimmed : null;
+}
+function registerDictationToggleHotkey(settings: AppSettings): string | null {
+  if (settings.dictationToggleHotkey === settings.showWindowHotkey) {
+    return null;
+  }
+  return registerHotkey(settings.dictationToggleHotkey, () => {
+    void durationAwareDictationHotkey(settings.dictationToggleHotkey);
+  });
+}
+function registerDictationHoldHotkey(settings: AppSettings): string | null {
+  if (
+    settings.dictationHoldHotkey === settings.showWindowHotkey ||
+    settings.dictationHoldHotkey === settings.dictationToggleHotkey
+  ) {
+    return null;
+  }
+  return registerHotkey(settings.dictationHoldHotkey, () => {
+    void holdDictationHotkey();
+  });
 }
 function unregisterConfiguredHotkeys(): void {
   if (registeredShowWindowHotkey) {
@@ -497,27 +515,8 @@ function unregisterDictationHotkeys(): void {
   }
 }
 function registerDictationHotkeys(settings: AppSettings): void {
-  if (
-    settings.dictationToggleHotkey.trim() &&
-    settings.dictationToggleHotkey !== settings.showWindowHotkey &&
-    !registeredDictationHotkey
-  ) {
-    const registered = globalShortcut.register(settings.dictationToggleHotkey, () => {
-      void durationAwareDictationHotkey(settings.dictationToggleHotkey);
-    });
-    registeredDictationHotkey = registered ? settings.dictationToggleHotkey : null;
-  }
-  if (
-    settings.dictationHoldHotkey.trim() &&
-    settings.dictationHoldHotkey !== settings.showWindowHotkey &&
-    settings.dictationHoldHotkey !== settings.dictationToggleHotkey &&
-    !registeredDictationHoldHotkey
-  ) {
-    const registered = globalShortcut.register(settings.dictationHoldHotkey, () => {
-      void holdDictationHotkey();
-    });
-    registeredDictationHoldHotkey = registered ? settings.dictationHoldHotkey : null;
-  }
+  registeredDictationHotkey ??= registerDictationToggleHotkey(settings);
+  registeredDictationHoldHotkey ??= registerDictationHoldHotkey(settings);
 }
 function startFullscreenSuspensionWatch(): void {
   if (fullscreenSuspensionTimer) {
@@ -604,16 +603,12 @@ ipcMain.handle("window:close", () => {
 ipcMain.handle("settings:get", () => settingsStore.get());
 ipcMain.handle("settings:update", async (_event, patch: SettingsPatch) => {
   const settings = await settingsStore.update(patch);
-  applyStartupSettings(settings);
-  startAutomaticUpdateChecks(settings);
-  await registerConfiguredHotkeys();
+  await applySettingsSideEffects(settings);
   return settings;
 });
 ipcMain.handle("settings:reset", async () => {
   const settings = await settingsStore.reset();
-  applyStartupSettings(settings);
-  startAutomaticUpdateChecks(settings);
-  await registerConfiguredHotkeys();
+  await applySettingsSideEffects(settings);
   return settings;
 });
 ipcMain.handle("openai-credentials:get-status", () => openAiCredentialStore.getStatus());
@@ -960,13 +955,13 @@ ipcMain.handle("windows-helper:stop-recording", async () => {
   return result;
 });
 ipcMain.handle("recording-overlay:show-recording", (_event, state?: Partial<RecordingOverlayState>) => {
-  showOverlay({ mode: "recording", level: 0, message: "Recording", ...state });
+  showOverlayMode("recording", "Recording", state);
 });
 ipcMain.handle("recording-overlay:show-transcribing", (_event, state?: Partial<RecordingOverlayState>) => {
-  showOverlay({ mode: "transcribing", level: 0, message: "Transcribing", ...state });
+  showOverlayMode("transcribing", "Transcribing", state);
 });
 ipcMain.handle("recording-overlay:show-finalizing", (_event, state?: Partial<RecordingOverlayState>) => {
-  showOverlay({ mode: "finalizing", level: 0, message: "Finalizing", ...state });
+  showOverlayMode("finalizing", "Finalizing", state);
 });
 ipcMain.handle("recording-overlay:hide", () => {
   hideOverlay();
