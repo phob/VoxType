@@ -8,6 +8,7 @@ import {
   type CaptureSessionMuteState,
   type NativeRecordingLevel,
   type NativeRecordingOptions,
+  type NativeRecordingDiagnostics,
   type NativeRecordingResult,
   type NativeInputDevice,
   type WindowsMediaOcrResult,
@@ -25,6 +26,7 @@ interface NativeRecording {
   outputPath: string;
   stdout: Buffer[];
   stderr: Buffer[];
+  diagnostics: NativeRecordingDiagnostics;
 }
 
 export class WindowsHelperService {
@@ -330,6 +332,11 @@ export class WindowsHelperService {
     const args = ["record-wav", outputPath];
     const vadModelPath = await this.resolveSileroVadModelPath();
     const captureModeArg = nativeCaptureModeArg(options.captureMode);
+    const diagnostics = createNativeRecordingDiagnostics({
+      helperPath,
+      options,
+      vadModelPath
+    });
 
     if (captureModeArg) {
       args.push("--capture-mode", captureModeArg);
@@ -364,6 +371,8 @@ export class WindowsHelperService {
       stdio: ["pipe", "pipe", "pipe"],
       windowsHide: true
     });
+    diagnostics.processId = child.pid ?? null;
+    logNativeRecordingDiagnostics("started", diagnostics);
     const stdout: Buffer[] = [];
     const stderr: Buffer[] = [];
     let stdoutRemainder = "";
@@ -371,19 +380,28 @@ export class WindowsHelperService {
     child.stdout.on("data", (chunk: Buffer) => {
       const { complete, remainder } = splitCompleteStdoutLines(`${stdoutRemainder}${chunk.toString("utf8")}`);
       stdoutRemainder = remainder;
+      updateNativeRecordingDiagnosticsFromStdout(diagnostics, complete);
       stdout.push(Buffer.from(stripRealtimePcm16ChunkEvents(complete)));
       for (const event of parseRecordingStdoutEvents(complete)) {
         onLevel?.(event.level, event.pcm16Chunk);
       }
     });
-    child.stderr.on("data", (chunk: Buffer) => stderr.push(chunk));
-    child.once("close", () => {
+    child.stderr.on("data", (chunk: Buffer) => {
+      diagnostics.stderrByteCount += chunk.byteLength;
+      stderr.push(chunk);
+    });
+    child.once("close", (code, signal) => {
       const complete = stdoutRemainder;
       stdoutRemainder = "";
+      updateNativeRecordingDiagnosticsFromStdout(diagnostics, complete);
       stdout.push(Buffer.from(stripRealtimePcm16ChunkEvents(complete)));
       for (const event of parseRecordingStdoutEvents(complete)) {
         onLevel?.(event.level, event.pcm16Chunk);
       }
+      diagnostics.exitCode = code;
+      diagnostics.signal = signal;
+      diagnostics.stoppedAt = new Date().toISOString();
+      diagnostics.durationMs = Date.parse(diagnostics.stoppedAt) - Date.parse(diagnostics.startedAt);
     });
     child.once("exit", (code) => {
       if (this.recording?.child === child && code !== null && code !== 0) {
@@ -395,7 +413,8 @@ export class WindowsHelperService {
       child,
       outputPath,
       stdout,
-      stderr
+      stderr,
+      diagnostics
     };
 
     try {
@@ -453,10 +472,21 @@ export class WindowsHelperService {
     const metadata = parseNativeRecordingMetadata(
       Buffer.concat(recording.stdout).toString("utf8")
     );
+    const diagnostics = {
+      ...recording.diagnostics,
+      finalWavByteLength: bytes.byteLength,
+      finalSampleRate: metadata.sampleRate,
+      finalSamples: metadata.samples,
+      finalRawSamples: metadata.rawSamples,
+      finalSpeechFrames: metadata.speechFrames,
+      finalCaptureMode: metadata.captureMode
+    };
+    logNativeRecordingDiagnostics("stopped", diagnostics);
     await rm(recording.outputPath, { force: true });
     return {
       wavBytes: new Uint8Array(bytes),
-      ...metadata
+      ...metadata,
+      diagnostics
     };
   }
 
@@ -533,7 +563,124 @@ function msToVadFrames(milliseconds: number): number {
   return Math.max(0, Math.round(milliseconds / 30));
 }
 
-function parseNativeRecordingMetadata(stdout: string): Omit<NativeRecordingResult, "wavBytes"> {
+function createNativeRecordingDiagnostics({
+  helperPath,
+  options,
+  vadModelPath
+}: {
+  helperPath: string;
+  options: NativeRecordingOptions;
+  vadModelPath: string | null;
+}): NativeRecordingDiagnostics {
+  return {
+    helperPath,
+    processId: null,
+    requestedCaptureMode: options.captureMode,
+    requestedInputDevice: options.inputDeviceId && options.inputDeviceId !== "default" ? "custom" : "default",
+    vadRequested: options.vadEnabled,
+    vadModelResolved: Boolean(vadModelPath),
+    startedAt: new Date().toISOString(),
+    stoppedAt: null,
+    durationMs: null,
+    exitCode: null,
+    signal: null,
+    stdoutLineCount: 0,
+    stdoutJsonLineCount: 0,
+    stdoutUnparsedLineCount: 0,
+    recordingLevelCount: 0,
+    realtimePcm16ChunkCount: 0,
+    realtimePcm16ByteCount: 0,
+    realtimePcm16InvalidChunkCount: 0,
+    otherJsonEventCount: 0,
+    stderrByteCount: 0,
+    finalWavByteLength: null,
+    finalSampleRate: null,
+    finalSamples: null,
+    finalRawSamples: null,
+    finalSpeechFrames: null,
+    finalCaptureMode: null
+  };
+}
+
+function updateNativeRecordingDiagnosticsFromStdout(
+  diagnostics: NativeRecordingDiagnostics,
+  stdout: string
+): void {
+  for (const line of stdout.split(/\r?\n/).map((item) => item.trim()).filter(Boolean)) {
+    diagnostics.stdoutLineCount += 1;
+
+    try {
+      const parsed = JSON.parse(line) as Record<string, unknown>;
+      diagnostics.stdoutJsonLineCount += 1;
+
+      if (parsed.type === "recordingLevel") {
+        diagnostics.recordingLevelCount += 1;
+        continue;
+      }
+
+      if (parsed.type === "realtimePcm16Chunk") {
+        if (
+          parsed.encoding === "pcm16" &&
+          parsed.sampleRateHz === 24000 &&
+          parsed.channelCount === 1 &&
+          typeof parsed.audioBase64 === "string"
+        ) {
+          const byteLength = Buffer.byteLength(parsed.audioBase64, "base64");
+
+          if (byteLength > 0 && byteLength % 2 === 0) {
+            diagnostics.realtimePcm16ChunkCount += 1;
+            diagnostics.realtimePcm16ByteCount += byteLength;
+            continue;
+          }
+        }
+
+        diagnostics.realtimePcm16InvalidChunkCount += 1;
+        continue;
+      }
+
+      if (typeof parsed.type === "string") {
+        diagnostics.otherJsonEventCount += 1;
+      }
+    } catch {
+      diagnostics.stdoutUnparsedLineCount += 1;
+    }
+  }
+}
+
+function logNativeRecordingDiagnostics(
+  stage: "started" | "stopped",
+  diagnostics: NativeRecordingDiagnostics
+): void {
+  console.info("[voxtype] native recording diagnostics", {
+    stage,
+    helperPath: diagnostics.helperPath,
+    processId: diagnostics.processId,
+    requestedCaptureMode: diagnostics.requestedCaptureMode,
+    requestedInputDevice: diagnostics.requestedInputDevice,
+    vadRequested: diagnostics.vadRequested,
+    vadModelResolved: diagnostics.vadModelResolved,
+    durationMs: diagnostics.durationMs,
+    exitCode: diagnostics.exitCode,
+    signal: diagnostics.signal,
+    stdoutLineCount: diagnostics.stdoutLineCount,
+    stdoutJsonLineCount: diagnostics.stdoutJsonLineCount,
+    stdoutUnparsedLineCount: diagnostics.stdoutUnparsedLineCount,
+    recordingLevelCount: diagnostics.recordingLevelCount,
+    realtimePcm16ChunkCount: diagnostics.realtimePcm16ChunkCount,
+    realtimePcm16ByteCount: diagnostics.realtimePcm16ByteCount,
+    realtimePcm16InvalidChunkCount: diagnostics.realtimePcm16InvalidChunkCount,
+    otherJsonEventCount: diagnostics.otherJsonEventCount,
+    stderrByteCount: diagnostics.stderrByteCount,
+    finalWavByteLength: diagnostics.finalWavByteLength,
+    finalSampleRate: diagnostics.finalSampleRate,
+    finalSamples: diagnostics.finalSamples,
+    finalRawSamples: diagnostics.finalRawSamples,
+    finalSpeechFrames: diagnostics.finalSpeechFrames,
+    finalCaptureMode: diagnostics.finalCaptureMode
+  });
+}
+
+function parseNativeRecordingMetadata(stdout: string): Omit<NativeRecordingResult, "wavBytes" | "diagnostics"> {
   const line = stdout
     .split(/\r?\n/)
     .map((item) => item.trim())

@@ -1,4 +1,5 @@
 import { type AppSettings } from "../../shared/settings";
+import { type NativeRecordingDiagnostics } from "../../shared/windows-helper";
 
 export interface PcmRecorder {
   stop: () => Promise<PcmRecordingResult>;
@@ -8,6 +9,7 @@ export interface PcmRecordingResult {
   wavBytes: Uint8Array;
   captureMode: "sharedCapture" | "exclusiveCapture";
   vad: VadTrimStats;
+  diagnostics: NativeRecordingDiagnostics;
 }
 
 export interface VadTrimStats {
@@ -42,6 +44,7 @@ export async function startNativePcmRecorder(settings?: AppSettings | null): Pro
       return {
         wavBytes: result.wavBytes,
         captureMode: result.captureMode,
+        diagnostics: result.diagnostics,
         vad: {
           enabled: result.vadEnabled,
           model: "silero-v4-native",

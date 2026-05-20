@@ -205,6 +205,36 @@ export function DeveloperDictationSection(props: ReadyAppViewProps): ReactElemen
               </dl>
             </section>
 
+            <section className="panel-block">
+              <h2>nativeRecording</h2>
+              <dl className="kv-grid">
+                <dt>helper</dt>
+                <dd title={lastRecordingResult?.diagnostics.helperPath}>
+                  {lastRecordingResult?.diagnostics.helperPath ? "resolved" : "none"}
+                </dd>
+                <dt>pid</dt>
+                <dd>{lastRecordingResult?.diagnostics.processId ?? "none"}</dd>
+                <dt>requestedMode</dt>
+                <dd>{lastRecordingResult?.diagnostics.requestedCaptureMode ?? state.settings.recorderCaptureMode}</dd>
+                <dt>stdoutLines</dt>
+                <dd>{lastRecordingResult?.diagnostics.stdoutLineCount ?? 0}</dd>
+                <dt>levelEvents</dt>
+                <dd>{lastRecordingResult?.diagnostics.recordingLevelCount ?? 0}</dd>
+                <dt>realtimeChunks</dt>
+                <dd>{lastRecordingResult?.diagnostics.realtimePcm16ChunkCount ?? 0}</dd>
+                <dt>realtimeBytes</dt>
+                <dd>{lastRecordingResult?.diagnostics.realtimePcm16ByteCount ?? 0}</dd>
+                <dt>invalidChunks</dt>
+                <dd>{lastRecordingResult?.diagnostics.realtimePcm16InvalidChunkCount ?? 0}</dd>
+                <dt>stderrBytes</dt>
+                <dd>{lastRecordingResult?.diagnostics.stderrByteCount ?? 0}</dd>
+                <dt>exit</dt>
+                <dd>{lastRecordingResult?.diagnostics.exitCode ?? "none"}</dd>
+                <dt>wavBytes</dt>
+                <dd>{lastRecordingResult?.diagnostics.finalWavByteLength ?? 0}</dd>
+              </dl>
+            </section>
+
             <section className="panel-block transcript-block">
               <h2>ocrContext</h2>
               <dl className="kv-grid">

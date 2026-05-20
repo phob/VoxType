@@ -75,11 +75,41 @@ export interface NativeRecordingResult {
   vadEnabled: boolean;
   captureMode: "sharedCapture" | "exclusiveCapture";
   speechFrames: number;
+  diagnostics: NativeRecordingDiagnostics;
 }
 
 export interface NativeRecordingLevel {
   rms: number;
   peak: number;
+}
+
+export interface NativeRecordingDiagnostics {
+  helperPath: string;
+  processId: number | null;
+  requestedCaptureMode: NativeRecordingOptions["captureMode"];
+  requestedInputDevice: "default" | "custom";
+  vadRequested: boolean;
+  vadModelResolved: boolean;
+  startedAt: string;
+  stoppedAt: string | null;
+  durationMs: number | null;
+  exitCode: number | null;
+  signal: string | null;
+  stdoutLineCount: number;
+  stdoutJsonLineCount: number;
+  stdoutUnparsedLineCount: number;
+  recordingLevelCount: number;
+  realtimePcm16ChunkCount: number;
+  realtimePcm16ByteCount: number;
+  realtimePcm16InvalidChunkCount: number;
+  otherJsonEventCount: number;
+  stderrByteCount: number;
+  finalWavByteLength: number | null;
+  finalSampleRate: number | null;
+  finalSamples: number | null;
+  finalRawSamples: number | null;
+  finalSpeechFrames: number | null;
+  finalCaptureMode: "sharedCapture" | "exclusiveCapture" | null;
 }
 
 export interface RecordingOverlayState {
