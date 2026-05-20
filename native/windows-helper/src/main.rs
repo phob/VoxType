@@ -27,7 +27,7 @@ fn main() {
         "type-text" => type_text_from_stdin(),
         "message-text" => message_text_from_stdin(),
         "help" | "--help" | "-h" => {
-            println!("Usage: voxtype-windows-helper active-window | focus-window <hwnd> | set-system-mute <true|false> | send-hotkey <accelerator> | wait-hotkey-release <accelerator> | capture-screenshot <output.png> [--active-window | --hwnd <hwnd>] | ocr-image <input.png> | message-targets [hwnd] | mute-capture-session <process-id> [process-name] | restore-capture-session | input-devices | record-wav <output.wav> [--capture-mode shared|exclusive-preferred|exclusive-required] [--input-device <name>] [--vad-preserved-pause-frames <frames>] | paste-text | type-text [delay-ms] | message-text [focused-control|character-messages] [hwnd]");
+            println!("Usage: voxtype-windows-helper active-window | focus-window <hwnd> | set-system-mute <true|false> | send-hotkey <accelerator> | wait-hotkey-release <accelerator> | capture-screenshot <output.png> [--active-window | --hwnd <hwnd>] | ocr-image <input.png> | message-targets [hwnd] | mute-capture-session <process-id> [process-name] | restore-capture-session | input-devices | record-wav <output.wav> [--capture-mode shared|exclusive-preferred|exclusive-required] [--input-device <name>] [--emit-realtime-pcm16] [--vad-preserved-pause-frames <frames>] | paste-text | type-text [delay-ms] | message-text [focused-control|character-messages] [hwnd]");
             Ok(())
         }
         _ => Err(format!("Unknown command: {command}")),
@@ -114,6 +114,7 @@ fn record_wav_from_args() -> Result<(), String> {
 struct NativeRecordingConfig {
     capture_mode: CaptureMode,
     input_device: Option<String>,
+    emit_realtime_pcm16: bool,
     vad: NativeVadConfig,
 }
 
@@ -122,6 +123,7 @@ impl NativeRecordingConfig {
         let args = env::args().skip(3).collect::<Vec<_>>();
         let mut capture_mode = CaptureMode::Shared;
         let mut input_device = None;
+        let mut emit_realtime_pcm16 = false;
         let mut vad_config = NativeVadConfig::default();
         let mut index = 0;
 
@@ -137,6 +139,9 @@ impl NativeRecordingConfig {
                 "--input-device" => {
                     index += 1;
                     input_device = args.get(index).cloned();
+                }
+                "--emit-realtime-pcm16" => {
+                    emit_realtime_pcm16 = true;
                 }
                 "--vad-model" => {
                     index += 1;
@@ -182,6 +187,7 @@ impl NativeRecordingConfig {
         Ok(Self {
             capture_mode,
             input_device,
+            emit_realtime_pcm16,
             vad: vad_config,
         })
     }

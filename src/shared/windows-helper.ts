@@ -55,6 +55,7 @@ export interface NativeRecordingOptions {
   captureMode: "sharedCapture" | "exclusiveCapturePreferred" | "exclusiveCaptureRequired";
   inputDeviceId: string;
   vadEnabled: boolean;
+  realtimePcm16Enabled: boolean;
   vadPositiveSpeechThreshold: number;
   vadPreSpeechPadMs: number;
   vadRedemptionMs: number;
@@ -89,6 +90,7 @@ export interface NativeRecordingDiagnostics {
   requestedCaptureMode: NativeRecordingOptions["captureMode"];
   requestedInputDevice: "default" | "custom";
   vadRequested: boolean;
+  realtimePcm16Requested: boolean;
   vadModelResolved: boolean;
   startedAt: string;
   stoppedAt: string | null;

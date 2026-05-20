@@ -59,7 +59,9 @@ export function useRecordingActions(ctx: RecordingActionContext): RecordingActio
         systemAudioMutedByVoxTypeRef.current = true;
       }
 
-      recorderRef.current = await startNativePcmRecorder(state.settings);
+      recorderRef.current = await startNativePcmRecorder(state.settings, {
+        realtimePcm16Enabled: readiness.modeId === "openai.realtime"
+      });
 
       if (readiness.modeId === "openai.realtime") {
         await window.voxtype.transcription.startRealtime({

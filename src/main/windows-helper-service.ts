@@ -346,6 +346,10 @@ export class WindowsHelperService {
       args.push("--input-device", options.inputDeviceId);
     }
 
+    if (options.realtimePcm16Enabled) {
+      args.push("--emit-realtime-pcm16");
+    }
+
     if (options.vadEnabled) {
       if (!vadModelPath) {
         throw new Error("Silero VAD model was not found.");
@@ -578,6 +582,7 @@ function createNativeRecordingDiagnostics({
     requestedCaptureMode: options.captureMode,
     requestedInputDevice: options.inputDeviceId && options.inputDeviceId !== "default" ? "custom" : "default",
     vadRequested: options.vadEnabled,
+    realtimePcm16Requested: options.realtimePcm16Enabled,
     vadModelResolved: Boolean(vadModelPath),
     startedAt: new Date().toISOString(),
     stoppedAt: null,
@@ -658,6 +663,7 @@ function logNativeRecordingDiagnostics(
     requestedCaptureMode: diagnostics.requestedCaptureMode,
     requestedInputDevice: diagnostics.requestedInputDevice,
     vadRequested: diagnostics.vadRequested,
+    realtimePcm16Requested: diagnostics.realtimePcm16Requested,
     vadModelResolved: diagnostics.vadModelResolved,
     durationMs: diagnostics.durationMs,
     exitCode: diagnostics.exitCode,

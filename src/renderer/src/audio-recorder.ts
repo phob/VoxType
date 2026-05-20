@@ -23,11 +23,15 @@ export interface VadTrimStats {
   skippedReason?: string;
 }
 
-export async function startNativePcmRecorder(settings?: AppSettings | null): Promise<PcmRecorder> {
+export async function startNativePcmRecorder(
+  settings?: AppSettings | null,
+  options: { realtimePcm16Enabled?: boolean } = {}
+): Promise<PcmRecorder> {
   await window.voxtype.windowsHelper.startRecording({
     captureMode: settings?.recorderCaptureMode ?? "sharedCapture",
     inputDeviceId: settings?.recordingInputDeviceId ?? "default",
     vadEnabled: settings?.vadEnabled ?? true,
+    realtimePcm16Enabled: options.realtimePcm16Enabled ?? false,
     vadPositiveSpeechThreshold: settings?.vadPositiveSpeechThreshold ?? 0.3,
     vadPreSpeechPadMs: settings?.vadPreSpeechPadMs ?? 450,
     vadRedemptionMs: settings?.vadRedemptionMs ?? 450,

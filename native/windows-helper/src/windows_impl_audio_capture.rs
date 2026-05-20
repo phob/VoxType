@@ -32,6 +32,7 @@
                 output_path,
                 recording_config.vad.clone(),
                 recording_config.input_device.as_deref(),
+                recording_config.emit_realtime_pcm16,
             ) {
                 Ok(()) => return Ok(()),
                 Err(error)
@@ -49,6 +50,7 @@
             output_path,
             recording_config.vad,
             recording_config.input_device.as_deref(),
+            recording_config.emit_realtime_pcm16,
         )
     }
 
@@ -56,6 +58,7 @@
         output_path: &str,
         vad_config: super::NativeVadConfig,
         input_device: Option<&str>,
+        emit_realtime_pcm16: bool,
     ) -> Result<(), String> {
         let output_path = Path::new(output_path);
         let host = cpal::default_host();
@@ -151,6 +154,7 @@
                         &mut raw_samples,
                         &mut speech_frames,
                         &mut level_meter,
+                        emit_realtime_pcm16,
                     );
                 }
                 Err(mpsc::RecvTimeoutError::Timeout) => {}
@@ -170,11 +174,15 @@
                 &mut raw_samples,
                 &mut speech_frames,
                 &mut level_meter,
+                emit_realtime_pcm16,
             );
         }
 
         resampler.finish(&mut |resampled| {
             raw_samples += resampled.len();
+            if emit_realtime_pcm16 {
+                emit_realtime_pcm16_chunk(resampled);
+            }
             frame_emitter.push(resampled, &mut |frame| {
                 process_vad_frame(frame, vad.as_mut(), &mut samples, &mut speech_frames);
             });
@@ -215,6 +223,7 @@
         output_path: &str,
         vad_config: super::NativeVadConfig,
         input_device: Option<&str>,
+        emit_realtime_pcm16: bool,
     ) -> Result<(), String> {
         let output_path = Path::new(output_path);
         let stop_flag = Arc::new(AtomicBool::new(false));
@@ -306,6 +315,7 @@
                     &mut raw_samples,
                     &mut speech_frames,
                     &mut level_meter,
+                    emit_realtime_pcm16,
                 )?;
                 thread::sleep(Duration::from_millis(10));
             }
@@ -320,11 +330,15 @@
                 &mut raw_samples,
                 &mut speech_frames,
                 &mut level_meter,
+                emit_realtime_pcm16,
             )?;
             audio_client.Stop().map_err(|error| error.to_string())?;
 
             resampler.finish(&mut |resampled| {
                 raw_samples += resampled.len();
+                if emit_realtime_pcm16 {
+                    emit_realtime_pcm16_chunk(resampled);
+                }
                 frame_emitter.push(resampled, &mut |frame| {
                     process_vad_frame(frame, vad.as_mut(), &mut samples, &mut speech_frames);
                 });
@@ -434,6 +448,7 @@
         raw_samples: &mut usize,
         speech_frames: &mut usize,
         level_meter: &mut LevelMeter,
+        emit_realtime_pcm16: bool,
     ) -> Result<(), String> {
         unsafe {
             let mut packet_size = capture_client
@@ -459,6 +474,7 @@
                     raw_samples,
                     speech_frames,
                     level_meter,
+                    emit_realtime_pcm16,
                 );
 
                 capture_client

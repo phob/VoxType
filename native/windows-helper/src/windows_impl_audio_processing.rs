@@ -246,11 +246,14 @@
         raw_samples: &mut usize,
         speech_frames: &mut usize,
         level_meter: &mut LevelMeter,
+        emit_realtime_pcm16: bool,
     ) {
         level_meter.push(chunk);
         resampler.push(chunk, &mut |resampled| {
             *raw_samples += resampled.len();
-            emit_realtime_pcm16_chunk(resampled);
+            if emit_realtime_pcm16 {
+                emit_realtime_pcm16_chunk(resampled);
+            }
             frame_emitter.push(resampled, &mut |frame| {
                 process_vad_frame(frame, vad.as_deref_mut(), samples, speech_frames);
             });
