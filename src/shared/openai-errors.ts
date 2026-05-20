@@ -49,11 +49,15 @@ export function classifyOpenAiError(input: {
     };
   }
 
-  if (haystack.includes("beta_api_shape_disabled")) {
+  if (
+    haystack.includes("beta_api_shape_disabled") ||
+    (haystack.includes("invalid_request_error") &&
+      (haystack.includes("unsupported") || haystack.includes("unknown parameter") || haystack.includes("unexpected")))
+  ) {
     return {
       category: "api_shape",
       summary: "OpenAI rejected the Realtime API request shape. Update VoxType or switch to a supported cloud mode.",
-      technicalDetail: detail || "beta_api_shape_disabled"
+      technicalDetail: detail || "api_shape"
     };
   }
 
