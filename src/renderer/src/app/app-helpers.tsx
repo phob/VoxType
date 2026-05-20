@@ -506,15 +506,27 @@ export function RecordingOverlay({ state }: { state: RecordingOverlayState }): R
 }
 
 export function LivePreview({ turns }: { turns: NonNullable<RecordingOverlayState["livePreviewTurns"]> }): ReactElement {
+  const previewRef = useRef<HTMLDivElement | null>(null);
   const visibleTurns = turns
     .map((turn) => ({
       ...turn,
       text: (turn.finalText ?? turn.provisionalText ?? "").trim()
     }))
     .filter((turn) => turn.text.length > 0);
+  const previewText = visibleTurns.map((turn) => turn.text).join("\n");
+
+  useEffect(() => {
+    const preview = previewRef.current;
+
+    if (!preview) {
+      return;
+    }
+
+    preview.scrollTop = preview.scrollHeight;
+  }, [previewText]);
 
   return (
-    <div className="overlay-live-preview" aria-label="Live Preview">
+    <div className="overlay-live-preview" aria-label="Live Preview" ref={previewRef}>
       {visibleTurns.map((turn) => (
         <p
           className={turn.status === "provisional" ? "overlay-preview-provisional" : "overlay-preview-final"}

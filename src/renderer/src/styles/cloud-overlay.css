@@ -424,7 +424,8 @@
   flex-direction: column;
   gap: 6px;
   max-height: 132px;
-  overflow: hidden;
+  overflow: hidden auto;
+  scrollbar-width: none;
   padding-top: 3px;
   color: #d7dde7;
   font-size: 0.68rem;
@@ -439,12 +440,12 @@
   line-height: 1.35;
 }
 
+.overlay-live-preview::-webkit-scrollbar {
+  display: none;
+}
+
 .overlay-live-preview p {
-  overflow: hidden;
   margin: 0;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
   overflow-wrap: anywhere;
 }
 
