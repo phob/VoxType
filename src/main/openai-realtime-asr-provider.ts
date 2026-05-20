@@ -215,6 +215,9 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
       const payload = JSON.parse(event.data) as {
         type?: string;
         item_id?: string;
+        item?: {
+          id?: unknown;
+        };
         content_index?: number;
         transcript?: string;
         delta?: string;
@@ -240,7 +243,10 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
         return;
       }
 
-      const providerItemId = getRealtimeTranscriptKey(payload.item_id, payload.content_index);
+      const providerItemId = getRealtimeTranscriptKey(
+        payload.item_id ?? (typeof payload.item?.id === "string" ? payload.item.id : undefined),
+        payload.content_index
+      );
       const final = isRealtimeTranscriptionCompletedEvent(payload.type);
       const text = payload.transcript ?? payload.delta ?? "";
 

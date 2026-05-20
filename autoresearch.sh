@@ -195,6 +195,8 @@ grep_score 6 grep -R "isRealtimeTranscriptionDeltaEvent" -n src/main/openai-real
 grep_score 6 grep -R "isRealtimeTranscriptionCompletedEvent" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "isRealtimeTranscriptionFailedEvent" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "content_index" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "item\?:" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "payload.item?.id" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "getRealtimeTranscriptKey" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "throwIfRealtimeFailed" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "failRealtime" -n src/main/openai-realtime-asr-provider.ts >/dev/null
