@@ -61,6 +61,11 @@ are completed.
 - Cloud logging helpers assert metadata-only log entries.
 - Error handling now preserves sanitized OpenAI error messages for request-shape
   debugging without logging full provider responses.
+- Native recording diagnostics now travel with `NativeRecordingResult` and are
+  shown in the developer Dictation panel. The diagnostics include helper path,
+  requested capture mode, stdout line/event counts, recording level counts,
+  realtime PCM chunk/byte counts, stderr byte count, process exit status, and
+  final WAV metadata without retaining realtime audio payloads.
 
 ## Partially Implemented / Risky
 
@@ -156,25 +161,21 @@ and timing of `windows-helper:start-recording`.
 
 Make the real app path report `nativeChunks > 0` during realtime dictation.
 
-The next logical implementation slice is metadata-only recording diagnostics in
-the Electron main-process helper path. The goal is to make the next app-driven
-realtime test self-explanatory: which helper binary was launched, which capture
-mode was requested, whether stdout contained realtime PCM events, how many
+The latest implementation slice added metadata-only recording diagnostics in
+the Electron main-process helper path. The next app-driven realtime test should
+now be self-explanatory: which helper binary was launched, which capture mode
+was requested, whether stdout contained realtime PCM events, how many
 recording-level events arrived, and what final WAV metadata was produced.
 
 Suggested order:
 
 1. Verify which Windows helper binary the running app resolves.
-2. Add metadata-only recording diagnostics from
-   `WindowsHelperService.startRecording`, including helper path, capture mode,
-   stdout event counts, realtime chunk counts, recording level counts, and
-   final WAV metadata.
-3. Reproduce a realtime recording from the app and confirm whether stdout
+2. Reproduce a realtime recording from the app and confirm whether stdout
    contains `realtimePcm16Chunk` lines.
-4. Once live chunks flow, remove or demote the WAV finalize fallback to a
+3. Once live chunks flow, remove or demote the WAV finalize fallback to a
    clearly marked recovery path.
-5. Verify live preview turns and final insertion.
-6. Mark the realtime smoke test only after a real hotkey-driven dictation
+4. Verify live preview turns and final insertion.
+5. Mark the realtime smoke test only after a real hotkey-driven dictation
    succeeds end to end.
 
 ## Implementation Log
@@ -186,6 +187,10 @@ Suggested order:
 - The diagnostics should avoid sensitive payloads and log counts, byte totals,
   helper path, capture options, process exit status, and final WAV metadata
   only.
+- Implemented native recording diagnostics and surfaced the key realtime chunk
+  counts in the developer Dictation panel.
+- Next step: run a hotkey-driven realtime dictation in the app and check
+  `realtimeChunks`, `realtimeBytes`, and `levelEvents`.
 
 ## Release Gate
 

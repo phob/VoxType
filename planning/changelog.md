@@ -5,6 +5,9 @@
 - Refreshed the Cloud Dictation implementation status and selected
   metadata-only realtime recording diagnostics as the next implementation
   slice.
+- Updated the Cloud Dictation implementation status after adding native
+  recording diagnostics, leaving realtime app-path reproduction as the next
+  debugging step.
 
 ## 2026-05-20
 
