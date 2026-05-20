@@ -1,5 +1,10 @@
 # Planning Changelog
 
+## 2026-05-20
+
+- Added a Cloud Dictation implementation status handoff summarizing what is implemented, what is partial, what is missing, and the next realtime debugging milestone.
+- Added the Cloud Dictation implementation status document to the planning index.
+
 ## 2026-05-15
 
 - Clarified the native Silero VAD direction around preserving internal thinking pauses up to a cap so resumed speech and first words remain available to Whisper.

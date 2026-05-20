@@ -1,6 +1,6 @@
 import { app, BrowserWindow, Menu, Tray, globalShortcut, ipcMain, nativeImage, screen } from "electron";
 import { join } from "node:path";
-import { getDictationMode } from "../shared/asr";
+import { getDictationMode, openAiRealtimeAudioConfig } from "../shared/asr";
 import { getOpenAiModelIdForMode, OPENAI_TRANSCRIBE_MODEL_ID } from "../shared/openai-models";
 import { resolveCloudPromptPackOcrEnabled } from "../shared/cloud-prompt-pack-settings";
 import { getCloudDictationReadiness } from "../shared/cloud-status";
@@ -35,6 +35,7 @@ import { SettingsStore } from "./settings-store";
 import { cleanupStartupStorage } from "./startup-cleanup";
 import { TranscriptionService } from "./transcription-service";
 import { UpdateService } from "./update-service";
+import { wavToMonoPcm16 } from "./wav-pcm";
 import { WindowsHelperService } from "./windows-helper-service";
 
 let mainWindow: BrowserWindow | null = null;
@@ -64,6 +65,7 @@ let hotkeysManuallySuspended = false;
 let revealMainWindowOnReady = false;
 const holdToDictateThresholdMs = 700;
 const updateCheckIntervalMs = 60 * 60 * 1000;
+const realtimeFallbackAppendChunkBytes = 1024 * 1024;
 
 const isDeveloperBuild = !app.isPackaged;
 const hasDevRendererUrl = Boolean(process.env.ELECTRON_RENDERER_URL);
@@ -87,6 +89,12 @@ const transcriptionService = new TranscriptionService(
 const realtimeCloudHistoryService = new RealtimeCloudHistoryService(dictionaryStore, historyStore);
 let activeRealtimeCloudSession: RealtimeCloudSession | null = null;
 let activeRealtimeCloudProcessName: string | null = null;
+let pendingRealtimePcm16Bytes = 0;
+let pendingRealtimePcm16DroppedBytes = 0;
+let recordingRealtimePcm16ChunkCount = 0;
+let recordingRealtimePcm16ByteCount = 0;
+const pendingRealtimePcm16Buffer: Uint8Array[] = [];
+const pendingRealtimePcm16BufferLimitBytes = openAiRealtimeAudioConfig.sampleRateHz * 2 * 5;
 let lastRealtimeCloudSessionError: {
   error: Error;
   recordedAtMs: number;
@@ -259,6 +267,7 @@ function cancelActiveRealtimeCloudSession(reason: string, error?: Error): void {
 
 function appendRealtimePcm16AudioSafely(bytes: Uint8Array): Error | null {
   if (!activeRealtimeCloudSession) {
+    bufferPendingRealtimePcm16Audio(bytes);
     return null;
   }
 
@@ -279,6 +288,80 @@ function appendRealtimePcm16AudioSafely(bytes: Uint8Array): Error | null {
       message: streamingError.message
     });
     return streamingError;
+  }
+}
+
+function resetPendingRealtimePcm16Audio(): void {
+  pendingRealtimePcm16Buffer.length = 0;
+  pendingRealtimePcm16Bytes = 0;
+  pendingRealtimePcm16DroppedBytes = 0;
+}
+
+function resetRecordingRealtimePcm16Counters(): void {
+  recordingRealtimePcm16ChunkCount = 0;
+  recordingRealtimePcm16ByteCount = 0;
+}
+
+function bufferPendingRealtimePcm16Audio(bytes: Uint8Array): void {
+  if (bytes.byteLength === 0) {
+    return;
+  }
+
+  pendingRealtimePcm16Buffer.push(bytes);
+  pendingRealtimePcm16Bytes += bytes.byteLength;
+
+  while (pendingRealtimePcm16Bytes > pendingRealtimePcm16BufferLimitBytes) {
+    const removed = pendingRealtimePcm16Buffer.shift();
+    const removedBytes = removed?.byteLength ?? 0;
+    pendingRealtimePcm16Bytes -= removedBytes;
+    pendingRealtimePcm16DroppedBytes += removedBytes;
+  }
+}
+
+function drainPendingRealtimePcm16Audio(): Error | null {
+  if (!activeRealtimeCloudSession) {
+    resetPendingRealtimePcm16Audio();
+    return null;
+  }
+
+  for (const bytes of pendingRealtimePcm16Buffer) {
+    const error = appendRealtimePcm16AudioSafely(bytes);
+
+    if (error) {
+      resetPendingRealtimePcm16Audio();
+      return error;
+    }
+  }
+
+  if (pendingRealtimePcm16DroppedBytes > 0) {
+    updateOverlay({
+      mode: "finalizing",
+      cloudProviderLabel: "Cloud Dictation",
+      message: "Realtime startup buffer limit reached; oldest microphone audio was dropped."
+    });
+  }
+
+  resetPendingRealtimePcm16Audio();
+  return null;
+}
+
+function appendRealtimeFallbackWavAudio(
+  session: RealtimeCloudSession,
+  wavBytes: Uint8Array | undefined
+): void {
+  if (!wavBytes || wavBytes.byteLength === 0 || session.getAudioDiagnostics().providerAppendedBytes > 0) {
+    return;
+  }
+
+  const pcm16Audio = wavToMonoPcm16(wavBytes, openAiRealtimeAudioConfig.sampleRateHz);
+
+  for (let offset = 0; offset < pcm16Audio.byteLength; offset += realtimeFallbackAppendChunkBytes) {
+    const end = Math.min(offset + realtimeFallbackAppendChunkBytes, pcm16Audio.byteLength);
+    const alignedEnd = end % 2 === 0 ? end : end - 1;
+
+    if (alignedEnd > offset) {
+      session.appendPcm16Audio(pcm16Audio.slice(offset, alignedEnd));
+    }
   }
 }
 
@@ -890,6 +973,11 @@ ipcMain.handle(
     lastRealtimeCloudSessionError = null;
     activeRealtimeCloudSession = new RealtimeCloudSession(openAiCredentialStore, settings, updateOverlay);
     activeRealtimeCloudProcessName = processName;
+    const pendingAudioError = drainPendingRealtimePcm16Audio();
+
+    if (pendingAudioError) {
+      throw pendingAudioError;
+    }
 
     try {
       await activeRealtimeCloudSession.start();
@@ -926,7 +1014,7 @@ ipcMain.handle("transcription:realtime-append-pcm16", (_event, bytes: Uint8Array
   }
 });
 
-ipcMain.handle("transcription:realtime-finalize", async () => {
+ipcMain.handle("transcription:realtime-finalize", async (_event, fallbackWavBytes?: Uint8Array) => {
   if (!activeRealtimeCloudSession) {
     const previousRealtimeError = lastRealtimeCloudSessionError;
     lastRealtimeCloudSessionError = null;
@@ -944,7 +1032,15 @@ ipcMain.handle("transcription:realtime-finalize", async () => {
   activeRealtimeCloudSession = null;
   const processName = activeRealtimeCloudProcessName;
   activeRealtimeCloudProcessName = null;
-  const snapshot = await session.finalize();
+  appendRealtimeFallbackWavAudio(session, fallbackWavBytes);
+  const snapshot = await session.finalize().catch((error) => {
+    const message = error instanceof Error ? error.message : "Realtime Cloud Dictation finalization failed.";
+    const diagnostics = session.getAudioDiagnostics();
+
+    throw new Error(
+      `${message} Diagnostics: nativeChunks=${recordingRealtimePcm16ChunkCount}, nativeBytes=${recordingRealtimePcm16ByteCount}, pendingBytes=${pendingRealtimePcm16Bytes}, sessionReceivedChunks=${diagnostics.sessionReceivedChunks}, sessionReceivedBytes=${diagnostics.sessionReceivedBytes}, sessionBufferedBytes=${diagnostics.sessionBufferedBytes}, sessionDroppedBytes=${diagnostics.sessionDroppedBytes}, providerAppendedBytes=${diagnostics.providerAppendedBytes}, streamingStarted=${diagnostics.streamingStarted}.`
+    );
+  });
   const mode = getDictationMode("openai.realtime");
 
   if (snapshot.preConnectionDroppedBytes > 0) {
@@ -1071,19 +1167,32 @@ ipcMain.handle("windows-helper:capture-screenshot", (_event, mode: "screen" | "a
   windowsHelperService.captureScreenshot(mode)
 );
 ipcMain.handle("windows-helper:start-recording", (_event, options: NativeRecordingOptions) =>
-  windowsHelperService.startRecording(options, (level, pcm16Chunk) => {
-    updateOverlay({
-      level: Math.max(level.rms * 3, level.peak)
-    });
+  {
+    resetPendingRealtimePcm16Audio();
+    resetRecordingRealtimePcm16Counters();
 
-    if (pcm16Chunk && activeRealtimeCloudSession) {
-      appendRealtimePcm16AudioSafely(pcm16Chunk);
-    }
-  })
+    return windowsHelperService.startRecording(options, (level, pcm16Chunk) => {
+      updateOverlay({
+        level: Math.max(level.rms * 3, level.peak)
+      });
+
+      if (pcm16Chunk) {
+        recordingRealtimePcm16ChunkCount += 1;
+        recordingRealtimePcm16ByteCount += pcm16Chunk.byteLength;
+        appendRealtimePcm16AudioSafely(pcm16Chunk);
+      }
+    });
+  }
 );
-ipcMain.handle("windows-helper:stop-recording", () =>
-  windowsHelperService.stopRecording()
-);
+ipcMain.handle("windows-helper:stop-recording", async () => {
+  const result = await windowsHelperService.stopRecording();
+
+  if (!activeRealtimeCloudSession) {
+    resetPendingRealtimePcm16Audio();
+  }
+
+  return result;
+});
 ipcMain.handle("recording-overlay:show-recording", (_event, state?: Partial<RecordingOverlayState>) => {
   showOverlay({ mode: "recording", level: 0, message: "Recording", ...state });
 });

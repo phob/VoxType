@@ -30,6 +30,7 @@ The core idea:
 - [architecture.md](architecture.md): technical structure and main components.
 - [models.md](models.md): ASR/OCR model strategy, Whisper-first direction, Parakeet notes.
 - [cloud-dictation.md](cloud-dictation.md): planned opt-in OpenAI Cloud Dictation modes, privacy boundaries, realtime behavior, and setup.
+- [cloud-dictation-implementation-status.md](cloud-dictation-implementation-status.md): current implementation status and handoff notes for Cloud Dictation.
 - [dictionary-and-context.md](dictionary-and-context.md): custom vocabulary, OCR context, correction memory.
 - [windows-insertion.md](windows-insertion.md): typing, clipboard, SendInput, UI Automation, RDP/TeamViewer behavior.
 - [features.md](features.md): feature inventory and standout product ideas.

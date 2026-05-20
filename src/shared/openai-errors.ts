@@ -20,7 +20,8 @@ export function classifyOpenAiError(input: {
   code?: string | null;
   message?: string | null;
 }): OpenAiFriendlyError {
-  const detail = [input.status, input.statusText, input.type, input.code]
+  const providerMessage = sanitizeOpenAiErrorMessage(input.message);
+  const detail = [input.status, input.statusText, input.type, input.code, providerMessage]
     .filter((part) => part !== undefined && part !== null && String(part).trim())
     .join(" / ");
   const haystack = `${input.status ?? ""} ${input.type ?? ""} ${input.code ?? ""} ${input.message ?? ""}`.toLowerCase();
@@ -52,7 +53,11 @@ export function classifyOpenAiError(input: {
   if (
     haystack.includes("beta_api_shape_disabled") ||
     (haystack.includes("invalid_request_error") &&
-      (haystack.includes("unsupported") || haystack.includes("unknown parameter") || haystack.includes("unexpected")))
+      (haystack.includes("invalid_model") ||
+        haystack.includes("invalid_parameter") ||
+        haystack.includes("unsupported") ||
+        haystack.includes("unknown parameter") ||
+        haystack.includes("unexpected")))
   ) {
     return {
       category: "api_shape",
@@ -74,6 +79,16 @@ export function classifyOpenAiError(input: {
     summary: "OpenAI transcription failed. Check the API key, billing, rate limits, and model access.",
     technicalDetail: detail || "unknown"
   };
+}
+
+function sanitizeOpenAiErrorMessage(message: string | null | undefined): string | null {
+  const trimmed = message?.replace(/\s+/g, " ").trim();
+
+  if (!trimmed) {
+    return null;
+  }
+
+  return trimmed.length > 220 ? `${trimmed.slice(0, 217)}...` : trimmed;
 }
 
 export function formatOpenAiFriendlyError(error: OpenAiFriendlyError): string {

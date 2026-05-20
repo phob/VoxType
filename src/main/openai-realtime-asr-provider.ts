@@ -10,8 +10,9 @@ import { getOpenAiRealtimeTranscriptionDelay } from "../shared/realtime-latency"
 import { TranscriptTurnAccumulator } from "../shared/transcript-turns";
 import { OpenAiCredentialStore } from "./openai-credential-store";
 
-const OPENAI_REALTIME_URL = `wss://api.openai.com/v1/realtime/transcription_sessions?model=${OPENAI_REALTIME_WHISPER_MODEL_ID}`;
+const OPENAI_REALTIME_URL = "wss://api.openai.com/v1/realtime?intent=transcription";
 const OPENAI_REALTIME_MAX_APPEND_BYTES = 15 * 1024 * 1024;
+const OPENAI_REALTIME_MIN_COMMIT_BYTES = Math.ceil(24000 * 2 * 0.1);
 
 type NodeWebSocketInit = {
   headers: Record<string, string>;
@@ -34,6 +35,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
   }> = [];
   private lastError: Error | null = null;
   private sessionCreatedSeen = false;
+  private appendedAudioBytes = 0;
 
   constructor(
     private readonly credentials: OpenAiCredentialStore,
@@ -82,6 +84,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
       type: "input_audio_buffer.append",
       audio: encodeBase64(pcm16Audio)
     }));
+    this.appendedAudioBytes += pcm16Audio.byteLength;
   }
 
   async commitAudioAndWaitForFinalTranscript(timeoutMs = 10000): Promise<void> {
@@ -89,6 +92,10 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
 
     if (!this.socket || this.socket.readyState !== WebSocket.OPEN) {
       return;
+    }
+
+    if (this.appendedAudioBytes < OPENAI_REALTIME_MIN_COMMIT_BYTES) {
+      throw new Error(`Realtime Cloud Dictation did not receive enough microphone audio to finalize. Try holding the hotkey a little longer and check the selected input device. Provider appended ${this.appendedAudioBytes} PCM bytes.`);
     }
 
     const initialFinalTurnCount = this.finalTurnCount();
@@ -130,6 +137,10 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
     }
   }
 
+  getAppendedAudioBytes(): number {
+    return this.appendedAudioBytes;
+  }
+
   stop(reason = "OpenAI realtime session stopped.", options: { preserveLastError?: boolean } = {}): void {
     if (this.sessionReadyWaiters.length > 0 || this.finalTranscriptWaiters.length > 0) {
       this.failRealtime(new Error(reason));
@@ -161,7 +172,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
         socket.close();
         const error = this.socket === socket
           ? new Error(this.sessionCreatedSeen
-            ? "OpenAI realtime transcription_session.update was not acknowledged before the pre-connection buffer expired."
+            ? "OpenAI realtime session.update was not acknowledged before the pre-connection buffer expired."
             : "OpenAI realtime session configuration did not complete before the pre-connection buffer expired.")
           : new Error("OpenAI realtime session did not connect before the pre-connection buffer expired.");
 
@@ -412,7 +423,7 @@ function buildSessionUpdate(
   const languageHint = getProviderLanguageHint("openai", language);
 
   return {
-    type: "transcription_session.update",
+    type: "session.update",
     session: {
       type: "transcription",
       audio: {

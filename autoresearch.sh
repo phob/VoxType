@@ -167,6 +167,8 @@ grep_score 6 grep -R "openAiFileAsrProvider.testConnection(modelId)" -n src/main
 grep_score 6 grep -R "transcription:preview-prompt-pack" -n src >/dev/null
 grep_score 6 grep -R "previewPromptPack" -n src/preload src/renderer >/dev/null
 grep_score 6 grep -R "Cloud Prompt Pack preview" -n src/renderer >/dev/null
+grep_score 6 grep -R "Realtime Cloud Dictation does not send Prompt Pack text" -n src/renderer >/dev/null
+grep_score 6 grep -R "activeDictationMode.id === \"openai.realtime\"" -n src/renderer >/dev/null
 grep_score 6 grep -R "Screenshots, transcript history, full Dictionary, and insertion target contents are not included" -n src/shared/cloud-prompt-pack-preview.ts >/dev/null
 grep_score 6 grep -R "formatCloudPromptPackPreview" -n src/shared/cloud-prompt-pack-preview.ts src/renderer/src/App.tsx >/dev/null
 grep_score 6 grep -R "includeOcrContext: false" -n src/main/index.ts >/dev/null

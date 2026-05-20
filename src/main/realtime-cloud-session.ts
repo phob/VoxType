@@ -19,6 +19,15 @@ export type RealtimeCloudSessionSnapshot = {
   preConnectionDroppedBytes: number;
 };
 
+export type RealtimeCloudSessionAudioDiagnostics = {
+  sessionReceivedChunks: number;
+  sessionReceivedBytes: number;
+  sessionBufferedBytes: number;
+  sessionDroppedBytes: number;
+  providerAppendedBytes: number;
+  streamingStarted: boolean;
+};
+
 const openAiRealtimePreConnectionBufferBytes = openAiRealtimeAudioConfig.sampleRateHz * 2 * 5;
 
 export class RealtimeCloudSession {
@@ -28,6 +37,8 @@ export class RealtimeCloudSession {
   private streamingStarted = false;
   private preConnectionBytes = 0;
   private preConnectionDroppedBytes = 0;
+  private receivedChunks = 0;
+  private receivedBytes = 0;
   private readonly preConnectionBuffer: Uint8Array[] = [];
   private readonly provider: OpenAiRealtimeAsrProvider;
   private readonly mode: DictationMode;
@@ -82,6 +93,9 @@ export class RealtimeCloudSession {
     if (this.finalized) {
       return;
     }
+
+    this.receivedChunks += 1;
+    this.receivedBytes += bytes.byteLength;
 
     if (!this.streamingStarted) {
       this.bufferPreConnectionAudio(bytes);
@@ -168,6 +182,17 @@ export class RealtimeCloudSession {
       startedAtMs: this.startedAtMs,
       turns: this.turns,
       preConnectionDroppedBytes: this.preConnectionDroppedBytes
+    };
+  }
+
+  getAudioDiagnostics(): RealtimeCloudSessionAudioDiagnostics {
+    return {
+      sessionReceivedChunks: this.receivedChunks,
+      sessionReceivedBytes: this.receivedBytes,
+      sessionBufferedBytes: this.preConnectionBytes,
+      sessionDroppedBytes: this.preConnectionDroppedBytes,
+      providerAppendedBytes: this.provider.getAppendedAudioBytes(),
+      streamingStarted: this.streamingStarted
     };
   }
 }

@@ -1107,6 +1107,8 @@ export function App(): JSX.Element {
         systemAudioMutedByVoxTypeRef.current = true;
       }
 
+      recorderRef.current = await startNativePcmRecorder(state.settings);
+
       if (readiness.modeId === "openai.realtime") {
         await window.voxtype.transcription.startRealtime({
           processName: hotkeyTargetRef.current?.processName ?? state.activeWindow?.processName,
@@ -1114,7 +1116,6 @@ export function App(): JSX.Element {
         });
       }
 
-      recorderRef.current = await startNativePcmRecorder(state.settings);
       await startRecordingCoordination(state.settings);
       if (state.settings) {
         startCloudSessionLimitTimer(state.settings, readiness.modeId);
@@ -1284,7 +1285,7 @@ export function App(): JSX.Element {
       }
 
       const entry = readiness.modeId === "openai.realtime"
-        ? await window.voxtype.transcription.finalizeRealtime()
+        ? await window.voxtype.transcription.finalizeRealtime(recordingResult.wavBytes)
         : (await window.voxtype.transcription.transcribeWav(recordingResult.wavBytes, {
             processName: options?.pasteTarget?.processName ?? hotkeyTargetRef.current?.processName,
             ocrContext: options?.ocrContext ?? hotkeyOcrContextRef.current
@@ -2248,7 +2249,7 @@ export function App(): JSX.Element {
                 <label className="setting-row">
                   <span>
                     <strong>Dictation Mode</strong>
-                    <small>Local remains the default. File cloud modes send audio and a capped Prompt Pack to OpenAI; realtime uses OpenAI /v1/realtime/transcription_sessions without Prompt Pack text.</small>
+                    <small>Local remains the default. File cloud modes send audio and a capped Prompt Pack to OpenAI; realtime uses OpenAI realtime transcription WebSocket without Prompt Pack text.</small>
                   </span>
                   <select
                     value={state.settings.dictationModeId}
@@ -2398,7 +2399,12 @@ export function App(): JSX.Element {
                       onChange={(event) => setOpenAiApiKeyDraft(event.target.value)}
                     />
                     <button disabled={!openAiApiKeyDraft.trim()} onClick={() => void saveOpenAiApiKey()} type="button">Save key</button>
-                    <button onClick={() => void previewCloudPromptPack()} type="button">Prompt Pack preview</button>
+                    <button
+                      disabled={activeDictationMode.id === "openai.realtime"}
+                      title={activeDictationMode.id === "openai.realtime" ? "Realtime Cloud Dictation does not send Prompt Pack text." : "Preview the capped Prompt Pack for file cloud modes."}
+                      onClick={() => void previewCloudPromptPack()}
+                      type="button"
+                    >Prompt Pack preview</button>
                     <button
                       disabled={!state.openaiCredentials?.hasApiKey || state.settings.offlineMode}
                       title={state.settings.offlineMode ? "Disabled in Offline Mode" : !state.openaiCredentials?.hasApiKey ? "API key required before test connection" : "Test OpenAI API key and selected cloud model"}
@@ -5221,4 +5227,3 @@ function combineWhisperPromptPreview(generatedPrompt: string, promptOverride: st
 
   return `${generated} ${custom}`;
 }
-
