@@ -204,6 +204,7 @@ grep_score 6 grep -R "sessionCreatedSeen" -n src/main/openai-realtime-asr-provid
 grep_score 6 bash -c '! grep -R "payload.type === \"session.updated\" || payload.type === \"session.created\"" -n src/main/openai-realtime-asr-provider.ts'
 grep_score 6 grep -R "OpenAI realtime session closed before session configuration completed" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "OpenAI realtime session configuration did not complete before the pre-connection buffer expired" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "OpenAI realtime session.update was not acknowledged before the pre-connection buffer expired" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "this.socket === socket" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "await session.finalize" -n src/main/index.ts >/dev/null
 grep_score 6 grep -R "appendRealtimePcm16AudioSafely" -n src/main/index.ts >/dev/null
