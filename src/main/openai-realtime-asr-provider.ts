@@ -137,6 +137,8 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
     language: StreamingAsrRequest["language"],
     latencyPreset: StreamingAsrRequest["latencyPreset"]
   ): Promise<void> {
+    this.sessionCreatedSeen = false;
+
     await new Promise<void>((resolve, reject) => {
       const socket = new WebSocket(OPENAI_REALTIME_URL, {
         headers: {
