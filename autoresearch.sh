@@ -195,6 +195,7 @@ grep_score 6 grep -R "isRealtimeTranscriptionDeltaEvent" -n src/main/openai-real
 grep_score 6 grep -R "isRealtimeTranscriptionCompletedEvent" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "type.endsWith(\".done\")" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "isRealtimeTranscriptionFailedEvent" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 bash -c 'awk "/function isRealtimeTranscriptionFailedEvent/,/function isRealtimeTranscriptionSessionCreatedEvent/" src/main/openai-realtime-asr-provider.ts | grep "type.includes(\"error\")"'
 grep_score 6 grep -R "content_index" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "contentIndex" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "item\?:" -n src/main/openai-realtime-asr-provider.ts >/dev/null

@@ -354,7 +354,9 @@ function isRealtimeTranscriptionCompletedEvent(type: string | undefined): boolea
 
 function isRealtimeTranscriptionFailedEvent(type: string | undefined): boolean {
   return type === "conversation.item.input_audio_transcription.failed" ||
-    type === "transcription_session.input_audio_transcription.failed";
+    type === "transcription_session.input_audio_transcription.failed" ||
+    (type?.includes("input_audio_transcription") === true &&
+      (type.includes("failed") || type.includes("error")));
 }
 
 function isRealtimeTranscriptionSessionCreatedEvent(type: string | undefined): boolean {
