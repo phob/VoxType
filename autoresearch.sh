@@ -178,6 +178,8 @@ grep_score 6 grep -R "appendPcm16Audio" -n src/main/openai-realtime-asr-provider
 grep_score 6 grep -R "input_audio_buffer.append" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "OPENAI_REALTIME_MAX_APPEND_BYTES" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "15 MB or smaller" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "non-empty whole 16-bit samples" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "pcm16Audio.byteLength === 0 || pcm16Audio.byteLength % 2 !== 0" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "input_audio_buffer.commit" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 bash -c '! grep -R "commitAudio(): void" -n src/main/openai-realtime-asr-provider.ts'
 grep_score 6 grep -R "toString(\"base64\")" -n src/main/openai-realtime-asr-provider.ts >/dev/null

@@ -68,6 +68,10 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
       throw new Error("OpenAI realtime session is not connected.");
     }
 
+    if (pcm16Audio.byteLength === 0 || pcm16Audio.byteLength % 2 !== 0) {
+      throw new Error("OpenAI realtime PCM16 audio chunks must be non-empty whole 16-bit samples.");
+    }
+
     if (pcm16Audio.byteLength > OPENAI_REALTIME_MAX_APPEND_BYTES) {
       throw new Error("OpenAI realtime PCM16 audio chunks must be 15 MB or smaller.");
     }
