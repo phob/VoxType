@@ -134,6 +134,7 @@ grep_score 6 grep -R "dictationModeId: patch\.dictationModeId" -n src/renderer >
 grep_score 6 grep -R "forbidCloudDictation: patch\.forbidCloudDictation" -n src/renderer >/dev/null
 grep_score 6 grep -R "openai:test-connection" -n src >/dev/null
 grep_score 6 grep -R "testConnection" -n src/main/openai-asr-provider.ts src/preload src/renderer >/dev/null
+grep_score 6 bash -c 'test $(grep -c "getApiKey())?.trim()" src/main/openai-asr-provider.ts) -ge 2'
 grep_score 6 grep -R "Test connection" -n src/renderer >/dev/null
 grep_score 6 grep -R "v1/models" -n src/main/openai-asr-provider.ts >/dev/null
 grep_score 6 grep -R "Cloud Dictation.*entry.providerId" -n src/renderer >/dev/null

@@ -12,7 +12,7 @@ export class OpenAiFileAsrProvider implements FileAsrProvider {
   constructor(private readonly credentials: OpenAiCredentialStore) {}
 
   async testConnection(modelId: string): Promise<{ ok: boolean; message: string }> {
-    const apiKey = await this.credentials.getApiKey();
+    const apiKey = (await this.credentials.getApiKey())?.trim() ?? null;
 
     if (!apiKey) {
       return { ok: false, message: "OpenAI API key is required before testing Cloud Dictation." };
@@ -30,7 +30,7 @@ export class OpenAiFileAsrProvider implements FileAsrProvider {
   }
 
   async transcribeFile(request: FileAsrRequest): Promise<AsrResult> {
-    const apiKey = await this.credentials.getApiKey();
+    const apiKey = (await this.credentials.getApiKey())?.trim() ?? null;
 
     if (!apiKey) {
       throw new Error("OpenAI API key is required before Cloud Dictation can start.");
