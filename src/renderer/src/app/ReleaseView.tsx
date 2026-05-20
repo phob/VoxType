@@ -1,11 +1,8 @@
 import { type ReactElement } from "react";
-import { ArrowRight, Check, CheckCircle2, Clipboard, Download, FileText, MoreVertical, Play, Plus, RefreshCw, Trash2, UserPlus, X } from "lucide-react";
-import { dictationModes, type DictationModeId } from "../../../shared/asr";
-import { cloudDictationConsentExclusions, cloudDictationConsentOfflineNotice, cloudDictationConsentSummary } from "../../../shared/cloud-consent-copy";
-import { currentCloudReleaseSmokeTestChecklist, formatCloudReleaseSmokeTestStatus } from "../../../shared/cloud-release-smoke-test";
+import { ArrowRight, CheckCircle2, Clipboard, Download, FileText, MoreVertical, Play, RefreshCw, Trash2 } from "lucide-react";
+import { dictationModes } from "../../../shared/asr";
 import { getDictationModeAvailability } from "../../../shared/dictation-mode-availability";
 import { currentOpenAiModeImplementationReadiness } from "../../../shared/openai-readiness";
-import { PROMPT_PACK_MAX_CHARS, PROMPT_PACK_MAX_TERMS } from "../../../shared/prompt-pack-limits";
 import { type LocalModel } from "../../../shared/models";
 import { type TranscriptEntry } from "../../../shared/transcripts";
 import { type NativeInputDevice } from "../../../shared/windows-helper";
@@ -15,24 +12,20 @@ import {
   ReleaseSelect,
   ReleaseStatusBadge,
   WindowTitleBar,
-  appHotkeyEntries,
-  formatBytes,
   formatDuration,
   formatRelativeTimestamp,
   formatTimestamp,
   gpuFitLabel,
-  insertionModeLabel,
-  profileWhisperLanguageLabel,
   recordingInputDeviceLabel,
-  writingStyleLabel
 } from "./app-helpers";
 import { type ReleaseIconName } from "./app-helpers";
 import { whisperLanguageOptions, type ReleaseModelFilter, type ReleaseTab } from "./app-options";
 import { ReleaseCloudSection } from "./ReleaseCloudSection";
 import { ReleaseProfilesSection } from "./ReleaseProfilesSection";
 import { ReleaseDictionarySection } from "./ReleaseDictionarySection";
+import { type ReadyAppViewProps } from "./app-types";
 
-export function ReleaseView(props: Record<string, any>): ReactElement {
+export function ReleaseView(props: ReadyAppViewProps): ReactElement {
   const { activeDictationMode, activeModel, activeProviderLanguageHint, activeRuntimeLabel, appStatus, busyMessage, captureHotkey, capturingHotkey, cleanupHistory, clearHotkey, cloudModeSelectionReady, confirmingDeleteModelId, copyTranscript, deleteModel, dictationModeSettingsPatch, downloadModel, error, exactLocalModelSettingsPatch, handleUpdateButtonClick, insertTranscript, isDeveloperBuild, manualUpdateCooldownSeconds, playingTranscriptId, playTranscriptAudio, readinessDetail, readinessTitle, readyToDictate, realtimeModeSelectionReady, recording, releaseModelFilter, releaseModels, releaseTab, releaseTooltip, retranscribingTranscriptId, setReleaseModelFilter, setReleaseTab, setReleaseTooltip, setupSteps, state, transcribeSavedTranscript, updateButtonDisabled, updateButtonLabel, updateSettings, updateStatus, version } = props;
     return (
       <main className="app-shell release-shell">
@@ -52,7 +45,7 @@ export function ReleaseView(props: Record<string, any>): ReactElement {
               <button
                 className={releaseTab === tab ? "active" : ""}
                 key={tab}
-                onClick={() => setReleaseTab(tab)}
+                onClick={() => { setReleaseTab(tab); }}
                 type="button"
               >
                 <span className="release-nav-icon" aria-hidden="true">
@@ -67,7 +60,7 @@ export function ReleaseView(props: Record<string, any>): ReactElement {
               className={
                 releaseTab === "settings" ? "release-settings-link active" : "release-settings-link"
               }
-              onClick={() => setReleaseTab("settings")}
+              onClick={() => { setReleaseTab("settings"); }}
               type="button"
             >
               <span className="release-nav-icon" aria-hidden="true">
@@ -91,7 +84,7 @@ export function ReleaseView(props: Record<string, any>): ReactElement {
                     updateStatus?.available && updateStatus.latestVersion
                       ? `Install VoxType ${updateStatus.latestVersion}`
                       : manualUpdateCooldownSeconds > 0
-                        ? `Check again in ${manualUpdateCooldownSeconds} seconds`
+                        ? `Check again in ${String(manualUpdateCooldownSeconds)} seconds`
                         : updateStatus?.error ?? "Check for updates"
                   }
                   type="button"
@@ -194,7 +187,7 @@ export function ReleaseView(props: Record<string, any>): ReactElement {
                   <button
                     className={step.ready ? "ready" : "needs-setup"}
                     key={step.id}
-                    onClick={() => setReleaseTab(step.tab)}
+                    onClick={() => { setReleaseTab(step.tab); }}
                     type="button"
                   >
                     <span className="step-dot" aria-hidden="true" />
@@ -301,7 +294,7 @@ export function ReleaseView(props: Record<string, any>): ReactElement {
                   <ReleaseIcon name="history" decorative />
                   <h2>Recent history</h2>
                 </div>
-                <button className="ghost-link-button" onClick={() => setReleaseTab("history")} type="button">
+                <button className="ghost-link-button" onClick={() => { setReleaseTab("history"); }} type="button">
                   <span>View all history</span>
                   <ReleaseIcon name="arrowRight" decorative />
                 </button>
@@ -440,8 +433,8 @@ export function ReleaseView(props: Record<string, any>): ReactElement {
                   </span>
                   <button
                     className="release-command-button"
-                    onClick={(event) => captureHotkey(event, "dictationToggleHotkey")}
-                    onContextMenu={(event) => clearHotkey(event, "dictationToggleHotkey")}
+                    onClick={(event) => { captureHotkey(event, "dictationToggleHotkey"); }}
+                    onContextMenu={(event) => { clearHotkey(event, "dictationToggleHotkey"); }}
                     title="Click to capture a hotkey. Right-click to clear."
                     type="button"
                   >
@@ -457,8 +450,8 @@ export function ReleaseView(props: Record<string, any>): ReactElement {
                   </span>
                   <button
                     className="release-command-button"
-                    onClick={(event) => captureHotkey(event, "dictationHoldHotkey")}
-                    onContextMenu={(event) => clearHotkey(event, "dictationHoldHotkey")}
+                    onClick={(event) => { captureHotkey(event, "dictationHoldHotkey"); }}
+                    onContextMenu={(event) => { clearHotkey(event, "dictationHoldHotkey"); }}
                     title="Click to capture a hotkey. Right-click to clear."
                     type="button"
                   >
@@ -474,8 +467,8 @@ export function ReleaseView(props: Record<string, any>): ReactElement {
                   </span>
                   <button
                     className="release-command-button"
-                    onClick={(event) => captureHotkey(event, "showWindowHotkey")}
-                    onContextMenu={(event) => clearHotkey(event, "showWindowHotkey")}
+                    onClick={(event) => { captureHotkey(event, "showWindowHotkey"); }}
+                    onContextMenu={(event) => { clearHotkey(event, "showWindowHotkey"); }}
                     title="Click to capture a hotkey. Right-click to clear."
                     type="button"
                   >
@@ -522,7 +515,7 @@ export function ReleaseView(props: Record<string, any>): ReactElement {
                   <button
                     className={releaseModelFilter === filter ? "active" : ""}
                     key={filter}
-                    onClick={() => setReleaseModelFilter(filter)}
+                    onClick={() => { setReleaseModelFilter(filter); }}
                     type="button"
                   >
                     {filter[0].toUpperCase() + filter.slice(1)}
@@ -615,7 +608,7 @@ export function ReleaseView(props: Record<string, any>): ReactElement {
                       <small>
                         {entry.providerId === "openai" ? "Cloud Dictation" : "Local dictation"} · {entry.dictationModeId ?? "local.custom"} · {entry.modelId} · {formatDuration(entry.durationMs)}
                         {entry.languageHint ? ` · language ${entry.languageHint}` : " · language auto"}
-                        {entry.turnCount ? ` · ${entry.turnCount} turns` : ""}
+                        {entry.turnCount ? ` · ${String(entry.turnCount)} turns` : ""}
                         {entry.turnStatus ? ` · ${entry.turnStatus}` : ""}
                         {entry.audioFileName ? " · audio saved" : ""}
                         {entry.audioUnavailableReason ? ` · ${entry.audioUnavailableReason}` : ""}

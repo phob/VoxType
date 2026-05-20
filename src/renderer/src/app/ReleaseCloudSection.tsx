@@ -1,15 +1,14 @@
 import { type ReactElement } from "react";
-import { ArrowRight, Check, CheckCircle2, Clipboard, Download, FileText, MoreVertical, Play, Plus, RefreshCw, Trash2, UserPlus, X } from "lucide-react";
-import { dictationModes } from "../../../shared/asr";
 import { cloudDictationConsentExclusions, cloudDictationConsentOfflineNotice, cloudDictationConsentSummary } from "../../../shared/cloud-consent-copy";
 import { currentCloudReleaseSmokeTestChecklist, formatCloudReleaseSmokeTestStatus } from "../../../shared/cloud-release-smoke-test";
 import { currentOpenAiModeImplementationReadiness } from "../../../shared/openai-readiness";
 import { PROMPT_PACK_MAX_CHARS, PROMPT_PACK_MAX_TERMS } from "../../../shared/prompt-pack-limits";
 import { type RealtimeLatencyPreset } from "../../../shared/settings";
-import { ReleaseChip, ReleaseIcon, ReleaseSelect, ReleaseStatusBadge, appHotkeyEntries, formatBytes, formatDuration, formatRelativeTimestamp, formatTimestamp, getOpenAiCredentialStatusText, gpuFitLabel, insertionModeLabel, profileWhisperLanguageLabel, recordingInputDeviceLabel, writingStyleLabel } from "./app-helpers";
+import { ReleaseChip, ReleaseIcon, ReleaseStatusBadge, getOpenAiCredentialStatusText } from "./app-helpers";
 import { realtimeLatencyPresetOptions } from "./app-options";
+import { type ReadyAppViewProps } from "./app-types";
 
-export function ReleaseCloudSection(props: Record<string, any>): ReactElement {
+export function ReleaseCloudSection(props: ReadyAppViewProps): ReactElement {
   const { activeDictationMode, activeProviderLabel, clearOpenAiApiKey, cloudModeGateLabel, cloudModeSelectionReady, normalizedCloudSessionMaxMinutes, openAiApiKeyDraft, previewCloudPromptPack, releaseTab, saveOpenAiApiKey, setOpenAiApiKeyDraft, state, testOpenAiConnection, updateSettings } = props;
   return (
     <>
@@ -172,7 +171,7 @@ export function ReleaseCloudSection(props: Record<string, any>): ReactElement {
                       placeholder="sk-..."
                       type="password"
                       value={openAiApiKeyDraft}
-                      onChange={(event) => setOpenAiApiKeyDraft(event.target.value)}
+                      onChange={(event) => { setOpenAiApiKeyDraft(event.target.value); }}
                     />
                     <button disabled={!openAiApiKeyDraft.trim()} onClick={() => void saveOpenAiApiKey()} type="button">Save key</button>
                     <button
@@ -182,8 +181,8 @@ export function ReleaseCloudSection(props: Record<string, any>): ReactElement {
                       type="button"
                     >Prompt Pack preview</button>
                     <button
-                      disabled={!state.openaiCredentials?.hasApiKey || state.settings.offlineMode}
-                      title={state.settings.offlineMode ? "Disabled in Offline Mode" : !state.openaiCredentials?.hasApiKey ? "API key required before test connection" : "Test OpenAI API key and selected cloud model"}
+                      disabled={!state.openaiCredentials?.hasApiKey}
+                      title={!state.openaiCredentials?.hasApiKey ? "API key required before test connection" : "Test OpenAI API key and selected cloud model"}
                       onClick={() => void testOpenAiConnection()}
                       type="button"
                     >Test connection</button>

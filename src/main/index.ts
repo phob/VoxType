@@ -496,7 +496,7 @@ function unregisterDictationHotkeys(): void {
     registeredDictationHoldHotkey = null;
   }
 }
-async function registerDictationHotkeys(settings: AppSettings): Promise<void> {
+function registerDictationHotkeys(settings: AppSettings): void {
   if (
     settings.dictationToggleHotkey.trim() &&
     settings.dictationToggleHotkey !== settings.showWindowHotkey &&
@@ -543,7 +543,7 @@ async function refreshFullscreenHotkeySuspension(): Promise<void> {
     stopFullscreenSuspensionWatch();
     dictationSuspendedForFullscreen = false;
     fullscreenSuspensionProcessName = null;
-    await registerDictationHotkeys(settings);
+    registerDictationHotkeys(settings);
     return;
   }
   startFullscreenSuspensionWatch();
@@ -560,7 +560,7 @@ async function refreshFullscreenHotkeySuspension(): Promise<void> {
   }
   dictationSuspendedForFullscreen = false;
   fullscreenSuspensionProcessName = null;
-  await registerDictationHotkeys(settings);
+  registerDictationHotkeys(settings);
 }
 function getHotkeyStatus(): {
   showWindowHotkey: string | null;
@@ -803,11 +803,11 @@ ipcMain.handle("transcription:realtime-finalize", async (_event, fallbackWavByte
   const processName = activeRealtimeCloudProcessName;
   activeRealtimeCloudProcessName = null;
   appendRealtimeFallbackWavAudio(session, fallbackWavBytes);
-  const snapshot = await session.finalize().catch((error) => {
+  const snapshot = await session.finalize().catch((error: unknown) => {
     const message = error instanceof Error ? error.message : "Realtime Cloud Dictation finalization failed.";
     const diagnostics = session.getAudioDiagnostics();
     throw new Error(
-      `${message} Diagnostics: nativeChunks=${realtimeAudioBuffer.recordingChunkCount}, nativeBytes=${realtimeAudioBuffer.recordingByteCount}, pendingBytes=${realtimeAudioBuffer.pendingByteCount}, sessionReceivedChunks=${diagnostics.sessionReceivedChunks}, sessionReceivedBytes=${diagnostics.sessionReceivedBytes}, sessionBufferedBytes=${diagnostics.sessionBufferedBytes}, sessionDroppedBytes=${diagnostics.sessionDroppedBytes}, providerAppendedBytes=${diagnostics.providerAppendedBytes}, streamingStarted=${diagnostics.streamingStarted}.`
+      `${message} Diagnostics: nativeChunks=${String(realtimeAudioBuffer.recordingChunkCount)}, nativeBytes=${String(realtimeAudioBuffer.recordingByteCount)}, pendingBytes=${String(realtimeAudioBuffer.pendingByteCount)}, sessionReceivedChunks=${String(diagnostics.sessionReceivedChunks)}, sessionReceivedBytes=${String(diagnostics.sessionReceivedBytes)}, sessionBufferedBytes=${String(diagnostics.sessionBufferedBytes)}, sessionDroppedBytes=${String(diagnostics.sessionDroppedBytes)}, providerAppendedBytes=${String(diagnostics.providerAppendedBytes)}, streamingStarted=${String(diagnostics.streamingStarted)}.`
     );
   });
   const mode = getDictationMode("openai.realtime");
@@ -851,7 +851,9 @@ ipcMain.handle("dictionary:update", (_event, id: string, patch: DictionaryPatch)
   dictionaryStore.update(id, patch)
 );
 ipcMain.handle("dictionary:remove", (_event, id: string) => dictionaryStore.remove(id));
-ipcMain.handle("insertion:copy", (_event, text: string) => insertionService.copyForInsertion(text));
+ipcMain.handle("insertion:copy", (_event, text: string) => {
+  insertionService.copyForInsertion(text);
+});
 ipcMain.handle("insertion:paste-active", (_event, text: string) =>
   insertionService.insertIntoActiveApp(text)
 );
@@ -970,7 +972,7 @@ ipcMain.handle("recording-overlay:hide", () => {
   hideOverlay();
 });
 ipcMain.handle("recording-overlay:get-state", () => overlayState);
-app.whenReady().then(async () => {
+void app.whenReady().then(async () => {
   await cleanupStartupStorage().catch(() => undefined);
   await historyStore.cleanup().catch(() => undefined);
   Menu.setApplicationMenu(null);

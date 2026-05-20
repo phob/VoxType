@@ -25,7 +25,7 @@ export class HistoryStore {
 
     try {
       const file = await readFile(this.historyPath, "utf8");
-      const parsed = JSON.parse(file);
+      const parsed: unknown = JSON.parse(file);
       this.entries = Array.isArray(parsed) ? parsed.filter(isTranscriptEntry) : [];
       await this.prune();
     } catch {

@@ -14,6 +14,7 @@ import {
 } from "./app-helpers";
 import { type ReleaseModelFilter, type ReleaseTab } from "./app-options";
 import { type AppState } from "./app-state";
+import { type AppDerivedState } from "./app-types";
 
 interface AppDerivedStateInput {
   busyMessage: string | null;
@@ -41,7 +42,7 @@ export function deriveAppState({
   selectedProfileProcessName,
   state,
   updateStatus
-}: AppDerivedStateInput): Record<string, any> {
+}: AppDerivedStateInput): AppDerivedState {
   const activeModel = state.models.find((model) => model.id === state.settings?.activeModelId);
   const selectedProfile =
     state.settings?.appProfiles.find(
@@ -61,7 +62,7 @@ export function deriveAppState({
   );
   const activeDictationMode = getDictationMode(state.settings?.dictationModeId ?? "local.balanced");
   const activeProviderLabel = activeDictationMode.providerId === "openai" ? "Cloud Dictation" : "Local dictation";
-  const appStatus = error ? "Error" : recording ? "Recording" : busyMessage ? busyMessage : "Ready";
+  const appStatus = error ? "Error" : recording ? "Recording" : busyMessage ?? "Ready";
   const normalizedCloudSessionMaxMinutes =
     state.settings?.cloudSessionMaxMs === null
       ? ""
@@ -192,7 +193,7 @@ export function deriveAppState({
         : updateStatus?.available
           ? "Update"
           : manualUpdateCooldownSeconds > 0
-            ? `${manualUpdateCooldownSeconds}s`
+            ? `${String(manualUpdateCooldownSeconds)}s`
             : "Stable";
   const updateButtonDisabled =
     updateStatus?.state === "checking" ||

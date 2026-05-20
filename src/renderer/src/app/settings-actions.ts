@@ -1,32 +1,22 @@
 import { type MouseEvent } from "react";
-import { eventToAccelerator } from "../hotkey-capture";
 import { getCloudSessionLimitState } from "../../../shared/cloud-session-limits";
-import { dictationModes, getDictationMode, isCloudDictationMode, type DictationModeId } from "../../../shared/asr";
-import { getDictationModeAvailability } from "../../../shared/dictation-mode-availability";
+import { dictationModes, isCloudDictationMode, type DictationModeId } from "../../../shared/asr";
 import { resolveCloudPromptPackOcrPolicy } from "../../../shared/cloud-prompt-pack-settings";
-import { type DictionaryEntry } from "../../../shared/dictionary";
-import { type AppProfile, type AppSettings, type InsertionMode } from "../../../shared/settings";
-import { type TranscriptEntry } from "../../../shared/transcripts";
-import { type DictationHotkeyPayload } from "../../../shared/windows-helper";
+import { type AppProfile, type AppSettings } from "../../../shared/settings";
 import {
   formatError,
   formatElapsedCloudSession,
   appHotkeyEntries,
   type HotkeyCaptureTarget,
-  joinErrors,
-  normalizeHotkey,
-  pngBytesToDataUrl,
-  playRecordingCue,
-  profileForWindow,
-  splitMatches,
-  wait
+  normalizeHotkey
 } from "./app-helpers";
 import { type AppState } from "./app-state";
+import { type BaseActionContext, type SettingsActions } from "./app-types";
 
 const manualUpdateCheckCooldownSeconds = 30;
 
-export function useSettingsActions(ctx: Record<string, any>): Record<string, any> {
-  const { activeModeIsCloud, cloudSessionLimitTimerRef, cloudSessionWarnedRef, confirmingDeleteModelId, hotkeyOcrContextRef, hotkeyTargetRef, latestOcrContext, manualUpdateCooldownSeconds, modelDeleteTimerRef, openAiApiKeyDraft, recorderRef, recording, state, updateStatus, setBusyMessage, setCapturingHotkey, setConfirmingDeleteModelId, setError, setInsertionTestResult, setIsDeveloperBuild, setManualUpdateCooldownSeconds, setOpenAiApiKeyDraft, setRecording, setState, setUpdateStatus, setVersion, stopAndTranscribe, stopRecordingCoordination, unmuteSystemAudio } = ctx;
+export function useSettingsActions(ctx: BaseActionContext): SettingsActions {
+  const { activeModeIsCloud, cloudSessionLimitTimerRef, cloudSessionWarnedRef, confirmingDeleteModelId, hotkeyOcrContextRef, hotkeyTargetRef, latestOcrContext, manualUpdateCooldownSeconds, modelDeleteTimerRef, openAiApiKeyDraft, recorderRef, recording, recordingActionsRef, state, updateStatus, setBusyMessage, setCapturingHotkey, setConfirmingDeleteModelId, setError, setInsertionTestResult, setIsDeveloperBuild, setManualUpdateCooldownSeconds, setOpenAiApiKeyDraft, setRecording, setState, setUpdateStatus, setVersion } = ctx;
 
   async function refresh(): Promise<void> {
     const [
@@ -149,7 +139,7 @@ export function useSettingsActions(ctx: Record<string, any>): Record<string, any
     });
     setInsertionTestResult(
       promptPack
-        ? `Cloud Prompt Pack preview (${promptPack.terms.length}/${promptPack.termLimit} terms, ${promptPack.text.length}/${promptPack.characterLimit} chars, ${promptPack.source}${promptPack.truncated ? ", truncated" : ""}, OCR ${ocrPolicy.enabled ? "allowed" : "blocked"} by ${ocrPolicy.source}). Screenshots, transcript history, full Dictionary, and insertion target contents are not included: ${promptPack.text}`
+        ? `Cloud Prompt Pack preview (${String(promptPack.terms.length)}/${String(promptPack.termLimit)} terms, ${String(promptPack.text.length)}/${String(promptPack.characterLimit)} chars, ${promptPack.source}${promptPack.truncated ? ", truncated" : ""}, OCR ${ocrPolicy.enabled ? "allowed" : "blocked"} by ${ocrPolicy.source}). Screenshots, transcript history, full Dictionary, and insertion target contents are not included: ${promptPack.text}`
         : `Cloud Prompt Pack preview is empty for the current app. OCR ${ocrPolicy.enabled ? "allowed" : "blocked"} by ${ocrPolicy.source}. Screenshots, transcript history, full Dictionary, and insertion target contents are not included.`
     );
   }
@@ -202,7 +192,7 @@ export function useSettingsActions(ctx: Record<string, any>): Record<string, any
       if (limit.shouldStop) {
         clearCloudSessionLimitTimer();
         setError(limit.warningMessage ?? "Cloud Dictation reached the maximum session duration.");
-        void stopAndTranscribe({
+        void recordingActionsRef.current.stopAndTranscribe?.({
           pasteTarget: hotkeyTargetRef.current,
           ocrContext: hotkeyOcrContextRef.current
         });
@@ -229,8 +219,8 @@ export function useSettingsActions(ctx: Record<string, any>): Record<string, any
     }
 
     await window.voxtype.transcription.cancelRealtime("Realtime Cloud Dictation stopped because Offline Mode was enabled.").catch(() => undefined);
-    await stopRecordingCoordination();
-    await unmuteSystemAudio();
+    await recordingActionsRef.current.stopRecordingCoordination?.();
+    await recordingActionsRef.current.unmuteSystemAudio?.();
     setError("Cloud Dictation stopped because Offline Mode was enabled.");
   }
 
@@ -304,10 +294,10 @@ export function useSettingsActions(ctx: Record<string, any>): Record<string, any
       const updates = await window.voxtype.updates.check();
       setUpdateStatus(updates);
     } catch (updateError) {
-      setUpdateStatus((current: AppState) =>
-        current
-          ? { ...current, state: "error", error: formatError(updateError), available: false }
-          : null
+      setUpdateStatus((current) =>
+        current === null
+          ? null
+          : { ...current, state: "error", error: formatError(updateError), available: false }
       );
     }
   }

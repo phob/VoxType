@@ -77,7 +77,7 @@ export class RuntimeService {
 
       if (!response.ok || !response.body) {
         throw new Error(
-          `Failed to download ${runtime.name}: ${response.status} ${response.statusText}`
+          `Failed to download ${runtime.name}: ${String(response.status)} ${response.statusText}`
         );
       }
 

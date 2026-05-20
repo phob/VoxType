@@ -191,7 +191,7 @@ export class WindowsHelperService {
 
     const outputDirectory = join(app.getPath("userData"), "screenshots");
     await mkdir(outputDirectory, { recursive: true });
-    const outputPath = join(outputDirectory, `screenshot-${Date.now()}.png`);
+    const outputPath = join(outputDirectory, `screenshot-${String(Date.now())}.png`);
     const args = ["capture-screenshot", outputPath];
 
     if (mode === "activeWindow") {
@@ -326,7 +326,7 @@ export class WindowsHelperService {
 
     const outputDirectory = join(app.getPath("userData"), "native-recordings");
     await mkdir(outputDirectory, { recursive: true });
-    const outputPath = join(outputDirectory, `recording-${Date.now()}.wav`);
+    const outputPath = join(outputDirectory, `recording-${String(Date.now())}.wav`);
     const args = ["record-wav", outputPath];
     const vadModelPath = await this.resolveSileroVadModelPath();
     const captureModeArg = nativeCaptureModeArg(options.captureMode);
@@ -401,7 +401,7 @@ export class WindowsHelperService {
     try {
       await waitForHelperStartup(child, stdout, stderr);
     } catch (error) {
-      if (this.recording?.child === child) {
+      if (this.recording.child === child) {
         this.recording = null;
       }
 
@@ -443,7 +443,7 @@ export class WindowsHelperService {
         const message =
           Buffer.concat(recording.stdout).toString("utf8").trim() ||
           Buffer.concat(recording.stderr).toString("utf8").trim() ||
-          `Windows helper exited with code ${code}.`;
+          `Windows helper exited with code ${String(code)}.`;
 
         reject(new Error(message));
       });
@@ -555,10 +555,6 @@ function parseNativeRecordingMetadata(stdout: string): Omit<NativeRecordingResul
       parsed.captureMode === "exclusiveCapture" ? "exclusiveCapture" : "sharedCapture",
     speechFrames: typeof parsed.speechFrames === "number" ? parsed.speechFrames : 0
   };
-}
-
-function parseRecordingLevelEvents(stdout: string): NativeRecordingLevel[] {
-  return parseRecordingStdoutEvents(stdout).map((event) => event.level);
 }
 
 function splitCompleteStdoutLines(stdout: string): { complete: string; remainder: string } {
@@ -685,7 +681,7 @@ function waitForHelperStartup(
       const message =
         Buffer.concat(stdout).toString("utf8").trim() ||
         Buffer.concat(stderr).toString("utf8").trim() ||
-        `Windows helper exited before recording started with code ${code}.`;
+        `Windows helper exited before recording started with code ${String(code)}.`;
 
       reject(new Error(message));
     };
@@ -726,7 +722,7 @@ function runHelperWithStdin(
       const message =
         Buffer.concat(stdout).toString("utf8").trim() ||
         Buffer.concat(stderr).toString("utf8").trim() ||
-        `Windows helper exited with code ${code}.`;
+        `Windows helper exited with code ${String(code)}.`;
 
       reject(new Error(message));
     });

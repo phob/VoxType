@@ -1,15 +1,11 @@
 import { type ReactElement } from "react";
-import { ArrowRight, Check, CheckCircle2, Clipboard, Download, FileText, MoreVertical, Play, Plus, RefreshCw, Trash2, UserPlus, X } from "lucide-react";
-import { dictationModes } from "../../../shared/asr";
-import { cloudDictationConsentExclusions, cloudDictationConsentOfflineNotice, cloudDictationConsentSummary } from "../../../shared/cloud-consent-copy";
-import { currentCloudReleaseSmokeTestChecklist, formatCloudReleaseSmokeTestStatus } from "../../../shared/cloud-release-smoke-test";
-import { currentOpenAiModeImplementationReadiness } from "../../../shared/openai-readiness";
-import { PROMPT_PACK_MAX_CHARS, PROMPT_PACK_MAX_TERMS } from "../../../shared/prompt-pack-limits";
+import { Check, Plus, Trash2, X } from "lucide-react";
 import { type DictionaryEntry } from "../../../shared/dictionary";
 import { type AppProfile } from "../../../shared/settings";
-import { ReleaseChip, ReleaseIcon, ReleaseSelect, ReleaseStatusBadge, appHotkeyEntries, formatBytes, formatDuration, formatRelativeTimestamp, formatTimestamp, gpuFitLabel, insertionModeLabel, profileWhisperLanguageLabel, recordingInputDeviceLabel, writingStyleLabel } from "./app-helpers";
+import { ReleaseChip, ReleaseIcon } from "./app-helpers";
+import { type ReadyAppViewProps } from "./app-types";
 
-export function ReleaseDictionarySection(props: Record<string, any>): ReactElement {
+export function ReleaseDictionarySection(props: ReadyAppViewProps): ReactElement {
   const { closeDictionaryModal, dictionaryAppProcess, dictionaryCategory, dictionaryMatches, dictionaryModalOpen, dictionaryPreferred, editingDictionaryEntryId, latestOcrContext, openEditDictionaryModal, openNewDictionaryModal, releaseTab, removeDictionaryEntry, savedDictionaryTerms, saveDictionaryEntryFromModal, saveOcrTerm, setDictionaryAppProcess, setDictionaryCategory, setDictionaryMatches, setDictionaryPreferred, state, toggleDictionaryEntry } = props;
   return (
     <>
@@ -43,7 +39,7 @@ export function ReleaseDictionarySection(props: Record<string, any>): ReactEleme
                     >
                       <button
                         className="dictionary-entry-main"
-                        onClick={() => openEditDictionaryModal(entry)}
+                        onClick={() => { openEditDictionaryModal(entry); }}
                         type="button"
                       >
                         <strong>{entry.preferred}</strong>
@@ -146,7 +142,7 @@ export function ReleaseDictionarySection(props: Record<string, any>): ReactEleme
                       <input
                         autoFocus
                         value={dictionaryPreferred}
-                        onChange={(event) => setDictionaryPreferred(event.target.value)}
+                        onChange={(event) => { setDictionaryPreferred(event.target.value); }}
                       />
                     </label>
                     <label className="release-field">
@@ -154,7 +150,7 @@ export function ReleaseDictionarySection(props: Record<string, any>): ReactEleme
                       <textarea
                         rows={2}
                         value={dictionaryMatches}
-                        onChange={(event) => setDictionaryMatches(event.target.value)}
+                        onChange={(event) => { setDictionaryMatches(event.target.value); }}
                       />
                     </label>
                     <div className="release-form-split">
@@ -162,14 +158,14 @@ export function ReleaseDictionarySection(props: Record<string, any>): ReactEleme
                         <span>Category</span>
                         <input
                           value={dictionaryCategory}
-                          onChange={(event) => setDictionaryCategory(event.target.value)}
+                          onChange={(event) => { setDictionaryCategory(event.target.value); }}
                         />
                       </label>
                       <label className="release-field">
                         <span>Scope</span>
                         <select
                           value={dictionaryAppProcess}
-                          onChange={(event) => setDictionaryAppProcess(event.target.value)}
+                          onChange={(event) => { setDictionaryAppProcess(event.target.value); }}
                         >
                           <option value="">All apps</option>
                           {state.settings.appProfiles.map((profile: AppProfile) => (

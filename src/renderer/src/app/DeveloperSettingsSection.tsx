@@ -1,20 +1,14 @@
 import { type ReactElement } from "react";
-import { ArrowRight, Check, CheckCircle2, Clipboard, Download, FileText, MoreVertical, Play, Plus, RefreshCw, Trash2, UserPlus, X } from "lucide-react";
-import { dictationModes } from "../../../shared/asr";
-import { cloudDictationConsentExclusions, cloudDictationConsentOfflineNotice, cloudDictationConsentSummary } from "../../../shared/cloud-consent-copy";
-import { currentCloudReleaseSmokeTestChecklist, formatCloudReleaseSmokeTestStatus } from "../../../shared/cloud-release-smoke-test";
-import { currentOpenAiModeImplementationReadiness } from "../../../shared/openai-readiness";
-import { PROMPT_PACK_MAX_CHARS, PROMPT_PACK_MAX_TERMS } from "../../../shared/prompt-pack-limits";
 import { type InsertionMode, type RecorderCaptureMode, type RecordingCoordinationMode, type WhisperLanguage, type WhisperRuntimePreference } from "../../../shared/settings";
 import { type NativeInputDevice } from "../../../shared/windows-helper";
-import { ReleaseChip, ReleaseIcon, ReleaseSelect, ReleaseStatusBadge, appHotkeyEntries, formatBytes, formatDuration, formatRelativeTimestamp, formatTimestamp, gpuFitLabel, insertionModeLabel, profileWhisperLanguageLabel, recordingInputDeviceLabel, writingStyleLabel } from "./app-helpers";
 import { whisperLanguageOptions } from "./app-options";
+import { type ReadyAppViewProps } from "./app-types";
 
-export function DeveloperSettingsSection(props: Record<string, any>): ReactElement {
+export function DeveloperSettingsSection(props: ReadyAppViewProps): ReactElement {
   const { activeDictationMode, activeProviderLabel, activeTab, captureHotkey, capturingHotkey, clearHotkey, state, updateSettings } = props;
   return (
     <>
-        {activeTab === "settings" && state.settings ? (
+        {activeTab === "settings" ? (
           <section className="panel-block">
             <h2>settings</h2>
             <div className="settings-form">
@@ -142,8 +136,8 @@ export function DeveloperSettingsSection(props: Record<string, any>): ReactEleme
               <label className="dev-field">
                 <span>recordingStartHotkey</span>
                 <button
-                  onClick={(event) => captureHotkey(event, "recordingStartHotkey")}
-                  onContextMenu={(event) => clearHotkey(event, "recordingStartHotkey")}
+                  onClick={(event) => { captureHotkey(event, "recordingStartHotkey"); }}
+                  onContextMenu={(event) => { clearHotkey(event, "recordingStartHotkey"); }}
                   type="button"
                 >
                   {capturingHotkey === "recordingStartHotkey"
@@ -154,8 +148,8 @@ export function DeveloperSettingsSection(props: Record<string, any>): ReactEleme
               <label className="dev-field">
                 <span>recordingStopHotkey</span>
                 <button
-                  onClick={(event) => captureHotkey(event, "recordingStopHotkey")}
-                  onContextMenu={(event) => clearHotkey(event, "recordingStopHotkey")}
+                  onClick={(event) => { captureHotkey(event, "recordingStopHotkey"); }}
+                  onContextMenu={(event) => { clearHotkey(event, "recordingStopHotkey"); }}
                   type="button"
                 >
                   {capturingHotkey === "recordingStopHotkey"
@@ -166,8 +160,8 @@ export function DeveloperSettingsSection(props: Record<string, any>): ReactEleme
               <label className="dev-field">
                 <span>dictationToggleHotkey</span>
                 <button
-                  onClick={(event) => captureHotkey(event, "dictationToggleHotkey")}
-                  onContextMenu={(event) => clearHotkey(event, "dictationToggleHotkey")}
+                  onClick={(event) => { captureHotkey(event, "dictationToggleHotkey"); }}
+                  onContextMenu={(event) => { clearHotkey(event, "dictationToggleHotkey"); }}
                   type="button"
                 >
                   {capturingHotkey === "dictationToggleHotkey"
@@ -178,8 +172,8 @@ export function DeveloperSettingsSection(props: Record<string, any>): ReactEleme
               <label className="dev-field">
                 <span>dictationHoldHotkey</span>
                 <button
-                  onClick={(event) => captureHotkey(event, "dictationHoldHotkey")}
-                  onContextMenu={(event) => clearHotkey(event, "dictationHoldHotkey")}
+                  onClick={(event) => { captureHotkey(event, "dictationHoldHotkey"); }}
+                  onContextMenu={(event) => { clearHotkey(event, "dictationHoldHotkey"); }}
                   type="button"
                 >
                   {capturingHotkey === "dictationHoldHotkey"
@@ -190,8 +184,8 @@ export function DeveloperSettingsSection(props: Record<string, any>): ReactEleme
               <label className="dev-field">
                 <span>showWindowHotkey</span>
                 <button
-                  onClick={(event) => captureHotkey(event, "showWindowHotkey")}
-                  onContextMenu={(event) => clearHotkey(event, "showWindowHotkey")}
+                  onClick={(event) => { captureHotkey(event, "showWindowHotkey"); }}
+                  onContextMenu={(event) => { clearHotkey(event, "showWindowHotkey"); }}
                   type="button"
                 >
                   {capturingHotkey === "showWindowHotkey"

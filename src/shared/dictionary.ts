@@ -45,7 +45,7 @@ export function normalizeDictionaryCreateInput(
   return {
     preferred: input.preferred.trim(),
     matches: uniqueStrings((input.matches ?? []).map((match) => match.trim()).filter(Boolean)),
-    category: input.category?.trim() || "general",
+    category: input.category?.trim() ?? "general",
     appProcessName: normalizeNullableString(input.appProcessName ?? null),
     source: input.source ?? "user",
     enabled: input.enabled ?? true

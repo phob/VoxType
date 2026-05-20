@@ -24,7 +24,7 @@ export function classifyOpenAiError(input: {
   const detail = [input.status, input.statusText, input.type, input.code, providerMessage]
     .filter((part) => part !== undefined && part !== null && String(part).trim())
     .join(" / ");
-  const haystack = `${input.status ?? ""} ${input.type ?? ""} ${input.code ?? ""} ${input.message ?? ""}`.toLowerCase();
+  const haystack = `${String(input.status ?? "")} ${input.type ?? ""} ${input.code ?? ""} ${input.message ?? ""}`.toLowerCase();
 
   if (input.status === 401 || haystack.includes("invalid_api_key")) {
     return {

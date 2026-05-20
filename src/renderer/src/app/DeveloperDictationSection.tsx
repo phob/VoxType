@@ -1,14 +1,9 @@
 import { type ReactElement } from "react";
-import { ArrowRight, Check, CheckCircle2, Clipboard, Download, FileText, MoreVertical, Play, Plus, RefreshCw, Trash2, UserPlus, X } from "lucide-react";
-import { dictationModes } from "../../../shared/asr";
-import { cloudDictationConsentExclusions, cloudDictationConsentOfflineNotice, cloudDictationConsentSummary } from "../../../shared/cloud-consent-copy";
-import { currentCloudReleaseSmokeTestChecklist, formatCloudReleaseSmokeTestStatus } from "../../../shared/cloud-release-smoke-test";
-import { currentOpenAiModeImplementationReadiness } from "../../../shared/openai-readiness";
-import { PROMPT_PACK_MAX_CHARS, PROMPT_PACK_MAX_TERMS } from "../../../shared/prompt-pack-limits";
 import { type InsertionMode, type OcrTermMode, type RecorderCaptureMode, type RecordingCoordinationMode } from "../../../shared/settings";
-import { ReleaseChip, ReleaseIcon, ReleaseSelect, ReleaseStatusBadge, appHotkeyEntries, formatBytes, formatDuration, formatRelativeTimestamp, formatTimestamp, gpuFitLabel, insertionModeLabel, profileWhisperLanguageLabel, recordingInputDeviceLabel, writingStyleLabel } from "./app-helpers";
+import { formatBytes, formatTimestamp } from "./app-helpers";
+import { type ReadyAppViewProps } from "./app-types";
 
-export function DeveloperDictationSection(props: Record<string, any>): ReactElement {
+export function DeveloperDictationSection(props: ReadyAppViewProps): ReactElement {
   const { activeModel, activeTab, appStatus, busyMessage, copyLatestTranscript, copyOcrRawText, copyOcrTerms, currentTarget, effectiveWhisperPrompt, generatedWhisperPrompt, insertionTestResult, lastRecordingResult, latestOcrContext, latestTranscript, pasteLatestTranscript, playingTranscriptId, playTranscriptAudio, recording, saveOcrTerm, startRecording, state, stopAndTranscribe, transcribeLatestTranscript, updateSettings } = props;
   return (
     <>
@@ -30,8 +25,7 @@ export function DeveloperDictationSection(props: Record<string, any>): ReactElem
                   Insert
                 </button>
               </div>
-              {state.settings ? (
-                <div className="form-grid compact">
+              <div className="form-grid compact">
                   <label className="checkbox-field">
                     <input
                       checked={state.settings.vadEnabled}
@@ -95,8 +89,7 @@ export function DeveloperDictationSection(props: Record<string, any>): ReactElem
                       <option value="windowsMessaging">windowsMessaging</option>
                     </select>
                   </label>
-                </div>
-              ) : null}
+              </div>
             </section>
 
             <section className="panel-block">
@@ -117,7 +110,7 @@ export function DeveloperDictationSection(props: Record<string, any>): ReactElem
                 <dt>helperSize</dt>
                 <dd>{formatBytes(state.windowsHelper?.helperSizeBytes)}</dd>
                 <dt>captureMode</dt>
-                <dd>{lastRecordingResult?.captureMode ?? state.settings?.recorderCaptureMode ?? "none"}</dd>
+                <dd>{lastRecordingResult?.captureMode ?? state.settings.recorderCaptureMode}</dd>
                 <dt>target</dt>
                 <dd>{currentTarget?.processName ?? "none"}</dd>
                 <dt>hwnd</dt>
@@ -170,31 +163,35 @@ export function DeveloperDictationSection(props: Record<string, any>): ReactElem
               <h2>whisperPrompt</h2>
               <dl className="kv-grid">
                 <dt>mode</dt>
-                <dd>{state.settings?.whisperPromptOverride.trim() ? "custom" : "default"}</dd>
+                <dd>{state.settings.whisperPromptOverride.trim() ? "custom" : "default"}</dd>
                 <dt>sent</dt>
                 <dd>{latestTranscript?.promptContext ? "yes" : "none"}</dd>
               </dl>
               <textarea
-                value={state.settings?.whisperPromptOverride || generatedWhisperPrompt}
+                value={
+                  state.settings.whisperPromptOverride
+                    ? state.settings.whisperPromptOverride
+                    : generatedWhisperPrompt
+                }
                 onChange={(event) => void updateSettings({ whisperPromptOverride: event.target.value })}
               />
               <div className="button-row">
                 <button
-                  disabled={!state.settings?.whisperPromptOverride}
+                  disabled={!state.settings.whisperPromptOverride}
                   onClick={() => void updateSettings({ whisperPromptOverride: "" })}
                   type="button"
                 >
                   Default
                 </button>
               </div>
-              <pre>{latestTranscript?.promptContext ?? (effectiveWhisperPrompt || "empty")}</pre>
+              <pre>{latestTranscript?.promptContext ?? (effectiveWhisperPrompt ? effectiveWhisperPrompt : "empty")}</pre>
             </section>
 
             <section className="panel-block">
               <h2>vad</h2>
               <dl className="kv-grid">
                 <dt>enabled</dt>
-                <dd>{String(lastRecordingResult?.vad.enabled ?? state.settings?.vadEnabled ?? false)}</dd>
+                <dd>{String(lastRecordingResult?.vad.enabled ?? state.settings.vadEnabled)}</dd>
                 <dt>speech</dt>
                 <dd>{String(lastRecordingResult?.vad.speechDetected ?? false)}</dd>
                 <dt>segments</dt>
@@ -216,7 +213,7 @@ export function DeveloperDictationSection(props: Record<string, any>): ReactElem
                 <dt>target</dt>
                 <dd>{latestOcrContext?.processName ?? "none"}</dd>
                 <dt>mode</dt>
-                <dd>{latestOcrContext?.termMode ?? state.settings?.ocrTermMode ?? "balanced"}</dd>
+                <dd>{latestOcrContext?.termMode ?? state.settings.ocrTermMode}</dd>
                 <dt>lines</dt>
                 <dd>{latestOcrContext?.lineCount ?? 0}</dd>
                 <dt>rawChars</dt>
@@ -229,7 +226,7 @@ export function DeveloperDictationSection(props: Record<string, any>): ReactElem
               <label className="dev-field">
                 <span>ocrTermMode</span>
                 <select
-                  value={state.settings?.ocrTermMode ?? "balanced"}
+                  value={state.settings.ocrTermMode}
                   onChange={(event) =>
                     void updateSettings({ ocrTermMode: event.target.value as OcrTermMode })
                   }
@@ -248,7 +245,7 @@ export function DeveloperDictationSection(props: Record<string, any>): ReactElem
                   CopyTerms
                 </button>
               </div>
-              <pre>{latestOcrContext?.rawText || "empty"}</pre>
+              <pre>{latestOcrContext?.rawText ?? "empty"}</pre>
               <h2>ocrTerms</h2>
               {latestOcrContext?.terms.length ? (
                 <div className="ocr-term-list">
@@ -267,7 +264,11 @@ export function DeveloperDictationSection(props: Record<string, any>): ReactElem
                 <pre>empty</pre>
               )}
               <h2>ocrRejected</h2>
-              <pre>{latestOcrContext?.rejectedTerms.join(", ") || "empty"}</pre>
+              <pre>
+                {latestOcrContext?.rejectedTerms.length
+                  ? latestOcrContext.rejectedTerms.join(", ")
+                  : "empty"}
+              </pre>
             </section>
 
             <section className="panel-block log-block">
@@ -277,12 +278,12 @@ export function DeveloperDictationSection(props: Record<string, any>): ReactElem
                   `status=${appStatus}`,
                   `model=${activeModel?.id ?? "none"}`,
                   `target=${currentTarget?.processName ?? "none"}`,
-                  `history=${state.history.length}`,
-                  `dictionary=${state.dictionary.length}`,
-                  latestOcrContext ? `ocrTerms=${latestOcrContext.terms.length}` : null,
+                  `history=${String(state.history.length)}`,
+                  `dictionary=${String(state.dictionary.length)}`,
+                  latestOcrContext ? `ocrTerms=${String(latestOcrContext.terms.length)}` : null,
                   insertionTestResult ? `insertionTest=${insertionTestResult}` : null,
                   lastRecordingResult
-                    ? `vad speech=${lastRecordingResult.vad.speechDetected} trimmed=${lastRecordingResult.vad.removedDurationMs}ms`
+                    ? `vad speech=${String(lastRecordingResult.vad.speechDetected)} trimmed=${String(lastRecordingResult.vad.removedDurationMs)}ms`
                     : null
                 ]
                   .filter(Boolean)

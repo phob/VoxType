@@ -607,7 +607,7 @@ function normalizeProcessName(processName: unknown): string {
     return "unknown.exe";
   }
 
-  const fileName = trimmed.split(/[\\\/]/).filter(Boolean).at(-1) ?? trimmed;
+  const fileName = trimmed.split(/[\\/]/).filter(Boolean).at(-1) ?? trimmed;
 
   return fileName.toLowerCase();
 }

@@ -2,8 +2,9 @@ import { type ReactElement } from "react";
 import { RecordingOverlay, WindowTitleBar } from "./app-helpers";
 import { ReleaseView } from "./ReleaseView";
 import { DeveloperView } from "./DeveloperView";
+import { type AppViewProps, type ReadyAppViewProps } from "./app-types";
 
-export function AppView(props: Record<string, any>): ReactElement {
+export function AppView(props: AppViewProps): ReactElement {
   const { isDeveloperBuild, isOverlay, overlayState, state } = props;
   if (isOverlay) {
     return <RecordingOverlay state={overlayState} />;
@@ -32,9 +33,11 @@ export function AppView(props: Record<string, any>): ReactElement {
     );
   }
 
+  const readyProps = props as ReadyAppViewProps;
+
   if (!state.settings.developerModeEnabled || !isDeveloperBuild) {
-    return <ReleaseView {...props} />;
+    return <ReleaseView {...readyProps} />;
   }
 
-  return <DeveloperView {...props} />;
+  return <DeveloperView {...readyProps} />;
 }

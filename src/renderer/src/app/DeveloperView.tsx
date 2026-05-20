@@ -1,42 +1,23 @@
 import { type ReactElement } from "react";
-import { ArrowRight, Check, CheckCircle2, Clipboard, Download, FileText, MoreVertical, Play, Plus, RefreshCw, Trash2, UserPlus, X } from "lucide-react";
-import { dictationModes } from "../../../shared/asr";
-import { cloudDictationConsentExclusions, cloudDictationConsentOfflineNotice, cloudDictationConsentSummary } from "../../../shared/cloud-consent-copy";
-import { currentCloudReleaseSmokeTestChecklist, formatCloudReleaseSmokeTestStatus } from "../../../shared/cloud-release-smoke-test";
-import { currentOpenAiModeImplementationReadiness } from "../../../shared/openai-readiness";
-import { PROMPT_PACK_MAX_CHARS, PROMPT_PACK_MAX_TERMS } from "../../../shared/prompt-pack-limits";
 import { type AppProfile, type InsertionMode, type ProfileWhisperLanguage, type WhisperRuntimePreference } from "../../../shared/settings";
-import { type NativeInputDevice, type ScreenshotCaptureMode } from "../../../shared/windows-helper";
 import { type DictionaryEntry } from "../../../shared/dictionary";
 import { type GpuDevice } from "../../../shared/hardware";
 import { type LocalModel } from "../../../shared/models";
 import { type OcrTextLine } from "../../../shared/ocr";
 import { type WhisperRuntime } from "../../../shared/runtimes";
 import {
-  ReleaseChip,
-  ReleaseIcon,
-  ReleaseSelect,
-  ReleaseStatusBadge,
   WindowTitleBar,
-  appHotkeyEntries,
-  formatBytes,
-  formatDuration,
-  formatRelativeTimestamp,
-  formatTimestamp,
   formatVram,
   gpuFitLabel,
-  insertionModeLabel,
   pngBytesToDataUrl,
-  profileWhisperLanguageLabel,
-  recordingInputDeviceLabel,
-  writingStyleLabel
 } from "./app-helpers";
 import { devTabs, profileWhisperLanguageOptions } from "./app-options";
 import { DeveloperDictationSection } from "./DeveloperDictationSection";
 import { DeveloperSettingsSection } from "./DeveloperSettingsSection";
+import { type ReadyAppViewProps } from "./app-types";
 
-export function DeveloperView(props: Record<string, any>): ReactElement {
-  const { activeModel, activeTab, appStatus, busyMessage, captureInsertionTarget, captureScreenshot, clearDictionaryForm, confirmingDeleteModelId, currentTarget, deleteModel, dictionaryAppProcess, dictionaryCategory, dictionaryMatches, dictionaryPreferred, downloadModel, editingDictionaryEntryId, error, exactLocalModelSettingsPatch, fixLastText, insertionTarget, insertionTestResult, insertionTestText, installRuntime, installSpecificRuntime, latestOcrResult, latestScreenshot, latestTranscript, learnFixLastDictation, recognizeLatestScreenshot, recording, refreshActiveWindow, refreshHardware, removeDictionaryEntry, runInsertionTest, saveDictionaryEntry, screenshotMode, selectDictionaryEntry, setActiveTab, setDictionaryAppProcess, setDictionaryCategory, setDictionaryMatches, setDictionaryPreferred, setFixLastText, setInsertionTestText, setScreenshotMode, setupFirstRunCuda, startRecording, state, stopAndTranscribe, toggleDictionaryEntry, updateAppProfile, updateSettings, useDetectedAppAsInsertionTarget, version } = props;
+export function DeveloperView(props: ReadyAppViewProps): ReactElement {
+  const { activeModel, activeTab, appStatus, applyDetectedAppAsInsertionTarget, busyMessage, captureInsertionTarget, captureScreenshot, clearDictionaryForm, confirmingDeleteModelId, currentTarget, deleteModel, dictionaryAppProcess, dictionaryCategory, dictionaryMatches, dictionaryPreferred, downloadModel, editingDictionaryEntryId, error, exactLocalModelSettingsPatch, fixLastText, insertionTarget, insertionTestResult, insertionTestText, installRuntime, installSpecificRuntime, latestOcrResult, latestScreenshot, latestTranscript, learnFixLastDictation, recognizeLatestScreenshot, recording, refreshActiveWindow, refreshHardware, removeDictionaryEntry, runInsertionTest, saveDictionaryEntry, screenshotMode, selectDictionaryEntry, setActiveTab, setDictionaryAppProcess, setDictionaryCategory, setDictionaryMatches, setDictionaryPreferred, setFixLastText, setInsertionTestText, setScreenshotMode, setupFirstRunCuda, startRecording, state, stopAndTranscribe, toggleDictionaryEntry, updateAppProfile, updateSettings, version } = props;
   return (
     <main className="dev-shell">
       <WindowTitleBar title="VoxType Dev" />
@@ -47,8 +28,7 @@ export function DeveloperView(props: Record<string, any>): ReactElement {
           <code>{appStatus}</code>
         </div>
         <select
-          disabled={!state.settings}
-          value={state.settings?.activeModelId ?? ""}
+          value={state.settings.activeModelId}
           onChange={(event) => void updateSettings(exactLocalModelSettingsPatch(event.target.value))}
         >
           <option value="">model</option>
@@ -65,7 +45,7 @@ export function DeveloperView(props: Record<string, any>): ReactElement {
           Stop
         </button>
         <code className="toolbar-code">{currentTarget?.processName ?? "target:none"}</code>
-        <code className="toolbar-code">{state.settings?.dictationToggleHotkey ?? "hotkey:none"}</code>
+        <code className="toolbar-code">{state.settings.dictationToggleHotkey || "hotkey:none"}</code>
         <button onClick={() => void refreshActiveWindow()} type="button">
           Refresh
         </button>
@@ -86,7 +66,7 @@ export function DeveloperView(props: Record<string, any>): ReactElement {
           <button
             className={activeTab === tab.id ? "active" : ""}
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => { setActiveTab(tab.id); }}
             type="button"
           >
             {tab.label}
@@ -119,7 +99,7 @@ export function DeveloperView(props: Record<string, any>): ReactElement {
                       <td>{model.name}</td>
                       <td>{model.sizeLabel}</td>
                       <td>{gpuFitLabel(state.hardware, model.id)}</td>
-                      <td>{state.settings?.activeModelId === model.id ? "selected" : model.status}</td>
+                      <td>{state.settings.activeModelId === model.id ? "selected" : model.status}</td>
                       <td><code>{model.localPath}</code></td>
                       <td>
                         <div className="table-actions">
@@ -153,7 +133,7 @@ export function DeveloperView(props: Record<string, any>): ReactElement {
               <h2>gpu</h2>
               <dl className="kv-grid">
                 <dt>mode</dt>
-                <dd>{state.settings?.whisperRuntimeBackend ?? "auto"}</dd>
+                <dd>{state.settings.whisperRuntimeBackend}</dd>
                 <dt>backend</dt>
                 <dd>{state.hardware?.recommendedBackend ?? "unknown"}</dd>
                 <dt>usable</dt>
@@ -179,8 +159,7 @@ export function DeveloperView(props: Record<string, any>): ReactElement {
                   SetupCuda
                 </button>
               </div>
-              {state.settings ? (
-                <label className="dev-field">
+              <label className="dev-field">
                   <span>whisperRuntimeBackend</span>
                   <select
                     value={state.settings.whisperRuntimeBackend}
@@ -195,8 +174,7 @@ export function DeveloperView(props: Record<string, any>): ReactElement {
                     <option value="cuda">cuda</option>
                     <option value="vulkan">vulkan</option>
                   </select>
-                </label>
-              ) : null}
+              </label>
               <table>
                 <thead>
                   <tr>
@@ -298,7 +276,7 @@ export function DeveloperView(props: Record<string, any>): ReactElement {
               </dl>
               <div className="button-row">
                 <button onClick={() => void captureInsertionTarget()} type="button">Capture</button>
-                <button disabled={!state.activeWindow} onClick={() => void useDetectedAppAsInsertionTarget()} type="button">
+                <button disabled={!state.activeWindow} onClick={() => void applyDetectedAppAsInsertionTarget()} type="button">
                   UseActive
                 </button>
                 <button disabled={!insertionTarget || Boolean(busyMessage)} onClick={() => void runInsertionTest("clipboard")} type="button">
@@ -321,7 +299,7 @@ export function DeveloperView(props: Record<string, any>): ReactElement {
 
             <section className="panel-block">
               <h2>payload</h2>
-              <textarea value={insertionTestText} onChange={(event) => setInsertionTestText(event.target.value)} />
+              <textarea value={insertionTestText} onChange={(event) => { setInsertionTestText(event.target.value); }} />
               <div className="result-row">
                 <code>result</code>
                 <span>{insertionTestResult ?? "none"}</span>
@@ -345,7 +323,7 @@ export function DeveloperView(props: Record<string, any>): ReactElement {
                 </tr>
               </thead>
               <tbody>
-                {state.settings?.appProfiles.length ? (
+                {state.settings.appProfiles.length ? (
                     state.settings.appProfiles.map((profile: AppProfile) => (
                     <tr key={profile.id}>
                       <td>{profile.displayName}</td>
@@ -416,21 +394,21 @@ export function DeveloperView(props: Record<string, any>): ReactElement {
               <div className="form-grid">
                 <label className="dev-field">
                   <span>preferred</span>
-                  <input value={dictionaryPreferred} onChange={(event) => setDictionaryPreferred(event.target.value)} />
+                  <input value={dictionaryPreferred} onChange={(event) => { setDictionaryPreferred(event.target.value); }} />
                 </label>
                 <label className="dev-field">
                   <span>matches</span>
-                  <textarea value={dictionaryMatches} onChange={(event) => setDictionaryMatches(event.target.value)} />
+                  <textarea value={dictionaryMatches} onChange={(event) => { setDictionaryMatches(event.target.value); }} />
                 </label>
                 <label className="dev-field">
                   <span>category</span>
-                  <input value={dictionaryCategory} onChange={(event) => setDictionaryCategory(event.target.value)} />
+                  <input value={dictionaryCategory} onChange={(event) => { setDictionaryCategory(event.target.value); }} />
                 </label>
                 <label className="dev-field">
                   <span>scope</span>
-                  <select value={dictionaryAppProcess} onChange={(event) => setDictionaryAppProcess(event.target.value)}>
+                  <select value={dictionaryAppProcess} onChange={(event) => { setDictionaryAppProcess(event.target.value); }}>
                     <option value="">all</option>
-                    {state.settings?.appProfiles.map((profile: AppProfile) => (
+                    {state.settings.appProfiles.map((profile: AppProfile) => (
                       <option key={profile.id} value={profile.processName}>
                         {profile.processName}
                       </option>
@@ -453,7 +431,7 @@ export function DeveloperView(props: Record<string, any>): ReactElement {
               <textarea
                 disabled={!latestTranscript}
                 value={fixLastText}
-                onChange={(event) => setFixLastText(event.target.value)}
+                onChange={(event) => { setFixLastText(event.target.value); }}
               />
               <div className="button-row">
                 <button
@@ -485,7 +463,7 @@ export function DeveloperView(props: Record<string, any>): ReactElement {
                       <tr
                         className={editingDictionaryEntryId === entry.id ? "selected-row" : undefined}
                         key={entry.id}
-                        onClick={() => selectDictionaryEntry(entry)}
+                        onClick={() => { selectDictionaryEntry(entry); }}
                       >
                         <td>{entry.preferred}</td>
                         <td>{entry.source}</td>
@@ -537,7 +515,7 @@ export function DeveloperView(props: Record<string, any>): ReactElement {
                   <select
                     value={screenshotMode}
                     onChange={(event) =>
-                      setScreenshotMode(event.target.value)
+                      { setScreenshotMode(event.target.value); }
                     }
                   >
                     <option value="activeWindow">activeWindow</option>
@@ -590,7 +568,7 @@ export function DeveloperView(props: Record<string, any>): ReactElement {
 
             <section className="panel-block transcript-block">
               <h2>ocrText</h2>
-              <pre>{latestOcrResult?.text || "empty"}</pre>
+              <pre>{latestOcrResult?.text ?? "empty"}</pre>
             </section>
 
             <section className="panel-block">
@@ -606,7 +584,7 @@ export function DeveloperView(props: Record<string, any>): ReactElement {
                 <tbody>
                   {latestOcrResult?.lines.length ? (
                     latestOcrResult.lines.map((line: OcrTextLine, index: number) => (
-                      <tr key={`${line.text}-${index}`}>
+                      <tr key={`${line.text}-${String(index)}`}>
                         <td>{line.text}</td>
                         <td>{line.confidence?.toFixed(3) ?? "n/a"}</td>
                         <td><code>{line.box?.join(",") ?? "n/a"}</code></td>

@@ -76,13 +76,14 @@ export class TranscriptionService {
     }
 
     const modelPath = join(settings.modelDirectory, model.fileName);
+    const configuredExecutable = settings.whisperExecutablePath.trim();
     const executable =
-      settings.whisperExecutablePath.trim() ||
-      (await this.runtimeService.getExecutablePath({
-        allowInstall: !settings.offlineMode,
-        preference: settings.whisperRuntimeBackend
-      })) ||
-      "whisper-cli";
+      (configuredExecutable
+        ? configuredExecutable
+        : await this.runtimeService.getExecutablePath({
+            allowInstall: !settings.offlineMode,
+            preference: settings.whisperRuntimeBackend
+          })) ?? "whisper-cli";
     const workDirectory = join(app.getPath("temp"), "voxtype");
     const id = randomUUID();
     const audioPath = join(workDirectory, `${id}.wav`);
@@ -145,7 +146,7 @@ export class TranscriptionService {
         correctionsApplied: correction.applied.length > 0 ? correction.applied : undefined,
         ocrCorrectionsApplied:
           ocrCorrection.applied.length > 0 ? ocrCorrection.applied : undefined,
-        promptContext: promptContext || undefined,
+        promptContext: promptContext ?? undefined,
         audioFileName,
         providerId: "local-whisper",
         dictationModeId: mode.id,
@@ -157,9 +158,9 @@ export class TranscriptionService {
 
       await this.historyStore.add(entry);
 
-      return { entry, promptContext: promptContext || null };
+      return { entry, promptContext: promptContext ?? null };
     } catch (error) {
-      throw new Error(formatWhisperError(error, executable));
+      throw new Error(formatWhisperError(error, executable), { cause: error });
     } finally {
       await rm(audioPath, { force: true });
       await rm(outputTextPath, { force: true });
@@ -226,7 +227,7 @@ export class TranscriptionService {
       });
       assertCloudDictationLogIsMetadataOnly(failedLogEntry);
       const policy = getCloudFailurePolicy(mode.id);
-      throw new Error(`${policy.userMessage} ${formatErrorMessage(error)}`);
+      throw new Error(`${policy.userMessage} ${formatErrorMessage(error)}`, { cause: error });
     }
 
     const completedLogEntry = createCloudDictationLogEntry({

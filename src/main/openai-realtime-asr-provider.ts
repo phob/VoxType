@@ -56,10 +56,6 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
       throw new Error(`Unsupported realtime OpenAI model: ${request.mode.modelId}.`);
     }
 
-    if (request.audioConfig.sampleRateHz !== 24000 || request.audioConfig.encoding !== "pcm16") {
-      throw new Error("OpenAI realtime requires 24 kHz PCM16 mono audio.");
-    }
-
     await this.openSession(
       apiKey,
       request.language,
@@ -97,7 +93,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
     }
 
     if (this.appendedAudioBytes < OPENAI_REALTIME_MIN_COMMIT_BYTES) {
-      throw new Error(`Realtime Cloud Dictation did not receive enough microphone audio to finalize. Try holding the hotkey a little longer and check the selected input device. Provider appended ${this.appendedAudioBytes} PCM bytes.`);
+      throw new Error(`Realtime Cloud Dictation did not receive enough microphone audio to finalize. Try holding the hotkey a little longer and check the selected input device. Provider appended ${String(this.appendedAudioBytes)} PCM bytes.`);
     }
 
     const initialFinalTurnCount = this.finalTurnCount();
@@ -397,9 +393,9 @@ function buildOpenAiRealtimeAuthorizationHeader(apiKey: string): string {
 }
 
 function getRealtimeTranscriptKey(itemId: string | undefined, contentIndex: number | undefined): string {
-  const safeItemId = itemId?.trim() || "current";
+  const safeItemId = itemId?.trim() ?? "current";
   return typeof contentIndex === "number" && Number.isFinite(contentIndex)
-    ? `${safeItemId}:${contentIndex}`
+    ? `${safeItemId}:${String(contentIndex)}`
     : safeItemId;
 }
 

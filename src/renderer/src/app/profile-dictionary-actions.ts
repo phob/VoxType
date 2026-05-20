@@ -1,28 +1,23 @@
-import { type MouseEvent } from "react";
-import { eventToAccelerator } from "../hotkey-capture";
-import { getCloudSessionLimitState } from "../../../shared/cloud-session-limits";
-import { getDictationMode, isCloudDictationMode, type DictationModeId } from "../../../shared/asr";
-import { getDictationModeAvailability } from "../../../shared/dictation-mode-availability";
-import { resolveCloudPromptPackOcrPolicy } from "../../../shared/cloud-prompt-pack-settings";
 import { type DictionaryEntry } from "../../../shared/dictionary";
-import { type AppProfile, type AppSettings, type InsertionMode } from "../../../shared/settings";
+import { type AppProfile, type InsertionMode } from "../../../shared/settings";
 import { type TranscriptEntry } from "../../../shared/transcripts";
-import { type DictationHotkeyPayload } from "../../../shared/windows-helper";
 import {
   formatError,
   insertionModeLabel,
-  joinErrors,
   normalizeProfileProcessName,
-  normalizeHotkey,
-  pngBytesToDataUrl,
-  playRecordingCue,
-  profileForWindow,
   splitMatches,
   wait
 } from "./app-helpers";
 import { type AppState } from "./app-state";
+import {
+  type AppProfilePatch,
+  type ProfileDictionaryActionContext,
+  type ProfileDictionaryActions
+} from "./app-types";
 
-export function useProfileDictionaryActions(ctx: Record<string, any>): Record<string, any> {
+export function useProfileDictionaryActions(
+  ctx: ProfileDictionaryActionContext
+): ProfileDictionaryActions {
   const { audioElementRef, audioObjectUrlRef, dictionaryAppProcess, dictionaryCategory, dictionaryMatches, dictionaryPreferred, editingDictionaryEntryId, fixLastText, insertionTarget, insertionTestText, latestOcrContext, latestScreenshot, latestTranscript, profileDeleteTimerRef, screenshotMode, selectedProfileProcessName, state, confirmingDeleteProfileProcessName, capturingProfileHotkey, playingTranscriptId, setBusyMessage, setCapturingProfileHotkey, setConfirmingDeleteProfileProcessName, setDictionaryAppProcess, setDictionaryCategory, setDictionaryMatches, setDictionaryModalOpen, setDictionaryPreferred, setEditingDictionaryEntryId, setError, setFixLastText, setInsertionTarget, setInsertionTestResult, setLatestOcrResult, setLatestScreenshot, setPlayingTranscriptId, setSelectedProfileProcessName, setState } = ctx;
 
   async function refreshActiveWindow(): Promise<void> {
@@ -55,8 +50,8 @@ export function useProfileDictionaryActions(ctx: Record<string, any>): Record<st
       await window.voxtype.appProfiles.ensure(activeWindow);
       const settings = await window.voxtype.settings.get();
       setState((current: AppState) => ({ ...current, windowsHelper, activeWindow, settings }));
-      setBusyMessage(`Added ${activeWindow.processName}.`);
-      window.setTimeout(() => setBusyMessage(null), 1800);
+      setBusyMessage(`Added ${activeWindow.processName ?? "unknown process"}.`);
+      window.setTimeout(() => { setBusyMessage(null); }, 1800);
     } catch (profileError) {
       setError(formatError(profileError));
       setBusyMessage(null);
@@ -125,10 +120,10 @@ export function useProfileDictionaryActions(ctx: Record<string, any>): Record<st
     }
   }
 
-  async function useDetectedAppAsInsertionTarget(): Promise<void> {
+  function applyDetectedAppAsInsertionTarget(): Promise<void> {
     if (!state.activeWindow) {
       setError("Refresh or capture a target app before using it for insertion tests.");
-      return;
+      return Promise.resolve();
     }
 
     setInsertionTarget(state.activeWindow);
@@ -137,6 +132,7 @@ export function useProfileDictionaryActions(ctx: Record<string, any>): Record<st
         state.activeWindow.title || "Untitled window"
       }`
     );
+    return Promise.resolve();
   }
 
   async function runInsertionTest(mode: InsertionMode): Promise<void> {
@@ -156,7 +152,7 @@ export function useProfileDictionaryActions(ctx: Record<string, any>): Record<st
         insertionTarget.processName
       );
       setInsertionTestResult(
-        `Sent ${insertionTestText.length} characters with ${insertionModeLabel(mode)}.`
+        `Sent ${String(insertionTestText.length)} characters with ${insertionModeLabel(mode)}.`
       );
     } catch (testError) {
       setError(formatError(testError));
@@ -167,22 +163,7 @@ export function useProfileDictionaryActions(ctx: Record<string, any>): Record<st
 
   async function updateAppProfile(
     profile: AppProfile,
-    patch: Partial<
-      Pick<
-        AppProfile,
-        | "insertionMode"
-        | "writingStyle"
-        | "recordingCoordinationMode"
-        | "recordingStartHotkey"
-        | "recordingStopHotkey"
-        | "postTranscriptionHotkey"
-        | "whisperLanguage"
-        | "dictationModeId"
-        | "forbidCloudDictation"
-        | "cloudPromptPackOcrEnabled"
-        | "neverSuspendDictationInFullscreen"
-      >
-    >
+    patch: AppProfilePatch
   ): Promise<void> {
     const nextProfile = {
       insertionMode: patch.insertionMode ?? profile.insertionMode,
@@ -420,7 +401,7 @@ export function useProfileDictionaryActions(ctx: Record<string, any>): Record<st
 
     await window.voxtype.insertion.copy(latestOcrContext.rawText);
     setBusyMessage("Copied raw OCR text.");
-    window.setTimeout(() => setBusyMessage(null), 1800);
+    window.setTimeout(() => { setBusyMessage(null); }, 1800);
   }
 
   async function copyOcrTerms(): Promise<void> {
@@ -430,7 +411,7 @@ export function useProfileDictionaryActions(ctx: Record<string, any>): Record<st
 
     await window.voxtype.insertion.copy(latestOcrContext.terms.join(", "));
     setBusyMessage("Copied OCR terms.");
-    window.setTimeout(() => setBusyMessage(null), 1800);
+    window.setTimeout(() => { setBusyMessage(null); }, 1800);
   }
 
   async function playTranscriptAudio(entry: TranscriptEntry): Promise<void> {
@@ -494,7 +475,7 @@ export function useProfileDictionaryActions(ctx: Record<string, any>): Record<st
 
 
   return { 
-refreshActiveWindow, addCurrentAppProfile, captureScreenshot, recognizeLatestScreenshot, captureInsertionTarget, useDetectedAppAsInsertionTarget, runInsertionTest, updateAppProfile, removeAppProfile, closeProfileModal, updateProfileHotkey, sendProfilePostTranscriptionHotkey, clearDictionaryForm, selectDictionaryEntry, openNewDictionaryModal, openEditDictionaryModal, closeDictionaryModal, saveDictionaryEntryFromModal, saveDictionaryEntry, toggleDictionaryEntry, removeDictionaryEntry, learnFixLastDictation, saveOcrTerm, copyOcrRawText, copyOcrTerms, playTranscriptAudio, stopTranscriptAudio
+refreshActiveWindow, addCurrentAppProfile, captureScreenshot, recognizeLatestScreenshot, captureInsertionTarget, applyDetectedAppAsInsertionTarget, runInsertionTest, updateAppProfile, removeAppProfile, closeProfileModal, updateProfileHotkey, sendProfilePostTranscriptionHotkey, clearDictionaryForm, selectDictionaryEntry, openNewDictionaryModal, openEditDictionaryModal, closeDictionaryModal, saveDictionaryEntryFromModal, saveDictionaryEntry, toggleDictionaryEntry, removeDictionaryEntry, learnFixLastDictation, saveOcrTerm, copyOcrRawText, copyOcrTerms, playTranscriptAudio, stopTranscriptAudio
  };
 }
 

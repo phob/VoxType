@@ -1,29 +1,21 @@
-import { type MouseEvent } from "react";
 import { startNativePcmRecorder } from "../audio-recorder";
-import { eventToAccelerator } from "../hotkey-capture";
-import { getCloudSessionLimitState } from "../../../shared/cloud-session-limits";
-import { getDictationMode, isCloudDictationMode, type DictationModeId } from "../../../shared/asr";
-import { getDictationModeAvailability } from "../../../shared/dictation-mode-availability";
-import { resolveCloudPromptPackOcrPolicy } from "../../../shared/cloud-prompt-pack-settings";
-import { type DictionaryEntry } from "../../../shared/dictionary";
-import { type AppProfile, type AppSettings, type InsertionMode } from "../../../shared/settings";
+import { getDictationMode, type DictationModeId } from "../../../shared/asr";
+import { type AppSettings } from "../../../shared/settings";
 import { type TranscriptEntry } from "../../../shared/transcripts";
 import { type ActiveWindowInfo, type DictationHotkeyPayload } from "../../../shared/windows-helper";
 import { type OcrPromptContext } from "../../../shared/ocr-context";
 import {
   formatError,
   joinErrors,
-  normalizeHotkey,
-  pngBytesToDataUrl,
+  normalizeProfileProcessName,
   playRecordingCue,
-  profileForWindow,
-  splitMatches,
   wait
 } from "./app-helpers";
 import { type AppState } from "./app-state";
+import { type RecordingActionContext, type RecordingActions } from "./app-types";
 
-export function useRecordingActions(ctx: Record<string, any>): Record<string, any> {
-  const { currentTarget, hotkeyOcrContextRef, hotkeySessionIdRef, hotkeyTargetRef, latestOcrContext, latestTranscript, recorderRef, recording, recordingStopHotkeyRef, state, systemAudioMutedByVoxTypeRef, setBusyMessage, setError, setInsertionTestResult, setLastRecordingResult, setLatestOcrContext, setRecording, setRetranscribingTranscriptId, setState, clearCloudSessionLimitTimer, sendProfilePostTranscriptionHotkey, startCloudSessionLimitTimer } = ctx;
+export function useRecordingActions(ctx: RecordingActionContext): RecordingActions {
+  const { currentTarget, hotkeyOcrContextRef, hotkeySessionIdRef, hotkeyTargetRef, latestOcrContext, latestTranscript, recorderRef, recording, recordingStopHotkeyRef, state, systemAudioMutedByVoxTypeRef, setBusyMessage, setError, setInsertionTestResult, setLastRecordingResult, setLatestOcrContext, setRecording, setRetranscribingTranscriptId, setState, clearCloudSessionLimitTimer, startCloudSessionLimitTimer } = ctx;
 
   async function startRecording(): Promise<void> {
     setError(null);
@@ -338,6 +330,32 @@ export function useRecordingActions(ctx: Record<string, any>): Record<string, an
     }
   }
 
+  async function sendProfilePostTranscriptionHotkey(
+    processName: string | null | undefined
+  ): Promise<void> {
+    if (!processName) {
+      return;
+    }
+
+    const normalizedProcess = normalizeProfileProcessName(processName);
+
+    if (!normalizedProcess) {
+      return;
+    }
+
+    const profile = state.settings?.appProfiles.find(
+      (item) => item.processName === normalizedProcess
+    );
+    const hotkey = profile?.postTranscriptionHotkey.trim();
+
+    if (!hotkey) {
+      return;
+    }
+
+    await wait(120);
+    await window.voxtype.windowsHelper.sendHotkey(hotkey);
+  }
+
   async function copyLatestTranscript(): Promise<void> {
     if (!latestTranscript) {
       return;
@@ -345,7 +363,7 @@ export function useRecordingActions(ctx: Record<string, any>): Record<string, an
 
     await window.voxtype.insertion.copy(latestTranscript.text);
     setBusyMessage("Copied transcript to clipboard.");
-    window.setTimeout(() => setBusyMessage(null), 1800);
+    window.setTimeout(() => { setBusyMessage(null); }, 1800);
   }
 
   async function pasteLatestTranscript(): Promise<void> {
@@ -362,7 +380,7 @@ export function useRecordingActions(ctx: Record<string, any>): Record<string, an
     try {
       await window.voxtype.insertion.insertActive(entry.text);
       setBusyMessage("Inserted transcript into the active app.");
-      window.setTimeout(() => setBusyMessage(null), 1800);
+      window.setTimeout(() => { setBusyMessage(null); }, 1800);
     } catch (pasteError) {
       setError(formatError(pasteError));
     }
@@ -371,7 +389,7 @@ export function useRecordingActions(ctx: Record<string, any>): Record<string, an
   async function copyTranscript(entry: TranscriptEntry): Promise<void> {
     await window.voxtype.insertion.copy(entry.text);
     setBusyMessage("Copied transcript to clipboard.");
-    window.setTimeout(() => setBusyMessage(null), 1800);
+    window.setTimeout(() => { setBusyMessage(null); }, 1800);
   }
 
   async function cleanupHistory(): Promise<void> {
@@ -381,7 +399,7 @@ export function useRecordingActions(ctx: Record<string, any>): Record<string, an
       const history = await window.voxtype.history.cleanup();
       setState((current: AppState) => ({ ...current, history }));
       setBusyMessage("Cleaned up old history.");
-      window.setTimeout(() => setBusyMessage(null), 1800);
+      window.setTimeout(() => { setBusyMessage(null); }, 1800);
     } catch (cleanupError) {
       setError(formatError(cleanupError));
     }

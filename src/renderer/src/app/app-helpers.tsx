@@ -191,7 +191,7 @@ export function ReleaseSelect<T>({
         onClick={() => { setOpen((current) => !current); }}
         type="button"
       >
-        <span>{selectedOption?.label ?? value}</span>
+        <span>{selectedOption.label}</span>
         <ChevronDown aria-hidden="true" className="release-icon-svg" />
       </button>
       {open ? (
@@ -296,7 +296,7 @@ export function formatBytes(value: number | null | undefined): string {
   }
 
   if (value < 1024) {
-    return `${value} B`;
+    return `${String(value)} B`;
   }
 
   if (value < 1024 * 1024) {
@@ -311,7 +311,7 @@ export function formatElapsedCloudSession(elapsedMs: number): string {
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
 
-  return `Cloud Dictation ${minutes}:${seconds.toString().padStart(2, "0")}`;
+  return `Cloud Dictation ${String(minutes)}:${seconds.toString().padStart(2, "0")}`;
 }
 
 export function RecordingOverlay({ state }: { state: RecordingOverlayState }): ReactElement {
@@ -349,15 +349,7 @@ export function RecordingOverlay({ state }: { state: RecordingOverlayState }): R
       return undefined;
     }
 
-    const AudioContextCtor =
-      window.AudioContext ??
-      (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-
-    if (!AudioContextCtor) {
-      return undefined;
-    }
-
-    const audioContext = new AudioContextCtor();
+    const audioContext = new window.AudioContext();
     const analyser = audioContext.createAnalyser();
     const oscillator = audioContext.createOscillator();
     const oscillatorGain = audioContext.createGain();
@@ -704,7 +696,7 @@ export function normalizeProfileProcessName(processName: string | null | undefin
     return null;
   }
 
-  const fileName = normalized.split(/[\\\/]/).filter(Boolean).at(-1) ?? normalized;
+  const fileName = normalized.split(/[\\/]/).filter(Boolean).at(-1) ?? normalized;
 
   return fileName.toLowerCase();
 }
@@ -724,15 +716,7 @@ export function wait(milliseconds: number): Promise<void> {
 }
 
 export async function playRecordingCue(kind: "start" | "stop"): Promise<void> {
-  const AudioContextConstructor =
-    window.AudioContext ??
-    (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-
-  if (!AudioContextConstructor) {
-    return;
-  }
-
-  const context = new AudioContextConstructor();
+  const context = new window.AudioContext();
   const frequencies = kind === "start" ? [660, 880] : [880, 660];
   const durationSeconds = 0.075;
   const gapSeconds = 0.025;
@@ -761,7 +745,7 @@ export async function playRecordingCue(kind: "start" | "stop"): Promise<void> {
 
 export function formatDuration(milliseconds: number): string {
   if (milliseconds < 1000) {
-    return `${milliseconds} ms`;
+    return `${String(milliseconds)} ms`;
   }
 
   return `${(milliseconds / 1000).toFixed(1)} s`;
@@ -776,7 +760,7 @@ export function formatVram(vramMb: number | null | undefined): string {
     return `${(vramMb / 1024).toFixed(1)} GB`;
   }
 
-  return `${vramMb} MB`;
+  return `${String(vramMb)} MB`;
 }
 
 export function gpuFitLabel(report: HardwareAccelerationReport | null, modelId: string): string {
@@ -802,7 +786,8 @@ export function buildWhisperPromptPreview(
   processName: string | null,
   ocrTerms: string[]
 ): string {
-  const normalizedProcess = processName?.trim().toLowerCase() || null;
+  const trimmedProcess = processName?.trim().toLowerCase();
+  const normalizedProcess = trimmedProcess ?? null;
   const dictionaryTerms = dictionary
     .filter(
       (entry) =>

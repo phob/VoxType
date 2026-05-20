@@ -1,12 +1,7 @@
 import { type ReactElement } from "react";
-import { ArrowRight, Check, CheckCircle2, Clipboard, Download, FileText, MoreVertical, Play, Plus, RefreshCw, Trash2, UserPlus, X } from "lucide-react";
-import { dictationModes } from "../../../shared/asr";
-import { cloudDictationConsentExclusions, cloudDictationConsentOfflineNotice, cloudDictationConsentSummary } from "../../../shared/cloud-consent-copy";
-import { currentCloudReleaseSmokeTestChecklist, formatCloudReleaseSmokeTestStatus } from "../../../shared/cloud-release-smoke-test";
-import { currentOpenAiModeImplementationReadiness } from "../../../shared/openai-readiness";
-import { PROMPT_PACK_MAX_CHARS, PROMPT_PACK_MAX_TERMS } from "../../../shared/prompt-pack-limits";
+import { Trash2, UserPlus, X } from "lucide-react";
 import { type AppProfile } from "../../../shared/settings";
-import { ReleaseChip, ReleaseIcon, ReleaseSelect, ReleaseStatusBadge, appHotkeyEntries, formatBytes, formatDuration, formatRelativeTimestamp, formatTimestamp, gpuFitLabel, insertionModeLabel, profileWhisperLanguageLabel, recordingInputDeviceLabel, writingStyleLabel } from "./app-helpers";
+import { ReleaseIcon, ReleaseSelect, insertionModeLabel, profileWhisperLanguageLabel, writingStyleLabel } from "./app-helpers";
 import {
   insertionModeOptions,
   profileCloudPromptPackOcrOptions,
@@ -14,8 +9,9 @@ import {
   profileWhisperLanguageOptions,
   writingStyleOptions
 } from "./app-options";
+import { type ReadyAppViewProps } from "./app-types";
 
-export function ReleaseProfilesSection(props: Record<string, any>): ReactElement {
+export function ReleaseProfilesSection(props: ReadyAppViewProps): ReactElement {
   const { addCurrentAppProfile, busyMessage, capturingProfileHotkey, closeProfileModal, confirmingDeleteProfileProcessName, currentProfileProcessName, releaseTab, removeAppProfile, selectedProfile, setCapturingProfileHotkey, setSelectedProfileProcessName, state, updateAppProfile } = props;
   return (
     <>
@@ -42,7 +38,7 @@ export function ReleaseProfilesSection(props: Record<string, any>): ReactElement
                   <article className="profile-row" key={profile.id}>
                     <button
                       className="profile-row-main"
-                      onClick={() => setSelectedProfileProcessName(profile.processName)}
+                      onClick={() => { setSelectedProfileProcessName(profile.processName); }}
                       type="button"
                       aria-label={`Open ${profile.displayName} profile settings`}
                     >
@@ -229,7 +225,7 @@ export function ReleaseProfilesSection(props: Record<string, any>): ReactElement
                       <span>Send after insert</span>
                       <button
                         className="release-command-button"
-                        onClick={() => setCapturingProfileHotkey(selectedProfile.processName)}
+                        onClick={() => { setCapturingProfileHotkey(selectedProfile.processName); }}
                         onContextMenu={(event) => {
                           event.preventDefault();
                           void updateAppProfile(selectedProfile, { postTranscriptionHotkey: "" });

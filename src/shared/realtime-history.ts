@@ -52,7 +52,7 @@ export function createRealtimeCloudHistoryEntry(
   input: RealtimeCloudHistoryInput
 ): TranscriptEntry {
   const providerText = normalizeRealtimeProviderText(composeRealtimeTurns(input.turns));
-  const text = normalizeRealtimeProviderText(input.correctedText || providerText);
+  const text = normalizeRealtimeProviderText(input.correctedText ?? providerText);
 
   return {
     id: randomUUID(),

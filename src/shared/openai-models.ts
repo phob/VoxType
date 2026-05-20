@@ -11,9 +11,15 @@ export const openAiModeModelIds: Record<Extract<DictationModeId, `openai.${strin
 };
 
 export function getOpenAiModelIdForMode(modeId: DictationModeId): string | null {
-  return modeId.startsWith("openai.")
-    ? openAiModeModelIds[modeId as keyof typeof openAiModeModelIds] ?? null
-    : null;
+  if (!isOpenAiModeId(modeId)) {
+    return null;
+  }
+
+  return openAiModeModelIds[modeId];
+}
+
+function isOpenAiModeId(modeId: DictationModeId): modeId is keyof typeof openAiModeModelIds {
+  return modeId in openAiModeModelIds;
 }
 
 export function isKnownOpenAiTranscriptionModel(modelId: string): boolean {

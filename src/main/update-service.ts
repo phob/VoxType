@@ -254,7 +254,7 @@ function fetchJson<T>(url: string): Promise<T> {
       }
 
       settled = true;
-      reject(error);
+      reject(error instanceof Error ? error : new Error(String(error)));
     };
     const request = get(
       url,
@@ -282,13 +282,13 @@ function fetchJson<T>(url: string): Promise<T> {
 
         if (response.statusCode !== 200) {
           response.resume();
-          rejectOnce(new Error(`GitHub returned ${response.statusCode ?? "an unknown status"}.`));
+          rejectOnce(new Error(`GitHub returned ${String(response.statusCode ?? "an unknown status")}.`));
           return;
         }
 
         let body = "";
         response.setEncoding("utf8");
-        response.on("data", (chunk) => {
+        response.on("data", (chunk: string) => {
           body += chunk;
         });
         response.on("end", () => {
@@ -320,9 +320,9 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string)
         clearTimeout(timer);
         resolve(value);
       },
-      (error) => {
-        clearTimeout(timer);
-        reject(error);
+        (error: unknown) => {
+          clearTimeout(timer);
+          reject(error instanceof Error ? error : new Error(String(error)));
       }
     );
   });
@@ -349,7 +349,7 @@ function downloadFile(url: string, destination: string): Promise<void> {
 
         if (response.statusCode !== 200) {
           response.resume();
-          reject(new Error(`Download returned ${response.statusCode ?? "an unknown status"}.`));
+          reject(new Error(`Download returned ${String(response.statusCode ?? "an unknown status")}.`));
           return;
         }
 
