@@ -119,6 +119,8 @@
         stream.play().map_err(|error| error.to_string())?;
 
         let mut resampler = FrameResampler::new(sample_rate as usize, VOXTYPE_SAMPLE_RATE);
+        let mut realtime_resampler =
+            emit_realtime_pcm16.then(|| FrameResampler::new(sample_rate as usize, OPENAI_REALTIME_SAMPLE_RATE));
         let mut frame_emitter = FrameEmitter::new(VAD_FRAME_SAMPLES);
         let mut vad = if vad_config.enabled {
             Some(SmoothedVad::new(
@@ -154,7 +156,7 @@
                         &mut raw_samples,
                         &mut speech_frames,
                         &mut level_meter,
-                        emit_realtime_pcm16,
+                        realtime_resampler.as_mut(),
                     );
                 }
                 Err(mpsc::RecvTimeoutError::Timeout) => {}
@@ -174,15 +176,17 @@
                 &mut raw_samples,
                 &mut speech_frames,
                 &mut level_meter,
-                emit_realtime_pcm16,
+                realtime_resampler.as_mut(),
             );
         }
 
+        if let Some(resampler) = realtime_resampler.as_mut() {
+            resampler.finish(&mut |resampled| {
+                emit_realtime_pcm16_chunk(resampled);
+            });
+        }
         resampler.finish(&mut |resampled| {
             raw_samples += resampled.len();
-            if emit_realtime_pcm16 {
-                emit_realtime_pcm16_chunk(resampled);
-            }
             frame_emitter.push(resampled, &mut |frame| {
                 process_vad_frame(frame, vad.as_mut(), &mut samples, &mut speech_frames);
             });
@@ -283,6 +287,8 @@
                 .GetService()
                 .map_err(|error| error.to_string())?;
             let mut resampler = FrameResampler::new(format.sample_rate, VOXTYPE_SAMPLE_RATE);
+            let mut realtime_resampler =
+                emit_realtime_pcm16.then(|| FrameResampler::new(format.sample_rate, OPENAI_REALTIME_SAMPLE_RATE));
             let mut frame_emitter = FrameEmitter::new(VAD_FRAME_SAMPLES);
             let mut vad = if vad_config.enabled {
                 Some(SmoothedVad::new(
@@ -315,7 +321,7 @@
                     &mut raw_samples,
                     &mut speech_frames,
                     &mut level_meter,
-                    emit_realtime_pcm16,
+                    realtime_resampler.as_mut(),
                 )?;
                 thread::sleep(Duration::from_millis(10));
             }
@@ -330,15 +336,17 @@
                 &mut raw_samples,
                 &mut speech_frames,
                 &mut level_meter,
-                emit_realtime_pcm16,
+                realtime_resampler.as_mut(),
             )?;
             audio_client.Stop().map_err(|error| error.to_string())?;
 
+            if let Some(resampler) = realtime_resampler.as_mut() {
+                resampler.finish(&mut |resampled| {
+                    emit_realtime_pcm16_chunk(resampled);
+                });
+            }
             resampler.finish(&mut |resampled| {
                 raw_samples += resampled.len();
-                if emit_realtime_pcm16 {
-                    emit_realtime_pcm16_chunk(resampled);
-                }
                 frame_emitter.push(resampled, &mut |frame| {
                     process_vad_frame(frame, vad.as_mut(), &mut samples, &mut speech_frames);
                 });
@@ -448,7 +456,7 @@
         raw_samples: &mut usize,
         speech_frames: &mut usize,
         level_meter: &mut LevelMeter,
-        emit_realtime_pcm16: bool,
+        mut realtime_resampler: Option<&mut FrameResampler>,
     ) -> Result<(), String> {
         unsafe {
             let mut packet_size = capture_client
@@ -474,7 +482,7 @@
                     raw_samples,
                     speech_frames,
                     level_meter,
-                    emit_realtime_pcm16,
+                    realtime_resampler.as_deref_mut(),
                 );
 
                 capture_client

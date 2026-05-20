@@ -175,7 +175,7 @@ export function ReleaseCloudSection(props: ReadyAppViewProps): ReactElement {
                     />
                     <button disabled={!openAiApiKeyDraft.trim()} onClick={() => void saveOpenAiApiKey()} type="button">Save key</button>
                     <button
-                      title="Preview the capped Prompt Pack for the selected cloud mode."
+                      title="Preview the capped Prompt Pack. File cloud modes send it; gpt-realtime-whisper currently rejects prompt text."
                       onClick={() => void previewCloudPromptPack()}
                       type="button"
                     >Prompt Pack preview</button>

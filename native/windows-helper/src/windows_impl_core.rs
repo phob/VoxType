@@ -69,6 +69,7 @@
     const EM_REPLACESEL: u32 = 0x00C2;
     const SEND_MESSAGE_TIMEOUT_MS: u32 = 250;
     const VOXTYPE_SAMPLE_RATE: usize = 16_000;
+    const OPENAI_REALTIME_SAMPLE_RATE: usize = 24_000;
     const RESAMPLER_CHUNK_SIZE: usize = 1024;
     const VAD_FRAME_MS: usize = 30;
     const VAD_FRAME_SAMPLES: usize = VOXTYPE_SAMPLE_RATE * VAD_FRAME_MS / 1000;

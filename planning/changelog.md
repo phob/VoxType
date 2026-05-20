@@ -15,6 +15,10 @@
   pass: explicit realtime PCM capture flagging, realtime Prompt Pack support,
   OpenAI server VAD alignment, Cloud settings copy cleanup, and static
   verification.
+- Corrected the realtime Cloud Dictation status after a live API check showed
+  `gpt-realtime-whisper` rejects the transcription `prompt` parameter, and
+  noted the native realtime PCM fix from 16 kHz invalid chunks to 24 kHz
+  OpenAI-ready chunks.
 
 ## 2026-05-20
 

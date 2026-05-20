@@ -754,17 +754,10 @@ ipcMain.handle(
     }
     cancelActiveRealtimeCloudSession("Realtime Cloud Dictation session replaced by a new recording.");
     lastRealtimeCloudSessionError = null;
-    const promptPack = await buildCloudPromptPack(dictionaryStore, {
-      processName,
-      ocrContext: context?.ocrContext ?? null,
-      includeOcrContext: resolveCloudPromptPackOcrEnabled(settings, profile),
-      consentAccepted: settings.cloudDictationConsentAccepted
-    });
     activeRealtimeCloudSession = new RealtimeCloudSession(
       openAiCredentialStore,
       settings,
       resolveProfileWhisperLanguage(settings, profile),
-      promptPack,
       updateOverlay
     );
     activeRealtimeCloudProcessName = processName;

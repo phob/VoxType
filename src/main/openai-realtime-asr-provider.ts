@@ -58,7 +58,6 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
 
     await this.openSession(
       apiKey,
-      request.promptPack?.text ?? null,
       request.language,
       request.latencyPreset,
       request.vadThresholdOverride
@@ -156,7 +155,6 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
 
   private async openSession(
     apiKey: string,
-    prompt: string | null,
     language: StreamingAsrRequest["language"],
     latencyPreset: StreamingAsrRequest["latencyPreset"],
     vadThresholdOverride: StreamingAsrRequest["vadThresholdOverride"]
@@ -203,7 +201,6 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
         };
         this.sessionReadyWaiters.push(waiter);
         socket.send(JSON.stringify(buildSessionUpdate(
-          prompt,
           language,
           latencyPreset,
           vadThresholdOverride
@@ -422,13 +419,11 @@ function encodeBase64(bytes: Uint8Array): string {
 }
 
 function buildSessionUpdate(
-  prompt: string | null,
   language: StreamingAsrRequest["language"],
   latencyPreset: StreamingAsrRequest["latencyPreset"],
   vadThresholdOverride: StreamingAsrRequest["vadThresholdOverride"]
 ): unknown {
   const languageHint = getProviderLanguageHint("openai", language);
-  const promptText = prompt?.trim();
   const turnDetection = getOpenAiRealtimeVadConfig(latencyPreset, vadThresholdOverride);
 
   return {
@@ -443,7 +438,6 @@ function buildSessionUpdate(
           },
           transcription: {
             model: OPENAI_REALTIME_WHISPER_MODEL_ID,
-            prompt: promptText && promptText.length > 0 ? promptText : undefined,
             language: languageHint.parameterValue ?? undefined,
             delay: getOpenAiRealtimeTranscriptionDelay(latencyPreset)
           },

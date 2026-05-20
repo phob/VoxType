@@ -246,14 +246,17 @@
         raw_samples: &mut usize,
         speech_frames: &mut usize,
         level_meter: &mut LevelMeter,
-        emit_realtime_pcm16: bool,
+        realtime_resampler: Option<&mut FrameResampler>,
     ) {
+        let mut realtime_resampler = realtime_resampler;
         level_meter.push(chunk);
+        if let Some(resampler) = realtime_resampler.as_mut() {
+            resampler.push(chunk, &mut |resampled| {
+                emit_realtime_pcm16_chunk(resampled);
+            });
+        }
         resampler.push(chunk, &mut |resampled| {
             *raw_samples += resampled.len();
-            if emit_realtime_pcm16 {
-                emit_realtime_pcm16_chunk(resampled);
-            }
             frame_emitter.push(resampled, &mut |frame| {
                 process_vad_frame(frame, vad.as_deref_mut(), samples, speech_frames);
             });
@@ -275,7 +278,7 @@
         if let Ok(payload) = serde_json::to_string(&RealtimePcm16ChunkResponse {
             type_: "realtimePcm16Chunk",
             encoding: "pcm16",
-            sample_rate_hz: VOXTYPE_SAMPLE_RATE as u32,
+            sample_rate_hz: OPENAI_REALTIME_SAMPLE_RATE as u32,
             channel_count: 1,
             audio_base64: BASE64_STANDARD.encode(pcm16),
         }) {
