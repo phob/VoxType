@@ -9,16 +9,18 @@
   recording diagnostics, leaving realtime app-path reproduction as the next
   debugging step.
 - Added the next ten-point Cloud Dictation implementation plan covering
-  explicit realtime PCM capture, realtime Prompt Pack support, server VAD
-  alignment, copy cleanup, verification, and final status refresh.
+  explicit realtime PCM capture, realtime Prompt Pack verification, realtime
+  VAD capability checks, copy cleanup, verification, and final status refresh.
 - Updated Cloud Dictation status after completing the ten-point implementation
-  pass: explicit realtime PCM capture flagging, realtime Prompt Pack support,
-  OpenAI server VAD alignment, Cloud settings copy cleanup, and static
-  verification.
+  pass: explicit realtime PCM capture flagging, realtime Prompt Pack and server
+  VAD limitations, Cloud settings copy cleanup, and static verification.
 - Corrected the realtime Cloud Dictation status after a live API check showed
   `gpt-realtime-whisper` rejects the transcription `prompt` parameter, and
   noted the native realtime PCM fix from 16 kHz invalid chunks to 24 kHz
   OpenAI-ready chunks.
+- Recorded `gpt-realtime-whisper` Prompt Pack and server VAD as known current
+  model limitations, keeping realtime sessions on manual commit with
+  `turn_detection: null`.
 
 ## 2026-05-20
 

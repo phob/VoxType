@@ -2,6 +2,26 @@
 
 Record important decisions here so future sessions do not reopen settled topics without a reason.
 
+## 2026-05-21: Treat GPT Realtime Whisper Prompt And Server VAD As Unsupported
+
+Decision:
+
+VoxType should not send Prompt Pack text or OpenAI server VAD configuration to
+`gpt-realtime-whisper` realtime transcription sessions. Realtime cloud should
+use the known-good GA WebSocket session shape, stream 24 kHz PCM, and manually
+commit the input audio buffer when the VoxType hotkey session stops. Prompt
+Pack support and server-VAD turns remain known issues until OpenAI documents and
+the app verifies a supported realtime transcription field or model.
+
+Reason:
+
+A live VoxType API run rejected the realtime transcription `prompt` parameter
+for `gpt-realtime-whisper`, and current OpenAI realtime transcription docs say
+to omit `audio.input.turn_detection` or set it to `null` for this model. The
+user also cross-checked another `gpt-realtime-whisper` project that follows the
+same model constraint. The remaining realtime implementation risk is local
+audio flow, not changing the OpenAI session shape.
+
 ## 2026-05-15: Introduce Context Engine As A Separate Layer
 
 Decision:

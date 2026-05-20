@@ -117,7 +117,7 @@ export function ReleaseCloudSection(props: ReadyAppViewProps): ReactElement {
                 <label className="setting-row">
                     <span>
                       <strong>Realtime latency preset</strong>
-                    <small>Tunes OpenAI realtime transcription delay and server VAD turn timing; Balanced is recommended.</small>
+                    <small>Tunes OpenAI realtime transcription delay; Balanced is recommended.</small>
                     </span>
                   <select
                     value={state.settings.realtimeLatencyPreset}
@@ -135,8 +135,8 @@ export function ReleaseCloudSection(props: ReadyAppViewProps): ReactElement {
                 {state.settings.developerModeEnabled && state.settings.realtimeVadThresholdOverride !== null ? (
                   <label className="setting-row">
                     <span>
-                      <strong>Realtime VAD threshold override</strong>
-                      <small>Developer override for OpenAI server VAD threshold. Clear it to use the selected latency preset.</small>
+                      <strong>Legacy realtime VAD threshold</strong>
+                      <small>Ignored for gpt-realtime-whisper because that model does not support server VAD; clear it to remove stale debug state.</small>
                     </span>
                     <button
                       type="button"

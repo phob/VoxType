@@ -6,7 +6,7 @@ import {
 import { classifyOpenAiError, formatOpenAiFriendlyError } from "../shared/openai-errors";
 import { OPENAI_REALTIME_WHISPER_MODEL_ID } from "../shared/openai-models";
 import { getProviderLanguageHint } from "../shared/provider-language";
-import { getOpenAiRealtimeTranscriptionDelay, getOpenAiRealtimeVadConfig } from "../shared/realtime-latency";
+import { getOpenAiRealtimeTranscriptionDelay } from "../shared/realtime-latency";
 import { TranscriptTurnAccumulator } from "../shared/transcript-turns";
 import { OpenAiCredentialStore } from "./openai-credential-store";
 
@@ -59,8 +59,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
     await this.openSession(
       apiKey,
       request.language,
-      request.latencyPreset,
-      request.vadThresholdOverride
+      request.latencyPreset
     );
   }
 
@@ -156,8 +155,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
   private async openSession(
     apiKey: string,
     language: StreamingAsrRequest["language"],
-    latencyPreset: StreamingAsrRequest["latencyPreset"],
-    vadThresholdOverride: StreamingAsrRequest["vadThresholdOverride"]
+    latencyPreset: StreamingAsrRequest["latencyPreset"]
   ): Promise<void> {
     this.lastError = null;
     this.sessionCreatedSeen = false;
@@ -202,8 +200,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
         this.sessionReadyWaiters.push(waiter);
         socket.send(JSON.stringify(buildSessionUpdate(
           language,
-          latencyPreset,
-          vadThresholdOverride
+          latencyPreset
         )));
       }, { once: true });
 
@@ -420,11 +417,9 @@ function encodeBase64(bytes: Uint8Array): string {
 
 function buildSessionUpdate(
   language: StreamingAsrRequest["language"],
-  latencyPreset: StreamingAsrRequest["latencyPreset"],
-  vadThresholdOverride: StreamingAsrRequest["vadThresholdOverride"]
+  latencyPreset: StreamingAsrRequest["latencyPreset"]
 ): unknown {
   const languageHint = getProviderLanguageHint("openai", language);
-  const turnDetection = getOpenAiRealtimeVadConfig(latencyPreset, vadThresholdOverride);
 
   return {
     type: "session.update",
@@ -441,7 +436,7 @@ function buildSessionUpdate(
             language: languageHint.parameterValue ?? undefined,
             delay: getOpenAiRealtimeTranscriptionDelay(latencyPreset)
           },
-          turn_detection: turnDetection
+          turn_detection: null
         }
       }
     }

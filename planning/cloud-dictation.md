@@ -11,8 +11,8 @@ Cloud Dictation is the planned opt-in exception to VoxType's local-first default
 - Dictation Modes show beginner-friendly labels with exact provider/model identifiers visible as secondary text.
 - OpenAI Cloud Dictation is BYOK first, using one OpenAI API key per Windows user stored in the OS credential store. Development may use an environment-variable override.
 - A Codex or ChatGPT subscription does not replace OpenAI API access for these transcription models.
-- Cloud Dictation sends microphone audio and a compact Prompt Pack to OpenAI.
-- The Prompt Pack always includes selected Dictionary terms for Cloud Dictation.
+- Cloud Dictation sends microphone audio and a compact Prompt Pack to OpenAI only for modes that support provider prompt text.
+- The Prompt Pack always includes selected Dictionary terms for Cloud Dictation modes that support Prompt Pack text.
 - OCR Context is not sent to cloud by default; it is controlled by a global setting with App Profile override.
 - The full Dictionary, screenshots, transcript history, and insertion target contents are not sent.
 - Cloud Dictation must show persistent provider/status UI whenever active.
@@ -26,7 +26,9 @@ Cloud Dictation is the planned opt-in exception to VoxType's local-first default
 - **Realtime cloud** — `gpt-realtime-whisper`
   - Uses streaming transcription and Live Preview.
   - VoxType hotkey owns the dictation session lifecycle.
-  - OpenAI server VAD creates internal Transcript Turns.
+  - Does not send Prompt Pack text because `gpt-realtime-whisper` rejects the realtime transcription `prompt` parameter.
+  - Does not use OpenAI server VAD because current realtime transcription docs say to omit `turn_detection` or set it to `null` for `gpt-realtime-whisper`.
+  - VoxType manually commits the input audio buffer when the hotkey session stops.
   - Target apps receive final text only; partial text is never live-typed into the target app.
 - **Cloud accuracy** — `gpt-4o-transcribe`
   - Uses the existing record -> local VAD trim -> transcribe -> insert flow.
@@ -49,12 +51,12 @@ The exact Whisper model remains visible as secondary text. Beginner modes should
 - On hotkey press, native capture starts immediately and buffers up to 5 seconds of pre-connection audio while the OpenAI session becomes ready.
 - If the OpenAI session cannot connect within the buffer window, recording stops and VoxType shows a clear error.
 - VoxType does not keep a full-session audio buffer for realtime Cloud Dictation initially.
-- Realtime Cloud Dictation should stream mostly raw captured audio and let OpenAI server VAD create Transcript Turns.
-- Local VAD trimming settings do not configure realtime OpenAI server VAD.
+- Realtime Cloud Dictation should stream mostly raw captured audio and manually commit the input buffer on stop. `gpt-realtime-whisper` does not currently support server VAD in transcription sessions.
+- Local VAD trimming settings do not configure OpenAI realtime behavior.
 - Realtime should use provider-aware audio configuration; OpenAI realtime should request 24 kHz PCM.
 - Realtime latency presets are advanced settings: Fast, Balanced, Accurate. Default is Balanced.
-- Presets tune both preview latency and server VAD turn timing within conservative bounds.
-- Raw server VAD threshold is developer/debug-only.
+- Presets tune the `gpt-realtime-whisper` transcription `delay` hint.
+- The old raw server VAD threshold debug setting is ignored for `gpt-realtime-whisper`.
 
 ## Live Preview
 

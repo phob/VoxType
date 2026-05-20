@@ -42,6 +42,21 @@ Cloud Dictation must never feel hidden or accidental. When active, VoxType shoul
 - **Live Preview**: temporary transcript feedback shown during dictation before final insertion.
 - **Transcript Turn**: one completed segment of dictated speech inside a dictation session.
 
+## Known Current Model Limitations
+
+`gpt-realtime-whisper` currently has narrower realtime transcription-session
+support than the original desired design:
+
+- Do not send Cloud Prompt Pack text to `gpt-realtime-whisper`. A live API check
+  rejected the realtime transcription `prompt` parameter for this model with
+  `invalid_request_error / invalid_value`.
+- Do not enable OpenAI server VAD for `gpt-realtime-whisper`. Current OpenAI
+  realtime transcription docs say to omit `audio.input.turn_detection` or set it
+  to `null` for this model and commit audio manually.
+- Treat realtime Prompt Pack support and server-VAD turns as known issues until
+  OpenAI exposes a supported field/model combination and VoxType verifies it
+  against the live API.
+
 ## Dictation Modes
 
 Use stable domain-level mode IDs:
@@ -97,7 +112,9 @@ Settings should link to OpenAI API pricing/privacy/data docs but should not requ
 
 ## Prompt Pack Rules
 
-Cloud Dictation sends audio plus Prompt Pack.
+Cloud Dictation sends audio plus Prompt Pack for modes that support provider
+prompt text. `gpt-realtime-whisper` currently does not support realtime Prompt
+Pack text.
 
 Prompt Pack contents:
 
@@ -143,17 +160,23 @@ Architecture:
 - Native helper streaming capture → Electron main → OpenAI WebSocket.
 - OpenAI realtime should use provider-aware audio configuration; target 24 kHz PCM for OpenAI realtime.
 - VoxType hotkey owns dictation session lifecycle.
-- OpenAI server VAD creates internal Transcript Turns.
+- `gpt-realtime-whisper` does not currently support OpenAI server VAD in
+  transcription sessions; VoxType commits audio manually when the hotkey session
+  stops.
 - Target apps receive final text only.
 
 Startup:
 
 - On hotkey press, capture target app/window immediately.
 - Start native microphone capture immediately and buffer up to 5 seconds of pre-connection audio.
-- Build Prompt Pack, including OCR Context if enabled.
-- OCR gets a 1-second startup budget for realtime.
-- If OCR is slow/fails, continue with Dictionary-only Prompt Pack and show a warning.
-- Open OpenAI realtime session with final Prompt Pack.
+- Build Prompt Pack, including OCR Context if enabled, only for OpenAI modes that
+  support prompt text. For `gpt-realtime-whisper`, do not send Prompt Pack text.
+- OCR gets a 1-second startup budget only if a future realtime model/field
+  supports Prompt Pack text.
+- If OCR is slow/fails for a supported future realtime Prompt Pack path,
+  continue with Dictionary-only Prompt Pack and show a warning.
+- Open the OpenAI realtime session without Prompt Pack text for
+  `gpt-realtime-whisper`.
 - Flush buffered audio once session is ready.
 - If the session cannot connect within the pre-connection buffer window, stop recording and show a clear error.
 
@@ -166,8 +189,8 @@ Realtime latency:
 
 - Advanced presets: Fast, Balanced, Accurate.
 - Default: Balanced.
-- Presets tune both preview latency and server VAD turn timing within conservative bounds.
-- Raw server VAD threshold is developer/debug-only.
+- Presets tune the `gpt-realtime-whisper` transcription `delay` hint.
+- Raw server VAD threshold is ignored for `gpt-realtime-whisper`.
 - Existing local VAD settings do not configure OpenAI realtime VAD.
 
 Duration:
@@ -317,7 +340,7 @@ First implementation is successful when:
 - OpenAI key is stored in OS credential store,
 - one-time Cloud Dictation consent is enforced,
 - Cloud modes block before recording if setup is incomplete,
-- audio plus allowed Prompt Pack is sent to OpenAI,
+- audio plus allowed Prompt Pack is sent to OpenAI for modes that support it,
 - transcript returns from all three OpenAI modes,
 - explicit local corrections apply,
 - final text inserts into target app,

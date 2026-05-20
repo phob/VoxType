@@ -85,8 +85,7 @@ export class RealtimeCloudSession {
       mode: this.mode,
       language: this.language,
       audioConfig: openAiRealtimeAudioConfig,
-      latencyPreset: this.settings.realtimeLatencyPreset,
-      vadThresholdOverride: this.settings.realtimeVadThresholdOverride
+      latencyPreset: this.settings.realtimeLatencyPreset
     });
     this.streamingStarted = true;
     this.flushPreConnectionBuffer();
