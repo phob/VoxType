@@ -2,6 +2,7 @@ import {
   getDictationMode,
   openAiRealtimeAudioConfig,
   type DictationMode,
+  type PromptPack,
   type TranscriptTurn
 } from "../shared/asr";
 import { type AppSettings, type WhisperLanguage } from "../shared/settings";
@@ -48,6 +49,7 @@ export class RealtimeCloudSession {
     credentials: OpenAiCredentialStore,
     private readonly settings: AppSettings,
     private readonly language: WhisperLanguage,
+    private readonly promptPack: PromptPack | null,
     private readonly updateOverlay: (state: Partial<RecordingOverlayState>) => void
   ) {
     this.mode = getDictationMode("openai.realtime");
@@ -83,6 +85,7 @@ export class RealtimeCloudSession {
 
     await this.provider.startStreaming({
       mode: this.mode,
+      promptPack: this.promptPack,
       language: this.language,
       audioConfig: openAiRealtimeAudioConfig,
       latencyPreset: this.settings.realtimeLatencyPreset

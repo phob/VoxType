@@ -175,8 +175,7 @@ export function ReleaseCloudSection(props: ReadyAppViewProps): ReactElement {
                     />
                     <button disabled={!openAiApiKeyDraft.trim()} onClick={() => void saveOpenAiApiKey()} type="button">Save key</button>
                     <button
-                      disabled={activeDictationMode.id === "openai.realtime"}
-                      title={activeDictationMode.id === "openai.realtime" ? "Realtime Cloud Dictation does not send Prompt Pack text." : "Preview the capped Prompt Pack for file cloud modes."}
+                      title="Preview the capped Prompt Pack for the selected cloud mode."
                       onClick={() => void previewCloudPromptPack()}
                       type="button"
                     >Prompt Pack preview</button>

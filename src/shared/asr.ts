@@ -71,6 +71,7 @@ export interface StreamingAudioConfig {
 
 export interface StreamingAsrRequest {
   mode: DictationMode;
+  promptPack: PromptPack | null;
   language: WhisperLanguage;
   audioConfig: StreamingAudioConfig;
   latencyPreset: RealtimeLatencyPreset;

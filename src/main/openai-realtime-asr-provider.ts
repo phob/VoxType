@@ -58,6 +58,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
 
     await this.openSession(
       apiKey,
+      request.promptPack?.text ?? null,
       request.language,
       request.latencyPreset
     );
@@ -154,6 +155,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
 
   private async openSession(
     apiKey: string,
+    prompt: string | null,
     language: StreamingAsrRequest["language"],
     latencyPreset: StreamingAsrRequest["latencyPreset"]
   ): Promise<void> {
@@ -199,6 +201,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
         };
         this.sessionReadyWaiters.push(waiter);
         socket.send(JSON.stringify(buildSessionUpdate(
+          prompt,
           language,
           latencyPreset
         )));
@@ -416,6 +419,7 @@ function encodeBase64(bytes: Uint8Array): string {
 }
 
 function buildSessionUpdate(
+  prompt: string | null,
   language: StreamingAsrRequest["language"],
   latencyPreset: StreamingAsrRequest["latencyPreset"]
 ): unknown {
@@ -433,6 +437,7 @@ function buildSessionUpdate(
           },
           transcription: {
             model: OPENAI_REALTIME_WHISPER_MODEL_ID,
+            prompt: prompt?.trim() || undefined,
             language: languageHint.parameterValue ?? undefined,
             delay: getOpenAiRealtimeTranscriptionDelay(latencyPreset)
           },
