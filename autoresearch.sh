@@ -205,8 +205,10 @@ grep_score 6 grep -R "stop(reason" -n src/main/openai-realtime-asr-provider.ts >
 grep_score 6 grep -R "preserveLastError" -n src/main/openai-realtime-asr-provider.ts src/main/realtime-cloud-session.ts >/dev/null
 grep_score 6 grep -R "this.lastError = null" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "this.failRealtime(new Error(reason))" -n src/main/openai-realtime-asr-provider.ts >/dev/null
-grep_score 6 grep -R "session.updated" -n src/main/openai-realtime-asr-provider.ts >/dev/null
-grep_score 6 grep -R "session.created" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "transcription_session.updated" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "transcription_session.created" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "isRealtimeTranscriptionSessionUpdatedEvent" -n src/main/openai-realtime-asr-provider.ts >/dev/null
+grep_score 6 grep -R "isRealtimeTranscriptionSessionCreatedEvent" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "sessionCreatedSeen" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "this.sessionCreatedSeen = false" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 bash -c 'awk "/private async openSession/,/await new Promise/" src/main/openai-realtime-asr-provider.ts | grep "this.lastError = null"'

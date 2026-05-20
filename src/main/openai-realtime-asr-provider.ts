@@ -230,12 +230,12 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
         return;
       }
 
-      if (payload.type === "session.created") {
+      if (isRealtimeTranscriptionSessionCreatedEvent(payload.type)) {
         this.sessionCreatedSeen = true;
         return;
       }
 
-      if (payload.type === "session.updated") {
+      if (isRealtimeTranscriptionSessionUpdatedEvent(payload.type)) {
         this.resolveSessionReadyWaiters();
         return;
       }
@@ -331,6 +331,14 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
       waiter.resolve();
     }
   }
+}
+
+function isRealtimeTranscriptionSessionCreatedEvent(type: string | undefined): boolean {
+  return type === "transcription_session.created" || type === "session.created";
+}
+
+function isRealtimeTranscriptionSessionUpdatedEvent(type: string | undefined): boolean {
+  return type === "transcription_session.updated" || type === "session.updated";
 }
 
 function buildOpenAiRealtimeAuthorizationHeader(apiKey: string): string {
