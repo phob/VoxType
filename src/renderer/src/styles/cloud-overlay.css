@@ -361,13 +361,20 @@
 }
 
 .recording-overlay-live {
-  align-content: flex-start;
-  align-items: flex-start;
-  flex-wrap: wrap;
+  align-items: stretch;
+  flex-direction: column;
   width: 520px;
   min-height: 180px;
   padding: 10px 12px 12px;
   border-color: rgb(35 214 207 / 0.5);
+}
+
+.overlay-status-row {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 8px;
+  min-width: 0;
 }
 
 .overlay-meter-canvas {
@@ -433,6 +440,7 @@
 }
 
 .recording-overlay-live .overlay-live-preview {
+  flex: 1 1 auto;
   margin-top: 2px;
   padding-top: 8px;
   border-top: 1px solid rgb(75 91 107 / 0.46);

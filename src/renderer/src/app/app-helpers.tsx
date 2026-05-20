@@ -485,13 +485,15 @@ export function RecordingOverlay({ state }: { state: RecordingOverlayState }): R
     <main className={`recording-overlay${hasPreviewText ? " recording-overlay-live" : ""}`} aria-label={statusLabel}>
       {state.mode === "recording" ? (
         <>
-          <span className="overlay-status-dot" aria-hidden="true" />
-          <span className="overlay-status-label">{elapsedLabel ?? statusLabel}</span>
-          <canvas
-            ref={canvasRef}
-            aria-label="Input gain timeline"
-            className="overlay-meter-canvas"
-          />
+          <div className="overlay-status-row">
+            <span className="overlay-status-dot" aria-hidden="true" />
+            <span className="overlay-status-label">{elapsedLabel ?? statusLabel}</span>
+            <canvas
+              ref={canvasRef}
+              aria-label="Input gain timeline"
+              className="overlay-meter-canvas"
+            />
+          </div>
           {previewTurns.length > 0 ? <LivePreview turns={previewTurns} /> : null}
         </>
       ) : (
