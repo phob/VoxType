@@ -11,6 +11,10 @@
 - Added the next ten-point Cloud Dictation implementation plan covering
   explicit realtime PCM capture, realtime Prompt Pack support, server VAD
   alignment, copy cleanup, verification, and final status refresh.
+- Updated Cloud Dictation status after completing the ten-point implementation
+  pass: explicit realtime PCM capture flagging, realtime Prompt Pack support,
+  OpenAI server VAD alignment, Cloud settings copy cleanup, and static
+  verification.
 
 ## 2026-05-20
 

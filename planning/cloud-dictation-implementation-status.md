@@ -53,7 +53,16 @@ are completed.
   - `session.type = "transcription"`
   - nested `audio.input.transcription.model = "gpt-realtime-whisper"`
 - Realtime session uses 24 kHz PCM16 mono audio configuration.
+- Native realtime PCM emission is now explicitly requested only for
+  `openai.realtime` recordings through the Electron recording options and the
+  Windows helper `--emit-realtime-pcm16` flag. Local and OpenAI file modes keep
+  realtime PCM emission disabled.
 - Realtime turn accumulation exists through `TranscriptTurnAccumulator`.
+- Realtime sessions now send the capped Cloud Prompt Pack through the OpenAI
+  transcription `prompt` field.
+- Realtime sessions now enable OpenAI `server_vad`; latency presets tune both
+  transcription `delay` and server VAD turn timing, with the developer
+  threshold override still available.
 - Realtime history entries store provider/mode/model, turn count/status, raw
   text when changed by corrections, and `audioUnavailableReason`.
 - Realtime final text insertion remains final-only; partials are preview-only.
@@ -84,15 +93,9 @@ are completed.
   realtime finalize, converts it to 24 kHz mono PCM16, and appends it before
   commit if no live PCM reached OpenAI. This should help final transcript
   functionality, but it does not satisfy the PRD's live-preview streaming goal.
-- Realtime Prompt Pack is not currently sent. The UI says realtime does not send
-  Prompt Pack text. This diverges from the PRD, which says the realtime session
-  should open with the final Prompt Pack.
-- Realtime `turn_detection` is currently `null`. The PRD says OpenAI server VAD
-  should create internal Transcript Turns.
-- Realtime latency presets currently map to OpenAI transcription `delay` rather
-  than server VAD timing.
-- `getOpenAiRealtimeVadConfig` still exists but is effectively legacy/stale for
-  current realtime transcription sessions.
+- Realtime native PCM streaming is explicitly requested in the app path, but it
+  still needs a hotkey-driven app smoke test to confirm `nativeChunks > 0` and
+  `providerAppendedBytes > 0` on the user's microphone/device setup.
 - Test connection checks `/v1/models/{modelId}` for the selected mode; it does
   not validate an actual OpenAI file transcription upload or realtime WebSocket
   handshake.
@@ -112,11 +115,8 @@ are completed.
   - `openai.economy`
 - End-to-end realtime live preview with native helper streaming.
 - Reliable `realtimePcm16Chunk` delivery in the real app path.
-- Realtime Prompt Pack support or an explicit planning decision that realtime
-  will not send Prompt Pack text.
 - OCR 1-second startup budget for realtime and warning when OCR is slow/fails.
 - Dictionary-only realtime startup fallback when OCR misses the budget.
-- Realtime server VAD turn behavior aligned with the PRD.
 - Bounded partial fallback behavior fully verified and reflected in history.
 - "Test all OpenAI modes" advanced validation.
 - Expandable technical-details UI for cloud errors; current behavior is mostly
@@ -184,22 +184,22 @@ The next logical implementation pass is to close the gap between "realtime
 session shape is known" and "the app can reliably stream live native PCM into
 OpenAI":
 
-1. Update this status file with a concrete ten-point implementation plan.
-2. Make native realtime PCM streaming an explicit recording option instead of
+1. [x] Update this status file with a concrete ten-point implementation plan.
+2. [x] Make native realtime PCM streaming an explicit recording option instead of
    relying on implicit helper behavior.
-3. Surface whether realtime PCM was requested in metadata-only native recording
+3. [x] Surface whether realtime PCM was requested in metadata-only native recording
    diagnostics.
-4. Have the renderer request realtime PCM only for `openai.realtime` sessions.
-5. Preserve file-mode recording behavior by keeping realtime PCM disabled for
+4. [x] Have the renderer request realtime PCM only for `openai.realtime` sessions.
+5. [x] Preserve file-mode recording behavior by keeping realtime PCM disabled for
    local and OpenAI file modes.
-6. Send the Cloud Prompt Pack to realtime transcription sessions.
-7. Replace `turn_detection: null` with OpenAI server VAD for realtime
+6. [x] Send the Cloud Prompt Pack to realtime transcription sessions.
+7. [x] Replace `turn_detection: null` with OpenAI server VAD for realtime
    transcription sessions.
-8. Tune realtime latency presets through server VAD timing, while retaining the
+8. [x] Tune realtime latency presets through server VAD timing, while retaining the
    transcription `delay` hint.
-9. Update the Cloud settings copy so realtime Prompt Pack and server VAD
+9. [x] Update the Cloud settings copy so realtime Prompt Pack and server VAD
    behavior no longer look unsupported/stale.
-10. Run static verification and refresh this status file with the completed
+10. [x] Run static verification and refresh this status file with the completed
     implementation notes.
 
 ## Implementation Log
@@ -218,6 +218,20 @@ OpenAI":
 - Added the active ten-point implementation plan for explicit realtime PCM
   capture, realtime Prompt Pack support, server VAD alignment, UI copy cleanup,
   verification, and final status refresh.
+- Implemented the ten-point pass:
+  - added explicit native realtime PCM recording options and helper
+    `--emit-realtime-pcm16` support,
+  - exposed `realtimePcm16Requested` in native recording diagnostics,
+  - requested realtime PCM only for `openai.realtime`,
+  - sent capped Cloud Prompt Pack text to realtime OpenAI sessions,
+  - enabled OpenAI server VAD with latency-preset timing,
+  - refreshed Cloud settings copy for realtime Prompt Pack/server VAD behavior,
+  - verified with `bun run lint`, `bun run typecheck`, and
+    `cargo check --manifest-path native/windows-helper/Cargo.toml`.
+- Next step: run a hotkey-driven realtime dictation in the app and confirm
+  `realtimePcm16Requested=true`, `realtimeChunks > 0`, `realtimeBytes > 0`, and
+  `providerAppendedBytes > 0`; only then mark realtime end-to-end smoke testing
+  complete.
 
 ## Release Gate
 
