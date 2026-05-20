@@ -19,7 +19,7 @@ export class OpenAiFileAsrProvider implements FileAsrProvider {
     }
 
     const response = await fetch(`${OPENAI_MODELS_URL}/${encodeURIComponent(modelId)}`, {
-      headers: { Authorization: `Bearer ${apiKey}` }
+      headers: { Authorization: buildOpenAiAuthorizationHeader(apiKey) }
     });
 
     if (!response.ok) {
@@ -54,7 +54,7 @@ export class OpenAiFileAsrProvider implements FileAsrProvider {
     const response = await fetch(OPENAI_TRANSCRIPTION_URL, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey}`
+        Authorization: buildOpenAiAuthorizationHeader(apiKey)
       },
       body: form
     });
@@ -78,6 +78,10 @@ export class OpenAiFileAsrProvider implements FileAsrProvider {
       durationMs: Date.now() - startedAt
     };
   }
+}
+
+function buildOpenAiAuthorizationHeader(apiKey: string): string {
+  return `Bearer ${apiKey.trim()}`;
 }
 
 function copyAudioBytesForUpload(audioBytes: Uint8Array): Uint8Array {
