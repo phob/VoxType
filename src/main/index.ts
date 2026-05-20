@@ -891,15 +891,10 @@ ipcMain.handle(
     activeRealtimeCloudSession = new RealtimeCloudSession(openAiCredentialStore, settings, updateOverlay);
     activeRealtimeCloudProcessName = processName;
 
-    const promptPack = await buildCloudPromptPack(dictionaryStore, {
-      processName,
-      ocrContext: context?.ocrContext ?? null,
-      includeOcrContext: resolveCloudPromptPackOcrEnabled(settings, profile),
-      consentAccepted: settings.cloudDictationConsentAccepted
-    });
+    const realtimePromptPack = null;
 
     try {
-      await activeRealtimeCloudSession.start(promptPack);
+      await activeRealtimeCloudSession.start(realtimePromptPack);
     } catch (error) {
       const startupError = error instanceof Error
         ? error
