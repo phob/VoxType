@@ -41,7 +41,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
   ) {}
 
   async startStreaming(request: StreamingAsrRequest): Promise<void> {
-    const apiKey = await this.credentials.getApiKey();
+    const apiKey = (await this.credentials.getApiKey())?.trim() ?? null;
 
     if (!apiKey) {
       throw new Error("OpenAI API key is required before Realtime Cloud Dictation can start.");
@@ -334,7 +334,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
 }
 
 function buildOpenAiRealtimeAuthorizationHeader(apiKey: string): string {
-  return `Bearer ${apiKey}`;
+  return `Bearer ${apiKey.trim()}`;
 }
 
 function getRealtimeTranscriptKey(itemId: string | undefined, contentIndex: number | undefined): string {
