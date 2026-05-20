@@ -71,7 +71,6 @@ export type StreamingAudioConfig = {
 
 export type StreamingAsrRequest = {
   mode: DictationMode;
-  promptPack: PromptPack | null;
   language: WhisperLanguage;
   audioConfig: StreamingAudioConfig;
   latencyPreset: RealtimeLatencyPreset;

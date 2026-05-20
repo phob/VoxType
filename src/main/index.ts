@@ -891,10 +891,8 @@ ipcMain.handle(
     activeRealtimeCloudSession = new RealtimeCloudSession(openAiCredentialStore, settings, updateOverlay);
     activeRealtimeCloudProcessName = processName;
 
-    const realtimePromptPack = null;
-
     try {
-      await activeRealtimeCloudSession.start(realtimePromptPack);
+      await activeRealtimeCloudSession.start();
     } catch (error) {
       const startupError = error instanceof Error
         ? error

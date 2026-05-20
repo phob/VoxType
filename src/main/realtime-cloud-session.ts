@@ -12,7 +12,6 @@ import {
 } from "../shared/cloud-logging";
 import { OpenAiCredentialStore } from "./openai-credential-store";
 import { OpenAiRealtimeAsrProvider } from "./openai-realtime-asr-provider";
-import { type PromptPack } from "../shared/asr";
 
 export type RealtimeCloudSessionSnapshot = {
   startedAtMs: number;
@@ -59,7 +58,7 @@ export class RealtimeCloudSession {
     );
   }
 
-  async start(promptPack: PromptPack | null): Promise<void> {
+  async start(): Promise<void> {
     const startedLogEntry = createCloudDictationLogEntry({
       providerId: "openai",
       modelId: this.mode.modelId,
@@ -71,7 +70,6 @@ export class RealtimeCloudSession {
 
     await this.provider.startStreaming({
       mode: this.mode,
-      promptPack,
       language: this.settings.whisperLanguage,
       audioConfig: openAiRealtimeAudioConfig,
       latencyPreset: this.settings.realtimeLatencyPreset

@@ -80,10 +80,11 @@ grep_score 6 grep -R "OpenAiRealtimeAsrProvider" -n src >/dev/null
 grep_score 6 grep -R "gpt-realtime-whisper" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 grep -R "Authorization:.*Bearer" -n src/main/openai-realtime-asr-provider.ts >/dev/null
 grep_score 6 bash -c '! grep -R "openai-beta.realtime-v1\|openai-insecure-api-key" -n src/main/openai-realtime-asr-provider.ts'
-grep_score 6 grep -R "const realtimePromptPack = null" -n src/main/index.ts >/dev/null
-grep_score 6 grep -R "activeRealtimeCloudSession.start(realtimePromptPack)" -n src/main/index.ts >/dev/null
-grep_score 6 bash -c '! grep -R "PromptPack" -n src/main/openai-realtime-asr-provider.ts'
-grep_score 6 bash -c '! grep -R "request.promptPack\|_promptPack" -n src/main/openai-realtime-asr-provider.ts'
+grep_score 6 bash -c '! grep -R "realtimePromptPack" -n src/main/index.ts'
+grep_score 6 grep -R "activeRealtimeCloudSession.start()" -n src/main/index.ts >/dev/null
+grep_score 6 bash -c '! grep -R "PromptPack" -n src/main/openai-realtime-asr-provider.ts src/main/realtime-cloud-session.ts'
+grep_score 6 bash -c '! grep -R "request.promptPack\|_promptPack\|promptPack: PromptPack" -n src/main/openai-realtime-asr-provider.ts src/main/realtime-cloud-session.ts'
+grep_score 6 bash -c '! awk "/export type StreamingAsrRequest = /,/};/" src/shared/asr.ts | grep "promptPack"'
 grep_score 6 grep -R "server_vad" -n src/main >/dev/null
 grep_score 6 grep -R "pcm16" -n src/main >/dev/null
 grep_score 6 grep -R "pre-connection buffer" -n src/main >/dev/null
