@@ -363,7 +363,7 @@ function createOverlayWindow(): BrowserWindow {
     width: compactOverlayBounds.width,
     height: compactOverlayBounds.height,
     frame: false,
-    resizable: false,
+    resizable: true,
     movable: false,
     minimizable: false,
     maximizable: false,
@@ -401,17 +401,16 @@ function createOverlayWindow(): BrowserWindow {
 function positionOverlayWindow(): void {
   const window = createOverlayWindow();
   const bounds = getOverlayWindowBounds();
-
-  if (window.getSize()[0] !== bounds.width || window.getSize()[1] !== bounds.height) {
-    window.setSize(bounds.width, bounds.height, false);
-  }
-
   const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
   const workArea = display.workArea;
-  const [width, height] = window.getSize();
-  const x = Math.round(workArea.x + (workArea.width - width) / 2);
-  const y = Math.round(workArea.y + workArea.height - height - 24);
-  window.setPosition(x, y, false);
+  const x = Math.round(workArea.x + (workArea.width - bounds.width) / 2);
+  const y = Math.round(workArea.y + workArea.height - bounds.height - 24);
+  window.setBounds({
+    x,
+    y,
+    width: bounds.width,
+    height: bounds.height
+  }, false);
 }
 function getOverlayWindowBounds(): { width: number; height: number } {
   return hasLivePreviewText(overlayState) ? livePreviewOverlayBounds : compactOverlayBounds;
