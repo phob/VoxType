@@ -1,5 +1,11 @@
 # Planning Changelog
 
+## 2026-05-21
+
+- Refreshed the Cloud Dictation implementation status and selected
+  metadata-only realtime recording diagnostics as the next implementation
+  slice.
+
 ## 2026-05-20
 
 - Added a Cloud Dictation implementation status handoff summarizing what is implemented, what is partial, what is missing, and the next realtime debugging milestone.

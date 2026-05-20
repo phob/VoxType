@@ -1,6 +1,6 @@
 # Cloud Dictation Implementation Status
 
-Last reviewed: 2026-05-20
+Last reviewed: 2026-05-21
 
 This document captures the current implementation state against
 [cloud-dictation-prd.md](cloud-dictation-prd.md). It is a handoff snapshot for
@@ -156,10 +156,16 @@ and timing of `windows-helper:start-recording`.
 
 Make the real app path report `nativeChunks > 0` during realtime dictation.
 
+The next logical implementation slice is metadata-only recording diagnostics in
+the Electron main-process helper path. The goal is to make the next app-driven
+realtime test self-explanatory: which helper binary was launched, which capture
+mode was requested, whether stdout contained realtime PCM events, how many
+recording-level events arrived, and what final WAV metadata was produced.
+
 Suggested order:
 
 1. Verify which Windows helper binary the running app resolves.
-2. Add or inspect metadata-only recording diagnostics from
+2. Add metadata-only recording diagnostics from
    `WindowsHelperService.startRecording`, including helper path, capture mode,
    stdout event counts, realtime chunk counts, recording level counts, and
    final WAV metadata.
@@ -171,8 +177,17 @@ Suggested order:
 6. Mark the realtime smoke test only after a real hotkey-driven dictation
    succeeds end to end.
 
+## Implementation Log
+
+### 2026-05-21
+
+- Selected metadata-only `WindowsHelperService.startRecording` diagnostics as
+  the next implementation slice before another realtime reproduction attempt.
+- The diagnostics should avoid sensitive payloads and log counts, byte totals,
+  helper path, capture options, process exit status, and final WAV metadata
+  only.
+
 ## Release Gate
 
 Cloud Dictation should not be exposed in normal release UI until all three
 OpenAI modes are functionally verified and the smoke-test checklist is complete.
-
