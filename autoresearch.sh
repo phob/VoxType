@@ -391,6 +391,9 @@ grep_score 6 grep -R "classifyOpenAiError" -n src >/dev/null
 grep_score 6 grep -R "invalid_key" -n src/shared/openai-errors.ts >/dev/null
 grep_score 6 grep -R "rate_limit" -n src/shared/openai-errors.ts >/dev/null
 grep_score 6 grep -R "model_access" -n src/shared/openai-errors.ts >/dev/null
+grep_score 6 grep -R "api_shape" -n src/shared/openai-errors.ts >/dev/null
+grep_score 6 grep -R "beta_api_shape_disabled" -n src/shared/openai-errors.ts >/dev/null
+grep_score 6 grep -R "Realtime API request shape" -n src/shared/openai-errors.ts >/dev/null
 grep_score 6 grep -R "Technical details" -n src/shared/openai-errors.ts >/dev/null
 grep_score 6 grep -R "getCloudFailurePolicy" -n src/shared/cloud-failure-policy.ts >/dev/null
 grep_score 6 grep -R "allowAutomaticLocalFallback: false" -n src/shared/cloud-failure-policy.ts >/dev/null

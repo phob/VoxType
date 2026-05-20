@@ -3,6 +3,7 @@ export type OpenAiErrorCategory =
   | "billing"
   | "rate_limit"
   | "model_access"
+  | "api_shape"
   | "network"
   | "unknown";
 
@@ -45,6 +46,14 @@ export function classifyOpenAiError(input: {
       category: "rate_limit",
       summary: "OpenAI rate limits were reached. Try again later or check your usage limits.",
       technicalDetail: detail || "429"
+    };
+  }
+
+  if (haystack.includes("beta_api_shape_disabled")) {
+    return {
+      category: "api_shape",
+      summary: "OpenAI rejected the Realtime API request shape. Update VoxType or switch to a supported cloud mode.",
+      technicalDetail: detail || "beta_api_shape_disabled"
     };
   }
 
