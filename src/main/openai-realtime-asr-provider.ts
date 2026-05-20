@@ -1,5 +1,4 @@
 import {
-  type PromptPack,
   type StreamingAsrProvider,
   type StreamingAsrRequest,
   type TranscriptTurn
@@ -53,7 +52,6 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
 
     await this.openSession(
       apiKey,
-      request.promptPack,
       request.language,
       request.latencyPreset
     );
@@ -126,7 +124,6 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
 
   private async openSession(
     apiKey: string,
-    promptPack: PromptPack | null,
     language: StreamingAsrRequest["language"],
     latencyPreset: StreamingAsrRequest["latencyPreset"]
   ): Promise<void> {
@@ -166,7 +163,6 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
         };
         this.sessionReadyWaiters.push(waiter);
         socket.send(JSON.stringify(buildSessionUpdate(
-          promptPack,
           language,
           latencyPreset
         )));
@@ -341,7 +337,6 @@ function encodeBase64(bytes: Uint8Array): string {
 }
 
 function buildSessionUpdate(
-  _promptPack: PromptPack | null,
   language: StreamingAsrRequest["language"],
   latencyPreset: StreamingAsrRequest["latencyPreset"]
 ): unknown {
