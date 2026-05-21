@@ -38,6 +38,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
   private lastError: Error | null = null;
   private sessionCreatedSeen = false;
   private appendedAudioBytes = 0;
+  private latestCommitSentAtMs: number | null = null;
 
   constructor(
     private readonly credentials: OpenAiCredentialStore,
@@ -97,7 +98,13 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
     }
 
     const initialFinalTurnCount = this.finalTurnCount();
+    this.latestCommitSentAtMs = Date.now();
     this.socket.send(JSON.stringify({ type: "input_audio_buffer.commit" }));
+    logRealtimeTiming("commit sent", {
+      appendedAudioBytes: this.appendedAudioBytes,
+      initialFinalTurnCount,
+      timeoutMs
+    });
 
     if (this.finalTurnCount() > initialFinalTurnCount) {
       return;
@@ -113,11 +120,19 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
       };
       const timeout = setTimeout(() => {
         settle(waiter);
+        logRealtimeTiming("final transcript wait timed out", {
+          elapsedSinceCommitMs: elapsedSince(this.latestCommitSentAtMs),
+          timeoutMs
+        });
         resolve();
       }, timeoutMs);
       const waiter = {
         resolve: () => {
           settle(waiter);
+          logRealtimeTiming("final transcript wait resolved", {
+            elapsedSinceCommitMs: elapsedSince(this.latestCommitSentAtMs),
+            finalTurnCount: this.finalTurnCount()
+          });
           resolve();
         },
         reject: (error: Error) => {
@@ -132,6 +147,11 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
 
     if (this.finalTurnCount() === initialFinalTurnCount) {
       this.markProvisionalTurnsAsFallback();
+      logRealtimeTiming("provisional fallback used", {
+        elapsedSinceCommitMs: elapsedSince(this.latestCommitSentAtMs),
+        initialFinalTurnCount,
+        finalTurnCount: this.finalTurnCount()
+      });
     }
   }
 
@@ -238,6 +258,7 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
         item_id?: string;
         item?: {
           id?: unknown;
+          content?: unknown;
         };
         content_index?: number;
         contentIndex?: number;
@@ -250,6 +271,18 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
           message?: unknown;
         };
       };
+
+      if (this.latestCommitSentAtMs !== null && payload.type) {
+        const nestedTranscriptText = extractRealtimeItemTranscriptText(payload.item);
+        logRealtimeTiming("provider event after commit", {
+          providerEventType: payload.type,
+          elapsedSinceCommitMs: elapsedSince(this.latestCommitSentAtMs),
+          hasTranscript: typeof payload.transcript === "string" && payload.transcript.length > 0,
+          hasDelta: typeof payload.delta === "string" && payload.delta.length > 0,
+          hasText: typeof payload.text === "string" && payload.text.length > 0,
+          nestedTranscriptLength: nestedTranscriptText?.length ?? 0
+        });
+      }
 
       if (payload.type === "error" || isRealtimeTranscriptionFailedEvent(payload.type)) {
         this.failRealtime(new Error(formatRealtimeOpenAiError(payload.error)));
@@ -266,12 +299,28 @@ export class OpenAiRealtimeAsrProvider implements StreamingAsrProvider {
         return;
       }
 
+      if (isRealtimeInputAudioBufferCommittedEvent(payload.type)) {
+        logRealtimeTiming("input audio buffer committed", {
+          elapsedSinceCommitMs: elapsedSince(this.latestCommitSentAtMs)
+        });
+        return;
+      }
+
       const providerItemId = getRealtimeTranscriptKey(
         payload.item_id ?? (typeof payload.item?.id === "string" ? payload.item.id : undefined),
         payload.content_index ?? payload.contentIndex
       );
       const final = isRealtimeTranscriptionCompletedEvent(payload.type);
-      const text = payload.transcript ?? payload.delta ?? payload.text ?? "";
+      const text = payload.transcript ?? payload.delta ?? payload.text ??
+        extractRealtimeItemTranscriptText(payload.item) ?? "";
+
+      if (final) {
+        logRealtimeTiming("final transcript received", {
+          elapsedSinceCommitMs: elapsedSince(this.latestCommitSentAtMs),
+          finalTurnCountBeforeApply: this.finalTurnCount(),
+          textLength: text.length
+        });
+      }
 
       if (!text) {
         return;
@@ -373,6 +422,10 @@ function isRealtimeTranscriptionCompletedEvent(type: string | undefined): boolea
       (type.includes("completed") || type.endsWith(".done")));
 }
 
+function isRealtimeInputAudioBufferCommittedEvent(type: string | undefined): boolean {
+  return type === "input_audio_buffer.committed";
+}
+
 function isRealtimeTranscriptionFailedEvent(type: string | undefined): boolean {
   return type === "conversation.item.input_audio_transcription.failed" ||
     type === "transcription_session.input_audio_transcription.failed" ||
@@ -390,6 +443,52 @@ function isRealtimeTranscriptionSessionUpdatedEvent(type: string | undefined): b
 
 function buildOpenAiRealtimeAuthorizationHeader(apiKey: string): string {
   return `Bearer ${apiKey.trim()}`;
+}
+
+function logRealtimeTiming(event: string, details: Record<string, unknown> = {}): void {
+  console.info("[voxtype] realtime timing", {
+    event,
+    at: new Date().toISOString(),
+    monotonicMs: Math.round(performance.now()),
+    ...details
+  });
+}
+
+function elapsedSince(startedAtMs: number | null): number | null {
+  return startedAtMs === null ? null : Date.now() - startedAtMs;
+}
+
+function extractRealtimeItemTranscriptText(item: { content?: unknown } | undefined): string | null {
+  if (!Array.isArray(item?.content)) {
+    return null;
+  }
+
+  const text = item.content
+    .map((contentPart) => {
+      if (!contentPart || typeof contentPart !== "object") {
+        return "";
+      }
+
+      const candidate = contentPart as {
+        transcript?: unknown;
+        text?: unknown;
+      };
+
+      if (typeof candidate.transcript === "string" && candidate.transcript.trim()) {
+        return candidate.transcript;
+      }
+
+      if (typeof candidate.text === "string" && candidate.text.trim()) {
+        return candidate.text;
+      }
+
+      return "";
+    })
+    .filter(Boolean)
+    .join(" ")
+    .trim();
+
+  return text || null;
 }
 
 function getRealtimeTranscriptKey(itemId: string | undefined, contentIndex: number | undefined): string {
@@ -435,8 +534,7 @@ function buildSessionUpdate(
             model: OPENAI_REALTIME_WHISPER_MODEL_ID,
             language: languageHint.parameterValue ?? undefined,
             delay: getOpenAiRealtimeTranscriptionDelay(latencyPreset)
-          },
-          turn_detection: null
+          }
         }
       }
     }

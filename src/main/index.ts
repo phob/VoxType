@@ -264,6 +264,10 @@ function stopDictationHotkey(): boolean {
   if (!dictationHotkeyState.recording) {
     return false;
   }
+  logRealtimeTiming("dictation stop hotkey received", {
+    process: "main",
+    sessionId: dictationHotkeyState.sessionId
+  });
   const payload = {
     sessionId: dictationHotkeyState.sessionId,
     target: dictationHotkeyState.target,
@@ -276,6 +280,14 @@ function stopDictationHotkey(): boolean {
   };
   mainWindow?.webContents.send("dictation-hotkey-stop", payload);
   return true;
+}
+function logRealtimeTiming(event: string, details: Record<string, unknown> = {}): void {
+  console.info("[voxtype] realtime timing", {
+    event,
+    at: new Date().toISOString(),
+    monotonicMs: Math.round(performance.now()),
+    ...details
+  });
 }
 async function startDictationHotkey(): Promise<number | null> {
   if (dictationHotkeyState.recording) {
@@ -818,7 +830,17 @@ ipcMain.handle("transcription:realtime-append-pcm16", (_event, bytes: Uint8Array
     throw streamingError;
   }
 });
+ipcMain.handle("diagnostics:realtime-timing", (_event, event: string, details?: Record<string, unknown>) => {
+  logRealtimeTiming(event, {
+    process: "renderer",
+    ...(details ?? {})
+  });
+});
 ipcMain.handle("transcription:realtime-finalize", async (_event, fallbackWavBytes?: Uint8Array) => {
+  logRealtimeTiming("realtime finalize ipc received", {
+    process: "main",
+    fallbackByteCount: fallbackWavBytes?.byteLength ?? 0
+  });
   if (!activeRealtimeCloudSession) {
     const previousRealtimeError = lastRealtimeCloudSessionError;
     lastRealtimeCloudSessionError = null;

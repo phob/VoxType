@@ -2,6 +2,7 @@
 
 ## 2026-05-21
 
+- Added a realtime Cloud Dictation idea to insert already-final Live Preview turns immediately on stop when no provisional tail remains.
 - Refreshed the Cloud Dictation implementation status and selected
   metadata-only realtime recording diagnostics as the next implementation
   slice.

@@ -30,7 +30,7 @@ export interface RealtimeCloudSessionAudioDiagnostics {
 }
 
 const openAiRealtimePreConnectionBufferBytes = openAiRealtimeAudioConfig.sampleRateHz * 2 * 5;
-const realtimeFinalizeWithPreviewTimeoutMs = 500;
+const realtimeFinalizeWithPreviewTimeoutMs = 2000;
 const realtimeFinalizeWithoutPreviewTimeoutMs = 10000;
 
 export class RealtimeCloudSession {

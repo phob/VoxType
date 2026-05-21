@@ -203,7 +203,16 @@ export function useRecordingActions(ctx: RecordingActionContext): RecordingActio
     let stopReadinessModeId: DictationModeId | null = null;
 
     try {
+      void window.voxtype.diagnostics.logRealtimeTiming("renderer stop recording requested", {
+        rendererMonotonicMs: Math.round(performance.now())
+      });
       const recordingResult = await recorderRef.current.stop();
+      void window.voxtype.diagnostics.logRealtimeTiming("native recorder stopped", {
+        rendererMonotonicMs: Math.round(performance.now()),
+        recordingByteCount: recordingResult.wavBytes.byteLength,
+        originalDurationMs: recordingResult.vad.originalDurationMs,
+        trimmedDurationMs: recordingResult.vad.trimmedDurationMs
+      });
       recorderRef.current = null;
       const readiness = await window.voxtype.transcription.getReadiness(
         options?.pasteTarget?.processName ?? hotkeyTargetRef.current?.processName

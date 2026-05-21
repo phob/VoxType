@@ -74,6 +74,10 @@ const voxtype = {
     minimize: () => invokeVoid("window:minimize"),
     close: () => invokeVoid("window:close")
   },
+  diagnostics: {
+    logRealtimeTiming: (event: string, details?: Record<string, unknown>) =>
+      invokeVoid("diagnostics:realtime-timing", event, details)
+  },
   settings: {
     get: () => invoke<AppSettings>("settings:get"),
     update: (patch: SettingsPatch) =>

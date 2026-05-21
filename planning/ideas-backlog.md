@@ -32,6 +32,7 @@ Raw ideas go here before they become planned features.
 ## Technical Ideas
 
 - Use Whisper prompt context from OCR and user dictionary.
+- For realtime Cloud Dictation, insert from already-final Live Preview turns immediately on stop when there is no provisional tail, avoiding any provider finalization wait that is not needed for correctness.
 - Conservative fuzzy matching against OCR terms.
 - Active-window OCR when user presses dictation hotkey.
 - App-specific correction memory.
