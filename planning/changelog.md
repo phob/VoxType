@@ -21,6 +21,9 @@
 - Recorded `gpt-realtime-whisper` Prompt Pack and server VAD as known current
   model limitations, keeping realtime sessions on manual commit with
   `turn_detection: null`.
+- Added local realtime dictation as a serious future model direction, using
+  native PCM capture, rolling Whisper windows, VAD, and local-agreement style
+  stable-prefix commits.
 
 ## 2026-05-20
 

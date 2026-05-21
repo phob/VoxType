@@ -88,6 +88,48 @@ Whisper cannot simply add new vocabulary like a traditional dictionary where the
 
 The dictionary should be a VoxType feature around Whisper, not a promise that Whisper itself learns new words.
 
+## Local Realtime Dictation Direction
+
+Realtime local dictation is possible and should be treated as a serious future
+direction, especially because seeing words appear while speaking can help users
+talk more fluently.
+
+The likely shape is not a true token-streaming Whisper model. It is a local
+streaming pipeline around Whisper:
+
+- keep native microphone capture running as PCM,
+- maintain a rolling audio buffer with overlap,
+- run local Whisper repeatedly on short windows,
+- show provisional preview text,
+- use a local-agreement/stable-prefix policy before committing text,
+- use VAD to avoid unnecessary inference during silence,
+- insert only committed final text into the target app.
+
+`whisper.cpp` already ships a `whisper-stream` proof-of-concept that samples the
+microphone repeatedly and can run a sliding-window mode with VAD. The upstream
+README calls this a naive realtime example, so VoxType should not expose it
+directly as the product architecture. It is still useful evidence that the
+runtime path is feasible.
+
+Research implementations such as Whisper-Streaming use LocalAgreement with
+self-adaptive latency to make Whisper-like models behave as realtime
+transcribers. That approach is a better conceptual fit for VoxType than simply
+running `whisper-cli` after stop.
+
+Implementation implications:
+
+- Best first prototype: reuse VoxType's existing native PCM capture and realtime
+  overlay, then add a `LocalStreamingAsrProvider` behind the ASR Provider
+  interface.
+- Start with `local.fast`/`local.balanced` and GPU runtimes where available;
+  larger models may be too slow for comfortable preview latency on CPU.
+- Treat preview text as provisional and never live-type it into the destination
+  app.
+- Keep the current file-mode local path as the accuracy/reliability fallback
+  until local realtime quality and latency are proven.
+- Measure latency, CPU/GPU load, battery impact, correction quality, and behavior
+  at word boundaries before making local realtime the default.
+
 ## Transcript Consistency
 
 Whisper punctuation and casing can vary noticeably between recordings, even with the same user and model.

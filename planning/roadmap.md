@@ -169,6 +169,8 @@ Goal: expand model choice after the Whisper core is stable.
 
 Possible additions:
 
+- Local realtime dictation provider using native PCM capture, rolling Whisper
+  windows, VAD, and stable-prefix/local-agreement commits.
 - Parakeet V3 or newer Parakeet model.
 - Faster Whisper/CTranslate2.
 - Additional cloud ASR providers after the OpenAI Cloud Dictation path is validated.
