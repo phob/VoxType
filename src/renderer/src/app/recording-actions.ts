@@ -216,10 +216,12 @@ export function useRecordingActions(ctx: RecordingActionContext): RecordingActio
             ? "Transcribing with OpenAI..."
             : "Transcribing locally..."
       );
-      await window.voxtype.recordingOverlay.showTranscribing({
-        cloudProviderLabel: readiness.cloud ? "Cloud Dictation" : undefined,
-        message: readiness.cloud ? "Transcribing with OpenAI" : "Transcribing locally"
-      });
+      if (readiness.modeId !== "openai.realtime") {
+        await window.voxtype.recordingOverlay.showTranscribing({
+          cloudProviderLabel: readiness.cloud ? "Cloud Dictation" : undefined,
+          message: readiness.cloud ? "Transcribing with OpenAI" : "Transcribing locally"
+        });
+      }
       const coordinationError = await stopRecordingCoordination();
       const unmuteError = await unmuteSystemAudio();
       await playRecordingCue("stop");
@@ -248,10 +250,12 @@ export function useRecordingActions(ctx: RecordingActionContext): RecordingActio
       if (!entry.text.trim()) {
         throw new Error("Dictation completed but returned no transcript text.");
       }
-      await window.voxtype.recordingOverlay.showFinalizing({
-        cloudProviderLabel: readiness.cloud ? "Cloud Dictation" : undefined,
-        message: readiness.modeId === "openai.realtime" ? "Finalizing realtime cloud dictation" : readiness.cloud ? "Finalizing cloud dictation" : "Finalizing local dictation"
-      });
+      if (readiness.modeId !== "openai.realtime") {
+        await window.voxtype.recordingOverlay.showFinalizing({
+          cloudProviderLabel: readiness.cloud ? "Cloud Dictation" : undefined,
+          message: readiness.cloud ? "Finalizing cloud dictation" : "Finalizing local dictation"
+        });
+      }
       if (unmuteError) {
         setError(unmuteError);
       }

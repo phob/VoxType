@@ -30,6 +30,8 @@ export interface RealtimeCloudSessionAudioDiagnostics {
 }
 
 const openAiRealtimePreConnectionBufferBytes = openAiRealtimeAudioConfig.sampleRateHz * 2 * 5;
+const realtimeFinalizeWithPreviewTimeoutMs = 500;
+const realtimeFinalizeWithoutPreviewTimeoutMs = 10000;
 
 export class RealtimeCloudSession {
   private readonly startedAtMs = Date.now();
@@ -119,7 +121,11 @@ export class RealtimeCloudSession {
       });
       assertCloudDictationLogIsMetadataOnly(completedLogEntry);
       try {
-        await this.provider.commitAudioAndWaitForFinalTranscript();
+        await this.provider.commitAudioAndWaitForFinalTranscript(
+          this.hasTranscriptText()
+            ? realtimeFinalizeWithPreviewTimeoutMs
+            : realtimeFinalizeWithoutPreviewTimeoutMs
+        );
       } finally {
         this.provider.stop("Realtime Cloud Dictation stopped after final transcript processing.", {
           preserveLastError: true
@@ -189,6 +195,12 @@ export class RealtimeCloudSession {
       turns: this.turns,
       preConnectionDroppedBytes: this.preConnectionDroppedBytes
     };
+  }
+
+  private hasTranscriptText(): boolean {
+    return this.turns.some((turn) =>
+      Boolean((turn.finalText ?? turn.provisionalText ?? "").trim())
+    );
   }
 
   getAudioDiagnostics(): RealtimeCloudSessionAudioDiagnostics {
