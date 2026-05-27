@@ -22,15 +22,34 @@ const execFileAsync = promisify(execFile);
 const retainedScreenshotCount = 10;
 
 interface NativeRecording {
+  kind: "legacy" | "session";
   child: ChildProcessWithoutNullStreams;
   outputPath: string;
   stdout: Buffer[];
   stderr: Buffer[];
   diagnostics: NativeRecordingDiagnostics;
+  onLevel?: (level: NativeRecordingLevel, pcm16Chunk?: Uint8Array) => void;
+  session?: NativeRecordingSession;
+  stopPromise?: Promise<void>;
+  resolveStop?: () => void;
+  rejectStop?: (error: Error) => void;
+}
+
+interface NativeRecordingSession {
+  child: ChildProcessWithoutNullStreams;
+  optionsKey: string;
+  stdoutRemainder: string;
+  stderr: Buffer[];
+  ready: Promise<void>;
+  resolveReady: () => void;
+  rejectReady: (error: Error) => void;
+  activeRecording: NativeRecording | null;
+  readySettled: boolean;
 }
 
 export class WindowsHelperService {
   private recording: NativeRecording | null = null;
+  private recordingSession: NativeRecordingSession | null = null;
 
   async getStatus(): Promise<WindowsHelperStatus> {
     const helperPath = await this.resolveHelperPath();
@@ -318,6 +337,22 @@ export class WindowsHelperService {
       throw new Error("Native recording is already active.");
     }
 
+    if (options.captureMode === "sharedCapture") {
+      await this.startSessionRecording(options, onLevel);
+      return;
+    }
+
+    await this.startLegacyRecording(options, onLevel);
+  }
+
+  private async startLegacyRecording(
+    options: NativeRecordingOptions,
+    onLevel?: (level: NativeRecordingLevel, pcm16Chunk?: Uint8Array) => void
+  ): Promise<void> {
+    if (this.recording) {
+      throw new Error("Native recording is already active.");
+    }
+
     const helperPath = await this.resolveHelperPath();
 
     if (!helperPath) {
@@ -329,46 +364,18 @@ export class WindowsHelperService {
     const outputDirectory = join(app.getPath("userData"), "native-recordings");
     await mkdir(outputDirectory, { recursive: true });
     const outputPath = join(outputDirectory, `recording-${String(Date.now())}.wav`);
-    const args = ["record-wav", outputPath];
     const vadModelPath = await this.resolveSileroVadModelPath();
-    const captureModeArg = nativeCaptureModeArg(options.captureMode);
+    const args = createNativeRecordingArgs("record-wav", options, vadModelPath, outputPath);
     const diagnostics = createNativeRecordingDiagnostics({
       helperPath,
       options,
       vadModelPath
     });
 
-    if (captureModeArg) {
-      args.push("--capture-mode", captureModeArg);
-    }
-
-    if (options.inputDeviceId && options.inputDeviceId !== "default") {
-      args.push("--input-device", options.inputDeviceId);
-    }
-
-    if (options.realtimePcm16Enabled) {
-      args.push("--emit-realtime-pcm16");
-    }
-
     if (options.vadEnabled) {
       if (!vadModelPath) {
         throw new Error("Silero VAD model was not found.");
       }
-
-      args.push(
-        "--vad-model",
-        vadModelPath,
-        "--vad-threshold",
-        String(options.vadPositiveSpeechThreshold),
-        "--vad-prefill-frames",
-        String(msToVadFrames(options.vadPreSpeechPadMs)),
-        "--vad-hangover-frames",
-        String(msToVadFrames(options.vadRedemptionMs)),
-        "--vad-preserved-pause-frames",
-        String(msToVadFrames(options.vadPreservedPauseMs)),
-        "--vad-onset-frames",
-        "2"
-      );
     }
 
     const child = spawn(helperPath, args, {
@@ -414,11 +421,13 @@ export class WindowsHelperService {
     });
 
     this.recording = {
+      kind: "legacy",
       child,
       outputPath,
       stdout,
       stderr,
-      diagnostics
+      diagnostics,
+      onLevel
     };
 
     try {
@@ -452,6 +461,14 @@ export class WindowsHelperService {
       throw new Error("Native recording is not active.");
     }
 
+    if (recording.kind === "session") {
+      return this.stopSessionRecording(recording);
+    }
+
+    return this.stopLegacyRecording(recording);
+  }
+
+  private async stopLegacyRecording(recording: NativeRecording): Promise<NativeRecordingResult> {
     this.recording = null;
     recording.child.stdin.end("stop\n", "utf8");
 
@@ -492,6 +509,277 @@ export class WindowsHelperService {
       ...metadata,
       diagnostics
     };
+  }
+
+  private async startSessionRecording(
+    options: NativeRecordingOptions,
+    onLevel?: (level: NativeRecordingLevel, pcm16Chunk?: Uint8Array) => void
+  ): Promise<void> {
+    const helperPath = await this.resolveHelperPath();
+
+    if (!helperPath) {
+      throw new Error(
+        "Windows helper executable was not found. Build it with `cargo build --manifest-path native/windows-helper/Cargo.toml`."
+      );
+    }
+
+    const outputDirectory = join(app.getPath("userData"), "native-recordings");
+    await mkdir(outputDirectory, { recursive: true });
+    const outputPath = join(outputDirectory, `recording-${String(Date.now())}.wav`);
+    const vadModelPath = await this.resolveSileroVadModelPath();
+
+    if (options.vadEnabled && !vadModelPath) {
+      throw new Error("Silero VAD model was not found.");
+    }
+
+    const session = await this.ensureRecordingSession(helperPath, options, vadModelPath);
+    const diagnostics = createNativeRecordingDiagnostics({
+      helperPath,
+      options,
+      vadModelPath
+    });
+    diagnostics.processId = session.child.pid ?? null;
+
+    let resolveStop: (() => void) | undefined;
+    let rejectStop: ((error: Error) => void) | undefined;
+    const stopPromise = new Promise<void>((resolvePromise, reject) => {
+      resolveStop = resolvePromise;
+      rejectStop = reject;
+    });
+
+    const recording: NativeRecording = {
+      kind: "session",
+      child: session.child,
+      outputPath,
+      stdout: [],
+      stderr: session.stderr,
+      diagnostics,
+      onLevel,
+      session,
+      stopPromise,
+      resolveStop,
+      rejectStop
+    };
+
+    session.activeRecording = recording;
+    this.recording = recording;
+    logNativeRecordingDiagnostics("started", diagnostics);
+    session.child.stdin.write(`${JSON.stringify({ type: "start", outputPath })}\n`, "utf8");
+  }
+
+  private async stopSessionRecording(recording: NativeRecording): Promise<NativeRecordingResult> {
+    const session = recording.session;
+
+    if (!session || !recording.stopPromise) {
+      throw new Error("Native recording session is not active.");
+    }
+
+    this.recording = null;
+    session.child.stdin.write(`${JSON.stringify({ type: "stop" })}\n`, "utf8");
+
+    try {
+      await recording.stopPromise;
+    } finally {
+      if (session.activeRecording === recording) {
+        session.activeRecording = null;
+      }
+    }
+
+    const bytes = await readFile(recording.outputPath);
+    const metadata = parseNativeRecordingMetadata(
+      Buffer.concat(recording.stdout).toString("utf8")
+    );
+    recording.diagnostics.stoppedAt = new Date().toISOString();
+    recording.diagnostics.durationMs =
+      Date.parse(recording.diagnostics.stoppedAt) - Date.parse(recording.diagnostics.startedAt);
+    const diagnostics = {
+      ...recording.diagnostics,
+      finalWavByteLength: bytes.byteLength,
+      finalSampleRate: metadata.sampleRate,
+      finalSamples: metadata.samples,
+      finalRawSamples: metadata.rawSamples,
+      finalSpeechFrames: metadata.speechFrames,
+      finalCaptureMode: metadata.captureMode
+    };
+    logNativeRecordingDiagnostics("stopped", diagnostics);
+    await rm(recording.outputPath, { force: true });
+    return {
+      wavBytes: new Uint8Array(bytes),
+      ...metadata,
+      diagnostics
+    };
+  }
+
+  private async ensureRecordingSession(
+    helperPath: string,
+    options: NativeRecordingOptions,
+    vadModelPath: string | null
+  ): Promise<NativeRecordingSession> {
+    const optionsKey = createRecordingSessionKey(helperPath, options, vadModelPath);
+
+    if (this.recordingSession?.optionsKey === optionsKey) {
+      await this.recordingSession.ready;
+      return this.recordingSession;
+    }
+
+    await this.shutdownRecordingSession();
+
+    const args = createNativeRecordingArgs("record-wav-session", options, vadModelPath);
+    const child = spawn(helperPath, args, {
+      stdio: ["pipe", "pipe", "pipe"],
+      windowsHide: true
+    });
+    let resolveReady: (() => void) | undefined;
+    let rejectReady: ((error: Error) => void) | undefined;
+    const ready = new Promise<void>((resolvePromise, reject) => {
+      resolveReady = resolvePromise;
+      rejectReady = reject;
+    });
+    const session: NativeRecordingSession = {
+      child,
+      optionsKey,
+      stdoutRemainder: "",
+      stderr: [],
+      ready,
+      resolveReady: () => {
+        session.readySettled = true;
+        resolveReady?.();
+      },
+      rejectReady: (error: Error) => {
+        session.readySettled = true;
+        rejectReady?.(error);
+      },
+      activeRecording: null,
+      readySettled: false
+    };
+
+    child.stdout.on("data", (chunk: Buffer) => {
+      this.handleRecordingSessionStdout(session, chunk);
+    });
+    child.stderr.on("data", (chunk: Buffer) => {
+      session.stderr.push(chunk);
+      if (session.activeRecording) {
+        session.activeRecording.diagnostics.stderrByteCount += chunk.byteLength;
+      }
+    });
+    child.once("error", (error) => {
+      const wrapped = error instanceof Error ? error : new Error(String(error));
+      if (!session.readySettled) {
+        session.rejectReady(wrapped);
+      }
+      session.activeRecording?.rejectStop?.(wrapped);
+    });
+    child.once("close", (code, signal) => {
+      const complete = session.stdoutRemainder;
+      session.stdoutRemainder = "";
+      if (complete) {
+        this.handleRecordingSessionStdout(session, Buffer.from(`${complete}\n`));
+      }
+
+      const message =
+        Buffer.concat(session.stderr).toString("utf8").trim() ||
+        `Windows helper recording session exited with code ${String(code)}.`;
+      const error = new Error(message);
+
+      if (!session.readySettled) {
+        session.rejectReady(error);
+      }
+      if (session.activeRecording) {
+        session.activeRecording.diagnostics.exitCode = code;
+        session.activeRecording.diagnostics.signal = signal;
+        session.activeRecording.diagnostics.stoppedAt = new Date().toISOString();
+        session.activeRecording.diagnostics.durationMs =
+          Date.parse(session.activeRecording.diagnostics.stoppedAt) -
+          Date.parse(session.activeRecording.diagnostics.startedAt);
+        session.activeRecording.rejectStop?.(error);
+      }
+      if (this.recordingSession === session) {
+        this.recordingSession = null;
+      }
+      if (this.recording?.session === session) {
+        this.recording = null;
+      }
+    });
+
+    this.recordingSession = session;
+    await session.ready;
+    return session;
+  }
+
+  private async shutdownRecordingSession(): Promise<void> {
+    const session = this.recordingSession;
+
+    if (!session) {
+      return;
+    }
+
+    this.recordingSession = null;
+    session.child.stdin.write(`${JSON.stringify({ type: "shutdown" })}\n`, "utf8");
+    session.child.stdin.end();
+
+    await new Promise<void>((resolvePromise) => {
+      const timeout = setTimeout(() => {
+        session.child.kill();
+        resolvePromise();
+      }, 1000);
+      session.child.once("close", () => {
+        clearTimeout(timeout);
+        resolvePromise();
+      });
+    });
+  }
+
+  private handleRecordingSessionStdout(
+    session: NativeRecordingSession,
+    chunk: Buffer
+  ): void {
+    const { complete, remainder } = splitCompleteStdoutLines(
+      `${session.stdoutRemainder}${chunk.toString("utf8")}`
+    );
+    session.stdoutRemainder = remainder;
+
+    if (!complete) {
+      return;
+    }
+
+    const recording = session.activeRecording;
+
+    if (recording) {
+      updateNativeRecordingDiagnosticsFromStdout(recording.diagnostics, complete);
+      recording.stdout.push(Buffer.from(stripRealtimePcm16ChunkEvents(complete)));
+      for (const event of parseRecordingStdoutEvents(complete)) {
+        recording.onLevel?.(event.level, event.pcm16Chunk);
+      }
+    }
+
+    for (const line of complete.split(/\r?\n/).map((item) => item.trim()).filter(Boolean)) {
+      try {
+        const parsed = JSON.parse(line) as Record<string, unknown>;
+
+        if (parsed.type === "recordingReady") {
+          if (!session.readySettled) {
+            session.resolveReady();
+          }
+          continue;
+        }
+
+        if (parsed.type === "recordingError" && typeof parsed.error === "string") {
+          const error = new Error(parsed.error);
+          if (recording) {
+            recording.rejectStop?.(error);
+          } else if (!session.readySettled) {
+            session.rejectReady(error);
+          }
+          continue;
+        }
+
+        if (recording && isNativeRecordingMetadata(parsed)) {
+          recording.resolveStop?.();
+        }
+      } catch {
+        continue;
+      }
+    }
   }
 
   private async resolveHelperPath(): Promise<string | null> {
@@ -565,6 +853,66 @@ function isWindowsMediaOcrResult(value: unknown): value is WindowsMediaOcrResult
 
 function msToVadFrames(milliseconds: number): number {
   return Math.max(0, Math.round(milliseconds / 30));
+}
+
+function createNativeRecordingArgs(
+  command: "record-wav" | "record-wav-session",
+  options: NativeRecordingOptions,
+  vadModelPath: string | null,
+  outputPath?: string
+): string[] {
+  const args = outputPath ? [command, outputPath] : [command];
+  const captureModeArg = nativeCaptureModeArg(options.captureMode);
+
+  if (captureModeArg) {
+    args.push("--capture-mode", captureModeArg);
+  }
+
+  if (options.inputDeviceId && options.inputDeviceId !== "default") {
+    args.push("--input-device", options.inputDeviceId);
+  }
+
+  if (options.realtimePcm16Enabled) {
+    args.push("--emit-realtime-pcm16");
+  }
+
+  if (options.vadEnabled && vadModelPath) {
+    args.push(
+      "--vad-model",
+      vadModelPath,
+      "--vad-threshold",
+      String(options.vadPositiveSpeechThreshold),
+      "--vad-prefill-frames",
+      String(msToVadFrames(options.vadPreSpeechPadMs)),
+      "--vad-hangover-frames",
+      String(msToVadFrames(options.vadRedemptionMs)),
+      "--vad-preserved-pause-frames",
+      String(msToVadFrames(options.vadPreservedPauseMs)),
+      "--vad-onset-frames",
+      "2"
+    );
+  }
+
+  return args;
+}
+
+function createRecordingSessionKey(
+  helperPath: string,
+  options: NativeRecordingOptions,
+  vadModelPath: string | null
+): string {
+  return JSON.stringify({
+    helperPath,
+    captureMode: options.captureMode,
+    inputDeviceId: options.inputDeviceId,
+    realtimePcm16Enabled: options.realtimePcm16Enabled,
+    vadEnabled: options.vadEnabled,
+    vadModelPath,
+    vadPositiveSpeechThreshold: options.vadPositiveSpeechThreshold,
+    vadPreSpeechPadMs: options.vadPreSpeechPadMs,
+    vadRedemptionMs: options.vadRedemptionMs,
+    vadPreservedPauseMs: options.vadPreservedPauseMs
+  });
 }
 
 function createNativeRecordingDiagnostics({
@@ -710,6 +1058,17 @@ function parseNativeRecordingMetadata(stdout: string): Omit<NativeRecordingResul
   };
 }
 
+function isNativeRecordingMetadata(parsed: Record<string, unknown>): boolean {
+  return (
+    typeof parsed.sampleRate === "number" &&
+    typeof parsed.samples === "number" &&
+    typeof parsed.rawSamples === "number" &&
+    typeof parsed.vadEnabled === "boolean" &&
+    (parsed.captureMode === "sharedCapture" || parsed.captureMode === "exclusiveCapture") &&
+    typeof parsed.speechFrames === "number"
+  );
+}
+
 function splitCompleteStdoutLines(stdout: string): { complete: string; remainder: string } {
   const lastNewlineIndex = Math.max(stdout.lastIndexOf("\n"), stdout.lastIndexOf("\r"));
 
@@ -724,7 +1083,7 @@ function splitCompleteStdoutLines(stdout: string): { complete: string; remainder
 }
 
 function stripRealtimePcm16ChunkEvents(stdout: string): string {
-  return stdout
+  const stripped = stdout
     .split(/\r?\n/)
     .filter((line) => {
       try {
@@ -735,6 +1094,12 @@ function stripRealtimePcm16ChunkEvents(stdout: string): string {
       }
     })
     .join("\n");
+
+  if (!stripped) {
+    return "";
+  }
+
+  return /[\r\n]$/.test(stdout) ? `${stripped}\n` : stripped;
 }
 
 function parseRecordingStdoutEvents(stdout: string): {

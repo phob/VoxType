@@ -381,3 +381,35 @@ Unpackaged development builds, including preview runs, should ignore the Start m
 Reason:
 
 During local iteration, a hidden main window makes startup look broken and can hide renderer or DevTools feedback. Preview is part of that local workflow even though it does not use the dev renderer URL. Packaged release builds should still honor the user-facing setting.
+
+## 2026-05-27: Keep WASAPI Exclusive Separate From Handy VAD Parity
+
+Decision:
+
+The default local VAD recorder path should follow Handy's shared CPAL integration: a warmed native helper session, explicit ready/start/stop/shutdown commands, exact `SmoothedVad` prefill/hangover/onset behavior, VAD-error frame pass-through, and stop draining with an end-of-stream sentinel.
+
+WASAPI exclusive capture should remain available as a separate Windows recording-coordination feature rather than defining the default Handy-parity VAD path.
+
+Reason:
+
+Handy's observed quality comes from the native CPAL lifecycle, frame smoothing, and stop-drain behavior, not just Silero thresholds. Exclusive capture solves a different problem: coordinating microphone ownership with other Windows apps. Keeping those concerns separate lets VoxType match Handy's dictation audio path while still offering stronger coordination when the user explicitly wants it.
+
+## 2026-05-27: Ignore Developer Recording Knobs In Release Mode
+
+Decision:
+
+When Developer Mode is disabled, normal dictation should force the quality-oriented recording path: shared Handy-parity capture and local VAD enabled. Persisted developer-only values such as `vadEnabled: false` or `exclusiveCapturePreferred` should only affect recording while Developer Mode is enabled.
+
+Reason:
+
+These controls are diagnostic escape hatches, not release-mode product behavior. A stale hidden `vadEnabled: false` setting allowed a mostly silent 280-second recording to reach Whisper, causing repeated hallucinated phrases after long pauses. Release-mode dictation should protect users from that kind of stale debug state.
+
+## 2026-05-27: Compact Sparse Local Whisper Audio Before Decoding
+
+Decision:
+
+Local Whisper transcription should apply a final PCM16 WAV preparation step before invoking `whisper-cli`: trim leading/trailing silence, cap long internal silent spans, save that prepared audio to history, and pass `--language auto` when the user-facing language setting is `auto`.
+
+Reason:
+
+Re-transcribing the same 280-second saved WAV showed that VAD parity alone does not protect old or otherwise sparse audio once it reaches Whisper. The captured file contained roughly 50 seconds of active audio and about 230 seconds of low-energy audio, with silent spans up to 26.6 seconds. Capping silence before decoding removed the repetition loop on the captured sample, while the separate language fix makes VoxType's `auto` setting match `whisper-cli` behavior instead of silently defaulting to English.

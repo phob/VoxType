@@ -42,7 +42,7 @@ export class SettingsStore {
       dictationHoldHotkey: "CommandOrControl+Alt+Space",
       insertionMode: "clipboard",
       recordingInputDeviceId: "default",
-      recorderCaptureMode: "exclusiveCapturePreferred",
+      recorderCaptureMode: "sharedCapture",
       ocrTermMode: "balanced",
       recordingCoordinationMode: "none",
       recordingStartHotkey: "",

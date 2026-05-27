@@ -55,7 +55,7 @@ Initial VRAM planning estimates:
 
 The implemented Phase 5 GPU slice adds hardware detection, per-model fit reporting, managed CPU/CUDA runtime downloads, a backend preference setting (`auto`, `cpu`, `cuda`, `vulkan`), and automatic runtime selection for transcription.
 
-VoxType exposes Whisper language selection as a normal user setting. The global default is `auto`; choosing a concrete language passes `--language <code>` to `whisper-cli`. App profiles can override this with a specific language or keep `inherit` to follow the global setting.
+VoxType exposes Whisper language selection as a normal user setting. The global default is `auto`, which must be passed to `whisper-cli` as `--language auto` because the CLI's own default is English. Choosing a concrete language passes `--language <code>`. App profiles can override this with a specific language or keep `inherit` to follow the global setting.
 
 Local validation:
 
@@ -206,11 +206,13 @@ Preferred first candidate:
 
 Current implementation:
 
-- native Windows helper recording through CPAL/WASAPI
+- default native Windows helper recording through a warmed CPAL shared-capture session
+- WASAPI exclusive capture retained separately for Windows recording coordination
 - bundled Silero v4 ONNX model through `vad-rs`
 - Rubato resampling to 16 kHz before VAD/Whisper
 - post-recording trimming before Whisper transcription
-- leading/trailing silence trimming, with internal pauses preserved up to a cap instead of removed outright
+- final local Whisper WAV preparation that trims leading/trailing silence and caps long internal silent spans before decoding
+- Handy-style prefill, onset confirmation, and hangover behavior
 - no automatic recording stop behavior
 
 Handy comparison:
@@ -219,7 +221,9 @@ Handy comparison:
 - Handy feeds Silero 30 ms frames.
 - Handy wraps Silero in `SmoothedVad` with prefill frames, hangover frames, and onset confirmation.
 - Handy uses a Rubato FFT resampler before VAD/Whisper.
-- VoxType should consider a native/helper VAD path if browser-side VAD remains unstable.
+- Handy keeps a native recorder open, waits for stream initialization, resets VAD on recording start, drains the audio channel on stop with an end-of-stream sentinel, and falls back to keeping a frame if VAD errors.
+- VoxType's shared-capture path now follows that lifecycle and smoothing behavior.
+- VoxType intentionally keeps WASAPI exclusive capture outside the Handy parity path so it can remain a separate Windows coordination feature for users who want to block or coordinate other microphone consumers.
 
 Reasons:
 

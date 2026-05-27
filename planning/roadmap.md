@@ -89,8 +89,10 @@ Features:
 
 Implementation notes:
 
-- Native recording is the only recording path. The Windows helper captures audio with CPAL, converts to mono, resamples to 16 kHz with Rubato, optionally applies native Silero VAD v4, and writes WAV audio for the existing Whisper pipeline.
-- Native Silero VAD follows Handy's integration: `vad-rs`, `silero_vad_v4.onnx`, 30 ms frames, and a `SmoothedVad` wrapper with prefill, hangover, and onset confirmation.
+- Native recording is the only recording path. The Windows helper captures audio with CPAL/WASAPI, converts to mono, resamples to 16 kHz with Rubato, optionally applies native Silero VAD v4, and writes WAV audio for the existing Whisper pipeline.
+- Native Silero VAD shares Handy's model/dependency/frame-size choices: `vad-rs`, `silero_vad_v4.onnx`, and 30 ms frames.
+- The shared-capture recorder path now follows Handy's integration more closely: exact `SmoothedVad` prefill/hangover/onset behavior, immediate hangover-frame emission, VAD-error pass-through, a warmed native stream, explicit start/stop/shutdown commands, a real ready signal after `stream.play()`, and stop-time drain with an end-of-stream sentinel.
+- WASAPI exclusive capture remains a separate Windows recording-coordination feature, not the default Handy-parity VAD path.
 - If native helper recording or native VAD cannot start, dictation should cancel with a clear error instead of falling back to browser recording or browser VAD.
 - VAD should gate and trim audio, but it must not replace or trigger the user's explicit start/stop hotkey.
 - VAD only detects speech/non-speech; automatic stopping based on pauses or transcript meaning is out of scope for the planned first VAD implementation.

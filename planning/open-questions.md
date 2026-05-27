@@ -27,6 +27,7 @@ Resolved before first GitHub release:
 - Silero VAD runs inside the Rust Windows helper, not in the renderer.
 - The Silero VAD asset is bundled with the installer as an Electron extra resource.
 - Initial VAD trimming defaults are implemented and can be tuned later from developer settings.
+- Handy-parity VAD uses shared CPAL capture by default; WASAPI exclusive capture remains a separate Windows recording-coordination mode.
 
 ## UX
 

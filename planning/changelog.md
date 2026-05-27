@@ -1,5 +1,13 @@
 # Planning Changelog
 
+## 2026-05-27
+
+- Audited VoxType's native Silero VAD against Handy and captured the pre-fix parity gaps: per-recording helper process startup, timeout-based readiness, stop draining without an end-of-stream sentinel, silent frame drops on VAD errors, and modified hangover/pause smoothing.
+- Implemented the Handy-parity direction for shared capture: warmed helper session, explicit ready/start/stop/shutdown commands, exact `SmoothedVad` behavior, VAD-error frame pass-through, and stop-drain sentinel behavior.
+- Resolved the capture-mode question: shared CPAL capture is the default Handy-parity path, while WASAPI exclusive capture remains a separate coordination feature.
+- Diagnosed a long-pause hallucination case from a saved 280-second WAV: stale hidden release-mode settings had VAD disabled and exclusive capture preferred, so release-mode recording now ignores those developer-only knobs unless Developer Mode is enabled.
+- Diagnosed the latest re-transcription as the same old sparse 280-second WAV being decoded again, then added local Whisper audio preparation that trims/caps silence before decoding and passes `--language auto` for the user-facing auto setting.
+
 ## 2026-05-21
 
 - Added a realtime Cloud Dictation idea to insert already-final Live Preview turns immediately on stop when no provisional tail remains.

@@ -33,6 +33,7 @@ import { OpenAiCredentialStore } from "./openai-credential-store";
 import { buildCloudPromptPack } from "./prompt-pack";
 import { RuntimeService } from "./runtime-service";
 import { SettingsStore } from "./settings-store";
+import { compactLongSilencesInPcm16Wav } from "./wav-pcm";
 
 const execFileAsync = promisify(execFile);
 
@@ -89,6 +90,7 @@ export class TranscriptionService {
     const audioPath = join(workDirectory, `${id}.wav`);
     const outputBase = join(workDirectory, id);
     const outputTextPath = `${outputBase}.txt`;
+    const whisperAudioBytes = prepareLocalWhisperAudio(audioBytes);
     const generatedPromptContext = await this.dictionaryStore.buildPromptContext(
       context?.processName,
       context?.ocrContext?.terms
@@ -112,12 +114,10 @@ export class TranscriptionService {
       args.push("--prompt", promptContext);
     }
 
-    if (whisperLanguage !== "auto") {
-      args.push("--language", whisperLanguage);
-    }
+    args.push("--language", whisperLanguage);
 
     await mkdir(workDirectory, { recursive: true });
-    await writeFile(audioPath, audioBytes);
+    await writeFile(audioPath, whisperAudioBytes);
 
     try {
       const { stdout } = await execFileAsync(executable, args);
@@ -138,7 +138,7 @@ export class TranscriptionService {
         throw new Error("Whisper completed but returned no transcript text.");
       }
 
-      const audioFileName = await this.historyStore.saveAudio(id, audioBytes);
+      const audioFileName = await this.historyStore.saveAudio(id, whisperAudioBytes);
       const entry: TranscriptEntry = {
         id,
         text,
@@ -362,6 +362,20 @@ function combinePromptContext(
   }
 
   return `${generated} ${custom}`;
+}
+
+function prepareLocalWhisperAudio(audioBytes: Uint8Array): Uint8Array {
+  try {
+    // Whisper often loops on sparse files; keep pause cues short before decoding.
+    return compactLongSilencesInPcm16Wav(audioBytes, {
+      frameDurationMs: 100,
+      maxSilenceMs: 1000,
+      silenceThresholdDb: -45,
+      trimEdges: true
+    });
+  } catch {
+    return audioBytes;
+  }
 }
 
 function applyOcrTermCorrections(text: string, terms: string[]): {

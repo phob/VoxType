@@ -23,11 +23,12 @@ fn main() {
         "restore-capture-session" => restore_capture_session_from_stdin(),
         "input-devices" => input_devices_json(),
         "record-wav" => record_wav_from_args(),
+        "record-wav-session" => record_wav_session_from_args(),
         "paste-text" => paste_text_from_stdin(),
         "type-text" => type_text_from_stdin(),
         "message-text" => message_text_from_stdin(),
         "help" | "--help" | "-h" => {
-            println!("Usage: voxtype-windows-helper active-window | focus-window <hwnd> | set-system-mute <true|false> | send-hotkey <accelerator> | wait-hotkey-release <accelerator> | capture-screenshot <output.png> [--active-window | --hwnd <hwnd>] | ocr-image <input.png> | message-targets [hwnd] | mute-capture-session <process-id> [process-name] | restore-capture-session | input-devices | record-wav <output.wav> [--capture-mode shared|exclusive-preferred|exclusive-required] [--input-device <name>] [--emit-realtime-pcm16] [--vad-preserved-pause-frames <frames>] | paste-text | type-text [delay-ms] | message-text [focused-control|character-messages] [hwnd]");
+            println!("Usage: voxtype-windows-helper active-window | focus-window <hwnd> | set-system-mute <true|false> | send-hotkey <accelerator> | wait-hotkey-release <accelerator> | capture-screenshot <output.png> [--active-window | --hwnd <hwnd>] | ocr-image <input.png> | message-targets [hwnd] | mute-capture-session <process-id> [process-name] | restore-capture-session | input-devices | record-wav <output.wav> [--capture-mode shared|exclusive-preferred|exclusive-required] [--input-device <name>] [--emit-realtime-pcm16] [--vad-preserved-pause-frames <frames>] | record-wav-session [--capture-mode shared] [--input-device <name>] [--emit-realtime-pcm16] [--vad-preserved-pause-frames <frames>] | paste-text | type-text [delay-ms] | message-text [focused-control|character-messages] [hwnd]");
             Ok(())
         }
         _ => Err(format!("Unknown command: {command}")),
@@ -101,13 +102,24 @@ fn record_wav_from_args() -> Result<(), String> {
     let output_path = env::args()
         .nth(2)
         .ok_or_else(|| "record-wav requires an output path.".to_string())?;
-    let options = NativeRecordingConfig::from_args()?;
+    let options = NativeRecordingConfig::from_args(3)?;
     windows_impl::record_wav_until_stdin_stop(&output_path, options)
 }
 
 #[cfg(not(windows))]
 fn record_wav_from_args() -> Result<(), String> {
     Err("record-wav is only supported on Windows.".to_string())
+}
+
+#[cfg(windows)]
+fn record_wav_session_from_args() -> Result<(), String> {
+    let options = NativeRecordingConfig::from_args(2)?;
+    windows_impl::record_wav_session(options)
+}
+
+#[cfg(not(windows))]
+fn record_wav_session_from_args() -> Result<(), String> {
+    Err("record-wav-session is only supported on Windows.".to_string())
 }
 
 #[derive(Clone)]
@@ -119,8 +131,8 @@ struct NativeRecordingConfig {
 }
 
 impl NativeRecordingConfig {
-    fn from_args() -> Result<Self, String> {
-        let args = env::args().skip(3).collect::<Vec<_>>();
+    fn from_args(skip: usize) -> Result<Self, String> {
+        let args = env::args().skip(skip).collect::<Vec<_>>();
         let mut capture_mode = CaptureMode::Shared;
         let mut input_device = None;
         let mut emit_realtime_pcm16 = false;

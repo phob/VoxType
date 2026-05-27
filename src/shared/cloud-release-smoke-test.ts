@@ -8,12 +8,12 @@ export interface CloudReleaseSmokeTestChecklist {
 }
 
 export const currentCloudReleaseSmokeTestChecklist: CloudReleaseSmokeTestChecklist = {
-  realtimeEndToEndDictation: false,
-  accuracyFileDictation: false,
-  economyFileDictation: false,
-  offlineKillSwitch: false,
-  profileCloudForbidFallback: false,
-  noSensitiveCloudLogs: false
+  realtimeEndToEndDictation: true,
+  accuracyFileDictation: true,
+  economyFileDictation: true,
+  offlineKillSwitch: true,
+  profileCloudForbidFallback: true,
+  noSensitiveCloudLogs: true
 };
 
 export const cloudReleaseSmokeTestLabels: Record<keyof CloudReleaseSmokeTestChecklist, string> = {

@@ -54,6 +54,21 @@
         )
     }
 
+    pub fn record_wav_session(recording_config: super::NativeRecordingConfig) -> Result<(), String> {
+        if recording_config.capture_mode != super::CaptureMode::Shared {
+            return Err(
+                "record-wav-session only supports shared CPAL capture; use record-wav for WASAPI exclusive capture."
+                    .to_string(),
+            );
+        }
+
+        record_wav_shared_session(
+            recording_config.vad,
+            recording_config.input_device.as_deref(),
+            recording_config.emit_realtime_pcm16,
+        )
+    }
+
     fn record_wav_shared_until_stdin_stop(
         output_path: &str,
         vad_config: super::NativeVadConfig,
@@ -221,6 +236,460 @@
         vad_enabled: bool,
         capture_mode: String,
         speech_frames: usize,
+    }
+
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct RecordingReadyResponse {
+        #[serde(rename = "type")]
+        type_: &'static str,
+        sample_rate: u32,
+        capture_mode: String,
+    }
+
+    #[derive(Serialize)]
+    #[serde(rename_all = "camelCase")]
+    struct RecordingErrorResponse {
+        #[serde(rename = "type")]
+        type_: &'static str,
+        error: String,
+    }
+
+    #[derive(Deserialize)]
+    #[serde(rename_all = "camelCase", tag = "type")]
+    enum RecordingSessionInput {
+        Start {
+            #[serde(rename = "outputPath")]
+            output_path: String,
+        },
+        Stop,
+        Shutdown,
+    }
+
+    enum RecordingSessionCommand {
+        Start { output_path: String },
+        Stop,
+        Shutdown,
+    }
+
+    enum RecordingSessionAudioChunk {
+        Samples(Vec<f32>),
+        EndOfStream,
+    }
+
+    fn record_wav_shared_session(
+        vad_config: super::NativeVadConfig,
+        input_device: Option<&str>,
+        emit_realtime_pcm16: bool,
+    ) -> Result<(), String> {
+        let host = cpal::default_host();
+        let device = match input_device {
+            Some(device_name) => find_input_device_by_name(&host, device_name)?,
+            None => host
+                .default_input_device()
+                .ok_or_else(|| "No input device found.".to_string())?,
+        };
+        let config = get_preferred_input_config(&device)?;
+        let sample_rate = config.sample_rate().0;
+        let channels = config.channels() as usize;
+        let paused_flag = Arc::new(AtomicBool::new(true));
+        let (sample_tx, sample_rx) = mpsc::channel::<RecordingSessionAudioChunk>();
+        let (command_tx, command_rx) = mpsc::channel::<RecordingSessionCommand>();
+        let vad_enabled = vad_config.enabled;
+        let vad = create_smoothed_vad(&vad_config)?;
+
+        let stream = match config.sample_format() {
+            cpal::SampleFormat::U8 => build_session_input_stream::<u8>(
+                &device,
+                &config,
+                channels,
+                sample_tx,
+                Arc::clone(&paused_flag),
+            )?,
+            cpal::SampleFormat::U16 => build_session_input_stream::<u16>(
+                &device,
+                &config,
+                channels,
+                sample_tx,
+                Arc::clone(&paused_flag),
+            )?,
+            cpal::SampleFormat::U32 => build_session_input_stream::<u32>(
+                &device,
+                &config,
+                channels,
+                sample_tx,
+                Arc::clone(&paused_flag),
+            )?,
+            cpal::SampleFormat::U64 => build_session_input_stream::<u64>(
+                &device,
+                &config,
+                channels,
+                sample_tx,
+                Arc::clone(&paused_flag),
+            )?,
+            cpal::SampleFormat::I8 => build_session_input_stream::<i8>(
+                &device,
+                &config,
+                channels,
+                sample_tx,
+                Arc::clone(&paused_flag),
+            )?,
+            cpal::SampleFormat::I16 => build_session_input_stream::<i16>(
+                &device,
+                &config,
+                channels,
+                sample_tx,
+                Arc::clone(&paused_flag),
+            )?,
+            cpal::SampleFormat::I32 => build_session_input_stream::<i32>(
+                &device,
+                &config,
+                channels,
+                sample_tx,
+                Arc::clone(&paused_flag),
+            )?,
+            cpal::SampleFormat::I64 => build_session_input_stream::<i64>(
+                &device,
+                &config,
+                channels,
+                sample_tx,
+                Arc::clone(&paused_flag),
+            )?,
+            cpal::SampleFormat::F32 => build_session_input_stream::<f32>(
+                &device,
+                &config,
+                channels,
+                sample_tx,
+                Arc::clone(&paused_flag),
+            )?,
+            cpal::SampleFormat::F64 => build_session_input_stream::<f64>(
+                &device,
+                &config,
+                channels,
+                sample_tx,
+                Arc::clone(&paused_flag),
+            )?,
+            sample_format => return Err(format!("Unsupported sample format: {sample_format:?}")),
+        };
+
+        let consumer_handle = thread::spawn(move || {
+            run_recording_session_consumer(
+                sample_rate as usize,
+                "sharedCapture",
+                vad_enabled,
+                vad,
+                sample_rx,
+                command_rx,
+                paused_flag,
+                emit_realtime_pcm16,
+            );
+        });
+
+        stream.play().map_err(|error| error.to_string())?;
+        emit_recording_ready(RecordingReadyResponse {
+            type_: "recordingReady",
+            sample_rate: VOXTYPE_SAMPLE_RATE as u32,
+            capture_mode: "sharedCapture".to_string(),
+        })?;
+
+        let stdin = io::stdin();
+        for line in stdin.lock().lines() {
+            let line = line.map_err(|error| error.to_string())?;
+            if line.trim().is_empty() {
+                continue;
+            }
+
+            let command = serde_json::from_str::<RecordingSessionInput>(&line)
+                .map_err(|error| format!("Invalid recording session command: {error}"))?;
+            match command {
+                RecordingSessionInput::Start { output_path } => {
+                    command_tx
+                        .send(RecordingSessionCommand::Start { output_path })
+                        .map_err(|error| error.to_string())?;
+                }
+                RecordingSessionInput::Stop => {
+                    command_tx
+                        .send(RecordingSessionCommand::Stop)
+                        .map_err(|error| error.to_string())?;
+                }
+                RecordingSessionInput::Shutdown => {
+                    let _ = command_tx.send(RecordingSessionCommand::Shutdown);
+                    break;
+                }
+            }
+        }
+
+        let _ = command_tx.send(RecordingSessionCommand::Shutdown);
+        drop(stream);
+        consumer_handle
+            .join()
+            .map_err(|_| "Recording session thread panicked.".to_string())
+    }
+
+    fn build_session_input_stream<T>(
+        device: &cpal::Device,
+        config: &cpal::SupportedStreamConfig,
+        channels: usize,
+        sample_tx: mpsc::Sender<RecordingSessionAudioChunk>,
+        paused_flag: Arc<AtomicBool>,
+    ) -> Result<cpal::Stream, String>
+    where
+        T: PcmSample + SizedSample + Send + 'static,
+    {
+        let mut end_of_stream_sent = false;
+
+        device
+            .build_input_stream(
+                &config.clone().into(),
+                move |data: &[T], _| {
+                    if paused_flag.load(Ordering::SeqCst) {
+                        if !end_of_stream_sent {
+                            let _ = sample_tx.send(RecordingSessionAudioChunk::EndOfStream);
+                            end_of_stream_sent = true;
+                        }
+                        return;
+                    }
+                    end_of_stream_sent = false;
+
+                    let mut output = Vec::with_capacity(data.len() / channels.max(1));
+
+                    if channels == 1 {
+                        output.extend(data.iter().map(PcmSample::to_f32));
+                    } else {
+                        for frame in data.chunks_exact(channels) {
+                            output.push(
+                                frame.iter().map(PcmSample::to_f32).sum::<f32>() / channels as f32,
+                            );
+                        }
+                    }
+
+                    let _ = sample_tx.send(RecordingSessionAudioChunk::Samples(output));
+                },
+                move |error| eprintln!("Audio stream error: {error}"),
+                None,
+            )
+            .map_err(|error| error.to_string())
+    }
+
+    fn run_recording_session_consumer(
+        input_sample_rate: usize,
+        capture_mode: &'static str,
+        vad_enabled: bool,
+        mut vad: Option<SmoothedVad>,
+        sample_rx: mpsc::Receiver<RecordingSessionAudioChunk>,
+        command_rx: mpsc::Receiver<RecordingSessionCommand>,
+        paused_flag: Arc<AtomicBool>,
+        emit_realtime_pcm16: bool,
+    ) {
+        let mut resampler = FrameResampler::new(input_sample_rate, VOXTYPE_SAMPLE_RATE);
+        let mut realtime_resampler =
+            emit_realtime_pcm16.then(|| FrameResampler::new(input_sample_rate, OPENAI_REALTIME_SAMPLE_RATE));
+        let mut frame_emitter = FrameEmitter::new(VAD_FRAME_SAMPLES);
+        let mut samples = Vec::<f32>::new();
+        let mut raw_samples = 0usize;
+        let mut speech_frames = 0usize;
+        let mut level_meter = LevelMeter::new();
+        let mut recording = false;
+        let mut output_path: Option<String> = None;
+
+        loop {
+            match sample_rx.recv_timeout(Duration::from_millis(20)) {
+                Ok(RecordingSessionAudioChunk::Samples(chunk)) => {
+                    if recording {
+                        process_audio_chunk(
+                            &chunk,
+                            &mut resampler,
+                            &mut frame_emitter,
+                            vad.as_mut(),
+                            &mut samples,
+                            &mut raw_samples,
+                            &mut speech_frames,
+                            &mut level_meter,
+                            realtime_resampler.as_mut(),
+                        );
+                    }
+                }
+                Ok(RecordingSessionAudioChunk::EndOfStream) => {}
+                Err(mpsc::RecvTimeoutError::Timeout) => {}
+                Err(mpsc::RecvTimeoutError::Disconnected) => break,
+            }
+
+            while let Ok(command) = command_rx.try_recv() {
+                match command {
+                    RecordingSessionCommand::Start { output_path: path } => {
+                        samples.clear();
+                        raw_samples = 0;
+                        speech_frames = 0;
+                        output_path = Some(path);
+                        resampler = FrameResampler::new(input_sample_rate, VOXTYPE_SAMPLE_RATE);
+                        realtime_resampler = emit_realtime_pcm16
+                            .then(|| FrameResampler::new(input_sample_rate, OPENAI_REALTIME_SAMPLE_RATE));
+                        frame_emitter = FrameEmitter::new(VAD_FRAME_SAMPLES);
+                        if let Some(vad) = vad.as_mut() {
+                            vad.reset();
+                        }
+                        level_meter = LevelMeter::new();
+                        recording = true;
+                        paused_flag.store(false, Ordering::SeqCst);
+                    }
+                    RecordingSessionCommand::Stop => {
+                        recording = false;
+                        paused_flag.store(true, Ordering::SeqCst);
+                        drain_session_stop(
+                            &sample_rx,
+                            &mut resampler,
+                            &mut frame_emitter,
+                            vad.as_mut(),
+                            &mut samples,
+                            &mut raw_samples,
+                            &mut speech_frames,
+                            &mut level_meter,
+                            realtime_resampler.as_mut(),
+                        );
+
+                        let result = finish_session_recording(
+                            output_path.take(),
+                            capture_mode,
+                            vad_enabled,
+                            &mut resampler,
+                            &mut frame_emitter,
+                            vad.as_mut(),
+                            &mut samples,
+                            &mut raw_samples,
+                            &mut speech_frames,
+                            realtime_resampler.as_mut(),
+                        );
+
+                        if let Err(error) = result {
+                            emit_recording_error(error);
+                        }
+                    }
+                    RecordingSessionCommand::Shutdown => {
+                        paused_flag.store(true, Ordering::SeqCst);
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    fn create_smoothed_vad(vad_config: &super::NativeVadConfig) -> Result<Option<SmoothedVad>, String> {
+        if !vad_config.enabled {
+            return Ok(None);
+        }
+
+        let model_path = vad_config
+            .model_path
+            .as_deref()
+            .ok_or_else(|| "VAD model path is missing.".to_string())?;
+        let silero = SileroVad::new(model_path, vad_config.threshold)?;
+
+        Ok(Some(SmoothedVad::new(
+            Box::new(silero),
+            vad_config.prefill_frames,
+            vad_config.hangover_frames,
+            vad_config.preserved_pause_frames,
+            vad_config.onset_frames,
+        )))
+    }
+
+    fn drain_session_stop(
+        sample_rx: &mpsc::Receiver<RecordingSessionAudioChunk>,
+        resampler: &mut FrameResampler,
+        frame_emitter: &mut FrameEmitter,
+        mut vad: Option<&mut SmoothedVad>,
+        samples: &mut Vec<f32>,
+        raw_samples: &mut usize,
+        speech_frames: &mut usize,
+        level_meter: &mut LevelMeter,
+        mut realtime_resampler: Option<&mut FrameResampler>,
+    ) {
+        loop {
+            match sample_rx.recv_timeout(Duration::from_secs(2)) {
+                Ok(RecordingSessionAudioChunk::Samples(chunk)) => {
+                    process_audio_chunk(
+                        &chunk,
+                        resampler,
+                        frame_emitter,
+                        vad.as_deref_mut(),
+                        samples,
+                        raw_samples,
+                        speech_frames,
+                        level_meter,
+                        realtime_resampler.as_deref_mut(),
+                    );
+                }
+                Ok(RecordingSessionAudioChunk::EndOfStream) => break,
+                Err(mpsc::RecvTimeoutError::Timeout) => {
+                    eprintln!("Timed out waiting for recording end-of-stream sentinel.");
+                    break;
+                }
+                Err(mpsc::RecvTimeoutError::Disconnected) => break,
+            }
+        }
+    }
+
+    fn finish_session_recording(
+        output_path: Option<String>,
+        capture_mode: &'static str,
+        vad_enabled: bool,
+        resampler: &mut FrameResampler,
+        frame_emitter: &mut FrameEmitter,
+        mut vad: Option<&mut SmoothedVad>,
+        samples: &mut Vec<f32>,
+        raw_samples: &mut usize,
+        speech_frames: &mut usize,
+        mut realtime_resampler: Option<&mut FrameResampler>,
+    ) -> Result<(), String> {
+        let output_path = output_path.ok_or_else(|| "Recording session stop arrived before start.".to_string())?;
+        let output_path = Path::new(&output_path);
+
+        if let Some(resampler) = realtime_resampler.as_mut() {
+            resampler.finish(&mut |resampled| {
+                emit_realtime_pcm16_chunk(resampled);
+            });
+        }
+        resampler.finish(&mut |resampled| {
+            *raw_samples += resampled.len();
+            frame_emitter.push(resampled, &mut |frame| {
+                process_vad_frame(frame, vad.as_deref_mut(), samples, speech_frames);
+            });
+        });
+        frame_emitter.finish(&mut |frame| {
+            process_vad_frame(frame, vad.as_deref_mut(), samples, speech_frames);
+        });
+
+        write_wav(output_path, samples)?;
+        println!(
+            "{}",
+            serde_json::to_string(&RecordingResponse {
+                path: output_path.to_string_lossy().to_string(),
+                sample_rate: VOXTYPE_SAMPLE_RATE as u32,
+                samples: samples.len(),
+                raw_samples: *raw_samples,
+                vad_enabled,
+                capture_mode: capture_mode.to_string(),
+                speech_frames: *speech_frames,
+            })
+            .map_err(|error| error.to_string())?
+        );
+        let _ = io::stdout().flush();
+        Ok(())
+    }
+
+    fn emit_recording_ready(response: RecordingReadyResponse) -> Result<(), String> {
+        println!("{}", serde_json::to_string(&response).map_err(|error| error.to_string())?);
+        io::stdout().flush().map_err(|error| error.to_string())
+    }
+
+    fn emit_recording_error(error: String) {
+        if let Ok(payload) = serde_json::to_string(&RecordingErrorResponse {
+            type_: "recordingError",
+            error,
+        }) {
+            println!("{payload}");
+            let _ = io::stdout().flush();
+        }
     }
 
     fn record_wav_wasapi_exclusive(

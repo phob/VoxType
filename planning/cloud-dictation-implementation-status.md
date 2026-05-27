@@ -1,6 +1,6 @@
 # Cloud Dictation Implementation Status
 
-Last reviewed: 2026-05-21
+Last reviewed: 2026-05-22
 
 This document captures the current implementation state against
 [cloud-dictation-prd.md](cloud-dictation-prd.md). It is a handoff snapshot for
@@ -8,17 +8,18 @@ continuing Cloud Dictation work without reconstructing state from chat history.
 
 ## Overall Status
 
-Cloud Dictation is partially implemented and still developer-preview quality.
+Cloud Dictation is implemented and has passed the app-driven cloud release smoke
+checks reported on 2026-05-22.
 
-File-based OpenAI dictation is closest to the PRD. Realtime OpenAI dictation has
-the session API shape mostly resolved, but live native PCM streaming is not
-proven in the real app path. Current realtime finalization includes a fallback
-that sends the stopped recording WAV to the realtime session if no live PCM
-chunks reached OpenAI. That fallback is useful for functionality/debugging, but
-it is not the intended final realtime architecture.
+File-based OpenAI dictation and realtime OpenAI dictation are functionally
+verified. Realtime native PCM streaming has been verified in the real app path.
+Current realtime finalization still includes a fallback that sends the stopped
+recording WAV to the realtime session if no live PCM chunks reached OpenAI. That
+fallback should now be treated as a recovery path rather than the primary
+realtime architecture.
 
-Normal release exposure should remain gated until the cloud release smoke tests
-are completed.
+Normal release exposure can proceed once product/docs polish and any desired
+fallback cleanup are complete.
 
 ## Implemented
 
@@ -79,21 +80,11 @@ are completed.
 - ASR Provider architecture is only partly complete. OpenAI file and realtime
   providers exist, but local Whisper transcription still lives directly in
   `TranscriptionService` instead of a local `FileAsrProvider`.
-- Realtime live PCM streaming from the native helper is not proven in the real
-  app path. Diagnostics showed:
-  - `nativeChunks=0`
-  - `nativeBytes=0`
-  - `providerAppendedBytes=0`
-  This means the app did not receive any `realtimePcm16Chunk` events during the
-  tested realtime run, even though a standalone native-helper probe did emit
-  realtime PCM chunks.
 - Realtime has a fallback path that passes the stopped recording WAV into
   realtime finalize, converts it to 24 kHz mono PCM16, and appends it before
-  commit if no live PCM reached OpenAI. This should help final transcript
-  functionality, but it does not satisfy the PRD's live-preview streaming goal.
-- Realtime native PCM streaming is explicitly requested in the app path, but it
-  still needs a hotkey-driven app smoke test to confirm `nativeChunks > 0` and
-  `providerAppendedBytes > 0` on the user's microphone/device setup.
+  commit if no live PCM reached OpenAI. App-driven testing has verified live
+  native PCM streaming, so this fallback should be demoted to a clearly marked
+  recovery path or removed if it is no longer needed.
 - Realtime Prompt Pack is not sent to `gpt-realtime-whisper` because a live API
   check rejected the transcription `prompt` parameter for that model with
   `invalid_request_error / invalid_value`. File OpenAI modes still send the
@@ -104,8 +95,9 @@ are completed.
 - Test connection checks `/v1/models/{modelId}` for the selected mode; it does
   not validate an actual OpenAI file transcription upload or realtime WebSocket
   handshake.
-- Cloud mode release gating exists, but the release smoke-test checklist is all
-  false in `src/shared/cloud-release-smoke-test.ts`.
+- Cloud mode release gating exists, and the release smoke-test checklist is now
+  complete in `src/shared/cloud-release-smoke-test.ts` based on app-driven
+  verification reported on 2026-05-22.
 - Developer builds can preview cloud modes despite release gating.
 - History and correction behavior exist, but should be manually verified across
   all three OpenAI modes.
@@ -114,12 +106,8 @@ are completed.
 
 ## Missing Against The PRD
 
-- Verified transcript return from all three OpenAI modes:
-  - `openai.realtime`
-  - `openai.accuracy`
-  - `openai.economy`
-- End-to-end realtime live preview with native helper streaming.
-- Reliable `realtimePcm16Chunk` delivery in the real app path.
+- Demote or remove the realtime WAV finalize fallback now that live native PCM
+  streaming is verified in the real app path.
 - Realtime Prompt Pack support if OpenAI exposes a supported field or realtime
   transcription model for Prompt Pack text.
 - Realtime server VAD turn behavior if OpenAI exposes support for
@@ -130,13 +118,6 @@ are completed.
 - "Test all OpenAI modes" advanced validation.
 - Expandable technical-details UI for cloud errors; current behavior is mostly
   direct error strings.
-- Completed cloud release smoke tests:
-  - Realtime end-to-end dictation
-  - Cloud accuracy file dictation
-  - Cloud economy file dictation
-  - Offline Mode kill switch
-  - App Profile cloud-forbid fallback
-  - No sensitive cloud logs
 - Public docs update for local-first with opt-in Cloud Dictation.
 
 ## Current Realtime Debugging State
@@ -159,33 +140,23 @@ Known rejected shapes:
 - `OpenAI-Beta: realtime=v1` is rejected because the beta API is disabled.
 - `gpt-realtime-whisper` cannot be the outer realtime session model.
 
-The remaining realtime blocker is local app audio flow, not OpenAI session
-setup. The app path reported zero native realtime chunks during a real
-dictation attempt. A standalone native-helper probe with the configured mic did
-emit realtime chunks, so the next debugging pass should focus on the Electron
-main-process recording lifecycle, helper stdout parsing, selected helper binary,
-and timing of `windows-helper:start-recording`.
+The previous realtime blocker was local app audio flow, not OpenAI session
+setup. App-driven testing on 2026-05-22 confirmed realtime native PCM chunks
+flow through the real app path and are appended to the OpenAI realtime provider.
 
 ## Recommended Next Milestone
 
-Make the real app path report `nativeChunks > 0` during realtime dictation.
-
-The latest implementation slice added metadata-only recording diagnostics in
-the Electron main-process helper path. The next app-driven realtime test should
-now be self-explanatory: which helper binary was launched, which capture mode
-was requested, whether stdout contained realtime PCM events, how many
-recording-level events arrived, and what final WAV metadata was produced.
+Prepare Cloud Dictation for release exposure.
 
 Suggested order:
 
-1. Verify which Windows helper binary the running app resolves.
-2. Reproduce a realtime recording from the app and confirm whether stdout
-   contains `realtimePcm16Chunk` lines.
-3. Once live chunks flow, remove or demote the WAV finalize fallback to a
-   clearly marked recovery path.
-4. Verify live preview turns and final insertion.
-5. Mark the realtime smoke test only after a real hotkey-driven dictation
-   succeeds end to end.
+1. Demote or remove the realtime WAV finalize fallback now that live native PCM
+   streaming is verified.
+2. Add/update public docs to describe VoxType as local-first with opt-in Cloud
+   Dictation.
+3. Review the release-gating UI path and decide whether developer-preview copy
+   should change now that smoke tests are complete.
+4. Keep the realtime diagnostics available for future regressions.
 
 ## Active Ten-Point Implementation Plan
 
@@ -247,12 +218,20 @@ OpenAI":
   - changed native realtime PCM emission to resample microphone chunks directly
     to 24 kHz before emitting `realtimePcm16Chunk`, so Electron no longer rejects
     helper chunks as invalid 16 kHz audio.
-- Next step: run a hotkey-driven realtime dictation in the app and confirm
-  `realtimePcm16Requested=true`, `realtimeChunks > 0`, `realtimeBytes > 0`, and
-  `providerAppendedBytes > 0`; only then mark realtime end-to-end smoke testing
-  complete.
+- App-driven smoke testing completed successfully on 2026-05-22:
+  - realtime end-to-end dictation passed,
+  - cloud accuracy file dictation passed,
+  - cloud economy file dictation passed,
+  - Offline Mode kill switch passed,
+  - App Profile cloud-forbid fallback passed,
+  - no sensitive cloud logs verified.
+- Updated `src/shared/cloud-release-smoke-test.ts` so the checklist reflects the
+  completed smoke tests.
+- Next step: demote or remove the realtime WAV finalize fallback and update
+  public docs for local-first, opt-in Cloud Dictation.
 
 ## Release Gate
 
-Cloud Dictation should not be exposed in normal release UI until all three
-OpenAI modes are functionally verified and the smoke-test checklist is complete.
+All three OpenAI modes are functionally verified and the smoke-test checklist is
+complete. Cloud Dictation can move toward normal release exposure after docs and
+fallback cleanup decisions are complete.

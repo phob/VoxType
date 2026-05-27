@@ -27,10 +27,12 @@ export async function startNativePcmRecorder(
   settings?: AppSettings | null,
   options: { realtimePcm16Enabled?: boolean } = {}
 ): Promise<PcmRecorder> {
+  const developerMode = settings?.developerModeEnabled === true;
+
   await window.voxtype.windowsHelper.startRecording({
-    captureMode: settings?.recorderCaptureMode ?? "sharedCapture",
+    captureMode: developerMode ? settings.recorderCaptureMode : "sharedCapture",
     inputDeviceId: settings?.recordingInputDeviceId ?? "default",
-    vadEnabled: settings?.vadEnabled ?? true,
+    vadEnabled: developerMode ? settings.vadEnabled : true,
     realtimePcm16Enabled: options.realtimePcm16Enabled ?? false,
     vadPositiveSpeechThreshold: settings?.vadPositiveSpeechThreshold ?? 0.3,
     vadPreSpeechPadMs: settings?.vadPreSpeechPadMs ?? 450,
