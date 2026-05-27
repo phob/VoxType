@@ -1,4 +1,4 @@
-export type UpdateStatus = {
+export interface UpdateStatus {
   available: boolean;
   currentVersion: string;
   latestVersion: string | null;
@@ -7,4 +7,4 @@ export type UpdateStatus = {
   installerName: string | null;
   state: "idle" | "checking" | "available" | "downloading" | "installing" | "error";
   error: string | null;
-};
+}

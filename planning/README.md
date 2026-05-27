@@ -17,6 +17,7 @@ The core idea:
 - Main ASR engine: Whisper, likely through `whisper.cpp`.
 - Current Phase 5 priority: GPU acceleration, starting with automatic GPU/VRAM detection and model fit checks before managed CUDA/Vulkan runtime selection.
 - Optional later ASR engine: Parakeet V3 or newer Parakeet models.
+- Planned opt-in cloud ASR: OpenAI Cloud Dictation through Dictation Modes, documented in [cloud-dictation.md](cloud-dictation.md).
 - Main OS target: Windows.
 - App shell: Electron with TypeScript.
 - Native Windows helper: required for global hotkeys, typing, clipboard, screenshots, and app detection.
@@ -28,6 +29,8 @@ The core idea:
 - [product-vision.md](product-vision.md): product identity, principles, target users, standout ideas.
 - [architecture.md](architecture.md): technical structure and main components.
 - [models.md](models.md): ASR/OCR model strategy, Whisper-first direction, Parakeet notes.
+- [cloud-dictation.md](cloud-dictation.md): planned opt-in OpenAI Cloud Dictation modes, privacy boundaries, realtime behavior, and setup.
+- [cloud-dictation-implementation-status.md](cloud-dictation-implementation-status.md): current implementation status and handoff notes for Cloud Dictation.
 - [dictionary-and-context.md](dictionary-and-context.md): custom vocabulary, OCR context, correction memory.
 - [windows-insertion.md](windows-insertion.md): typing, clipboard, SendInput, UI Automation, RDP/TeamViewer behavior.
 - [features.md](features.md): feature inventory and standout product ideas.

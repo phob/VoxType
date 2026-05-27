@@ -2,6 +2,56 @@
 
 Record important decisions here so future sessions do not reopen settled topics without a reason.
 
+## 2026-05-21: Treat GPT Realtime Whisper Prompt And Server VAD As Unsupported
+
+Decision:
+
+VoxType should not send Prompt Pack text or OpenAI server VAD configuration to
+`gpt-realtime-whisper` realtime transcription sessions. Realtime cloud should
+use the known-good GA WebSocket session shape, stream 24 kHz PCM, and manually
+commit the input audio buffer when the VoxType hotkey session stops. Prompt
+Pack support and server-VAD turns remain known issues until OpenAI documents and
+the app verifies a supported realtime transcription field or model.
+
+Reason:
+
+A live VoxType API run rejected the realtime transcription `prompt` parameter
+for `gpt-realtime-whisper`, and current OpenAI realtime transcription docs say
+to omit `audio.input.turn_detection` or set it to `null` for this model. The
+user also cross-checked another `gpt-realtime-whisper` project that follows the
+same model constraint. The remaining realtime implementation risk is local
+audio flow, not changing the OpenAI session shape.
+
+## 2026-05-15: Introduce Context Engine As A Separate Layer
+
+Decision:
+
+VoxType should introduce a distinct local Context Engine between raw context sources and transcription output. The Dictionary remains stored user vocabulary and learned corrections, OCR Context remains visible text extracted from the target window or screen, App Profiles remain app-scoped behavior, and the Context Engine ranks those signals into a compact Whisper prompt pack before ASR and applies confidence-scored corrections after ASR.
+
+Reason:
+
+The existing app already has dictionary entries, OCR terms, and per-app profiles, but they mostly coexist instead of cooperating. A named Context Engine gives the next implementation work a clear boundary without pretending Whisper can consume the full dictionary or OCR dump.
+
+## 2026-05-15: Start Context Engine With Post-ASR Corrections
+
+Decision:
+
+The first Context Engine implementation slice should improve post-ASR correction quality before improving prompt ranking.
+
+Reason:
+
+Prompt ranking is useful but constrained by Whisper's small and unreliable prompt budget. Users will feel improvement sooner if VoxType reliably fixes obvious mishearings, spellings, abbreviations, and visible OCR terms after transcription, while recording explanations for why each correction happened.
+
+## 2026-05-15: Auto-Apply Only High-Confidence Context Corrections
+
+Decision:
+
+The first Context Engine correction pass should auto-apply only high-confidence corrections. Medium-confidence candidates should be recorded for diagnostics and future review UI, and low-confidence candidates should be ignored.
+
+Reason:
+
+Wrong automatic replacements are more damaging to trust than missed smart corrections. VoxType should feel conservative and explainable while the correction model matures.
+
 ## 2026-05-09: Beginner-Friendly Windows Product Direction
 
 Decision:
@@ -331,3 +381,35 @@ Unpackaged development builds, including preview runs, should ignore the Start m
 Reason:
 
 During local iteration, a hidden main window makes startup look broken and can hide renderer or DevTools feedback. Preview is part of that local workflow even though it does not use the dev renderer URL. Packaged release builds should still honor the user-facing setting.
+
+## 2026-05-27: Keep WASAPI Exclusive Separate From Handy VAD Parity
+
+Decision:
+
+The default local VAD recorder path should follow Handy's shared CPAL integration: a warmed native helper session, explicit ready/start/stop/shutdown commands, exact `SmoothedVad` prefill/hangover/onset behavior, VAD-error frame pass-through, and stop draining with an end-of-stream sentinel.
+
+WASAPI exclusive capture should remain available as a separate Windows recording-coordination feature rather than defining the default Handy-parity VAD path.
+
+Reason:
+
+Handy's observed quality comes from the native CPAL lifecycle, frame smoothing, and stop-drain behavior, not just Silero thresholds. Exclusive capture solves a different problem: coordinating microphone ownership with other Windows apps. Keeping those concerns separate lets VoxType match Handy's dictation audio path while still offering stronger coordination when the user explicitly wants it.
+
+## 2026-05-27: Ignore Developer Recording Knobs In Release Mode
+
+Decision:
+
+When Developer Mode is disabled, normal dictation should force the quality-oriented recording path: shared Handy-parity capture and local VAD enabled. Persisted developer-only values such as `vadEnabled: false` or `exclusiveCapturePreferred` should only affect recording while Developer Mode is enabled.
+
+Reason:
+
+These controls are diagnostic escape hatches, not release-mode product behavior. A stale hidden `vadEnabled: false` setting allowed a mostly silent 280-second recording to reach Whisper, causing repeated hallucinated phrases after long pauses. Release-mode dictation should protect users from that kind of stale debug state.
+
+## 2026-05-27: Compact Sparse Local Whisper Audio Before Decoding
+
+Decision:
+
+Local Whisper transcription should apply a final PCM16 WAV preparation step before invoking `whisper-cli`: trim leading/trailing silence, cap long internal silent spans, save that prepared audio to history, and pass `--language auto` when the user-facing language setting is `auto`.
+
+Reason:
+
+Re-transcribing the same 280-second saved WAV showed that VAD parity alone does not protect old or otherwise sparse audio once it reaches Whisper. The captured file contained roughly 50 seconds of active audio and about 230 seconds of low-energy audio, with silent spans up to 26.6 seconds. Capping silence before decoding removed the repetition loop on the captured sample, while the separate language fix makes VoxType's `auto` setting match `whisper-cli` behavior instead of silently defaulting to English.

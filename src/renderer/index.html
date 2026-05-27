@@ -4,10 +4,214 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>VoxType</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --boot-bg: #0a1015;
+        --boot-chrome: #10171e;
+        --boot-panel: #121b24;
+        --boot-panel-deep: #0d161d;
+        --boot-border: rgb(75 91 107 / 0.42);
+        --boot-text: #f1f4f8;
+        --boot-muted: #9ca8b6;
+        --boot-accent: #23d6cf;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body,
+      #root {
+        width: 100%;
+        min-height: 100%;
+        margin: 0;
+      }
+
+      body {
+        overflow: hidden;
+        color: var(--boot-text);
+        background: var(--boot-bg);
+        font-family:
+          Inter,
+          ui-sans-serif,
+          system-ui,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          sans-serif;
+      }
+
+      .boot-shell {
+        display: grid;
+        grid-template-columns: 164px minmax(0, 1fr);
+        grid-template-rows: 54px minmax(0, 1fr) 56px;
+        width: 100vw;
+        height: 100vh;
+        background: var(--boot-bg);
+      }
+
+      .boot-titlebar {
+        grid-column: 1 / -1;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        height: 54px;
+        padding: 0 12px 0 22px;
+        border-bottom: 1px solid var(--boot-border);
+        background: var(--boot-chrome);
+        -webkit-app-region: drag;
+      }
+
+      .boot-brand {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        color: var(--boot-text);
+        font-size: 1rem;
+        font-weight: 700;
+      }
+
+      .boot-mark {
+        width: 18px;
+        height: 18px;
+        border: 1px solid rgb(35 214 207 / 0.64);
+        background:
+          linear-gradient(135deg, rgb(35 214 207 / 0.28), transparent 58%),
+          var(--boot-panel-deep);
+      }
+
+      .boot-window-actions {
+        display: flex;
+        gap: 6px;
+      }
+
+      .boot-window-actions span {
+        width: 32px;
+        height: 28px;
+        border: 1px solid rgb(75 91 107 / 0.24);
+        background: rgb(13 22 29 / 0.64);
+      }
+
+      .boot-sidebar {
+        grid-row: 2 / -1;
+        border-right: 1px solid var(--boot-border);
+        background: #0b1218;
+      }
+
+      .boot-sidebar-lines {
+        display: grid;
+        gap: 10px;
+        padding: 24px 10px;
+      }
+
+      .boot-line {
+        height: 48px;
+        border: 1px solid rgb(75 91 107 / 0.22);
+        background: rgb(255 255 255 / 0.035);
+      }
+
+      .boot-line:first-child {
+        border-color: rgb(75 91 107 / 0.46);
+        border-left: 2px solid var(--boot-accent);
+        background: #192630;
+      }
+
+      .boot-main {
+        display: grid;
+        place-items: center;
+        min-width: 0;
+        padding: 28px;
+      }
+
+      .boot-panel {
+        width: min(520px, 100%);
+        padding: 22px;
+        border: 1px solid var(--boot-border);
+        background: var(--boot-panel);
+      }
+
+      .boot-status {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .boot-pulse {
+        width: 12px;
+        height: 12px;
+        border-radius: 999px;
+        background: var(--boot-accent);
+        box-shadow: 0 0 18px rgb(35 214 207 / 0.42);
+        animation: boot-pulse 1100ms ease-out infinite;
+      }
+
+      .boot-status strong {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 0.96rem;
+      }
+
+      .boot-status span {
+        color: var(--boot-muted);
+        font-size: 0.82rem;
+      }
+
+      .boot-footer {
+        border-top: 1px solid var(--boot-border);
+        background: var(--boot-chrome);
+      }
+
+      @keyframes boot-pulse {
+        0%,
+        100% {
+          transform: scale(0.92);
+          opacity: 0.72;
+        }
+
+        50% {
+          transform: scale(1);
+          opacity: 1;
+        }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <main class="boot-shell" aria-label="VoxType is starting">
+        <div class="boot-titlebar">
+          <div class="boot-brand">
+            <span class="boot-mark" aria-hidden="true"></span>
+            <span>VoxType</span>
+          </div>
+          <div class="boot-window-actions" aria-hidden="true">
+            <span></span>
+            <span></span>
+          </div>
+        </div>
+        <aside class="boot-sidebar" aria-hidden="true">
+          <div class="boot-sidebar-lines">
+            <span class="boot-line"></span>
+            <span class="boot-line"></span>
+            <span class="boot-line"></span>
+            <span class="boot-line"></span>
+          </div>
+        </aside>
+        <section class="boot-main">
+          <div class="boot-panel">
+            <div class="boot-status">
+              <span class="boot-pulse" aria-hidden="true"></span>
+              <div>
+                <strong>Starting VoxType</strong>
+                <span>Loading local dictation settings</span>
+              </div>
+            </div>
+          </div>
+        </section>
+        <div class="boot-footer" aria-hidden="true"></div>
+      </main>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
-

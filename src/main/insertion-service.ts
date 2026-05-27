@@ -7,20 +7,20 @@ const FOCUS_SETTLE_DELAY_MS = 120;
 const CLIPBOARD_RESTORE_DELAY_MS = 250;
 const REMOTE_CLIPBOARD_RESTORE_DELAY_MS = 1500;
 
-type InsertOptions = {
+interface InsertOptions {
   mode?: InsertionMode;
   hwnd?: string | null;
   processName?: string | null;
-};
+}
 
-type ClipboardSnapshot = {
+interface ClipboardSnapshot {
   formats: string[];
   data: Electron.Data;
-  buffers: Array<{
+  buffers: {
     format: string;
     buffer: Buffer;
-  }>;
-};
+  }[];
+}
 
 export class InsertionService {
   constructor(
@@ -28,7 +28,7 @@ export class InsertionService {
     private readonly settingsStore: SettingsStore
   ) {}
 
-  async copyForInsertion(text: string): Promise<void> {
+  copyForInsertion(text: string): void {
     clipboard.writeText(text);
   }
 
@@ -119,7 +119,7 @@ export class InsertionService {
     }
 
     if (pasteError) {
-      throw pasteError;
+      throw new Error(formatInsertionError(pasteError), { cause: pasteError });
     }
   }
 }
@@ -181,11 +181,15 @@ function restoreClipboardSnapshot(snapshot: ClipboardSnapshot): void {
 }
 
 function hasClipboardData(data: Electron.Data): boolean {
-  return Boolean(data.text || data.html || data.rtf || data.image);
+  return Boolean(data.text ?? data.html ?? data.rtf ?? data.image);
 }
 
 function hasFormat(formats: string[], format: string): boolean {
   return formats.some((candidate) => candidate.toLowerCase() === format);
+}
+
+function formatInsertionError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
 }
 
 function usesRemoteControlMessages(processName?: string | null): boolean {

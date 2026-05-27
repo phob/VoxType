@@ -2,7 +2,7 @@ import { whisperModelCatalog } from "./models";
 
 export type GpuVendor = "nvidia" | "amd" | "intel" | "unknown";
 
-export type GpuDevice = {
+export interface GpuDevice {
   name: string;
   vendor: GpuVendor;
   dedicatedVramMb: number | null;
@@ -10,16 +10,16 @@ export type GpuDevice = {
   source: "nvidia-smi" | "windows-video-controller";
   supportsCuda: boolean;
   supportsVulkan: boolean | null;
-};
+}
 
-export type ModelGpuFit = {
+export interface ModelGpuFit {
   modelId: string;
   requiredVramMb: number;
   status: "fits" | "low-vram" | "unknown-vram" | "no-gpu";
   note: string;
-};
+}
 
-export type HardwareAccelerationReport = {
+export interface HardwareAccelerationReport {
   checkedAt: string;
   gpus: GpuDevice[];
   bestGpu: GpuDevice | null;
@@ -27,19 +27,22 @@ export type HardwareAccelerationReport = {
   recommendedBackend: "cuda" | "vulkan" | "cpu";
   modelFits: ModelGpuFit[];
   notes: string[];
-};
+}
 
 const vramSafetyMarginMb = 512;
 
 export function buildHardwareAccelerationReport(gpus: GpuDevice[]): HardwareAccelerationReport {
-  const bestGpu = [...gpus].sort((left, right) => {
+  const sortedGpus = [...gpus].sort((left, right) => {
     const leftVram = left.dedicatedVramMb ?? -1;
     const rightVram = right.dedicatedVramMb ?? -1;
     return rightVram - leftVram;
-  })[0] ?? null;
-  const recommendedBackend = bestGpu?.supportsCuda
+  });
+  const bestGpu = gpus.length === 0 ? null : sortedGpus[0];
+  const recommendedBackend = bestGpu === null
+    ? "cpu"
+    : bestGpu.supportsCuda
     ? "cuda"
-    : bestGpu?.supportsVulkan
+    : bestGpu.supportsVulkan
       ? "vulkan"
       : "cpu";
   const canUseGpuRuntime = recommendedBackend !== "cpu";
@@ -53,7 +56,7 @@ export function buildHardwareAccelerationReport(gpus: GpuDevice[]): HardwareAcce
     modelFits: whisperModelCatalog.map((model) => {
       const requiredVramMb = model.minimumVramMb + vramSafetyMarginMb;
 
-      if (!bestGpu) {
+      if (bestGpu === null) {
         return {
           modelId: model.id,
           requiredVramMb,
@@ -78,8 +81,8 @@ export function buildHardwareAccelerationReport(gpus: GpuDevice[]): HardwareAcce
         requiredVramMb,
         status: fits ? "fits" : "low-vram",
         note: fits
-          ? `Fits ${bestGpu.name} with a ${vramSafetyMarginMb} MB safety margin.`
-          : `Needs about ${requiredVramMb} MB VRAM including safety margin.`
+          ? `Fits ${bestGpu.name} with a ${String(vramSafetyMarginMb)} MB safety margin.`
+          : `Needs about ${String(requiredVramMb)} MB VRAM including safety margin.`
       };
     }),
     notes: [

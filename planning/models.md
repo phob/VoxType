@@ -2,9 +2,11 @@
 
 ## Current Decision
 
-Use Whisper as the main ASR engine.
+Use Whisper as the main local ASR engine.
 
-Parakeet V3 should remain a later optional engine because its custom vocabulary and hotword behavior is more runtime-dependent, especially for Windows-friendly ONNX deployments.
+OpenAI Cloud Dictation is the planned opt-in cloud ASR path for users who choose online transcription for higher accuracy or realtime preview. The detailed product, privacy, and integration plan lives in [cloud-dictation.md](cloud-dictation.md).
+
+Parakeet V3 should remain a later optional local engine because its custom vocabulary and hotword behavior is more runtime-dependent, especially for Windows-friendly ONNX deployments.
 
 ## Whisper-First Strategy
 
@@ -53,7 +55,7 @@ Initial VRAM planning estimates:
 
 The implemented Phase 5 GPU slice adds hardware detection, per-model fit reporting, managed CPU/CUDA runtime downloads, a backend preference setting (`auto`, `cpu`, `cuda`, `vulkan`), and automatic runtime selection for transcription.
 
-VoxType exposes Whisper language selection as a normal user setting. The global default is `auto`; choosing a concrete language passes `--language <code>` to `whisper-cli`. App profiles can override this with a specific language or keep `inherit` to follow the global setting.
+VoxType exposes Whisper language selection as a normal user setting. The global default is `auto`, which must be passed to `whisper-cli` as `--language auto` because the CLI's own default is English. Choosing a concrete language passes `--language <code>`. App profiles can override this with a specific language or keep `inherit` to follow the global setting.
 
 Local validation:
 
@@ -85,6 +87,48 @@ Whisper cannot simply add new vocabulary like a traditional dictionary where the
 - app-specific formatting
 
 The dictionary should be a VoxType feature around Whisper, not a promise that Whisper itself learns new words.
+
+## Local Realtime Dictation Direction
+
+Realtime local dictation is possible and should be treated as a serious future
+direction, especially because seeing words appear while speaking can help users
+talk more fluently.
+
+The likely shape is not a true token-streaming Whisper model. It is a local
+streaming pipeline around Whisper:
+
+- keep native microphone capture running as PCM,
+- maintain a rolling audio buffer with overlap,
+- run local Whisper repeatedly on short windows,
+- show provisional preview text,
+- use a local-agreement/stable-prefix policy before committing text,
+- use VAD to avoid unnecessary inference during silence,
+- insert only committed final text into the target app.
+
+`whisper.cpp` already ships a `whisper-stream` proof-of-concept that samples the
+microphone repeatedly and can run a sliding-window mode with VAD. The upstream
+README calls this a naive realtime example, so VoxType should not expose it
+directly as the product architecture. It is still useful evidence that the
+runtime path is feasible.
+
+Research implementations such as Whisper-Streaming use LocalAgreement with
+self-adaptive latency to make Whisper-like models behave as realtime
+transcribers. That approach is a better conceptual fit for VoxType than simply
+running `whisper-cli` after stop.
+
+Implementation implications:
+
+- Best first prototype: reuse VoxType's existing native PCM capture and realtime
+  overlay, then add a `LocalStreamingAsrProvider` behind the ASR Provider
+  interface.
+- Start with `local.fast`/`local.balanced` and GPU runtimes where available;
+  larger models may be too slow for comfortable preview latency on CPU.
+- Treat preview text as provisional and never live-type it into the destination
+  app.
+- Keep the current file-mode local path as the accuracy/reliability fallback
+  until local realtime quality and latency are proven.
+- Measure latency, CPU/GPU load, battery impact, correction quality, and behavior
+  at word boundaries before making local realtime the default.
 
 ## Transcript Consistency
 
@@ -162,11 +206,13 @@ Preferred first candidate:
 
 Current implementation:
 
-- native Windows helper recording through CPAL/WASAPI
+- default native Windows helper recording through a warmed CPAL shared-capture session
+- WASAPI exclusive capture retained separately for Windows recording coordination
 - bundled Silero v4 ONNX model through `vad-rs`
 - Rubato resampling to 16 kHz before VAD/Whisper
 - post-recording trimming before Whisper transcription
-- leading/trailing silence trimming, with internal pauses preserved up to a cap instead of removed outright
+- final local Whisper WAV preparation that trims leading/trailing silence and caps long internal silent spans before decoding
+- Handy-style prefill, onset confirmation, and hangover behavior
 - no automatic recording stop behavior
 
 Handy comparison:
@@ -175,7 +221,9 @@ Handy comparison:
 - Handy feeds Silero 30 ms frames.
 - Handy wraps Silero in `SmoothedVad` with prefill frames, hangover frames, and onset confirmation.
 - Handy uses a Rubato FFT resampler before VAD/Whisper.
-- VoxType should consider a native/helper VAD path if browser-side VAD remains unstable.
+- Handy keeps a native recorder open, waits for stream initialization, resets VAD on recording start, drains the audio channel on stop with an end-of-stream sentinel, and falls back to keeping a frame if VAD errors.
+- VoxType's shared-capture path now follows that lifecycle and smoothing behavior.
+- VoxType intentionally keeps WASAPI exclusive capture outside the Handy parity path so it can remain a separate Windows coordination feature for users who want to block or coordinate other microphone consumers.
 
 Reasons:
 

@@ -61,24 +61,17 @@ export class DictionaryStore {
   async update(id: string, patch: DictionaryPatch): Promise<DictionaryEntry[]> {
     const entries = await this.list();
     const normalized = normalizeDictionaryPatch(patch);
-    let found = false;
-
     this.entries = entries.map((entry) => {
       if (entry.id !== id) {
         return entry;
       }
 
-      found = true;
       return {
         ...entry,
         ...normalized,
         updatedAt: new Date().toISOString()
       };
     });
-
-    if (!found) {
-      throw new Error(`Dictionary entry not found: ${id}`);
-    }
 
     await this.save();
 
@@ -130,7 +123,8 @@ export class DictionaryStore {
   }
 
   private async relevantEntries(processName?: string | null): Promise<DictionaryEntry[]> {
-    const normalizedProcess = processName?.trim().toLowerCase() || null;
+    const trimmedProcess = processName?.trim().toLowerCase();
+    const normalizedProcess = trimmedProcess ?? null;
     const entries = await this.list();
 
     return entries.filter(

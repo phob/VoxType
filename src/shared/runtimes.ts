@@ -2,7 +2,7 @@ export type WhisperRuntimeBackend = "cpu" | "cuda" | "vulkan";
 export type WhisperRuntimePreference = "auto" | WhisperRuntimeBackend;
 export type WhisperRuntimeStatus = "not-installed" | "installed" | "unavailable";
 
-export type WhisperRuntime = {
+export interface WhisperRuntime {
   id: string;
   name: string;
   version: string;
@@ -14,7 +14,7 @@ export type WhisperRuntime = {
   status: WhisperRuntimeStatus;
   executablePath: string | null;
   notes: string;
-};
+}
 
 export type WhisperRuntimeCatalogItem = Omit<WhisperRuntime, "status" | "executablePath">;
 

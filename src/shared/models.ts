@@ -1,6 +1,6 @@
 export type LocalModelStatus = "not-downloaded" | "downloaded";
 
-export type ModelCatalogItem = {
+export interface ModelCatalogItem {
   id: string;
   name: string;
   fileName: string;
@@ -9,7 +9,7 @@ export type ModelCatalogItem = {
   minimumVramMb: number;
   language: string;
   description: string;
-};
+}
 
 export type LocalModel = ModelCatalogItem & {
   status: LocalModelStatus;

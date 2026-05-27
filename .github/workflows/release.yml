@@ -35,10 +35,9 @@ jobs:
           fetch-depth: 0
           token: ${{ github.token }}
 
-      - uses: actions/setup-node@v6
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: 24
-          cache: npm
+          bun-version: latest
 
       - id: version
         name: validate version
@@ -61,24 +60,24 @@ jobs:
           echo "version=$version" >> "$GITHUB_OUTPUT"
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
-      - run: npm ci
+      - run: bun install --frozen-lockfile
 
       - name: sync release versions
         run: node scripts/sync-release-version.mjs "${{ steps.version.outputs.version }}"
 
       - name: build
-        run: npm run build
+        run: bun run build
 
       - id: commit
         name: commit and tag release
         shell: bash
         run: |
-          if git diff --quiet -- package.json package-lock.json native/windows-helper/Cargo.toml native/windows-helper/Cargo.lock; then
+          if git diff --quiet -- package.json native/windows-helper/Cargo.toml native/windows-helper/Cargo.lock; then
             echo "Version files already match ${{ steps.version.outputs.version }}."
           else
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add package.json package-lock.json native/windows-helper/Cargo.toml native/windows-helper/Cargo.lock
+            git add package.json native/windows-helper/Cargo.toml native/windows-helper/Cargo.lock
             git commit -m "chore(release): prepare ${{ steps.version.outputs.tag }}"
             git push origin HEAD:main
           fi
@@ -96,14 +95,13 @@ jobs:
         with:
           ref: ${{ needs.prepare.outputs.tag }}
 
-      - uses: actions/setup-node@v6
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: 24
-          cache: npm
+          bun-version: latest
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - run: npm ci
+      - run: bun install --frozen-lockfile
 
       - run: node scripts/sync-release-version.mjs "${{ needs.prepare.outputs.version }}" --check
 
@@ -114,7 +112,7 @@ jobs:
             Remove-Item -Recurse -Force release
           }
 
-      - run: npm run release:win
+      - run: bun run release:win
 
       - name: verify packaged Windows metadata
         shell: pwsh

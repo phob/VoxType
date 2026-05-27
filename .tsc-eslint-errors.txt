@@ -1,0 +1,179 @@
+src/main/index.ts(921,49): error TS2345: Argument of type 'Pick<AppProfile, "whisperLanguage" | "insertionMode" | "recordingCoordinationMode" | "recordingStartHotkey" | "recordingStopHotkey" | "writingStyle" | "postTranscriptionHotkey" | "neverSuspendDictationInFullscreen">' is not assignable to parameter of type 'Pick<AppProfile, "dictationModeId" | "whisperLanguage" | "cloudPromptPackOcrEnabled" | "insertionMode" | "recordingCoordinationMode" | "recordingStartHotkey" | ... 4 more ... | "neverSuspendDictationInFullscreen">'.
+  Type 'Pick<AppProfile, "whisperLanguage" | "insertionMode" | "recordingCoordinationMode" | "recordingStartHotkey" | "recordingStopHotkey" | "writingStyle" | "postTranscriptionHotkey" | "neverSuspendDictationInFullscreen">' is missing the following properties from type 'Pick<AppProfile, "dictationModeId" | "whisperLanguage" | "cloudPromptPackOcrEnabled" | "insertionMode" | "recordingCoordinationMode" | "recordingStartHotkey" | ... 4 more ... | "neverSuspendDictationInFullscreen">': dictationModeId, cloudPromptPackOcrEnabled, forbidCloudDictation
+src/main/model-service.ts(50,24): error TS2345: Argument of type 'ReadableStream<Uint8Array<ArrayBufferLike>>' is not assignable to parameter of type 'ReadableStream<any>'.
+  Types of property 'pipeThrough' are incompatible.
+    Type '<T>(transform: ReadableWritablePair<T, Uint8Array<ArrayBufferLike>>, options?: StreamPipeOptions | undefined) => ReadableStream<...>' is not assignable to type '<T>(transform: ReadableWritablePair<T, any>, options?: StreamPipeOptions | undefined) => ReadableStream<T>'.
+      Types of parameters 'transform' and 'transform' are incompatible.
+        Type 'ReadableWritablePair<T, any>' is not assignable to type 'ReadableWritablePair<T | undefined, Uint8Array<ArrayBufferLike>>'.
+          The types of 'readable.getReader(...).read' are incompatible between these types.
+            Type '<T extends NodeJS.NonSharedArrayBufferView>(view: T, options?: ReadableStreamBYOBReaderReadOptions | undefined) => Promise<ReadableStreamReadResult<T>>' is not assignable to type '<T extends Exclude<BufferSource, ArrayBuffer>>(view: T, options?: ReadableStreamBYOBReaderReadOptions | undefined) => Promise<ReadableStreamReadResult<T>>'.
+              Types of parameters 'view' and 'view' are incompatible.
+                Type 'T' is not assignable to type 'NonSharedArrayBufferView'.
+                  Type 'ArrayBufferView<ArrayBuffer>' is not assignable to type 'NonSharedArrayBufferView'.
+                    Type 'ArrayBufferView<ArrayBuffer>' is missing the following properties from type 'DataView<ArrayBuffer>': getFloat32, getFloat64, getInt8, getInt16, and 19 more.
+                      Type 'T' is not assignable to type 'DataView<ArrayBuffer>'.
+                        Type 'ArrayBufferView<ArrayBuffer>' is missing the following properties from type 'DataView<ArrayBuffer>': getFloat32, getFloat64, getInt8, getInt16, and 19 more.
+src/main/openai-asr-provider.ts(42,32): error TS2322: Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'BlobPart'.
+  Type 'Uint8Array<ArrayBufferLike>' is not assignable to type 'ArrayBufferView<ArrayBuffer>'.
+    Types of property 'buffer' are incompatible.
+      Type 'ArrayBufferLike' is not assignable to type 'ArrayBuffer'.
+        Type 'SharedArrayBuffer' is not assignable to type 'ArrayBuffer'.
+          Types of property '[Symbol.toStringTag]' are incompatible.
+            Type '"SharedArrayBuffer"' is not assignable to type '"ArrayBuffer"'.
+src/main/openai-realtime-asr-provider.ts(166,57): error TS2345: Argument of type 'NodeWebSocketInit' is not assignable to parameter of type 'string | string[] | undefined'.
+src/main/realtime-cloud-session.ts(80,43): error TS2345: Argument of type 'CloudDictationLogEntry' is not assignable to parameter of type 'Record<string, unknown>'.
+  Index signature for type 'string' is missing in type 'CloudDictationLogEntry'.
+src/main/realtime-cloud-session.ts(118,45): error TS2345: Argument of type 'CloudDictationLogEntry' is not assignable to parameter of type 'Record<string, unknown>'.
+  Index signature for type 'string' is missing in type 'CloudDictationLogEntry'.
+src/main/realtime-cloud-session.ts(138,45): error TS2345: Argument of type 'CloudDictationLogEntry' is not assignable to parameter of type 'Record<string, unknown>'.
+  Index signature for type 'string' is missing in type 'CloudDictationLogEntry'.
+src/main/runtime-service.ts(85,26): error TS2345: Argument of type 'ReadableStream<Uint8Array<ArrayBufferLike>>' is not assignable to parameter of type 'ReadableStream<any>'.
+  Types of property 'pipeThrough' are incompatible.
+    Type '<T>(transform: ReadableWritablePair<T, Uint8Array<ArrayBufferLike>>, options?: StreamPipeOptions | undefined) => ReadableStream<...>' is not assignable to type '<T>(transform: ReadableWritablePair<T, any>, options?: StreamPipeOptions | undefined) => ReadableStream<T>'.
+      Types of parameters 'transform' and 'transform' are incompatible.
+        Type 'ReadableWritablePair<T, any>' is not assignable to type 'ReadableWritablePair<T | undefined, Uint8Array<ArrayBufferLike>>'.
+          The types of 'readable.getReader(...).read' are incompatible between these types.
+            Type '<T extends NodeJS.NonSharedArrayBufferView>(view: T, options?: ReadableStreamBYOBReaderReadOptions | undefined) => Promise<ReadableStreamReadResult<T>>' is not assignable to type '<T extends Exclude<BufferSource, ArrayBuffer>>(view: T, options?: ReadableStreamBYOBReaderReadOptions | undefined) => Promise<ReadableStreamReadResult<T>>'.
+              Types of parameters 'view' and 'view' are incompatible.
+                Type 'T' is not assignable to type 'NonSharedArrayBufferView'.
+                  Type 'ArrayBufferView<ArrayBuffer>' is not assignable to type 'NonSharedArrayBufferView'.
+                    Type 'ArrayBufferView<ArrayBuffer>' is missing the following properties from type 'DataView<ArrayBuffer>': getFloat32, getFloat64, getInt8, getInt16, and 19 more.
+                      Type 'T' is not assignable to type 'DataView<ArrayBuffer>'.
+                        Type 'ArrayBufferView<ArrayBuffer>' is missing the following properties from type 'DataView<ArrayBuffer>': getFloat32, getFloat64, getInt8, getInt16, and 19 more.
+src/main/transcription-service.ts(207,43): error TS2345: Argument of type 'CloudDictationLogEntry' is not assignable to parameter of type 'Record<string, unknown>'.
+  Index signature for type 'string' is missing in type 'CloudDictationLogEntry'.
+src/main/transcription-service.ts(227,45): error TS2345: Argument of type 'CloudDictationLogEntry' is not assignable to parameter of type 'Record<string, unknown>'.
+  Index signature for type 'string' is missing in type 'CloudDictationLogEntry'.
+src/main/transcription-service.ts(239,43): error TS2345: Argument of type 'CloudDictationLogEntry' is not assignable to parameter of type 'Record<string, unknown>'.
+  Index signature for type 'string' is missing in type 'CloudDictationLogEntry'.
+src/renderer/src/App.tsx(24,24): error TS2503: Cannot find namespace 'JSX'.
+src/renderer/src/App.tsx(182,65): error TS7006: Parameter 'payload' implicitly has an 'any' type.
+src/renderer/src/App.tsx(185,63): error TS7006: Parameter 'payload' implicitly has an 'any' type.
+src/renderer/src/App.tsx(188,69): error TS7006: Parameter 'payload' implicitly has an 'any' type.
+src/renderer/src/App.tsx(197,58): error TS7006: Parameter 'hotkeyState' implicitly has an 'any' type.
+src/renderer/src/App.tsx(219,73): error TS7006: Parameter 'status' implicitly has an 'any' type.
+src/renderer/src/App.tsx(235,50): error TS7006: Parameter 'status' implicitly has an 'any' type.
+src/renderer/src/App.tsx(264,49): error TS7006: Parameter 'hotkeys' implicitly has an 'any' type.
+src/renderer/src/App.tsx(272,50): error TS7006: Parameter 'hotkeys' implicitly has an 'any' type.
+src/renderer/src/app/app-helpers.tsx(71,3): error TS2322: Type '{ id: string; label: string; value: string; }[]' is not assignable to type '{ id: HotkeyCaptureTarget; label: string; value: string; }[]'.
+  Type '{ id: string; label: string; value: string; }' is not assignable to type '{ id: HotkeyCaptureTarget; label: string; value: string; }'.
+    Types of property 'id' are incompatible.
+      Type 'string' is not assignable to type 'HotkeyCaptureTarget'.
+src/renderer/src/app/app-helpers.tsx(114,63): error TS2503: Cannot find namespace 'JSX'.
+src/renderer/src/app/app-helpers.tsx(150,5): error TS2503: Cannot find namespace 'JSX'.
+src/renderer/src/app/app-helpers.tsx(174,5): error TS2503: Cannot find namespace 'JSX'.
+src/renderer/src/app/app-helpers.tsx(227,5): error TS2503: Cannot find namespace 'JSX'.
+src/renderer/src/app/app-helpers.tsx(237,5): error TS2503: Cannot find namespace 'JSX'.
+src/renderer/src/app/app-helpers.tsx(311,80): error TS2503: Cannot find namespace 'JSX'.
+src/renderer/src/app/app-helpers.tsx(418,20): error TS18047: 'canvas' is possibly 'null'.
+src/renderer/src/app/app-helpers.tsx(423,11): error TS18047: 'canvas' is possibly 'null'.
+src/renderer/src/app/app-helpers.tsx(423,37): error TS18047: 'canvas' is possibly 'null'.
+src/renderer/src/app/app-helpers.tsx(424,9): error TS18047: 'canvas' is possibly 'null'.
+src/renderer/src/app/app-helpers.tsx(425,9): error TS18047: 'canvas' is possibly 'null'.
+src/renderer/src/app/app-helpers.tsx(455,18): error TS2345: Argument of type 'CanvasRenderingContext2D | null' is not assignable to parameter of type 'CanvasRenderingContext2D'.
+  Type 'null' is not assignable to type 'CanvasRenderingContext2D'.
+src/renderer/src/app/app-helpers.tsx(503,108): error TS2503: Cannot find namespace 'JSX'.
+src/renderer/src/app/app-helpers.tsx(717,65): error TS2551: Property 'webkitAudioContext' does not exist on type 'Window & typeof globalThis'. Did you mean 'AudioContext'?
+src/renderer/src/app/AppView.tsx(5,54): error TS2503: Cannot find namespace 'JSX'.
+src/renderer/src/app/DeveloperDictationSection.tsx(9,72): error TS2503: Cannot find namespace 'JSX'.
+src/renderer/src/app/DeveloperDictationSection.tsx(57,70): error TS2304: Cannot find name 'RecorderCaptureMode'.
+src/renderer/src/app/DeveloperDictationSection.tsx(73,51): error TS2304: Cannot find name 'RecordingCoordinationMode'.
+src/renderer/src/app/DeveloperDictationSection.tsx(86,84): error TS2304: Cannot find name 'InsertionMode'.
+src/renderer/src/app/DeveloperDictationSection.tsx(137,72): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/renderer/src/app/DeveloperDictationSection.tsx(138,75): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/renderer/src/app/DeveloperDictationSection.tsx(232,78): error TS2304: Cannot find name 'OcrTermMode'.
+src/renderer/src/app/DeveloperDictationSection.tsx(253,48): error TS7006: Parameter 'term' implicitly has an 'any' type.
+src/renderer/src/app/DeveloperSettingsSection.tsx(10,71): error TS2503: Cannot find namespace 'JSX'.
+src/renderer/src/app/DeveloperSettingsSection.tsx(31,68): error TS2304: Cannot find name 'WhisperRuntimePreference'.
+src/renderer/src/app/DeveloperSettingsSection.tsx(46,82): error TS2304: Cannot find name 'WhisperLanguage'.
+src/renderer/src/app/DeveloperSettingsSection.tsx(68,80): error TS2304: Cannot find name 'InsertionMode'.
+src/renderer/src/app/DeveloperSettingsSection.tsx(84,66): error TS2304: Cannot find name 'RecorderCaptureMode'.
+src/renderer/src/app/DeveloperSettingsSection.tsx(102,44): error TS7006: Parameter 'device' implicitly has an 'any' type.
+src/renderer/src/app/DeveloperSettingsSection.tsx(131,72): error TS2304: Cannot find name 'RecordingCoordinationMode'.
+src/renderer/src/app/DeveloperView.tsx(30,60): error TS2503: Cannot find namespace 'JSX'.
+src/renderer/src/app/DeveloperView.tsx(47,30): error TS7006: Parameter 'model' implicitly has an 'any' type.
+src/renderer/src/app/DeveloperView.tsx(108,38): error TS7006: Parameter 'model' implicitly has an 'any' type.
+src/renderer/src/app/DeveloperView.tsx(181,70): error TS2304: Cannot find name 'WhisperRuntimePreference'.
+src/renderer/src/app/DeveloperView.tsx(204,54): error TS7006: Parameter 'gpu' implicitly has an 'any' type.
+src/renderer/src/app/DeveloperView.tsx(238,40): error TS7006: Parameter 'runtime' implicitly has an 'any' type.
+src/renderer/src/app/DeveloperView.tsx(341,51): error TS7006: Parameter 'profile' implicitly has an 'any' type.
+src/renderer/src/app/DeveloperView.tsx(351,68): error TS2304: Cannot find name 'InsertionMode'.
+src/renderer/src/app/DeveloperView.tsx(367,67): error TS2304: Cannot find name 'AppProfile'.
+src/renderer/src/app/DeveloperView.tsx(381,70): error TS2304: Cannot find name 'ProfileWhisperLanguage'.
+src/renderer/src/app/DeveloperView.tsx(425,55): error TS7006: Parameter 'profile' implicitly has an 'any' type.
+src/renderer/src/app/DeveloperView.tsx(476,43): error TS7006: Parameter 'entry' implicitly has an 'any' type.
+src/renderer/src/app/DeveloperView.tsx(532,63): error TS2304: Cannot find name 'ScreenshotCaptureMode'.
+src/renderer/src/app/DeveloperView.tsx(600,48): error TS7006: Parameter 'line' implicitly has an 'any' type.
+src/renderer/src/app/DeveloperView.tsx(600,54): error TS7006: Parameter 'index' implicitly has an 'any' type.
+src/renderer/src/app/profile-dictionary-actions.ts(39,17): error TS7006: Parameter 'current' implicitly has an 'any' type.
+src/renderer/src/app/profile-dictionary-actions.ts(42,17): error TS7006: Parameter 'current' implicitly has an 'any' type.
+src/renderer/src/app/profile-dictionary-actions.ts(58,17): error TS7006: Parameter 'current' implicitly has an 'any' type.
+src/renderer/src/app/profile-dictionary-actions.ts(116,17): error TS7006: Parameter 'current' implicitly has an 'any' type.
+src/renderer/src/app/profile-dictionary-actions.ts(124,17): error TS7006: Parameter 'current' implicitly has an 'any' type.
+src/renderer/src/app/profile-dictionary-actions.ts(150,31): error TS2304: Cannot find name 'insertionModeLabel'.
+src/renderer/src/app/profile-dictionary-actions.ts(160,61): error TS2304: Cannot find name 'insertionModeLabel'.
+src/renderer/src/app/profile-dictionary-actions.ts(199,40): error TS2339: Property 'cloudPromptPackOcrEnabled' does not exist on type 'Partial<Pick<AppProfile, "dictationModeId" | "whisperLanguage" | "insertionMode" | "recordingCoordinationMode" | "recordingStartHotkey" | "recordingStopHotkey" | "writingStyle" | "postTranscriptionHotkey" | "forbidCloudDictation" | "neverSuspendDictationInFullscreen">>'.
+src/renderer/src/app/profile-dictionary-actions.ts(205,15): error TS7006: Parameter 'current' implicitly has an 'any' type.
+src/renderer/src/app/profile-dictionary-actions.ts(209,9): error TS2552: Cannot find name 'confirmingDeleteProfileProcessName'. Did you mean 'setConfirmingDeleteProfileProcessName'?
+src/renderer/src/app/profile-dictionary-actions.ts(217,48): error TS7006: Parameter 'current' implicitly has an 'any' type.
+src/renderer/src/app/profile-dictionary-actions.ts(236,17): error TS7006: Parameter 'current' implicitly has an 'any' type.
+src/renderer/src/app/profile-dictionary-actions.ts(243,11): error TS2304: Cannot find name 'capturingProfileHotkey'.
+src/renderer/src/app/profile-dictionary-actions.ts(259,55): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/renderer/src/app/profile-dictionary-actions.ts(275,31): error TS2304: Cannot find name 'normalizeProfileProcessName'.
+src/renderer/src/app/profile-dictionary-actions.ts(282,8): error TS7006: Parameter 'item' implicitly has an 'any' type.
+src/renderer/src/app/profile-dictionary-actions.ts(348,17): error TS7006: Parameter 'current' implicitly has an 'any' type.
+src/renderer/src/app/profile-dictionary-actions.ts(361,15): error TS7006: Parameter 'current' implicitly has an 'any' type.
+src/renderer/src/app/profile-dictionary-actions.ts(366,15): error TS7006: Parameter 'current' implicitly has an 'any' type.
+src/renderer/src/app/profile-dictionary-actions.ts(387,17): error TS7006: Parameter 'current' implicitly has an 'any' type.
+src/renderer/src/app/profile-dictionary-actions.ts(410,17): error TS7006: Parameter 'current' implicitly has an 'any' type.
+src/renderer/src/app/profile-dictionary-actions.ts(440,11): error TS2304: Cannot find name 'playingTranscriptId'.
+src/renderer/src/app/recording-actions.ts(42,52): error TS7006: Parameter 'model' implicitly has an 'any' type.
+src/renderer/src/app/recording-actions.ts(71,35): error TS2304: Cannot find name 'startNativePcmRecorder'.
+src/renderer/src/app/recording-actions.ts(92,14): error TS7006: Parameter 'stopError' implicitly has an 'any' type.
+src/renderer/src/app/recording-actions.ts(116,17): error TS7006: Parameter 'current' implicitly has an 'any' type.
+src/renderer/src/app/recording-actions.ts(131,17): error TS7006: Parameter 'current' implicitly has an 'any' type.
+src/renderer/src/app/recording-actions.ts(151,17): error TS7006: Parameter 'current' implicitly has an 'any' type.
+src/renderer/src/app/recording-actions.ts(158,9): error TS2304: Cannot find name 'recording'.
+src/renderer/src/app/recording-actions.ts(172,15): error TS7006: Parameter 'current' implicitly has an 'any' type.
+src/renderer/src/app/recording-actions.ts(201,19): error TS2304: Cannot find name 'ActiveWindowInfo'.
+src/renderer/src/app/recording-actions.ts(202,18): error TS2304: Cannot find name 'OcrPromptContext'.
+src/renderer/src/app/recording-actions.ts(276,15): error TS2304: Cannot find name 'sendProfilePostTranscriptionHotkey'.
+src/renderer/src/app/recording-actions.ts(283,17): error TS7006: Parameter 'current' implicitly has an 'any' type.
+src/renderer/src/app/recording-actions.ts(383,17): error TS7006: Parameter 'current' implicitly has an 'any' type.
+src/renderer/src/app/recording-actions.ts(413,17): error TS7006: Parameter 'current' implicitly has an 'any' type.
+src/renderer/src/app/ReleaseCloudSection.tsx(10,66): error TS2503: Cannot find namespace 'JSX'.
+src/renderer/src/app/ReleaseCloudSection.tsx(124,90): error TS2304: Cannot find name 'RealtimeLatencyPreset'.
+src/renderer/src/app/ReleaseDictionarySection.tsx(9,71): error TS2503: Cannot find namespace 'JSX'.
+src/renderer/src/app/ReleaseDictionarySection.tsx(32,41): error TS7006: Parameter 'entry' implicitly has an 'any' type.
+src/renderer/src/app/ReleaseDictionarySection.tsx(89,48): error TS7006: Parameter 'term' implicitly has an 'any' type.
+src/renderer/src/app/ReleaseDictionarySection.tsx(172,60): error TS7006: Parameter 'profile' implicitly has an 'any' type.
+src/renderer/src/app/ReleaseProfilesSection.tsx(16,69): error TS2503: Cannot find namespace 'JSX'.
+src/renderer/src/app/ReleaseProfilesSection.tsx(39,49): error TS7006: Parameter 'profile' implicitly has an 'any' type.
+src/renderer/src/app/ReleaseView.tsx(25,39): error TS2305: Module '"./app-options"' has no exported member 'ReleaseIconName'.
+src/renderer/src/app/ReleaseView.tsx(30,58): error TS2503: Cannot find namespace 'JSX'.
+src/renderer/src/app/ReleaseView.tsx(188,34): error TS7006: Parameter 'step' implicitly has an 'any' type.
+src/renderer/src/app/ReleaseView.tsx(234,92): error TS2304: Cannot find name 'DictationModeId'.
+src/renderer/src/app/ReleaseView.tsx(306,50): error TS7006: Parameter 'entry' implicitly has an 'any' type.
+src/renderer/src/app/ReleaseView.tsx(397,46): error TS7006: Parameter 'device' implicitly has an 'any' type.
+src/renderer/src/app/ReleaseView.tsx(516,56): error TS2304: Cannot find name 'ReleaseModelFilter'.
+src/renderer/src/app/ReleaseView.tsx(529,35): error TS7006: Parameter 'model' implicitly has an 'any' type.
+src/renderer/src/app/ReleaseView.tsx(605,49): error TS7006: Parameter 'entry' implicitly has an 'any' type.
+src/renderer/src/app/settings-actions.ts(108,15): error TS7006: Parameter 'current' implicitly has an 'any' type.
+src/renderer/src/app/settings-actions.ts(112,15): error TS7006: Parameter 'current' implicitly has an 'any' type.
+src/renderer/src/app/settings-actions.ts(123,15): error TS7006: Parameter 'current' implicitly has an 'any' type.
+src/renderer/src/app/settings-actions.ts(134,15): error TS7006: Parameter 'current' implicitly has an 'any' type.
+src/renderer/src/app/settings-actions.ts(139,15): error TS7006: Parameter 'current' implicitly has an 'any' type.
+src/renderer/src/app/settings-actions.ts(144,42): error TS7006: Parameter 'profile' implicitly has an 'any' type.
+src/renderer/src/app/settings-actions.ts(251,25): error TS7006: Parameter 'current' implicitly has an 'any' type.
+src/renderer/src/app/settings-actions.ts(308,24): error TS7006: Parameter 'current' implicitly has an 'any' type.
+src/renderer/src/app/settings-actions.ts(350,17): error TS7006: Parameter 'current' implicitly has an 'any' type.
+src/renderer/src/app/settings-actions.ts(365,17): error TS7006: Parameter 'current' implicitly has an 'any' type.
+src/renderer/src/app/settings-actions.ts(382,37): error TS7006: Parameter 'current' implicitly has an 'any' type.
+src/renderer/src/app/settings-actions.ts(399,17): error TS7006: Parameter 'current' implicitly has an 'any' type.
+src/shared/cloud-session-limits.ts(26,49): error TS18047: 'input.settings.cloudSessionMaxMs' is possibly 'null'.
+src/shared/realtime-latency.ts(58,30): error TS2322: Type '{ type: string; threshold: number; prefix_padding_ms: number; silence_duration_ms: number; }' is not assignable to type 'OpenAiRealtimeVadConfig'.
+  Types of property 'type' are incompatible.
+    Type 'string' is not assignable to type '"server_vad"'.
+src/shared/realtime-latency.ts(58,39): error TS2322: Type '{ threshold: number; type: string; prefix_padding_ms: number; silence_duration_ms: number; }' is not assignable to type 'OpenAiRealtimeVadConfig'.
+  Types of property 'type' are incompatible.
+    Type 'string' is not assignable to type '"server_vad"'.

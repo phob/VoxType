@@ -1,6 +1,7 @@
 import { app } from "electron";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, readdir, readFile, rm, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
+import { isDictationModeId } from "../shared/asr";
 import { type TranscriptEntry } from "../shared/transcripts";
 
 const historyLimit = 10;
@@ -24,7 +25,7 @@ export class HistoryStore {
 
     try {
       const file = await readFile(this.historyPath, "utf8");
-      const parsed = JSON.parse(file);
+      const parsed: unknown = JSON.parse(file);
       this.entries = Array.isArray(parsed) ? parsed.filter(isTranscriptEntry) : [];
       await this.prune();
     } catch {
@@ -51,6 +52,7 @@ export class HistoryStore {
   async cleanup(): Promise<TranscriptEntry[]> {
     await this.list();
     await this.prune();
+    await this.removeOrphanedAudio();
 
     return this.entries ?? [];
   }
@@ -106,6 +108,22 @@ export class HistoryStore {
     await rm(this.getAudioPath(entry.audioFileName), { force: true });
   }
 
+  private async removeOrphanedAudio(): Promise<void> {
+    const retainedAudioFiles = new Set(
+      (this.entries ?? [])
+        .map((entry) => entry.audioFileName)
+        .filter((fileName): fileName is string => Boolean(fileName))
+    );
+    const audioFiles = await readdir(this.audioDirectory, { withFileTypes: true }).catch(() => []);
+
+    await Promise.all(
+      audioFiles
+        .filter((entry) => entry.isFile() && /\.wav$/i.test(entry.name))
+        .filter((entry) => !retainedAudioFiles.has(entry.name))
+        .map((entry) => rm(this.getAudioPath(entry.name), { force: true }).catch(() => undefined))
+    );
+  }
+
   private getAudioPath(audioFileName: string): string {
     return join(this.audioDirectory, audioFileName);
   }
@@ -130,6 +148,12 @@ function isTranscriptEntry(value: unknown): value is TranscriptEntry {
     (Array.isArray(entry.ocrCorrectionsApplied) || entry.ocrCorrectionsApplied === undefined) &&
     (typeof entry.promptContext === "string" || entry.promptContext === undefined) &&
     (typeof entry.audioFileName === "string" || entry.audioFileName === undefined) &&
+    (typeof entry.audioUnavailableReason === "string" || entry.audioUnavailableReason === undefined) &&
+    (typeof entry.languageHint === "string" || entry.languageHint === undefined) &&
+    (entry.providerId === "local-whisper" || entry.providerId === "openai" || entry.providerId === undefined) &&
+    (isDictationModeId(entry.dictationModeId) || entry.dictationModeId === undefined) &&
+    (typeof entry.turnCount === "number" || entry.turnCount === undefined) &&
+    (typeof entry.turnStatus === "string" || entry.turnStatus === undefined) &&
     typeof entry.modelId === "string" &&
     typeof entry.createdAt === "string" &&
     typeof entry.durationMs === "number"

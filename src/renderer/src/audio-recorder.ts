@@ -1,16 +1,18 @@
-import { type AppSettings } from "../../../shared/settings";
+import { type AppSettings } from "../../shared/settings";
+import { type NativeRecordingDiagnostics } from "../../shared/windows-helper";
 
-export type PcmRecorder = {
+export interface PcmRecorder {
   stop: () => Promise<PcmRecordingResult>;
-};
+}
 
-export type PcmRecordingResult = {
+export interface PcmRecordingResult {
   wavBytes: Uint8Array;
   captureMode: "sharedCapture" | "exclusiveCapture";
   vad: VadTrimStats;
-};
+  diagnostics: NativeRecordingDiagnostics;
+}
 
-export type VadTrimStats = {
+export interface VadTrimStats {
   enabled: boolean;
   model: "silero-v4-native";
   speechSegments: number;
@@ -19,13 +21,19 @@ export type VadTrimStats = {
   removedDurationMs: number;
   speechDetected: boolean;
   skippedReason?: string;
-};
+}
 
-export async function startNativePcmRecorder(settings?: AppSettings | null): Promise<PcmRecorder> {
+export async function startNativePcmRecorder(
+  settings?: AppSettings | null,
+  options: { realtimePcm16Enabled?: boolean } = {}
+): Promise<PcmRecorder> {
+  const developerMode = settings?.developerModeEnabled === true;
+
   await window.voxtype.windowsHelper.startRecording({
-    captureMode: settings?.recorderCaptureMode ?? "sharedCapture",
+    captureMode: developerMode ? settings.recorderCaptureMode : "sharedCapture",
     inputDeviceId: settings?.recordingInputDeviceId ?? "default",
-    vadEnabled: settings?.vadEnabled ?? true,
+    vadEnabled: developerMode ? settings.vadEnabled : true,
+    realtimePcm16Enabled: options.realtimePcm16Enabled ?? false,
     vadPositiveSpeechThreshold: settings?.vadPositiveSpeechThreshold ?? 0.3,
     vadPreSpeechPadMs: settings?.vadPreSpeechPadMs ?? 450,
     vadRedemptionMs: settings?.vadRedemptionMs ?? 450,
@@ -42,6 +50,7 @@ export async function startNativePcmRecorder(settings?: AppSettings | null): Pro
       return {
         wavBytes: result.wavBytes,
         captureMode: result.captureMode,
+        diagnostics: result.diagnostics,
         vad: {
           enabled: result.vadEnabled,
           model: "silero-v4-native",

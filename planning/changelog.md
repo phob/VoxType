@@ -1,9 +1,56 @@
 # Planning Changelog
 
+## 2026-05-27
+
+- Audited VoxType's native Silero VAD against Handy and captured the pre-fix parity gaps: per-recording helper process startup, timeout-based readiness, stop draining without an end-of-stream sentinel, silent frame drops on VAD errors, and modified hangover/pause smoothing.
+- Implemented the Handy-parity direction for shared capture: warmed helper session, explicit ready/start/stop/shutdown commands, exact `SmoothedVad` behavior, VAD-error frame pass-through, and stop-drain sentinel behavior.
+- Resolved the capture-mode question: shared CPAL capture is the default Handy-parity path, while WASAPI exclusive capture remains a separate coordination feature.
+- Diagnosed a long-pause hallucination case from a saved 280-second WAV: stale hidden release-mode settings had VAD disabled and exclusive capture preferred, so release-mode recording now ignores those developer-only knobs unless Developer Mode is enabled.
+- Diagnosed the latest re-transcription as the same old sparse 280-second WAV being decoded again, then added local Whisper audio preparation that trims/caps silence before decoding and passes `--language auto` for the user-facing auto setting.
+
+## 2026-05-21
+
+- Added a realtime Cloud Dictation idea to insert already-final Live Preview turns immediately on stop when no provisional tail remains.
+- Refreshed the Cloud Dictation implementation status and selected
+  metadata-only realtime recording diagnostics as the next implementation
+  slice.
+- Updated the Cloud Dictation implementation status after adding native
+  recording diagnostics, leaving realtime app-path reproduction as the next
+  debugging step.
+- Added the next ten-point Cloud Dictation implementation plan covering
+  explicit realtime PCM capture, realtime Prompt Pack verification, realtime
+  VAD capability checks, copy cleanup, verification, and final status refresh.
+- Updated Cloud Dictation status after completing the ten-point implementation
+  pass: explicit realtime PCM capture flagging, realtime Prompt Pack and server
+  VAD limitations, Cloud settings copy cleanup, and static verification.
+- Corrected the realtime Cloud Dictation status after a live API check showed
+  `gpt-realtime-whisper` rejects the transcription `prompt` parameter, and
+  noted the native realtime PCM fix from 16 kHz invalid chunks to 24 kHz
+  OpenAI-ready chunks.
+- Recorded `gpt-realtime-whisper` Prompt Pack and server VAD as known current
+  model limitations, keeping realtime sessions on manual commit with
+  `turn_detection: null`.
+- Added local realtime dictation as a serious future model direction, using
+  native PCM capture, rolling Whisper windows, VAD, and local-agreement style
+  stable-prefix commits.
+
+## 2026-05-20
+
+- Added a Cloud Dictation implementation status handoff summarizing what is implemented, what is partial, what is missing, and the next realtime debugging milestone.
+- Added the Cloud Dictation implementation status document to the planning index.
+- Clarified the Cloud Dictation release UI: Dictation Mode belongs on Home, while cloud-only setup and safety controls live on a Cloud page hidden by Offline Mode.
+- Added a technical backlog idea to refactor source files over 1,000 lines into deeper renderer, Electron main, and native helper modules.
+- Clarified the renderer refactor shape: `App.tsx` owns lifecycle/action wiring, while release/dev view projections moved behind `app-derived-state.ts` and shared state shape lives in `app-state.ts`.
+
 ## 2026-05-15
 
 - Clarified the native Silero VAD direction around preserving internal thinking pauses up to a cap so resumed speech and first words remain available to Whisper.
 - Added an open question about future VAD presets for natural dictation, low latency, and noisy-room trimming.
+- Added the Context Engine as the next dictionary/context integration layer, with glossary language, architecture placement, and roadmap direction.
+- Sequenced the first Context Engine slice around post-ASR correction quality before prompt ranking.
+- Defined Context Engine correction confidence bands and limited first-version auto-apply behavior to high-confidence corrections.
+- Clarified storage cleanup behavior for managed Whisper runtime archives, OCR screenshots, and in-app update installers.
+- Added startup cleanup planning for disposable Electron cache folders, partial download/temp files, native recording leftovers, and orphaned transcript audio.
 
 ## 2026-05-10
 
@@ -137,7 +184,7 @@
 - Added release and changelog strategy using Conventional Commits plus Release Please as the initial recommendation.
 - Started the basic Electron app scaffold with TypeScript, React, electron-vite, a preload bridge, tray setup, and an initial VoxType status screen.
 - Added concrete Release Please configuration, GitHub Actions workflow, PR template, and contribution notes for consistent public changelogs.
-- Added GitHub CI build checks for `npm ci` and `npm run build`.
+- Added GitHub CI build checks for `bun install --frozen-lockfile` and `bun run build`.
 - Added the first persistent settings foundation with typed settings, main-process JSON storage, preload IPC methods, and a renderer settings panel.
 - Added Release Please troubleshooting note for GitHub Actions pull request permission errors.
 - Completed the first Phase 1 dictation vertical slice: Whisper model catalog/downloads, microphone WAV recording, configured `whisper-cli` transcription, clipboard-ready insertion, global shortcut to show VoxType, and local transcript history.

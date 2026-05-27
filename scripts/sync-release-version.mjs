@@ -8,7 +8,6 @@ const usage = `Usage: node scripts/sync-release-version.mjs <version> [--root <p
 
 Updates VoxType release version files:
 - package.json
-- package-lock.json
 - native/windows-helper/Cargo.toml
 - native/windows-helper/Cargo.lock`;
 
@@ -72,25 +71,6 @@ function updateJsonVersion(root, relativePath, version, options) {
   return true;
 }
 
-function updatePackageLock(root, version, options) {
-  const relativePath = "package-lock.json";
-  const raw = readText(root, relativePath);
-  const lock = JSON.parse(raw);
-  const rootPackage = lock.packages?.[""];
-  if (lock.version === version && rootPackage?.version === version) {
-    return false;
-  }
-
-  lock.version = version;
-  if (rootPackage) {
-    rootPackage.version = version;
-  }
-
-  const output = `${JSON.stringify(lock, null, 2)}\n`;
-  writeText(root, relativePath, output, options);
-  return true;
-}
-
 function replaceRequired(raw, pattern, replacement, label) {
   if (!pattern.test(raw)) {
     throw new Error(`Could not find ${label}.`);
@@ -130,7 +110,6 @@ try {
   const options = parseArgs(process.argv.slice(2));
   const changes = [
     ["package.json", updateJsonVersion(options.root, "package.json", options.version, options)],
-    ["package-lock.json", updatePackageLock(options.root, options.version, options)],
     ["native/windows-helper/Cargo.toml", updateCargoToml(options.root, options.version, options)],
     ["native/windows-helper/Cargo.lock", updateCargoLock(options.root, options.version, options)],
   ];
