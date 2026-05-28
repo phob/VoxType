@@ -22,7 +22,7 @@ import {
   type ScreenshotCaptureResult
 } from "../../../shared/windows-helper";
 import { type HotkeyCaptureTarget } from "./app-helpers";
-import { type DevTab, type ReleaseModelFilter, type ReleaseTab } from "./app-options";
+import { type DebugTab, type ReleaseModelFilter, type ReleaseTab } from "./app-options";
 import { type AppState } from "./app-state";
 
 export interface SetupStep {
@@ -204,7 +204,7 @@ export interface BaseActionContext extends AppDerivedState {
   state: AppState;
   systemAudioMutedByVoxTypeRef: RefObject<boolean>;
   updateStatus: UpdateStatus | null;
-  setActiveTab: Dispatch<SetStateAction<DevTab>>;
+  setActiveTab: Dispatch<SetStateAction<DebugTab>>;
   setBusyMessage: Dispatch<SetStateAction<string | null>>;
   setCapturingHotkey: Dispatch<SetStateAction<HotkeyCaptureTarget | null>>;
   setCapturingProfileHotkey: Dispatch<SetStateAction<string | null>>;
@@ -255,7 +255,7 @@ export interface AppViewProps
     SettingsActions,
     RecordingActions,
     ProfileDictionaryActions {
-  activeTab: DevTab;
+  activeTab: DebugTab;
   busyMessage: string | null;
   capturingHotkey: HotkeyCaptureTarget | null;
   dictionaryModalOpen: boolean;

@@ -95,7 +95,7 @@ export interface AppSettings {
   offlineMode: boolean;
   startMinimized: boolean;
   startWithWindows: boolean;
-  developerModeEnabled: boolean;
+  debugViewEnabled: boolean;
   suspendDictationHotkeysInFullscreenApps: boolean;
   autoMuteSystemAudio: boolean;
   restoreClipboard: boolean;
@@ -275,14 +275,9 @@ export function sanitizeSettings(
       typeof input.startWithWindows === "boolean"
         ? input.startWithWindows
         : defaults.startWithWindows,
-    developerModeEnabled:
-      typeof input.developerModeEnabled === "boolean"
-        ? input.developerModeEnabled
-        : defaults.developerModeEnabled,
+    debugViewEnabled: getDebugViewEnabled(input, defaults),
     realtimeVadThresholdOverride:
-      input.developerModeEnabled === true
-        ? sanitizeRealtimeVadThresholdOverride(input.realtimeVadThresholdOverride)
-        : null,
+      sanitizeRealtimeVadThresholdOverride(input.realtimeVadThresholdOverride),
     suspendDictationHotkeysInFullscreenApps:
       typeof input.suspendDictationHotkeysInFullscreenApps === "boolean"
         ? input.suspendDictationHotkeysInFullscreenApps
@@ -614,6 +609,18 @@ function normalizeProcessName(processName: unknown): string {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function getDebugViewEnabled(input: Record<string, unknown>, defaults: AppSettings): boolean {
+  if (typeof input.debugViewEnabled === "boolean") {
+    return input.debugViewEnabled;
+  }
+
+  if (typeof input.developerModeEnabled === "boolean") {
+    return input.developerModeEnabled;
+  }
+
+  return defaults.debugViewEnabled;
 }
 
 function sanitizeCloudSessionMaxMs(

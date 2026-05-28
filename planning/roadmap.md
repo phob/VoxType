@@ -139,7 +139,7 @@ Features:
 - Temporary OCR dictionary. Initial OCR context is held per dictation session and shown in the dictation debug UI.
 - Add OCR terms to permanent dictionary. Initial UI can save individual OCR terms as dictionary entries scoped to the detected process.
 - Use OCR context in Whisper prompt and post-processing. Initial implementation feeds extracted active-window OCR terms into the Whisper prompt and applies conservative OCR-term spelling corrections after ASR.
-- Final user-facing OCR UI should be simple: a setting/checkbox to enable or disable OCR context. The detailed OCR raw text, rejected terms, prompt, and correction diagnostics can remain in a developer/debug view.
+- Final user-facing OCR UI should be simple: a setting/checkbox to enable or disable OCR context. The detailed OCR raw text, rejected terms, prompt, and correction diagnostics can remain in the Debug view.
 - Known limitation accepted for now: some difficult visible words still do not improve transcription correctly even when OCR detects them. Phase 4 is considered sufficient to move on because the rejection/filtering behavior is useful and higher-priority tasks remain.
 
 ## Phase 5: Polish And Power Features
@@ -149,7 +149,7 @@ Goal: become a go-to Windows dictation app.
 Features:
 
 - GPU acceleration as the first Phase 5 priority. Initial implementation adds automatic GPU/VRAM detection, per-model fit checks, CPU/CUDA managed runtime downloads, backend preference selection, and Vulkan custom-runtime support.
-- Release-ready UI separation: the dense current interface is now treated as a developer UI behind a developer/debug switch, while the default app surface should become a simple end-user dictation home.
+- Release-ready UI separation: the dense current interface is now treated as a Debug view behind a developer-build-only Debug switch, while the default app surface should become a simple end-user dictation home.
 - First-run NVIDIA setup: the developer UI now has a CUDA setup action that detects a capable NVIDIA GPU, chooses CUDA 12.4 or CUDA 11.8 from the driver version, installs the managed `whisper.cpp` runtime, and keeps backend selection on `auto`.
 - Context Engine as the next dictionary/context integration layer. First slice: improve post-ASR correction quality with correction candidates, confidence scores, safe auto-apply rules, and correction explanations in history. Later slices should reuse that scoring model for prompt-pack ranking.
 - Dictation modes.

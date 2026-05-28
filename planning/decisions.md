@@ -256,7 +256,7 @@ VoxType works with Windows screenshots, and local testing showed the native Wind
 
 Decision:
 
-Phase 4 OCR context is sufficient to move on after the initial Windows Media OCR, target-window screenshot, term extraction, prompt-context, post-processing, diagnostics, and dictionary-promotion work. The final user-facing OCR control should be a simple enable/disable setting, while raw OCR text, rejected terms, prompt previews, and correction diagnostics stay in a developer/debug view.
+Phase 4 OCR context is sufficient to move on after the initial Windows Media OCR, target-window screenshot, term extraction, prompt-context, post-processing, diagnostics, and dictionary-promotion work. The final user-facing OCR control should be a simple enable/disable setting, while raw OCR text, rejected terms, prompt previews, and correction diagnostics stay in the Debug view.
 
 Reason:
 
@@ -282,11 +282,13 @@ Reason:
 
 The official `whisper.cpp` v1.8.4 release publishes CPU and CUDA Windows binaries, but no Windows Vulkan archive. This lets NVIDIA users get managed GPU acceleration now while preserving the cross-vendor Vulkan path without pretending there is an official downloadable runtime that does not exist.
 
-## 2026-04-27: Move Dense UI Behind Developer Mode
+## 2026-04-27: Move Dense UI Behind Debug View
 
 Decision:
 
-The current dense VoxType interface should be treated as a developer/debug UI and hidden behind a persisted developer mode setting. The default app surface should become a simpler end-user dictation home.
+Superseded by `2026-05-29: Separate Debug View From Developer Build Mode`.
+
+The current dense VoxType interface should be treated as a debug UI and hidden behind a persisted Debug view setting. The default app surface should become a simpler end-user dictation home.
 
 Reason:
 
@@ -296,7 +298,7 @@ The current UI is useful for building and diagnosing models, OCR, insertion, and
 
 Decision:
 
-The default VoxType UI should be organized around General, Hotkeys, and Models tabs. It should not include an in-app record button because recording is triggered from outside the app through global hotkeys and target-app workflows. Advanced settings and diagnostics should remain in developer mode.
+The default VoxType UI should be organized around General, Hotkeys, and Models tabs. It should not include an in-app record button because recording is triggered from outside the app through global hotkeys and target-app workflows. Advanced settings and diagnostics should remain in the Debug view.
 
 Reason:
 
@@ -398,11 +400,25 @@ Handy's observed quality comes from the native CPAL lifecycle, frame smoothing, 
 
 Decision:
 
-When Developer Mode is disabled, normal dictation should force the quality-oriented recording path: shared Handy-parity capture and local VAD enabled. Persisted developer-only values such as `vadEnabled: false` or `exclusiveCapturePreferred` should only affect recording while Developer Mode is enabled.
+Superseded by `2026-05-29: Separate Debug View From Developer Build Mode`.
+
+When VoxType is not running as a developer build, normal dictation should force local VAD enabled. Persisted developer-only values such as `vadEnabled: false` should only affect recording in a developer build.
 
 Reason:
 
 These controls are diagnostic escape hatches, not release-mode product behavior. A stale hidden `vadEnabled: false` setting allowed a mostly silent 280-second recording to reach Whisper, causing repeated hallucinated phrases after long pauses. Release-mode dictation should protect users from that kind of stale debug state.
+
+## 2026-05-29: Separate Debug View From Developer Build Mode
+
+Decision:
+
+The old dense interface is the Debug view, controlled by a persisted `debugViewEnabled` setting and only reachable in developer builds. Developer mode is the runtime launch/build state (`isDeveloperBuild`, such as local dev or preview), not a view toggle. Changing between Release and Debug views must not change whether VoxType treats the app as a developer build.
+
+Recording capture mode is a product/coordination setting and should be honored regardless of Release or Debug view. Disabling local VAD remains a developer-build diagnostic escape hatch; packaged release builds force VAD on.
+
+Reason:
+
+The previous `developerModeEnabled` setting conflated two concepts: selecting the old diagnostic UI and enabling developer-only recording behavior. That caused release-vs-debug view changes to affect recording behavior, including `exclusiveCapturePreferred`. Separating `debugViewEnabled` from `isDeveloperBuild` keeps the UI vocabulary honest and preserves VAD protection while allowing exclusive capture to work when recording starts.
 
 ## 2026-05-27: Compact Sparse Local Whisper Audio Before Decoding
 

@@ -3,7 +3,7 @@ import { type InsertionMode, type OcrTermMode, type RecorderCaptureMode, type Re
 import { formatBytes, formatTimestamp } from "./app-helpers";
 import { type ReadyAppViewProps } from "./app-types";
 
-export function DeveloperDictationSection(props: ReadyAppViewProps): ReactElement {
+export function DebugDictationSection(props: ReadyAppViewProps): ReactElement {
   const { activeModel, activeTab, appStatus, busyMessage, copyLatestTranscript, copyOcrRawText, copyOcrTerms, currentTarget, effectiveWhisperPrompt, generatedWhisperPrompt, insertionTestResult, lastRecordingResult, latestOcrContext, latestTranscript, pasteLatestTranscript, playingTranscriptId, playTranscriptAudio, recording, saveOcrTerm, startRecording, state, stopAndTranscribe, transcribeLatestTranscript, updateSettings } = props;
   return (
     <>

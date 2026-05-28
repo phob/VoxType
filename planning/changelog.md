@@ -1,11 +1,16 @@
 # Planning Changelog
 
+## 2026-05-29
+
+- Clarified that the old dense interface is the Debug view, while developer mode means the local developer/preview build state.
+- Updated recording planning so capture mode is honored outside the Debug view, while disabling local VAD remains limited to developer builds.
+
 ## 2026-05-27
 
 - Audited VoxType's native Silero VAD against Handy and captured the pre-fix parity gaps: per-recording helper process startup, timeout-based readiness, stop draining without an end-of-stream sentinel, silent frame drops on VAD errors, and modified hangover/pause smoothing.
 - Implemented the Handy-parity direction for shared capture: warmed helper session, explicit ready/start/stop/shutdown commands, exact `SmoothedVad` behavior, VAD-error frame pass-through, and stop-drain sentinel behavior.
 - Resolved the capture-mode question: shared CPAL capture is the default Handy-parity path, while WASAPI exclusive capture remains a separate coordination feature.
-- Diagnosed a long-pause hallucination case from a saved 280-second WAV: stale hidden release-mode settings had VAD disabled and exclusive capture preferred, so release-mode recording now ignores those developer-only knobs unless Developer Mode is enabled.
+- Diagnosed a long-pause hallucination case from a saved 280-second WAV: stale hidden release-mode settings had VAD disabled, so packaged release-mode recording now forces local VAD on.
 - Diagnosed the latest re-transcription as the same old sparse 280-second WAV being decoded again, then added local Whisper audio preparation that trims/caps silence before decoding and passes `--language auto` for the user-facing auto setting.
 
 ## 2026-05-21
@@ -96,7 +101,7 @@
 - Added managed CUDA runtime selection for official `whisper.cpp` v1.8.4 CUDA 12.4 and CUDA 11.8 Windows archives.
 - Added a backend preference direction for `auto`, `cpu`, `cuda`, and `vulkan`, with custom Vulkan runtime support until a managed Vulkan archive exists.
 - Clarified that custom `whisperExecutablePath` remains the highest-priority override above managed runtime selection.
-- Moved the dense current interface behind a developer mode switch and added a simpler default dictation home for release-readiness.
+- Moved the dense current interface behind a Debug view switch and added a simpler default dictation home for release-readiness.
 - Added first-run NVIDIA CUDA auto-install as the next release-readiness direction.
 - Implemented first-run CUDA setup in the developer runtime UI, including NVIDIA detection, CUDA 12.4/11.8 runtime selection, managed install, and `auto` backend selection.
 - Added an always-on-top recording/transcribing overlay with live input level updates from the native recorder.
@@ -112,7 +117,7 @@
 - Moved remote application defaults back to `chunked` typing while keeping `remoteClipboard` available for manual testing.
 - Added developer diagnostics for the Windows helper executable build timestamp and a latest-transcript re-transcribe action that reuses saved audio.
 - Normalized `whisper-cli` text output so segment line breaks do not leak into the final visible transcript.
-- Defined the default release UI around General, Hotkeys, and Models tabs, with no in-app record button and dense controls kept in developer mode.
+- Defined the default release UI around General, Hotkeys, and Models tabs, with no in-app record button and dense controls kept in the Debug view.
 - Clarified main UI defaults: VAD enabled by default, `exclusiveCapturePreferred` as the preferred exposed capture mode, and highest-quality compatible model/runtime choices with automatic fallback.
 - Added Models tab requirements for multilingual/non-English Whisper variants and a three-second two-click Confirm delete flow.
 - Added a release History tab direction for the 10 latest transcriptions with saved audio playback and cleanup of older entries.
@@ -130,7 +135,7 @@
 - Added user-facing Whisper language selection with a global `auto` default, per-profile `inherit` default, and concrete language overrides passed to `whisper-cli`.
 - Added the in-app update direction: the Stable badge becomes an orange Update action when a newer GitHub Release installer is available, downloads the NSIS setup, launches it silently, and quits VoxType.
 - Clarified that release app profiles should stay compact and open into a settings modal that can grow with future per-profile controls, including profile removal.
-- Added developer-build detection to show a `-dev` version suffix and hide the Developer button in installed builds.
+- Added developer-build detection to show a `-dev` version suffix and hide the Debug button in installed builds.
 - Added fixed-size main window behavior with no maximize control and a subtle startup UI fade-in.
 - Changed Start minimized and the titlebar minimize control to hide the main window to the tray/task icon instead of using Windows minimize, while keeping the talking overlay independent.
 - Added tray icon double-click restore behavior for opening the main window from hidden startup mode.

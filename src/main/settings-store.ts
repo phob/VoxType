@@ -51,7 +51,7 @@ export class SettingsStore {
       offlineMode: false,
       startMinimized: false,
       startWithWindows: false,
-      developerModeEnabled: false,
+      debugViewEnabled: false,
       suspendDictationHotkeysInFullscreenApps: false,
       autoMuteSystemAudio: false,
       restoreClipboard: true,

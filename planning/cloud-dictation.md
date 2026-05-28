@@ -61,7 +61,7 @@ The exact Whisper model remains visible as secondary text. Beginner modes should
 ## Live Preview
 
 - Live Preview appears in the recording overlay.
-- Main-window details are limited to developer/debug surfaces.
+- Main-window details are limited to Debug surfaces.
 - Overlay shows a rolling 3-5 line preview of completed turns plus the current provisional turn.
 - Provisional partial text is visually distinct from completed Transcript Turns.
 - When recording stops, the overlay remains visible in a Finalizing state until insertion succeeds or fails.
