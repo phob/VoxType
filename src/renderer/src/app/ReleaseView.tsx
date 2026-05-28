@@ -69,13 +69,13 @@ export function ReleaseView(props: ReadyAppViewProps): ReactElement {
             {isDeveloperBuild ? (
               <button
                 className="release-developer-link"
-                onClick={() => void updateSettings({ developerModeEnabled: true })}
+                onClick={() => void updateSettings({ debugViewEnabled: true })}
                 type="button"
               >
                 <span className="release-nav-icon" aria-hidden="true">
                   <ReleaseIcon name="code" decorative />
                 </span>
-                <span>Developer</span>
+                <span>Debug</span>
               </button>
             ) : null}
             <button

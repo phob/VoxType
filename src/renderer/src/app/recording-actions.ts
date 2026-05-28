@@ -15,7 +15,7 @@ import { type AppState } from "./app-state";
 import { type RecordingActionContext, type RecordingActions } from "./app-types";
 
 export function useRecordingActions(ctx: RecordingActionContext): RecordingActions {
-  const { currentTarget, hotkeyOcrContextRef, hotkeySessionIdRef, hotkeyTargetRef, latestOcrContext, latestTranscript, recorderRef, recording, recordingStopHotkeyRef, state, systemAudioMutedByVoxTypeRef, setBusyMessage, setError, setInsertionTestResult, setLastRecordingResult, setLatestOcrContext, setRecording, setRetranscribingTranscriptId, setState, clearCloudSessionLimitTimer, startCloudSessionLimitTimer } = ctx;
+  const { currentTarget, hotkeyOcrContextRef, hotkeySessionIdRef, hotkeyTargetRef, isDeveloperBuild, latestOcrContext, latestTranscript, recorderRef, recording, recordingStopHotkeyRef, state, systemAudioMutedByVoxTypeRef, setBusyMessage, setError, setInsertionTestResult, setLastRecordingResult, setLatestOcrContext, setRecording, setRetranscribingTranscriptId, setState, clearCloudSessionLimitTimer, startCloudSessionLimitTimer } = ctx;
 
   async function startRecording(): Promise<void> {
     setError(null);
@@ -60,6 +60,7 @@ export function useRecordingActions(ctx: RecordingActionContext): RecordingActio
       }
 
       recorderRef.current = await startNativePcmRecorder(state.settings, {
+        isDeveloperBuild,
         realtimePcm16Enabled: readiness.modeId === "openai.realtime"
       });
 

@@ -11,18 +11,18 @@ import {
   gpuFitLabel,
   pngBytesToDataUrl,
 } from "./app-helpers";
-import { devTabs, profileWhisperLanguageOptions } from "./app-options";
-import { DeveloperDictationSection } from "./DeveloperDictationSection";
-import { DeveloperSettingsSection } from "./DeveloperSettingsSection";
+import { debugTabs, profileWhisperLanguageOptions } from "./app-options";
+import { DebugDictationSection } from "./DebugDictationSection";
+import { DebugSettingsSection } from "./DebugSettingsSection";
 import { type ReadyAppViewProps } from "./app-types";
 
-export function DeveloperView(props: ReadyAppViewProps): ReactElement {
+export function DebugView(props: ReadyAppViewProps): ReactElement {
   const { activeModel, activeTab, appStatus, applyDetectedAppAsInsertionTarget, busyMessage, captureInsertionTarget, captureScreenshot, clearDictionaryForm, confirmingDeleteModelId, currentTarget, deleteModel, dictionaryAppProcess, dictionaryCategory, dictionaryMatches, dictionaryPreferred, downloadModel, editingDictionaryEntryId, error, exactLocalModelSettingsPatch, fixLastText, insertionTarget, insertionTestResult, insertionTestText, installRuntime, installSpecificRuntime, latestOcrResult, latestScreenshot, latestTranscript, learnFixLastDictation, recognizeLatestScreenshot, recording, refreshActiveWindow, refreshHardware, removeDictionaryEntry, runInsertionTest, saveDictionaryEntry, screenshotMode, selectDictionaryEntry, setActiveTab, setDictionaryAppProcess, setDictionaryCategory, setDictionaryMatches, setDictionaryPreferred, setFixLastText, setInsertionTestText, setScreenshotMode, setupFirstRunCuda, startRecording, state, stopAndTranscribe, toggleDictionaryEntry, updateAppProfile, updateSettings, version } = props;
   return (
     <main className="dev-shell">
-      <WindowTitleBar title="VoxType Dev" />
+      <WindowTitleBar title="VoxType Debug" />
       <header className="dev-toolbar">
-        <div className="app-title">VoxType Dev</div>
+        <div className="app-title">VoxType Debug</div>
         <div className="toolbar-status">
           <span className={recording ? "status-dot status-dot-recording" : "status-dot"} />
           <code>{appStatus}</code>
@@ -49,8 +49,8 @@ export function DeveloperView(props: ReadyAppViewProps): ReactElement {
         <button onClick={() => void refreshActiveWindow()} type="button">
           Refresh
         </button>
-        <button onClick={() => void updateSettings({ developerModeEnabled: false })} type="button">
-          ExitDev
+        <button onClick={() => void updateSettings({ debugViewEnabled: false })} type="button">
+          ExitDebug
         </button>
       </header>
 
@@ -61,8 +61,8 @@ export function DeveloperView(props: ReadyAppViewProps): ReactElement {
         </div>
       ) : null}
 
-      <nav className="dev-tabs" aria-label="Developer tabs">
-        {devTabs.map((tab) => (
+      <nav className="dev-tabs" aria-label="Debug tabs">
+        {debugTabs.map((tab) => (
           <button
             className={activeTab === tab.id ? "active" : ""}
             key={tab.id}
@@ -75,7 +75,7 @@ export function DeveloperView(props: ReadyAppViewProps): ReactElement {
       </nav>
 
       <section className="dev-panel">
-        <DeveloperDictationSection {...props} />
+        <DebugDictationSection {...props} />
         {activeTab === "models" ? (
           <div className="stack">
             <section className="panel-block">
@@ -601,7 +601,7 @@ export function DeveloperView(props: ReadyAppViewProps): ReactElement {
           </div>
         ) : null}
 
-        <DeveloperSettingsSection {...props} />
+        <DebugSettingsSection {...props} />
         {activeTab === "logs" ? (
           <section className="panel-block">
             <h2>logs</h2>

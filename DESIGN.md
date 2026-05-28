@@ -113,14 +113,14 @@ components:
 
 VoxType should feel like a compact, trustworthy Windows utility that has been tuned for everyday setup confidence. The visual system is dark, restrained, and work-focused: it uses tonal panels, precise borders, small type, and cyan status accents to make local dictation feel ready without making the user manage internals.
 
-The release UI is beginner-friendly first. It should surface setup readiness, model state, hotkeys, profiles, and history in calm language, while dense diagnostics remain behind developer mode. The design must stay Windows-first and must not become a macOS clone: no traffic-light metaphors, frosted floating chrome, Apple-like settings mimicry, or generic AI SaaS polish.
+The release UI is beginner-friendly first. It should surface setup readiness, model state, hotkeys, profiles, and history in calm language, while dense diagnostics remain behind the Debug view in developer builds. The design must stay Windows-first and must not become a macOS clone: no traffic-light metaphors, frosted floating chrome, Apple-like settings mimicry, or generic AI SaaS polish.
 
 **Key Characteristics:**
 - Dense but readable utility layout.
 - Cyan accent used for action, focus, active navigation, and local-ready status.
 - Flat and layered depth through borders, tonal surfaces, and rare overlays.
 - Square-to-small-radius Windows geometry, never pill-heavy except toggles and status capsules.
-- Friendly setup language on release surfaces, precise diagnostics only in developer mode.
+- Friendly setup language on release surfaces, precise diagnostics only in the Debug view.
 
 ## 2. Colors
 
@@ -165,12 +165,12 @@ The palette is a muted dark Windows workbench with a clear cyan signal color and
 - **Title** (700, 0.92rem, 1.2): Panel titles, titlebar brand, navigation labels, and modal headings.
 - **Body** (400, 0.82rem, 1.45): Helper copy, setting explanations, row metadata, and empty states.
 - **Label** (650, 0.72rem, 1.2): Field labels, chips, table headers, timestamps, and compact metadata.
-- **Code** (400, 0.76rem, 1.45): Paths, model/runtime details, logs, OCR diagnostics, and developer-only technical values.
+- **Code** (400, 0.76rem, 1.45): Paths, model/runtime details, logs, OCR diagnostics, and debug-only technical values.
 
 ### Named Rules
 **The Utility Scale Rule.** Keep release surfaces compact. Do not use marketing-scale type inside product panels.
 
-**The Plain Label Rule.** Labels should name behavior, not implementation, unless the user is in developer mode.
+**The Plain Label Rule.** Labels should name behavior, not implementation, unless the user is in the Debug view.
 
 ## 4. Elevation
 
@@ -227,7 +227,7 @@ VoxType is flat and layered. Depth comes from dark tonal steps, 1px borders, ins
 ## 6. Do's and Don'ts
 
 ### Do:
-- **Do** keep the primary release experience beginner-friendly first, with expert diagnostics behind developer mode.
+- **Do** keep the primary release experience beginner-friendly first, with expert diagnostics behind the Debug view.
 - **Do** use cyan for action, focus, active state, and local-ready status.
 - **Do** explain setup blockers in plain language before exposing paths, runtimes, or helper internals.
 - **Do** keep panels flat by default, separated by borders and tonal dark surfaces.

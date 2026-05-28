@@ -4,7 +4,7 @@ import { type NativeInputDevice } from "../../../shared/windows-helper";
 import { whisperLanguageOptions } from "./app-options";
 import { type ReadyAppViewProps } from "./app-types";
 
-export function DeveloperSettingsSection(props: ReadyAppViewProps): ReactElement {
+export function DebugSettingsSection(props: ReadyAppViewProps): ReactElement {
   const { activeDictationMode, activeProviderLabel, activeTab, captureHotkey, capturingHotkey, clearHotkey, state, updateSettings } = props;
   return (
     <>
@@ -295,13 +295,13 @@ export function DeveloperSettingsSection(props: ReadyAppViewProps): ReactElement
               </label>
               <label className="checkbox-field">
                 <input
-                  checked={state.settings.developerModeEnabled}
+                  checked={state.settings.debugViewEnabled}
                   type="checkbox"
                   onChange={(event) =>
-                    void updateSettings({ developerModeEnabled: event.target.checked })
+                    void updateSettings({ debugViewEnabled: event.target.checked })
                   }
                 />
-                developerModeEnabled
+                debugViewEnabled
               </label>
               <label className="checkbox-field">
                 <input

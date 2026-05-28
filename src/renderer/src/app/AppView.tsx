@@ -13,11 +13,11 @@ import {
 } from "../../../shared/windows-helper";
 import { RecordingOverlay, WindowTitleBar } from "./app-helpers";
 import { ReleaseView } from "./ReleaseView";
-import { DeveloperView } from "./DeveloperView";
+import { DebugView } from "./DebugView";
 import { type HotkeyCaptureTarget } from "./app-helpers";
 import { deriveAppState } from "./app-derived-state";
 import { defaultOverlayState, type AppState } from "./app-state";
-import { type DevTab, type ReleaseModelFilter, type ReleaseTab } from "./app-options";
+import { type DebugTab, type ReleaseModelFilter, type ReleaseTab } from "./app-options";
 import { useSettingsActions } from "./settings-actions";
 import { useRecordingActions } from "./recording-actions";
 import { useProfileDictionaryActions } from "./profile-dictionary-actions";
@@ -84,7 +84,7 @@ export function ConnectedAppView(): ReactElement {
   const [retranscribingTranscriptId, setRetranscribingTranscriptId] = useState<string | null>(null);
   const [releaseTab, setReleaseTab] = useState<ReleaseTab>("general");
   const [releaseModelFilter, setReleaseModelFilter] = useState<ReleaseModelFilter>("all");
-  const [activeTab, setActiveTab] = useState<DevTab>("dictation");
+  const [activeTab, setActiveTab] = useState<DebugTab>("dictation");
   const [confirmingDeleteModelId, setConfirmingDeleteModelId] = useState<string | null>(null);
   const [confirmingDeleteProfileProcessName, setConfirmingDeleteProfileProcessName] = useState<
     string | null
@@ -455,9 +455,9 @@ export function AppView(props: AppViewProps): ReactElement {
 
   const readyProps = props as ReadyAppViewProps;
 
-  if (!state.settings.developerModeEnabled || !isDeveloperBuild) {
+  if (!state.settings.debugViewEnabled || !isDeveloperBuild) {
     return <ReleaseView {...readyProps} />;
   }
 
-  return <DeveloperView {...readyProps} />;
+  return <DebugView {...readyProps} />;
 }

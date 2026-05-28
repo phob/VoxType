@@ -52,23 +52,23 @@ Primary surfaces:
 - Profiles: detected app profiles with user-facing insertion method and writing style controls.
 - History: latest transcriptions with saved audio playback and cleanup for older entries.
 
-User-facing surfaces still worth promoting from developer mode:
+User-facing surfaces still worth promoting from the Debug view:
 
 - Dictionary: saved words, correction entries, and app-scoped vocabulary affect transcription quality directly and should become a simple user tab later.
 - Setup/Status: runtime, model, hotkey, and helper health should be summarized in friendly language when something blocks dictation.
 - Formatting/Dictation mode: once the transcript consistency layer exists, writing style should move beyond profiles into simple per-use or per-profile modes.
 
-Developer-only surfaces that should remain hidden:
+Debug-only surfaces that should remain hidden:
 
 - Raw OCR text, rejected OCR terms, prompt previews, helper paths, runtime executable paths, detailed VAD thresholds, insertion test tools, and low-level logs.
 
 UI principles:
 
 - Do not show a record button in the main app. VoxType recording is driven from outside the app through global hotkeys and target-app workflows.
-- Show developer builds with a `-dev` version suffix in the lower-left system card; installed builds use the plain release version and hide the Developer entry point.
+- Show developer builds with a `-dev` version suffix in the lower-left system card; installed builds use the plain release version and hide the Debug entry point.
 - Keep the main window fixed-size with no maximize control, and fade the UI in on startup.
 - Expose Start minimized as a simple General setting for users who want VoxType to launch as a tray icon; double-clicking that icon opens the main window.
-- Do not expose advanced implementation settings in the default UI. Keep dense settings, diagnostics, raw OCR, runtime paths, prompt previews, and low-level tuning behind developer mode.
+- Do not expose advanced implementation settings in the default UI. Keep dense settings, diagnostics, raw OCR, runtime paths, prompt previews, and low-level tuning behind the Debug view in developer builds.
 - Use the release component-system language for the default UI: compact cyan-accent buttons, icon buttons, inputs, chips, toggles, tabs, segmented controls, status badges, toast/tooltip styling, and card surfaces. The main user status summary stays in the lower-left sidebar rather than inside the primary status card.
 - Keep release UI primitives reusable across pages: dropdowns should use the custom release select when the native menu cannot match the design language; icon buttons should expose tooltips; model/status metadata should use chips and badges rather than ad hoc inline text.
 - Prefer safe, high-quality defaults. When a setting has an automatic fallback path, default to the strongest/highest-quality practical setting and let the app fall back internally when needed.
@@ -95,7 +95,7 @@ This helps with:
 Initial Phase 4 direction:
 
 - Keep OCR context optional and user-controllable through a simple enable/disable setting in the final UI.
-- Keep raw OCR text, rejected terms, prompt previews, and correction diagnostics in a developer/debug surface rather than the main user workflow.
+- Keep raw OCR text, rejected terms, prompt previews, and correction diagnostics in the Debug view rather than the main user workflow.
 - Accept that OCR will not perfectly fix every difficult visible word; the feature is valuable as a contextual assist, not a guaranteed correction system.
 
 ### Fix Last Dictation

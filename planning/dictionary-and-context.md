@@ -209,7 +209,7 @@ Initial implementation:
 ## Dictionary UI Ideas
 
 - The non-developer frontend includes a Dictionary tab for adding, editing, disabling, and deleting local dictionary entries.
-- The Dictionary tab shows the latest OCR terms as clickable chips so visible terms can be promoted into the permanent dictionary without entering developer mode.
+- The Dictionary tab shows the latest OCR terms as clickable chips so visible terms can be promoted into the permanent dictionary without entering the Debug view.
 - Add and edit forms should stay in modal dialogs on the non-developer page; the page itself should focus on scanning saved entries and recent OCR terms.
 - Add word manually.
 - Add selected text to dictionary.

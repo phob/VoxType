@@ -19,7 +19,7 @@ export type ReleaseTab =
 
 export type ReleaseModelFilter = "all" | "installed" | "available";
 
-export type DevTab =
+export type DebugTab =
   | "dictation"
   | "models"
   | "insertion"
@@ -90,7 +90,7 @@ export const profileCloudPromptPackOcrOptions: SelectOption<AppProfile["cloudPro
   { label: "Block", meta: "never include OCR terms for this profile", value: false }
 ];
 
-export const devTabs: { id: DevTab; label: string }[] = [
+export const debugTabs: { id: DebugTab; label: string }[] = [
   { id: "dictation", label: "Dictation" },
   { id: "models", label: "Models" },
   { id: "insertion", label: "Insertion" },

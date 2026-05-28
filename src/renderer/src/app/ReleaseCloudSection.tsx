@@ -9,7 +9,7 @@ import { realtimeLatencyPresetOptions } from "./app-options";
 import { type ReadyAppViewProps } from "./app-types";
 
 export function ReleaseCloudSection(props: ReadyAppViewProps): ReactElement {
-  const { activeDictationMode, activeProviderLabel, clearOpenAiApiKey, cloudModeGateLabel, cloudModeSelectionReady, normalizedCloudSessionMaxMinutes, openAiApiKeyDraft, previewCloudPromptPack, releaseTab, saveOpenAiApiKey, setOpenAiApiKeyDraft, state, testOpenAiConnection, updateSettings } = props;
+  const { activeDictationMode, activeProviderLabel, clearOpenAiApiKey, cloudModeGateLabel, cloudModeSelectionReady, isDeveloperBuild, normalizedCloudSessionMaxMinutes, openAiApiKeyDraft, previewCloudPromptPack, releaseTab, saveOpenAiApiKey, setOpenAiApiKeyDraft, state, testOpenAiConnection, updateSettings } = props;
   return (
     <>
           {releaseTab === "cloud" && !state.settings.offlineMode ? (
@@ -132,7 +132,7 @@ export function ReleaseCloudSection(props: ReadyAppViewProps): ReactElement {
                     ))}
                   </select>
                 </label>
-                {state.settings.developerModeEnabled && state.settings.realtimeVadThresholdOverride !== null ? (
+                {isDeveloperBuild && state.settings.realtimeVadThresholdOverride !== null ? (
                   <label className="setting-row">
                     <span>
                       <strong>Legacy realtime VAD threshold</strong>
