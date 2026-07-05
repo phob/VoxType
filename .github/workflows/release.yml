@@ -166,7 +166,7 @@ jobs:
             } |
             Set-Content -Path $checksumPath -Encoding utf8
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: voxtype-windows-installer-${{ needs.prepare.outputs.version }}
           path: |
