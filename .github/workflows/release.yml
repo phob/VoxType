@@ -208,7 +208,7 @@ jobs:
 
       - name: publish release with manual notes
         if: ${{ inputs.release_notes != '' }}
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.prepare.outputs.tag }}
           target_commitish: ${{ needs.prepare.outputs.sha }}
@@ -225,7 +225,7 @@ jobs:
 
       - name: publish release with detailed generated notes
         if: ${{ inputs.release_notes == '' }}
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.prepare.outputs.tag }}
           target_commitish: ${{ needs.prepare.outputs.sha }}
