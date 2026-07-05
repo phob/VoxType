@@ -77,7 +77,7 @@
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
-    "@vitejs/plugin-react": "^5.2.0",
+    "@vitejs/plugin-react": "^6.0.0",
     "cross-env": "^10.1.0",
     "electron": "latest",
     "electron-builder": "^26.8.1",
