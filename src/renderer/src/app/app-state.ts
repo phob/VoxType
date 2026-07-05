@@ -4,6 +4,8 @@ import { type HotkeyStatus } from "../../../shared/hotkeys";
 import { type LocalModel } from "../../../shared/models";
 import { type OpenAiCredentialStatus } from "../../../shared/openai-credentials";
 import { type WhisperRuntime } from "../../../shared/runtimes";
+import { type SherpaModel } from "../../../shared/sherpa-models";
+import { type SherpaRuntime } from "../../../shared/sherpa-runtimes";
 import { type AppSettings } from "../../../shared/settings";
 import { type TranscriptEntry } from "../../../shared/transcripts";
 import {
@@ -26,6 +28,8 @@ export interface AppState {
   activeWindow: ActiveWindowInfo | null;
   hotkeys: HotkeyStatus | null;
   openaiCredentials: OpenAiCredentialStatus | null;
+  sherpaModels: SherpaModel[];
+  sherpaRuntimes: SherpaRuntime[];
 }
 
 export const defaultOverlayState: RecordingOverlayState = {

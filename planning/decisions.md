@@ -2,7 +2,28 @@
 
 Record important decisions here so future sessions do not reopen settled topics without a reason.
 
-## 2026-05-21: Treat GPT Realtime Whisper Prompt And Server VAD As Unsupported
+## 2026-07-05: Parakeet Engine Ships CPU-Default, Greedy, With Experimental Hotwords
+
+Decision:
+
+The local Parakeet engine (sherpa-onnx) ships with CPU as the default and only
+auto-selected backend; CUDA is a strictly explicit opt-in via
+`sherpaRuntimeBackend` and is never auto-promoted from a detected NVIDIA GPU the
+way Whisper's runtime is. Decoding is greedy by default; decode-time hotword
+biasing (`modified_beam_search`) is gated behind an experimental toggle that
+stays disabled unless the downloaded bundle actually contains `bpe.vocab`.
+Dictionary support for Parakeet flows through the existing `applyCorrections`
+post-processing, not decode-time hotwords. Whisper (`local.balanced`) remains
+the default engine.
+
+Reason:
+
+CUDA drags in the fragile CUDA 12.x + cuDNN 9.x DLL matrix and a ~300 MB runtime
+download, while Parakeet INT8 on CPU is already ~10x faster than Whisper for
+short push-to-talk utterances, so the CUDA win is marginal for most users.
+Parakeet + `modified_beam_search` has a documented ~20% empty/hallucination bug
+on Windows, and the published Parakeet v3 int8 bundle does not ship `bpe.vocab`,
+so greedy decoding plus `applyCorrections` is the reliable dictionary path.
 
 Decision:
 
@@ -136,11 +157,23 @@ The initial Release Please direction was useful for bootstrapping release thinki
 
 Decision:
 
+Superseded in part by `2026-05-29: Generate Detailed Release Notes From PR Release Notes Sections`.
+
 VoxType should use a stable-only manual GitHub Actions release workflow. The maintainer dispatches a release with an explicit version, CI synchronizes Electron and Rust helper versions, commits the version bump, tags that commit, builds the Windows installer, creates checksums, and publishes a draft GitHub Release. Release notes can be supplied manually for small patch releases or generated from PR labels when the history supports it.
 
 Reason:
 
 This keeps release publication intentional and avoids depending on Conventional Commits for changelog quality. Draft releases provide a review point before publication, and PR titles/labels describe product-level changes more cleanly than individual AI-assisted commits.
+
+## 2026-05-29: Generate Detailed Release Notes From PR Release Notes Sections
+
+Decision:
+
+When the stable release workflow is dispatched without manual notes, VoxType should generate a draft `RELEASE_NOTES.md` from merged PR metadata. The generator should use GitHub's generated notes as a fallback, then prefer each PR's `## Release Notes` section for user-facing detail. Optional PR subsections such as `### Fixed` and `### Changed` become grouped release sections; PRs without detailed notes fall back to title/author/link bullets.
+
+Reason:
+
+GitHub's built-in generated release notes are reliable for grouping PR titles, but they are too terse for user-facing hotfix context. PR bodies already carry the right human-written detail, and using that section keeps release notes intentional without reintroducing commit-message discipline or requiring fully manual changelog editing for every release.
 
 ## 2026-04-24: Store Settings In The Main Process
 
@@ -429,3 +462,13 @@ Local Whisper transcription should apply a final PCM16 WAV preparation step befo
 Reason:
 
 Re-transcribing the same 280-second saved WAV showed that VAD parity alone does not protect old or otherwise sparse audio once it reaches Whisper. The captured file contained roughly 50 seconds of active audio and about 230 seconds of low-energy audio, with silent spans up to 26.6 seconds. Capping silence before decoding removed the repetition loop on the captured sample, while the separate language fix makes VoxType's `auto` setting match `whisper-cli` behavior instead of silently defaulting to English.
+
+## 2026-07-04: Preserve Bounded Pauses In The Native VAD Again
+
+Decision:
+
+`SmoothedVad` must honor `--vad-preserved-pause-frames` (`vadPreservedPauseMs`, default 2000 ms): silence frames after detected speech are buffered up to that cap and flushed only when speech resumes, and sub-onset voice frames are buffered so speech onsets are never clipped. Trailing silence at the end of a recording is still dropped. This amends the strict-Handy-parity part of `2026-05-27: Keep WASAPI Exclusive Separate From Handy VAD Parity`; the sparse-file guard from `2026-05-27: Compact Sparse Local Whisper Audio Before Decoding` stays in place.
+
+Reason:
+
+The Handy-parity rewrite silently ignored the preserved-pause setting, so every pause longer than the ~450 ms hangover was butt-spliced out of the WAV. Local Whisper then decoded long recordings as dense, unnaturally joined speech, producing weird cuts and dropped or merged words around pauses. Bounded preserved pauses give Whisper natural segmentation cues without recreating the sparse-file repetition loop, because preserved silence is capped at 2 s in the VAD and at 1 s again by the local Whisper compaction step.

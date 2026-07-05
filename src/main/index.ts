@@ -20,8 +20,11 @@ import { buildCloudPromptPack } from "./prompt-pack";
 import { RealtimeAudioBuffer } from "./realtime-audio-buffer";
 import { RealtimeCloudHistoryService } from "./realtime-cloud-history-service";
 import { RealtimeCloudSession } from "./realtime-cloud-session";
+import { ParakeetAsrProvider } from "./parakeet-asr-provider";
 import { RuntimeService } from "./runtime-service";
 import { SettingsStore } from "./settings-store";
+import { SherpaModelService } from "./sherpa-model-service";
+import { SherpaRuntimeService } from "./sherpa-runtime-service";
 import { cleanupStartupStorage } from "./startup-cleanup";
 import { TranscriptionService } from "./transcription-service";
 import { UpdateService } from "./update-service";
@@ -58,6 +61,9 @@ const dictionaryStore = new DictionaryStore();
 const historyStore = new HistoryStore();
 const modelService = new ModelService(settingsStore);
 const runtimeService = new RuntimeService();
+const sherpaModelService = new SherpaModelService(settingsStore);
+const sherpaRuntimeService = new SherpaRuntimeService();
+const parakeetAsrProvider = new ParakeetAsrProvider();
 const hardwareService = new HardwareService();
 const windowsHelperService = new WindowsHelperService();
 const ocrService = new OcrService(windowsHelperService);
@@ -68,7 +74,10 @@ const transcriptionService = new TranscriptionService(
   settingsStore,
   historyStore,
   runtimeService,
-  dictionaryStore
+  dictionaryStore,
+  sherpaModelService,
+  sherpaRuntimeService,
+  parakeetAsrProvider
 );
 const realtimeCloudHistoryService = new RealtimeCloudHistoryService(dictionaryStore, historyStore);
 let activeRealtimeCloudSession: RealtimeCloudSession | null = null;
@@ -691,6 +700,17 @@ ipcMain.handle("openai:test-connection", async () => {
 ipcMain.handle("models:list", () => modelService.list());
 ipcMain.handle("models:download", (_event, modelId: string) => modelService.download(modelId));
 ipcMain.handle("models:delete", (_event, modelId: string) => modelService.delete(modelId));
+ipcMain.handle("sherpa-models:list", () => sherpaModelService.list());
+ipcMain.handle("sherpa-models:download", (_event, modelId: string) =>
+  sherpaModelService.download(modelId)
+);
+ipcMain.handle("sherpa-models:delete", (_event, modelId: string) =>
+  sherpaModelService.delete(modelId)
+);
+ipcMain.handle("sherpa-runtime:list", () => sherpaRuntimeService.listRuntimes());
+ipcMain.handle("sherpa-runtime:install", (_event, runtimeId?: string) =>
+  sherpaRuntimeService.installRuntime(runtimeId)
+);
 ipcMain.handle("runtime:get-whisper", () => runtimeService.getWhisperRuntime());
 ipcMain.handle("runtime:list-whisper", () => runtimeService.listWhisperRuntimes());
 ipcMain.handle("runtime:install-whisper", (_event, runtimeId?: string) =>

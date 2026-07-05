@@ -10,7 +10,7 @@ The release process should stay simple while the product is moving quickly:
 - maintainer-chosen version numbers
 - explicit version alignment across Electron and the Rust helper
 - GitHub Releases as the public changelog
-- generated release notes based on PR titles and labels, with manual editing allowed before sharing
+- generated release notes based on PR Release Notes sections, titles, and labels, with manual editing allowed before sharing
 
 The existing `planning/changelog.md` remains internal planning memory and should not be mixed with public release notes.
 
@@ -38,7 +38,17 @@ This deliberately keeps releases manual. A person decides when a release is read
 
 GitHub Releases are the public changelog.
 
-Release notes can be supplied manually when dispatching the workflow. If no manual notes are supplied, GitHub generates notes using `.github/release.yml`, which groups merged PRs by labels:
+Release notes can be supplied manually when dispatching the workflow. If no manual notes are supplied, CI generates detailed notes with `scripts/generate-detailed-release-notes.mjs`.
+
+The detailed generator:
+
+1. Asks GitHub for the normal generated notes, using `.github/release.yml` as the fallback/category baseline.
+2. Looks at merged PRs between the previous release tag and the new release target.
+3. Extracts each PR's `## Release Notes` section.
+4. Preserves optional `### Added`, `### Fixed`, `### Improved`, `### Changed`, `### Documentation`, and `### Internal Changes` subsections.
+5. Falls back to a standard PR-title bullet for PRs without detailed notes.
+
+The fallback GitHub categories are:
 
 - `feature` or `enhancement` -> Added
 - `bug` or `fix` -> Fixed
@@ -47,7 +57,7 @@ Release notes can be supplied manually when dispatching the workflow. If no manu
 - `build`, `ci`, `dependencies`, or `refactor` -> Internal Changes
 - `skip-changelog` -> excluded
 
-This means release-note quality should come from PR titles and labels, not individual commit messages.
+This means release-note quality should come from PR Release Notes sections, titles, and labels, not individual commit messages.
 
 For small patch releases that do not have merged PRs, use the manual release-notes input. GitHub generated notes may otherwise collapse to a compare link only.
 
@@ -58,7 +68,7 @@ For changes that should appear in public release notes:
 - Use a PR title that reads well as a user-facing changelog bullet.
 - Apply one relevant changelog label.
 - Use `skip-changelog` for internal work that should not appear in the release notes.
-- Keep the PR template's Release Notes section useful enough that the final draft GitHub Release can be edited quickly if needed.
+- Keep the PR template's Release Notes section useful enough to publish. Use optional `### Fixed`, `### Changed`, and similar subsections when a PR deserves multiple public bullets.
 
 Commit messages no longer need to follow Conventional Commits for the release system.
 

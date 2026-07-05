@@ -13,6 +13,8 @@ import { type OcrPromptContext } from "../shared/ocr-context";
 import { type OcrResult } from "../shared/ocr";
 import { type OpenAiCredentialStatus } from "../shared/openai-credentials";
 import { type WhisperRuntime } from "../shared/runtimes";
+import { type SherpaModel } from "../shared/sherpa-models";
+import { type SherpaRuntime } from "../shared/sherpa-runtimes";
 import {
   type AppProfile,
   type AppSettings,
@@ -100,6 +102,18 @@ const voxtype = {
       invoke<LocalModel[]>("models:download", modelId),
     delete: (modelId: string) =>
       invoke<LocalModel[]>("models:delete", modelId)
+  },
+  sherpaModels: {
+    list: () => invoke<SherpaModel[]>("sherpa-models:list"),
+    download: (modelId: string) =>
+      invoke<SherpaModel[]>("sherpa-models:download", modelId),
+    delete: (modelId: string) =>
+      invoke<SherpaModel[]>("sherpa-models:delete", modelId)
+  },
+  sherpaRuntime: {
+    list: () => invoke<SherpaRuntime[]>("sherpa-runtime:list"),
+    install: (runtimeId?: string) =>
+      invoke<SherpaRuntime>("sherpa-runtime:install", runtimeId)
   },
   runtime: {
     getWhisper: () => invoke<WhisperRuntime>("runtime:get-whisper"),

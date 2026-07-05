@@ -56,7 +56,9 @@ export function ConnectedAppView(): ReactElement {
     inputDevices: [],
     activeWindow: null,
     hotkeys: null,
-    openaiCredentials: null
+    openaiCredentials: null,
+    sherpaModels: [],
+    sherpaRuntimes: []
   });
   const [recording, setRecording] = useState(false);
   const [busyMessage, setBusyMessage] = useState<string | null>(null);

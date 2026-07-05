@@ -15,6 +15,7 @@
     "release:win": "bun run build:native:release && bun run dist:win",
     "release:version": "node scripts/sync-release-version.mjs",
     "changelog": "node scripts/generate-release-notes.mjs",
+    "changelog:detailed": "node scripts/generate-detailed-release-notes.mjs",
     "preview": "electron-vite preview",
     "typecheck": "tsc --noEmit",
     "verify:packaging": "node scripts/verify-packaging-config.mjs"

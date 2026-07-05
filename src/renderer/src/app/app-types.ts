@@ -8,6 +8,7 @@ import { type PcmRecorder, type PcmRecordingResult } from "../audio-recorder";
 import { type DictationMode, type DictationModeId } from "../../../shared/asr";
 import { type DictionaryEntry } from "../../../shared/dictionary";
 import { type LocalModel } from "../../../shared/models";
+import { type SherpaModel } from "../../../shared/sherpa-models";
 import { type OcrPromptContext } from "../../../shared/ocr-context";
 import { type OcrResult } from "../../../shared/ocr";
 import { type ProviderLanguageHint } from "../../../shared/provider-language";
@@ -37,6 +38,7 @@ export interface AppDerivedState {
   activeDictationMode: DictationMode;
   activeModeIsCloud: boolean;
   activeModel: LocalModel | undefined;
+  activeModelLabel: string;
   activeProviderLabel: string;
   activeProviderLanguageHint: ProviderLanguageHint | null;
   activeRuntimeLabel: string;
@@ -62,6 +64,7 @@ export interface AppDerivedState {
   realtimeModeSelectionReady: boolean;
   realtimeStreamingReady: boolean;
   releaseModels: LocalModel[];
+  releaseSherpaModels: SherpaModel[];
   runtimeReady: boolean;
   savedDictionaryTerms: Set<string>;
   selectedProfile: AppProfile | null;
@@ -111,6 +114,8 @@ export interface SettingsActions {
   installRuntime: () => Promise<void>;
   downloadModel: (modelId: string) => Promise<void>;
   deleteModel: (modelId: string) => Promise<void>;
+  downloadParakeetModel: (modelId: string) => Promise<void>;
+  deleteParakeetModel: (modelId: string) => Promise<void>;
 }
 
 export interface RecordingActions {

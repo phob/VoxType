@@ -6,12 +6,13 @@ import {
 import { type PromptPackCharacterLimit, type PromptPackTermLimit } from "./prompt-pack-limits";
 import { type RealtimeLatencyPreset, type WhisperLanguage } from "./settings";
 
-export type AsrProviderId = "local-whisper" | "openai";
+export type AsrProviderId = "local-whisper" | "local-parakeet" | "openai";
 export type DictationModeId =
   | "local.fast"
   | "local.balanced"
   | "local.accuracy"
   | "local.custom"
+  | "local.parakeet"
   | "openai.realtime"
   | "openai.accuracy"
   | "openai.economy";
@@ -127,6 +128,15 @@ export const dictationModes: DictationMode[] = [
     label: "Local custom",
     modelId: "custom",
     secondaryText: "Exact local Whisper model",
+    requiresCloudConsent: false
+  },
+  {
+    id: "local.parakeet",
+    providerId: "local-parakeet",
+    kind: "file",
+    label: "Local Parakeet",
+    modelId: "parakeet-tdt-0.6b-v3-int8",
+    secondaryText: "NVIDIA Parakeet TDT v3 (INT8)",
     requiresCloudConsent: false
   },
   {

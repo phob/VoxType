@@ -16,6 +16,7 @@ export const ocrTermModes = ["strict", "balanced", "broad"] as const;
 export const realtimeLatencyPresets = ["fast", "balanced", "accurate"] as const;
 export const whisperRuntimePreferences = ["auto", "cpu", "cuda", "vulkan"] as const;
 import { isDictationModeId, type DictationModeId } from "./asr";
+import { isSherpaRuntimeBackend, type SherpaRuntimeBackend } from "./sherpa-runtimes";
 
 export const whisperLanguages = [
   "auto",
@@ -73,6 +74,9 @@ export interface AppSettings {
   whisperRuntimeBackend: WhisperRuntimePreference;
   whisperLanguage: WhisperLanguage;
   whisperPromptOverride: string;
+  sherpaRuntimeBackend: SherpaRuntimeBackend;
+  parakeetHotwordsEnabled: boolean;
+  parakeetHotwordsScore: number;
   cloudDictationConsentAccepted: boolean;
   cloudDictationConsentAcceptedAt: string | null;
   cloudPromptPackOcrEnabled: boolean;
@@ -197,6 +201,18 @@ export function sanitizeSettings(
       typeof input.whisperPromptOverride === "string"
         ? input.whisperPromptOverride.slice(0, 2000)
         : defaults.whisperPromptOverride,
+    sherpaRuntimeBackend: isSherpaRuntimeBackend(input.sherpaRuntimeBackend)
+      ? input.sherpaRuntimeBackend
+      : defaults.sherpaRuntimeBackend,
+    parakeetHotwordsEnabled:
+      typeof input.parakeetHotwordsEnabled === "boolean"
+        ? input.parakeetHotwordsEnabled
+        : defaults.parakeetHotwordsEnabled,
+    parakeetHotwordsScore:
+      typeof input.parakeetHotwordsScore === "number" &&
+      Number.isFinite(input.parakeetHotwordsScore)
+        ? clamp(input.parakeetHotwordsScore, 0, 10)
+        : defaults.parakeetHotwordsScore,
     cloudDictationConsentAccepted:
       typeof input.cloudDictationConsentAccepted === "boolean"
         ? input.cloudDictationConsentAccepted
