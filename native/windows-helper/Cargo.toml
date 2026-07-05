@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 base64 = "0.22"
-cpal = "0.16"
+cpal = "0.18"
 hound = "3.5"
 image = { version = "0.25", default-features = false, features = ["png"] }
 rubato = "0.16"
