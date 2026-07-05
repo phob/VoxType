@@ -1,9 +1,23 @@
 # Planning Changelog
 
+## 2026-07-05
+
+- Implemented Phase 1 of the local Parakeet engine (`planning/parakeet-phase1-plan.md`): NVIDIA Parakeet TDT 0.6B v3 (INT8) as a new local, offline, batch dictation engine alongside Whisper, driven by the external `sherpa-onnx-offline.exe` CLI the same way the app already shells out to whisper.cpp.
+- Added parallel model and runtime catalogs (`src/shared/sherpa-models.ts`, `src/shared/sherpa-runtimes.ts`) plus services (`sherpa-model-service.ts`, `sherpa-runtime-service.ts`, `parakeet-asr-provider.ts`); pinned sherpa-onnx `v1.13.3` runtime binaries (CPU shared-MT + CUDA 12.x/cuDNN 9.x) and the Parakeet v3 int8 bundle after verifying the release asset names against GitHub.
+- Kept CUDA decoupled from Whisper's hardware auto-selection and left decode-time hotwords behind an experimental toggle that stays disabled unless the downloaded bundle actually ships `bpe.vocab` (it does not today), so dictionary support flows through the existing `applyCorrections` post-processing.
+- Added a `local.parakeet` dictation mode surfaced through the unified Models list (the Parakeet bundle downloads/activates like any other model row) plus the experimental hotwords toggle, over a dedicated `sherpa-models:*` / `sherpa-runtime:*` IPC surface. `.tar.bz2` bundles are extracted with the Windows built-in `tar.exe`.
+- Verified on NVIDIA hardware that the sherpa CUDA build is not self-contained (`onnxruntime_providers_cuda.dll` needs the CUDA Toolkit 12.x + cuDNN 9.x DLLs on PATH), so the CPU/CUDA selector was pulled from the UI — Parakeet runs CPU-only from the front end (`sherpaRuntimeBackend` stays `cpu`; CUDA remains a settings-only escape hatch). `formatParakeetError` now detects the missing-DLL failure and returns a short, actionable message.
+
+## 2026-07-04
+
+- Diagnosed weird transcript cuts around longer pauses in local dictation: the Handy-parity `SmoothedVad` rewrite dropped the preserved-pause behavior, so `vadPreservedPauseMs` was ignored and every pause beyond the hangover window was butt-spliced out of the audio Whisper decodes.
+- Restored bounded pause preservation in the native `SmoothedVad`: silence frames are buffered (capped at `vadPreservedPauseMs`, default 2 s) and flushed when speech resumes, giving local Whisper natural pause cues while the existing local-Whisper silence compaction still guards against sparse files.
+
 ## 2026-05-29
 
 - Clarified that the old dense interface is the Debug view, while developer mode means the local developer/preview build state.
 - Updated recording planning so capture mode is honored outside the Debug view, while disabling local VAD remains limited to developer builds.
+- Added detailed GitHub Release note generation from PR `## Release Notes` sections, with GitHub generated notes retained as the fallback.
 
 ## 2026-05-27
 

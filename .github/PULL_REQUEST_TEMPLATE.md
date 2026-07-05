@@ -4,7 +4,12 @@
 
 ## Release Notes
 
+<!--
 Use user-facing wording for changes that should appear in the public changelog.
+The release workflow copies this section into detailed GitHub Release notes.
+Group bullets under optional `### Added`, `### Fixed`, `### Improved`, `### Changed`,
+`### Documentation`, or `### Internal Changes` headings when that makes the notes clearer.
+-->
 
 -
 

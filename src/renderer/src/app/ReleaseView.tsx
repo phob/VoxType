@@ -4,6 +4,7 @@ import { dictationModes } from "../../../shared/asr";
 import { getDictationModeAvailability } from "../../../shared/dictation-mode-availability";
 import { currentOpenAiModeImplementationReadiness } from "../../../shared/openai-readiness";
 import { type LocalModel } from "../../../shared/models";
+import { type SherpaModel } from "../../../shared/sherpa-models";
 import { type TranscriptEntry } from "../../../shared/transcripts";
 import { type NativeInputDevice } from "../../../shared/windows-helper";
 import {
@@ -26,8 +27,9 @@ import { ReleaseDictionarySection } from "./ReleaseDictionarySection";
 import { type ReadyAppViewProps, type SetupStep } from "./app-types";
 
 export function ReleaseView(props: ReadyAppViewProps): ReactElement {
-  const { activeDictationMode, activeModel, activeProviderLanguageHint, activeRuntimeLabel, appStatus, busyMessage, captureHotkey, capturingHotkey, clearHotkey, cloudModeSelectionReady, confirmingDeleteModelId, copyTranscript, deleteModel, dictationModeSettingsPatch, downloadModel, error, exactLocalModelSettingsPatch, handleUpdateButtonClick, insertTranscript, isDeveloperBuild, manualUpdateCooldownSeconds, playingTranscriptId, playTranscriptAudio, readinessDetail, readinessTitle, readyToDictate, realtimeModeSelectionReady, recording, releaseModelFilter, releaseModels, releaseTab, releaseTooltip, retranscribingTranscriptId, setReleaseModelFilter, setReleaseTab, setReleaseTooltip, setupSteps, state, transcribeSavedTranscript, updateButtonDisabled, updateButtonLabel, updateSettings, updateStatus, version } = props;
+  const { activeDictationMode, activeModelLabel, activeProviderLanguageHint, activeRuntimeLabel, appStatus, busyMessage, captureHotkey, capturingHotkey, clearHotkey, cloudModeSelectionReady, confirmingDeleteModelId, copyTranscript, deleteModel, deleteParakeetModel, dictationModeSettingsPatch, downloadModel, downloadParakeetModel, error, exactLocalModelSettingsPatch, handleUpdateButtonClick, insertTranscript, isDeveloperBuild, manualUpdateCooldownSeconds, playingTranscriptId, playTranscriptAudio, readinessDetail, readinessTitle, readyToDictate, realtimeModeSelectionReady, recording, releaseModelFilter, releaseModels, releaseSherpaModels, releaseTab, releaseTooltip, retranscribingTranscriptId, setReleaseModelFilter, setReleaseTab, setReleaseTooltip, setupSteps, state, transcribeSavedTranscript, updateButtonDisabled, updateButtonLabel, updateSettings, updateStatus, version } = props;
   const incompleteSetupSteps = setupSteps.filter((step: SetupStep) => !step.ready);
+  const parakeetHotwordsAvailable = state.sherpaModels.some((model) => model.hotwordsAvailable);
   const readinessPanelClassName = [
     "release-panel",
     "release-readiness-panel",
@@ -212,7 +214,7 @@ export function ReleaseView(props: ReadyAppViewProps): ReactElement {
                 </div>
                 <div>
                   <dt>Model</dt>
-                  <dd>{activeModel?.name ?? state.settings.activeModelId}</dd>
+                  <dd>{activeModelLabel}</dd>
                 </div>
                 <div>
                   <dt>Acceleration</dt>
@@ -582,8 +584,81 @@ export function ReleaseView(props: ReadyAppViewProps): ReactElement {
                   </div>
                 </article>
               ))}
-              {!releaseModels.length ? <p className="empty-state">No models match this filter.</p> : null}
+              {releaseSherpaModels.map((model: SherpaModel) => (
+                <article className="model-row" key={model.id}>
+                  <div>
+                    <strong>{model.name}</strong>
+                    <div className="release-chip-row">
+                      <ReleaseChip>{model.language}</ReleaseChip>
+                      <ReleaseChip>{model.sizeLabel}</ReleaseChip>
+                      <ReleaseChip tone={model.status === "downloaded" ? "success" : "neutral"}>
+                        {model.status === "downloaded" ? "Installed" : "Available"}
+                      </ReleaseChip>
+                    </div>
+                    <small>{model.description}</small>
+                  </div>
+                  <div className="model-actions">
+                    <button
+                      className="release-secondary-button"
+                      disabled={state.settings.dictationModeId === "local.parakeet"}
+                      onClick={() => void updateSettings(dictationModeSettingsPatch("local.parakeet"))}
+                      type="button"
+                    >
+                      {state.settings.dictationModeId === "local.parakeet" ? "Active" : "Use"}
+                    </button>
+                    <button
+                      className="release-primary-button"
+                      disabled={model.status === "downloaded" || Boolean(busyMessage)}
+                      onClick={() => void downloadParakeetModel(model.id)}
+                      type="button"
+                    >
+                      {model.status !== "downloaded" ? (
+                        <Download aria-hidden="true" className="release-icon-svg" />
+                      ) : null}
+                      {model.status === "downloaded" ? "Installed" : "Download"}
+                    </button>
+                    <button
+                      className={
+                        confirmingDeleteModelId === model.id
+                          ? "release-destructive-button"
+                          : "release-icon-button"
+                      }
+                      disabled={model.status !== "downloaded" || Boolean(busyMessage)}
+                      aria-label={confirmingDeleteModelId === model.id ? `Confirm delete ${model.name}` : `Delete ${model.name}`}
+                      data-tooltip={confirmingDeleteModelId === model.id ? "Confirm delete" : "Delete model"}
+                      onClick={() => void deleteParakeetModel(model.id)}
+                      type="button"
+                    >
+                      {confirmingDeleteModelId === model.id ? "Confirm" : <Trash2 aria-hidden="true" className="release-icon-svg" />}
+                    </button>
+                  </div>
+                </article>
+              ))}
+              {!releaseModels.length && !releaseSherpaModels.length ? <p className="empty-state">No models match this filter.</p> : null}
             </div>
+            <label className="setting-row">
+              <span>
+                <strong>Parakeet decode-time hotword biasing (experimental)</strong>
+                <small>
+                  May occasionally produce empty or wrong results on Windows. Dictionary corrections
+                  still apply regardless.
+                </small>
+                {!parakeetHotwordsAvailable ? (
+                  <small>
+                    Unavailable: this model build ships no bpe.vocab, which decode-time
+                    biasing requires.
+                  </small>
+                ) : null}
+              </span>
+              <input
+                checked={state.settings.parakeetHotwordsEnabled}
+                disabled={!parakeetHotwordsAvailable}
+                type="checkbox"
+                onChange={(event) =>
+                  void updateSettings({ parakeetHotwordsEnabled: event.target.checked })
+                }
+              />
+            </label>
           </section>
         ) : null}
 

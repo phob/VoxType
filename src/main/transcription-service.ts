@@ -30,9 +30,12 @@ import { DictionaryStore } from "./dictionary-store";
 import { HistoryStore } from "./history-store";
 import { OpenAiFileAsrProvider } from "./openai-asr-provider";
 import { OpenAiCredentialStore } from "./openai-credential-store";
+import { ParakeetAsrProvider, type ParakeetHotwords } from "./parakeet-asr-provider";
 import { buildCloudPromptPack } from "./prompt-pack";
 import { RuntimeService } from "./runtime-service";
 import { SettingsStore } from "./settings-store";
+import { SherpaModelService } from "./sherpa-model-service";
+import { SherpaRuntimeService } from "./sherpa-runtime-service";
 import { compactLongSilencesInPcm16Wav } from "./wav-pcm";
 
 const execFileAsync = promisify(execFile);
@@ -43,6 +46,9 @@ export class TranscriptionService {
     private readonly historyStore: HistoryStore,
     private readonly runtimeService: RuntimeService,
     private readonly dictionaryStore: DictionaryStore,
+    private readonly sherpaModelService = new SherpaModelService(settingsStore),
+    private readonly sherpaRuntimeService = new SherpaRuntimeService(),
+    private readonly parakeetProvider = new ParakeetAsrProvider(),
     private readonly openAiCredentials = new OpenAiCredentialStore(),
     private readonly openAiFileProvider = new OpenAiFileAsrProvider(openAiCredentials)
   ) {}
@@ -70,6 +76,10 @@ export class TranscriptionService {
 
     if (isCloudDictationMode(mode.id)) {
       return this.transcribeCloudFile(audioBytes, mode, settings, profile, whisperLanguage, context, startedAt);
+    }
+
+    if (mode.providerId === "local-parakeet") {
+      return this.transcribeParakeetFile(audioBytes, mode, settings, context, startedAt);
     }
 
     if (!model) {
@@ -118,6 +128,14 @@ export class TranscriptionService {
 
     await mkdir(workDirectory, { recursive: true });
     await writeFile(audioPath, whisperAudioBytes);
+
+    console.info("[voxtype] transcribe", {
+      engine: "local-whisper",
+      modeId: mode.id,
+      modelId: model.id,
+      backend: settings.whisperRuntimeBackend,
+      executable
+    });
 
     try {
       const { stdout } = await execFileAsync(executable, args);
@@ -271,6 +289,130 @@ export class TranscriptionService {
     return { entry, promptContext: promptPack?.text ?? null };
   }
 
+  private async transcribeParakeetFile(
+    audioBytes: Uint8Array,
+    mode: DictationMode,
+    settings: AppSettings,
+    context: { processName?: string | null; ocrContext?: OcrPromptContext | null } | undefined,
+    startedAt: number
+  ): Promise<TranscriptionResult> {
+    const bundle = await this.sherpaModelService.resolveBundlePaths(mode.modelId);
+
+    if (!bundle) {
+      throw new Error(
+        "The Parakeet model is not downloaded. Download it in VoxType settings before using Local Parakeet."
+      );
+    }
+
+    const executablePath = await this.sherpaRuntimeService.getExecutablePath({
+      allowInstall: !settings.offlineMode,
+      backend: settings.sherpaRuntimeBackend
+    });
+
+    if (!executablePath) {
+      throw new Error(
+        "The sherpa-onnx runtime is not installed. Turn off offline mode to download it, or install it in VoxType settings."
+      );
+    }
+
+    console.info("[voxtype] transcribe", {
+      engine: "local-parakeet",
+      modeId: mode.id,
+      modelId: mode.modelId,
+      backend: settings.sherpaRuntimeBackend,
+      executable: executablePath
+    });
+
+    const id = randomUUID();
+    const workDirectory = join(app.getPath("temp"), "voxtype");
+    const generatedPromptContext = await this.dictionaryStore.buildPromptContext(
+      context?.processName,
+      context?.ocrContext?.terms
+    );
+
+    let hotwords: ParakeetHotwords | null = null;
+    let hotwordsFilePath: string | null = null;
+
+    try {
+      // Decode-time hotwords are experimental and require bpe.vocab, which is not
+      // part of the published bundle. Only build the hotwords file when the user
+      // opted in AND the vocab is actually present on disk.
+      if (settings.parakeetHotwordsEnabled && bundle.bpeVocab) {
+        const terms = promptContextToHotwordTerms(generatedPromptContext);
+
+        if (terms.length > 0) {
+          await mkdir(workDirectory, { recursive: true });
+          hotwordsFilePath = join(workDirectory, `${id}.hotwords.txt`);
+          await writeFile(hotwordsFilePath, `${terms.join("\n")}\n`, "utf8");
+          hotwords = {
+            filePath: hotwordsFilePath,
+            score: settings.parakeetHotwordsScore,
+            bpeVocabPath: bundle.bpeVocab
+          };
+        }
+      }
+
+      const result = await this.parakeetProvider.transcribe({
+        audioBytes,
+        executablePath,
+        bundle,
+        backend: settings.sherpaRuntimeBackend,
+        hotwords
+      });
+
+      const rawText = result.text.trim();
+      const normalizedText = normalizeTranscriptText(rawText);
+      const correction = await this.dictionaryStore.applyCorrections(
+        normalizedText,
+        context?.processName
+      );
+      const ocrCorrection = applyOcrTermCorrections(
+        correction.text,
+        context?.ocrContext?.terms ?? []
+      );
+      const text = ocrCorrection.text.trim();
+
+      if (!text) {
+        // Parakeet returns empty (not hallucinated) text on silence — surface it
+        // the same way the Whisper path does rather than inserting nothing.
+        throw new Error("Parakeet completed but returned no transcript text.");
+      }
+
+      console.info("[voxtype] transcribe done", {
+        engine: "local-parakeet",
+        modelId: mode.modelId,
+        backend: settings.sherpaRuntimeBackend,
+        hotwords: Boolean(hotwords),
+        characters: text.length,
+        durationMs: Date.now() - startedAt
+      });
+
+      const audioFileName = await this.historyStore.saveAudio(id, audioBytes);
+      const entry: TranscriptEntry = {
+        id,
+        text,
+        rawText: rawText !== text ? rawText : undefined,
+        correctionsApplied: correction.applied.length > 0 ? correction.applied : undefined,
+        ocrCorrectionsApplied:
+          ocrCorrection.applied.length > 0 ? ocrCorrection.applied : undefined,
+        audioFileName,
+        providerId: "local-parakeet",
+        dictationModeId: mode.id,
+        modelId: mode.modelId,
+        createdAt: new Date().toISOString(),
+        durationMs: Date.now() - startedAt
+      };
+
+      await this.historyStore.add(entry);
+
+      return { entry, promptContext: null };
+    } finally {
+      if (hotwordsFilePath) {
+        await rm(hotwordsFilePath, { force: true }).catch(() => undefined);
+      }
+    }
+  }
+
 }
 
 function cloudErrorCode(error: unknown): string {
@@ -330,6 +472,23 @@ function formatWhisperError(error: unknown, executable: string): string {
     "Install/build whisper.cpp and set the whisper executable path in VoxType settings.",
     detail
   ].join(" ");
+}
+
+// The dictionary store returns a Whisper-flavored prompt sentence
+// ("Relevant terms: a, b, c. Use these spellings..."). sherpa-onnx hotwords want
+// one raw phrase per line, so unwrap the terms segment back into a list.
+function promptContextToHotwordTerms(promptContext: string | null): string[] {
+  if (!promptContext) {
+    return [];
+  }
+
+  const match = /Relevant terms:\s*(.+?)\.\s*Use these spellings/i.exec(promptContext);
+  const list = match ? match[1] : promptContext;
+
+  return list
+    .split(",")
+    .map((term) => term.trim())
+    .filter(Boolean);
 }
 
 function normalizeTranscriptText(text: string): string {

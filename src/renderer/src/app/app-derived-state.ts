@@ -61,7 +61,22 @@ export function deriveAppState({
     state.settings?.whisperPromptOverride ?? ""
   );
   const activeDictationMode = getDictationMode(state.settings?.dictationModeId ?? "local.balanced");
+  const activeModeIsParakeet = activeDictationMode.providerId === "local-parakeet";
+  const activeParakeetModel = activeModeIsParakeet
+    ? state.sherpaModels.find((model) => model.id === activeDictationMode.modelId)
+    : undefined;
+  const parakeetRuntimeInstalled = state.sherpaRuntimes.some(
+    (runtime) =>
+      runtime.backend === (state.settings?.sherpaRuntimeBackend ?? "cpu") &&
+      runtime.status === "installed"
+  );
   const activeProviderLabel = activeDictationMode.providerId === "openai" ? "Cloud Dictation" : "Local dictation";
+  const activeModelLabel =
+    activeDictationMode.providerId === "openai"
+      ? activeDictationMode.secondaryText
+      : activeModeIsParakeet
+        ? (activeParakeetModel?.name ?? activeDictationMode.secondaryText)
+        : (activeModel?.name ?? state.settings?.activeModelId ?? "—");
   const appStatus = error ? "Error" : recording ? "Recording" : busyMessage ?? "Ready";
   const normalizedCloudSessionMaxMinutes =
     state.settings?.cloudSessionMaxMs === null
@@ -70,9 +85,11 @@ export function deriveAppState({
           Math.round((state.settings?.cloudSessionMaxMs ?? 10 * 60000) / 60000),
           Math.round((state.settings?.cloudSessionWarnMs ?? 5 * 60000) / 60000)
         );
-  const activeRuntimeLabel = state.runtime
-    ? `${state.runtime.backend.toUpperCase()} · ${state.runtime.status}`
-    : "Runtime not ready";
+  const activeRuntimeLabel = activeModeIsParakeet
+    ? `${(state.settings?.sherpaRuntimeBackend ?? "cpu").toUpperCase()} · ${parakeetRuntimeInstalled ? "installed" : "not installed"}`
+    : state.runtime
+      ? `${state.runtime.backend.toUpperCase()} · ${state.runtime.status}`
+      : "Runtime not ready";
   const openAiModesReadyForRelease = areAllOpenAiModesReadyForRelease(
     currentOpenAiModeImplementationReadiness
   );
@@ -106,8 +123,19 @@ export function deriveAppState({
     : state.settings?.cloudFileAudioHistoryEnabled
       ? "Non-realtime cloud processed WAV audio will be saved in history; realtime cloud audio is never saved."
       : "Cloud processed WAV audio history is off; realtime cloud audio is never saved.";
-  const modelReady = activeModeIsCloud || activeModel?.status === "downloaded";
-  const runtimeReady = activeModeIsCloud || state.runtime?.status === "installed";
+  // The sherpa runtime downloads on demand at first transcription, so it counts
+  // as ready when already installed or when online download is permitted.
+  const parakeetRuntimeReady = parakeetRuntimeInstalled || !state.settings?.offlineMode;
+  const modelReady = activeModeIsCloud
+    ? true
+    : activeModeIsParakeet
+      ? activeParakeetModel?.status === "downloaded"
+      : activeModel?.status === "downloaded";
+  const runtimeReady = activeModeIsCloud
+    ? true
+    : activeModeIsParakeet
+      ? parakeetRuntimeReady
+      : state.runtime?.status === "installed";
   const hotkeyReady = Boolean(state.settings?.dictationToggleHotkey.trim());
   const readyToDictate = modelReady && runtimeReady && cloudSetupReady && hotkeyReady && !error;
   const readinessTitle = error
@@ -125,10 +153,14 @@ export function deriveAppState({
       id: "model",
       label: "Choose a model",
       detail: activeModeIsCloud
-        ? "Cloud mode uses OpenAI instead of a local Whisper model."
-        : modelReady
-          ? (activeModel?.name ?? "Model ready")
-          : "Download a local Whisper model.",
+        ? "Cloud mode uses OpenAI instead of a local model."
+        : activeModeIsParakeet
+          ? modelReady
+            ? (activeParakeetModel?.name ?? "Model ready")
+            : "Download the Parakeet model."
+          : modelReady
+            ? (activeModel?.name ?? "Model ready")
+            : "Download a local Whisper model.",
       ready: modelReady,
       tab: "models" as ReleaseTab
     },
@@ -146,9 +178,15 @@ export function deriveAppState({
       label: "Speech engine",
       detail: activeModeIsCloud
         ? "Cloud mode does not require a local whisper.cpp runtime."
-        : runtimeReady
-          ? activeRuntimeLabel
-          : "Install or select a local runtime.",
+        : activeModeIsParakeet
+          ? parakeetRuntimeInstalled
+            ? activeRuntimeLabel
+            : state.settings?.offlineMode
+              ? "Turn off Offline Mode to download the Parakeet runtime."
+              : "The Parakeet runtime downloads automatically on first use."
+          : runtimeReady
+            ? activeRuntimeLabel
+            : "Install or select a local runtime.",
       ready: runtimeReady,
       tab: "models" as ReleaseTab
     },
@@ -168,6 +206,17 @@ export function deriveAppState({
     }
   ];
   const releaseModels = state.models.filter((model) => {
+    if (releaseModelFilter === "installed") {
+      return model.status === "downloaded";
+    }
+
+    if (releaseModelFilter === "available") {
+      return model.status !== "downloaded";
+    }
+
+    return true;
+  });
+  const releaseSherpaModels = state.sherpaModels.filter((model) => {
     if (releaseModelFilter === "installed") {
       return model.status === "downloaded";
     }
@@ -205,6 +254,7 @@ export function deriveAppState({
     activeDictationMode,
     activeModeIsCloud,
     activeModel,
+    activeModelLabel,
     activeProviderLabel,
     activeProviderLanguageHint,
     activeRuntimeLabel,
@@ -230,6 +280,7 @@ export function deriveAppState({
     realtimeModeSelectionReady,
     realtimeStreamingReady,
     releaseModels,
+    releaseSherpaModels,
     runtimeReady,
     savedDictionaryTerms,
     selectedProfile,

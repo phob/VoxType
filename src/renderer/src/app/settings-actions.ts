@@ -32,7 +32,9 @@ export function useSettingsActions(ctx: BaseActionContext): SettingsActions {
       windowsHelper,
       inputDevices,
       hotkeys,
-      openaiCredentials
+      openaiCredentials,
+      sherpaModels,
+      sherpaRuntimes
     ] =
       await Promise.all([
       window.voxtype.getAppInfo(),
@@ -47,7 +49,9 @@ export function useSettingsActions(ctx: BaseActionContext): SettingsActions {
       window.voxtype.windowsHelper.status(),
       window.voxtype.windowsHelper.inputDevices().catch(() => []),
       window.voxtype.hotkeys.status(),
-      window.voxtype.openaiCredentials.getStatus()
+      window.voxtype.openaiCredentials.getStatus(),
+      window.voxtype.sherpaModels.list(),
+      window.voxtype.sherpaRuntime.list()
     ]);
 
     setVersion(appInfo.versionLabel);
@@ -65,7 +69,9 @@ export function useSettingsActions(ctx: BaseActionContext): SettingsActions {
       inputDevices,
       activeWindow: null,
       hotkeys,
-      openaiCredentials
+      openaiCredentials,
+      sherpaModels,
+      sherpaRuntimes
     });
   }
 
@@ -103,11 +109,20 @@ export function useSettingsActions(ctx: BaseActionContext): SettingsActions {
       await terminateActiveCloudDictationForOfflineMode();
     }
 
-    const [models, hotkeys] = await Promise.all([
+    const [models, hotkeys, sherpaModels, sherpaRuntimes] = await Promise.all([
       window.voxtype.models.list(),
-      window.voxtype.hotkeys.status()
+      window.voxtype.hotkeys.status(),
+      window.voxtype.sherpaModels.list(),
+      window.voxtype.sherpaRuntime.list()
     ]);
-    setState((current: AppState) => ({ ...current, settings, models, hotkeys }));
+    setState((current: AppState) => ({
+      ...current,
+      settings,
+      models,
+      hotkeys,
+      sherpaModels,
+      sherpaRuntimes
+    }));
   }
 
   async function saveOpenAiApiKey(): Promise<void> {
@@ -394,9 +409,57 @@ export function useSettingsActions(ctx: BaseActionContext): SettingsActions {
     }
   }
 
+  async function downloadParakeetModel(modelId: string): Promise<void> {
+    setError(null);
+    setBusyMessage("Downloading Parakeet model...");
 
-  return { 
-refresh, exactLocalModelSettingsPatch, dictationModeSettingsPatch, updateSettings, saveOpenAiApiKey, clearOpenAiApiKey, previewCloudPromptPack, testOpenAiConnection, clearCloudSessionLimitTimer, startCloudSessionLimitTimer, terminateActiveCloudDictationForOfflineMode, captureHotkey, clearHotkey, findDuplicateHotkey, checkForUpdates, installUpdate, handleUpdateButtonClick, installRuntime, downloadModel, deleteModel
+    try {
+      const sherpaModels = await window.voxtype.sherpaModels.download(modelId);
+      setState((current: AppState) => ({ ...current, sherpaModels }));
+    } catch (downloadError) {
+      setError(formatError(downloadError));
+    } finally {
+      setBusyMessage(null);
+    }
+  }
+
+  async function deleteParakeetModel(modelId: string): Promise<void> {
+    if (confirmingDeleteModelId !== modelId) {
+      setConfirmingDeleteModelId(modelId);
+
+      if (modelDeleteTimerRef.current !== null) {
+        window.clearTimeout(modelDeleteTimerRef.current);
+      }
+
+      modelDeleteTimerRef.current = window.setTimeout(() => {
+        setConfirmingDeleteModelId((current: string | null) => (current === modelId ? null : current));
+        modelDeleteTimerRef.current = null;
+      }, 3000);
+      return;
+    }
+
+    setError(null);
+    setBusyMessage("Deleting model...");
+
+    if (modelDeleteTimerRef.current !== null) {
+      window.clearTimeout(modelDeleteTimerRef.current);
+      modelDeleteTimerRef.current = null;
+    }
+
+    try {
+      const sherpaModels = await window.voxtype.sherpaModels.delete(modelId);
+      setState((current: AppState) => ({ ...current, sherpaModels }));
+      setConfirmingDeleteModelId(null);
+    } catch (deleteError) {
+      setError(formatError(deleteError));
+    } finally {
+      setBusyMessage(null);
+    }
+  }
+
+
+  return {
+refresh, exactLocalModelSettingsPatch, dictationModeSettingsPatch, updateSettings, saveOpenAiApiKey, clearOpenAiApiKey, previewCloudPromptPack, testOpenAiConnection, clearCloudSessionLimitTimer, startCloudSessionLimitTimer, terminateActiveCloudDictationForOfflineMode, captureHotkey, clearHotkey, findDuplicateHotkey, checkForUpdates, installUpdate, handleUpdateButtonClick, installRuntime, downloadModel, deleteModel, downloadParakeetModel, deleteParakeetModel
  };
 }
 

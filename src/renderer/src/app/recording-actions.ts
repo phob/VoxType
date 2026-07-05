@@ -30,9 +30,17 @@ export function useRecordingActions(ctx: RecordingActionContext): RecordingActio
     }
 
     const readinessMode = getDictationMode(readiness.modeId);
-    const readinessLocalModel = state.models.find((model: AppState["models"][number]) => model.id === readinessMode.modelId);
+    const localModelDownloaded =
+      readinessMode.providerId === "local-parakeet"
+        ? state.sherpaModels.some(
+            (model: AppState["sherpaModels"][number]) =>
+              model.id === readinessMode.modelId && model.status === "downloaded"
+          )
+        : state.models.find(
+            (model: AppState["models"][number]) => model.id === readinessMode.modelId
+          )?.status === "downloaded";
 
-    if (!readiness.cloud && readinessLocalModel?.status !== "downloaded") {
+    if (!readiness.cloud && !localModelDownloaded) {
       setError(`Download ${readinessMode.label} (${readinessMode.modelId}) before recording.`);
       return;
     }
@@ -282,14 +290,16 @@ export function useRecordingActions(ctx: RecordingActionContext): RecordingActio
         );
         await sendProfilePostTranscriptionHotkey(options.pasteTarget.processName);
       }
-      const [runtime, history, dictionary] = await Promise.all([
+      const [runtime, sherpaRuntimes, history, dictionary] = await Promise.all([
         window.voxtype.runtime.getWhisper(),
+        window.voxtype.sherpaRuntime.list(),
         window.voxtype.history.list(),
         window.voxtype.dictionary.list()
       ]);
       setState((current: AppState) => ({
         ...current,
         runtime,
+        sherpaRuntimes,
         dictionary,
         history: history.length > 0 ? history : [entry, ...current.history]
       }));
