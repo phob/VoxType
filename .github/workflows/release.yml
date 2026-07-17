@@ -31,7 +31,7 @@ jobs:
       tag: ${{ steps.version.outputs.tag }}
       sha: ${{ steps.commit.outputs.sha }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: main
           fetch-depth: 0
@@ -93,7 +93,7 @@ jobs:
     runs-on: windows-latest
     needs: prepare
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.tag }}
 
@@ -166,7 +166,7 @@ jobs:
             } |
             Set-Content -Path $checksumPath -Encoding utf8
 
-      - uses: actions/upload-artifact@v6
+      - uses: actions/upload-artifact@v7
         with:
           name: voxtype-windows-installer-${{ needs.prepare.outputs.version }}
           path: |
@@ -178,7 +178,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [prepare, windows-installer]
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.prepare.outputs.tag }}
           fetch-depth: 0
@@ -208,7 +208,7 @@ jobs:
 
       - name: publish release with manual notes
         if: ${{ inputs.release_notes != '' }}
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.prepare.outputs.tag }}
           target_commitish: ${{ needs.prepare.outputs.sha }}
@@ -225,7 +225,7 @@ jobs:
 
       - name: publish release with detailed generated notes
         if: ${{ inputs.release_notes == '' }}
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ needs.prepare.outputs.tag }}
           target_commitish: ${{ needs.prepare.outputs.sha }}
