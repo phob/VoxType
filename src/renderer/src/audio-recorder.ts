@@ -1,4 +1,9 @@
 import { type AppSettings } from "../../shared/settings";
+import {
+  defaultSpeechSegmentation,
+  speechDurationMs,
+  type SpeechSegment
+} from "../../shared/speech-segments";
 import { type NativeRecordingDiagnostics } from "../../shared/windows-helper";
 
 export interface PcmRecorder {
@@ -7,6 +12,7 @@ export interface PcmRecorder {
 
 export interface PcmRecordingResult {
   wavBytes: Uint8Array;
+  speechSegments: SpeechSegment[] | null;
   captureMode: "sharedCapture" | "exclusiveCapture";
   vad: VadTrimStats;
   diagnostics: NativeRecordingDiagnostics;
@@ -34,27 +40,26 @@ export async function startNativePcmRecorder(
     inputDeviceId: settings?.recordingInputDeviceId ?? "default",
     vadEnabled: allowVadToggle ? (settings?.vadEnabled ?? true) : true,
     realtimePcm16Enabled: options.realtimePcm16Enabled ?? false,
-    vadPositiveSpeechThreshold: settings?.vadPositiveSpeechThreshold ?? 0.3,
-    vadPreSpeechPadMs: settings?.vadPreSpeechPadMs ?? 450,
-    vadRedemptionMs: settings?.vadRedemptionMs ?? 450,
-    vadPreservedPauseMs: settings?.vadPreservedPauseMs ?? 2000
+    speechSegmentation: defaultSpeechSegmentation
   });
 
   return {
     stop: async () => {
       const result = await window.voxtype.windowsHelper.stopRecording();
       const originalDurationMs = samplesToMs(result.rawSamples, result.sampleRate);
-      const trimmedDurationMs = samplesToMs(result.samples, result.sampleRate);
-      const speechDetected = !result.vadEnabled || result.speechFrames > 0;
+      const segments = result.speechSegments;
+      const trimmedDurationMs = segments ? speechDurationMs(segments, result.sampleRate) : originalDurationMs;
+      const speechDetected = !segments || segments.length > 0;
 
       return {
         wavBytes: result.wavBytes,
+        speechSegments: segments,
         captureMode: result.captureMode,
         diagnostics: result.diagnostics,
         vad: {
           enabled: result.vadEnabled,
           model: "silero-v4-native",
-          speechSegments: result.vadEnabled ? result.speechFrames : result.samples > 0 ? 1 : 0,
+          speechSegments: segments ? segments.length : result.samples > 0 ? 1 : 0,
           originalDurationMs,
           trimmedDurationMs,
           removedDurationMs: Math.max(0, originalDurationMs - trimmedDurationMs),

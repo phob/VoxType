@@ -213,52 +213,6 @@ export function DebugSettingsSection(props: ReadyAppViewProps): ReactElement {
                   onChange={(event) => void updateSettings({ remoteTypingChunkSize: Number(event.target.value) })}
                 />
               </label>
-              <label className="dev-field">
-                <span>vadPositiveSpeechThreshold</span>
-                <input
-                  max={0.95}
-                  min={0.05}
-                  step={0.05}
-                  type="number"
-                  value={state.settings.vadPositiveSpeechThreshold}
-                  onChange={(event) =>
-                    void updateSettings({ vadPositiveSpeechThreshold: Number(event.target.value) })
-                  }
-                />
-              </label>
-              <label className="dev-field">
-                <span>vadNegativeSpeechThreshold</span>
-                <input
-                  max={0.9}
-                  min={0.01}
-                  step={0.05}
-                  type="number"
-                  value={state.settings.vadNegativeSpeechThreshold}
-                  onChange={(event) =>
-                    void updateSettings({ vadNegativeSpeechThreshold: Number(event.target.value) })
-                  }
-                />
-              </label>
-              <label className="dev-field">
-                <span>vadMinSpeechMs</span>
-                <input
-                  max={5000}
-                  min={50}
-                  type="number"
-                  value={state.settings.vadMinSpeechMs}
-                  onChange={(event) => void updateSettings({ vadMinSpeechMs: Number(event.target.value) })}
-                />
-              </label>
-              <label className="dev-field">
-                <span>vadPreSpeechPadMs</span>
-                <input
-                  max={1000}
-                  min={0}
-                  type="number"
-                  value={state.settings.vadPreSpeechPadMs}
-                  onChange={(event) => void updateSettings({ vadPreSpeechPadMs: Number(event.target.value) })}
-                />
-              </label>
               <label className="checkbox-field">
                 <input
                   checked={state.settings.restoreClipboard}

@@ -11,91 +11,7 @@ export function wavToMonoPcm16(
   return int16ArrayToBytes(resampled);
 }
 
-export function compactLongSilencesInPcm16Wav(
-  wavBytes: Uint8Array,
-  options: {
-    frameDurationMs?: number;
-    maxSilenceMs?: number;
-    silenceThresholdDb?: number;
-    trimEdges?: boolean;
-  } = {}
-): Uint8Array {
-  const source = parsePcm16Wav(wavBytes);
-  const frameDurationMs = options.frameDurationMs ?? 100;
-  const maxSilenceMs = options.maxSilenceMs ?? 1000;
-  const silenceThresholdDb = options.silenceThresholdDb ?? -45;
-  const frameSamples = Math.max(
-    source.channelCount,
-    Math.round(source.sampleRateHz * frameDurationMs / 1000) * source.channelCount
-  );
-  const maxSilentFrames = Math.max(1, Math.round(maxSilenceMs / frameDurationMs));
-  const frameCount = Math.ceil(source.samples.length / frameSamples);
-  const silentFrames: boolean[] = [];
-
-  for (let frameIndex = 0; frameIndex < frameCount; frameIndex += 1) {
-    const start = frameIndex * frameSamples;
-    const end = Math.min(start + frameSamples, source.samples.length);
-    silentFrames.push(isSilentPcm16Frame(source.samples, start, end, silenceThresholdDb));
-  }
-
-  let startFrame = 0;
-  let endFrame = frameCount;
-
-  if (options.trimEdges ?? true) {
-    while (startFrame < endFrame && silentFrames[startFrame]) {
-      startFrame += 1;
-    }
-
-    while (endFrame > startFrame && silentFrames[endFrame - 1]) {
-      endFrame -= 1;
-    }
-  }
-
-  if (startFrame >= endFrame) {
-    startFrame = 0;
-    endFrame = Math.min(frameCount, maxSilentFrames);
-  }
-
-  const chunks: Int16Array[] = [];
-  let keptSampleCount = 0;
-  let silentRunFrames = 0;
-
-  for (let frameIndex = startFrame; frameIndex < endFrame; frameIndex += 1) {
-    const isSilent = silentFrames[frameIndex];
-
-    if (isSilent) {
-      silentRunFrames += 1;
-
-      if (silentRunFrames > maxSilentFrames) {
-        continue;
-      }
-    } else {
-      silentRunFrames = 0;
-    }
-
-    const start = frameIndex * frameSamples;
-    const end = Math.min(start + frameSamples, source.samples.length);
-    const chunk = source.samples.subarray(start, end);
-    chunks.push(chunk);
-    keptSampleCount += chunk.length;
-  }
-
-  if (keptSampleCount === source.samples.length) {
-    return wavBytes;
-  }
-
-  const compacted = new Int16Array(keptSampleCount);
-  let offset = 0;
-
-  for (const chunk of chunks) {
-    compacted.set(chunk, offset);
-    offset += chunk.length;
-  }
-
-  return encodePcm16Wav(compacted, source.sampleRateHz, source.channelCount);
-}
-
-function parsePcm16Wav(wavBytes: Uint8Array): {
+export function parsePcm16Wav(wavBytes: Uint8Array): {
   sampleRateHz: number;
   channelCount: number;
   samples: Int16Array;
@@ -103,7 +19,7 @@ function parsePcm16Wav(wavBytes: Uint8Array): {
   const view = new DataView(wavBytes.buffer, wavBytes.byteOffset, wavBytes.byteLength);
 
   if (wavBytes.byteLength < 44 || readAscii(wavBytes, 0, 4) !== "RIFF" || readAscii(wavBytes, 8, 4) !== "WAVE") {
-    throw new Error("Realtime Cloud Dictation fallback audio was not a WAV file.");
+    throw new Error("Audio was not a WAV file.");
   }
 
   let offset = 12;
@@ -127,7 +43,7 @@ function parsePcm16Wav(wavBytes: Uint8Array): {
 
     if (chunkId === "fmt ") {
       if (chunkSize < 16) {
-        throw new Error("Realtime Cloud Dictation fallback WAV format chunk is invalid.");
+        throw new Error("WAV format chunk is invalid.");
       }
 
       format = {
@@ -145,15 +61,15 @@ function parsePcm16Wav(wavBytes: Uint8Array): {
   }
 
   if (!format) {
-    throw new Error("Realtime Cloud Dictation fallback WAV did not include a format chunk.");
+    throw new Error("WAV did not include a format chunk.");
   }
 
   if (format.audioFormat !== 1 || format.bitsPerSample !== 16 || format.channelCount < 1) {
-    throw new Error("Realtime Cloud Dictation fallback requires PCM16 WAV audio.");
+    throw new Error("Expected PCM16 WAV audio.");
   }
 
   if (dataOffset < 0 || dataSize < 2) {
-    throw new Error("Realtime Cloud Dictation fallback WAV did not include audio samples.");
+    throw new Error("WAV did not include audio samples.");
   }
 
   const sampleCount = Math.floor(dataSize / 2);
@@ -170,7 +86,7 @@ function parsePcm16Wav(wavBytes: Uint8Array): {
   };
 }
 
-function mixToMono(samples: Int16Array, channelCount: number): Int16Array {
+export function mixToMono(samples: Int16Array, channelCount: number): Int16Array {
   if (channelCount === 1) {
     return samples;
   }
@@ -197,7 +113,7 @@ function resampleLinear(
   targetSampleRateHz: number
 ): Int16Array {
   if (sourceSampleRateHz <= 0 || targetSampleRateHz <= 0) {
-    throw new Error("Realtime Cloud Dictation fallback WAV sample rate is invalid.");
+    throw new Error("WAV sample rate is invalid.");
   }
 
   const targetLength = Math.max(1, Math.round(samples.length * targetSampleRateHz / sourceSampleRateHz));
@@ -219,7 +135,7 @@ function int16ArrayToBytes(samples: Int16Array): Uint8Array {
   return new Uint8Array(samples.buffer, samples.byteOffset, samples.byteLength);
 }
 
-function encodePcm16Wav(
+export function encodePcm16Wav(
   samples: Int16Array,
   sampleRateHz: number,
   channelCount: number
@@ -248,29 +164,6 @@ function encodePcm16Wav(
   }
 
   return output;
-}
-
-function isSilentPcm16Frame(
-  samples: Int16Array,
-  start: number,
-  end: number,
-  silenceThresholdDb: number
-): boolean {
-  if (end <= start) {
-    return true;
-  }
-
-  let squareSum = 0;
-
-  for (let index = start; index < end; index += 1) {
-    const normalized = samples[index] / 32768;
-    squareSum += normalized * normalized;
-  }
-
-  const rms = Math.sqrt(squareSum / (end - start));
-  const db = rms > 0 ? 20 * Math.log10(rms) : -120;
-
-  return db < silenceThresholdDb;
 }
 
 function readAscii(bytes: Uint8Array, offset: number, length: number): string {

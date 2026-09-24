@@ -241,10 +241,10 @@
         chunk: &[f32],
         resampler: &mut FrameResampler,
         frame_emitter: &mut FrameEmitter,
-        mut vad: Option<&mut SmoothedVad>,
+        mut vad: Option<&mut SileroVad>,
         samples: &mut Vec<f32>,
         raw_samples: &mut usize,
-        speech_frames: &mut usize,
+        vad_probabilities: &mut Vec<u8>,
         level_meter: &mut LevelMeter,
         realtime_resampler: Option<&mut FrameResampler>,
     ) {
@@ -258,7 +258,7 @@
         resampler.push(chunk, &mut |resampled| {
             *raw_samples += resampled.len();
             frame_emitter.push(resampled, &mut |frame| {
-                process_vad_frame(frame, vad.as_deref_mut(), samples, speech_frames);
+                process_vad_frame(frame, vad.as_deref_mut(), samples, vad_probabilities);
             });
         });
     }
@@ -345,28 +345,30 @@
         peak: f32,
     }
 
+    /// Keeps every frame and records the Silero speech probability for it (quantized to u8).
+    /// Speech segmentation happens later on the full recording, so nothing is cut here.
     fn process_vad_frame(
         frame: &[f32],
-        vad: Option<&mut SmoothedVad>,
+        vad: Option<&mut SileroVad>,
         samples: &mut Vec<f32>,
-        speech_frames: &mut usize,
+        vad_probabilities: &mut Vec<u8>,
     ) {
+        samples.extend_from_slice(frame);
+
         if let Some(vad) = vad {
-            match vad.push_frame(frame) {
-                Ok(Some(speech)) => {
-                    *speech_frames += speech.len() / VAD_FRAME_SAMPLES;
-                    samples.extend_from_slice(&speech);
-                }
-                Ok(None) => {}
-                Err(error) => {
-                    eprintln!("VAD frame failed, keeping frame: {error}");
-                    *speech_frames += 1;
-                    samples.extend_from_slice(frame);
-                }
-            }
-        } else {
-            samples.extend_from_slice(frame);
+            let probability = vad.probability(frame).unwrap_or_else(|error| {
+                eprintln!("VAD frame failed, treating it as speech: {error}");
+                1.0
+            });
+            vad_probabilities.push((probability.clamp(0.0, 1.0) * 255.0).round() as u8);
         }
+    }
+
+    fn count_speech_frames(vad_probabilities: &[u8]) -> usize {
+        vad_probabilities
+            .iter()
+            .filter(|probability| **probability >= 128)
+            .count()
     }
 
     fn get_preferred_input_config(
@@ -417,7 +419,8 @@
 
         for device in devices {
             let device_name = device
-                .name()
+                .description()
+                .map(|description| description.name().to_string())
                 .map_err(|error| format!("Could not read input device name: {error}"))?;
 
             if device_name == requested {
@@ -448,7 +451,7 @@
     {
         device
             .build_input_stream(
-                &config.clone().into(),
+                config.clone().into(),
                 move |data: &[T], _| {
                     let mut output = Vec::with_capacity(data.len() / channels.max(1));
 
@@ -535,22 +538,56 @@
     }
 
     struct FrameResampler {
-        resampler: Option<FftFixedIn<f32>>,
+        resampler: Option<Fft<f32>>,
         chunk_in: usize,
         in_buf: Vec<f32>,
+        out_buf: Vec<f32>,
     }
 
     impl FrameResampler {
         fn new(input_rate: usize, output_rate: usize) -> Self {
             let resampler = (input_rate != output_rate).then(|| {
-                FftFixedIn::<f32>::new(input_rate, output_rate, RESAMPLER_CHUNK_SIZE, 1, 1)
-                    .expect("create resampler")
+                Fft::<f32>::new_custom(
+                    input_rate,
+                    output_rate,
+                    RESAMPLER_CHUNK_SIZE,
+                    1,
+                    1,
+                    WindowFunction::BlackmanHarris2,
+                    FixedSync::Input,
+                )
+                .expect("create resampler")
             });
+            let chunk_in = resampler
+                .as_ref()
+                .map_or(RESAMPLER_CHUNK_SIZE, |resampler| resampler.input_frames_next());
+            let out_len = resampler
+                .as_ref()
+                .map_or(0, |resampler| resampler.output_frames_max());
 
             Self {
                 resampler,
-                chunk_in: RESAMPLER_CHUNK_SIZE,
-                in_buf: Vec::with_capacity(RESAMPLER_CHUNK_SIZE),
+                chunk_in,
+                in_buf: Vec::with_capacity(chunk_in),
+                out_buf: vec![0.0; out_len],
+            }
+        }
+
+        fn process_in_buf(&mut self, emit: &mut impl FnMut(&[f32])) {
+            let Some(resampler) = self.resampler.as_mut() else {
+                return;
+            };
+            let Ok(input) = InterleavedSlice::new(&self.in_buf, 1, self.chunk_in) else {
+                return;
+            };
+            let out_capacity = self.out_buf.len();
+            let Ok(mut output) = InterleavedSlice::new_mut(&mut self.out_buf, 1, out_capacity)
+            else {
+                return;
+            };
+
+            if let Ok((_, frames_out)) = resampler.process_into_buffer(&input, &mut output, None) {
+                emit(&self.out_buf[..frames_out]);
             }
         }
 
@@ -567,28 +604,17 @@
                 input = &input[count..];
 
                 if self.in_buf.len() == self.chunk_in {
-                    if let Ok(output) = self
-                        .resampler
-                        .as_mut()
-                        .unwrap()
-                        .process(&[&self.in_buf], None)
-                    {
-                        emit(&output[0]);
-                    }
+                    self.process_in_buf(emit);
                     self.in_buf.clear();
                 }
             }
         }
 
         fn finish(&mut self, emit: &mut impl FnMut(&[f32])) {
-            if let Some(resampler) = self.resampler.as_mut() {
-                if !self.in_buf.is_empty() {
-                    self.in_buf.resize(self.chunk_in, 0.0);
-                    if let Ok(output) = resampler.process(&[&self.in_buf], None) {
-                        emit(&output[0]);
-                    }
-                    self.in_buf.clear();
-                }
+            if self.resampler.is_some() && !self.in_buf.is_empty() {
+                self.in_buf.resize(self.chunk_in, 0.0);
+                self.process_in_buf(emit);
+                self.in_buf.clear();
             }
         }
     }
@@ -629,31 +655,19 @@
         }
     }
 
-    trait VoiceActivityDetector: Send {
-        fn is_voice(&mut self, frame: &[f32]) -> Result<bool, String>;
-    }
-
     struct SileroVad {
         engine: Vad,
-        threshold: f32,
     }
 
     impl SileroVad {
-        fn new(model_path: &str, threshold: f32) -> Result<Self, String> {
-            if !(0.0..=1.0).contains(&threshold) {
-                return Err("VAD threshold must be between 0.0 and 1.0.".to_string());
-            }
-
+        fn new(model_path: &str) -> Result<Self, String> {
             Ok(Self {
                 engine: Vad::new(model_path, VOXTYPE_SAMPLE_RATE)
                     .map_err(|error| format!("Failed to create Silero VAD: {error}"))?,
-                threshold,
             })
         }
-    }
 
-    impl VoiceActivityDetector for SileroVad {
-        fn is_voice(&mut self, frame: &[f32]) -> Result<bool, String> {
+        fn probability(&mut self, frame: &[f32]) -> Result<f32, String> {
             if frame.len() != VAD_FRAME_SAMPLES {
                 return Err(format!(
                     "Expected {VAD_FRAME_SAMPLES} VAD samples, got {}.",
@@ -661,144 +675,14 @@
                 ));
             }
 
-            let result = self
-                .engine
+            self.engine
                 .compute(frame)
-                .map_err(|error| format!("Silero VAD error: {error}"))?;
-
-            Ok(result.prob > self.threshold)
-        }
-    }
-
-    struct SmoothedVad {
-        inner_vad: Box<dyn VoiceActivityDetector>,
-        prefill_frames: usize,
-        hangover_frames: usize,
-        preserved_pause_frames: usize,
-        onset_frames: usize,
-        frame_buffer: VecDeque<Vec<f32>>,
-        pending_silence: VecDeque<Vec<f32>>,
-        pending_voice: Vec<Vec<f32>>,
-        hangover_counter: usize,
-        onset_counter: usize,
-        in_speech: bool,
-        has_detected_speech: bool,
-        temp_out: Vec<f32>,
-    }
-
-    impl SmoothedVad {
-        fn new(
-            inner_vad: Box<dyn VoiceActivityDetector>,
-            prefill_frames: usize,
-            hangover_frames: usize,
-            preserved_pause_frames: usize,
-            onset_frames: usize,
-        ) -> Self {
-            Self {
-                inner_vad,
-                prefill_frames,
-                hangover_frames,
-                preserved_pause_frames,
-                onset_frames,
-                frame_buffer: VecDeque::new(),
-                pending_silence: VecDeque::new(),
-                pending_voice: Vec::new(),
-                hangover_counter: 0,
-                onset_counter: 0,
-                in_speech: false,
-                has_detected_speech: false,
-                temp_out: Vec::new(),
-            }
+                .map(|result| result.prob)
+                .map_err(|error| format!("Silero VAD error: {error}"))
         }
 
-        fn push_frame(&mut self, frame: &[f32]) -> Result<Option<Vec<f32>>, String> {
-            let is_voice = self.inner_vad.is_voice(frame)?;
-
-            if !self.has_detected_speech {
-                self.frame_buffer.push_back(frame.to_vec());
-                while self.frame_buffer.len() > self.prefill_frames + self.onset_frames.max(1) {
-                    self.frame_buffer.pop_front();
-                }
-
-                if is_voice {
-                    self.onset_counter += 1;
-                    if self.onset_counter >= self.onset_frames {
-                        self.in_speech = true;
-                        self.has_detected_speech = true;
-                        self.hangover_counter = self.hangover_frames;
-                        self.onset_counter = 0;
-
-                        self.temp_out.clear();
-                        for buffered in self.frame_buffer.drain(..) {
-                            self.temp_out.extend_from_slice(&buffered);
-                        }
-                        return Ok(Some(self.temp_out.clone()));
-                    }
-                    return Ok(None);
-                }
-
-                self.onset_counter = 0;
-                return Ok(None);
-            }
-
-            if is_voice {
-                if self.in_speech {
-                    self.hangover_counter = self.hangover_frames;
-                    self.temp_out.clear();
-                    while let Some(silence) = self.pending_silence.pop_front() {
-                        self.temp_out.extend_from_slice(&silence);
-                    }
-                    self.temp_out.extend_from_slice(frame);
-                    return Ok(Some(self.temp_out.clone()));
-                }
-
-                self.pending_voice.push(frame.to_vec());
-                self.onset_counter += 1;
-
-                if self.onset_counter < self.onset_frames {
-                    return Ok(None);
-                }
-
-                self.in_speech = true;
-                self.hangover_counter = self.hangover_frames;
-                self.onset_counter = 0;
-
-                self.temp_out.clear();
-                while let Some(silence) = self.pending_silence.pop_front() {
-                    self.temp_out.extend_from_slice(&silence);
-                }
-                for voice in self.pending_voice.drain(..) {
-                    self.temp_out.extend_from_slice(&voice);
-                }
-                return Ok(Some(self.temp_out.clone()));
-            }
-
-            self.onset_counter = 0;
-            self.pending_voice.clear();
-            self.pending_silence.push_back(frame.to_vec());
-            while self.pending_silence.len() > self.preserved_pause_frames {
-                self.pending_silence.pop_front();
-            }
-
-            if self.in_speech {
-                if self.hangover_counter > 0 {
-                    self.hangover_counter -= 1;
-                } else {
-                    self.in_speech = false;
-                }
-            }
-
-            Ok(None)
-        }
-
+        /// Clears the Silero LSTM state so a warm session starts each recording fresh.
         fn reset(&mut self) {
-            self.frame_buffer.clear();
-            self.pending_silence.clear();
-            self.pending_voice.clear();
-            self.hangover_counter = 0;
-            self.onset_counter = 0;
-            self.in_speech = false;
-            self.has_detected_speech = false;
-            self.temp_out.clear();
+            self.engine.reset();
         }
     }

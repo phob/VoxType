@@ -1,5 +1,6 @@
 import { type OcrPromptContext } from "./ocr-context";
 import { type TranscriptTurn } from "./asr";
+import { type SpeechSegment, type SpeechSegmentationOptions } from "./speech-segments";
 
 export interface ActiveWindowInfo {
   hwnd: string;
@@ -56,10 +57,7 @@ export interface NativeRecordingOptions {
   inputDeviceId: string;
   vadEnabled: boolean;
   realtimePcm16Enabled: boolean;
-  vadPositiveSpeechThreshold: number;
-  vadPreSpeechPadMs: number;
-  vadRedemptionMs: number;
-  vadPreservedPauseMs: number;
+  speechSegmentation: SpeechSegmentationOptions;
 }
 
 export interface NativeInputDevice {
@@ -76,6 +74,8 @@ export interface NativeRecordingResult {
   vadEnabled: boolean;
   captureMode: "sharedCapture" | "exclusiveCapture";
   speechFrames: number;
+  /** Detected speech in the (full, untrimmed) recording; null when VAD was disabled. */
+  speechSegments: SpeechSegment[] | null;
   diagnostics: NativeRecordingDiagnostics;
 }
 

@@ -2,6 +2,44 @@
 
 Record important decisions here so future sessions do not reopen settled topics without a reason.
 
+## 2026-09-25: Segment Speech From VAD Probabilities And Chunk Whisper Input
+
+Supersedes the splicing parts of `2026-04-25: Run Silero VAD In The Native Helper`,
+`2026-05-27: Keep WASAPI Exclusive Separate From Handy VAD Parity`, and
+`2026-05-27: Compact Sparse Local Whisper Audio Before Decoding`.
+
+Decision:
+
+The native helper keeps the full 16 kHz recording and reports one Silero v4 speech probability per
+512-sample frame; it no longer splices audio. All speech policy lives in TypeScript
+(`src/shared/speech-segments.ts`, `src/main/speech-audio.ts`) so live recordings, saved audio and
+the E2E corpus share it:
+
+- A segment needs one frame at >= 0.5 and extends in both directions while the probability stays
+  >= 0.2; regions closer than 500 ms merge, regions under 250 ms are dropped, and each segment gets
+  300 ms before / 400 ms after.
+- Pauses are shortened to at most 1 s of real room tone with a crossfade. No energy/dBFS threshold
+  decides what is speech.
+- Local Whisper receives chunks of at most 25 s, split only at pauses (or at the quietest point of
+  unusually long continuous speech), all in one `whisper-cli` process with `-ojf -sns`. Each chunk
+  is its own file, so decoder context never carries across chunks.
+- Whisper output is filtered for annotations, subtitle credits, prompt echoes, repeated segments and
+  repetition loops. Stock silence phrases ("Thank you.") and any text in a chunk with under 1 s of
+  speech are only removed when a word is below 0.5 token probability (or, for stock phrases, when
+  the text sits outside detected speech).
+- The Whisper prompt is a bare term list with dictionary terms last.
+
+Reason:
+
+The E2E corpus (`bun run e2e:dictation`) reproduced the pause problems on the old pipeline: the
+-45 dBFS compactor deleted speech once the voice was 10-15 dB quieter (real recordings peak around
+-32 dBFS, so the threshold sat inside normal speech), first words after pauses were lost for soft
+speakers, and >30 s dictations leaked words across Whisper windows. The old pipeline passed 14/18
+fixtures at mean WER 0.100; this one passes 22/22 (18 shared fixtures plus 4 silence/short-speech
+fixtures) at mean WER 0.005. Token probabilities alone cannot separate invented text from soft real
+speech (overlap observed on real recordings), which is why the confidence rule is limited to short
+chunks and stock phrases; Whisper's no-speech probability is only reachable through the library API.
+
 ## 2026-07-05: Parakeet Engine Ships CPU-Default, Greedy, With Experimental Hotwords
 
 Decision:

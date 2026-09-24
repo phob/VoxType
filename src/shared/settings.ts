@@ -104,12 +104,6 @@ export interface AppSettings {
   autoMuteSystemAudio: boolean;
   restoreClipboard: boolean;
   vadEnabled: boolean;
-  vadPositiveSpeechThreshold: number;
-  vadNegativeSpeechThreshold: number;
-  vadMinSpeechMs: number;
-  vadPreSpeechPadMs: number;
-  vadRedemptionMs: number;
-  vadPreservedPauseMs: number;
   remoteClipboardPasteDelayMs: number;
   remoteTypingDelayMs: number;
   remoteTypingChunkSize: number;
@@ -308,34 +302,6 @@ export function sanitizeSettings(
         : defaults.restoreClipboard,
     vadEnabled:
       typeof input.vadEnabled === "boolean" ? input.vadEnabled : defaults.vadEnabled,
-    vadPositiveSpeechThreshold:
-      typeof input.vadPositiveSpeechThreshold === "number" &&
-      Number.isFinite(input.vadPositiveSpeechThreshold)
-        ? clamp(input.vadPositiveSpeechThreshold, 0.05, 0.95)
-        : defaults.vadPositiveSpeechThreshold,
-    vadNegativeSpeechThreshold:
-      typeof input.vadNegativeSpeechThreshold === "number" &&
-      Number.isFinite(input.vadNegativeSpeechThreshold)
-        ? clamp(input.vadNegativeSpeechThreshold, 0.01, 0.9)
-        : defaults.vadNegativeSpeechThreshold,
-    vadMinSpeechMs:
-      typeof input.vadMinSpeechMs === "number" && Number.isFinite(input.vadMinSpeechMs)
-        ? clamp(Math.round(input.vadMinSpeechMs), 50, 5000)
-        : defaults.vadMinSpeechMs,
-    vadPreSpeechPadMs:
-      typeof input.vadPreSpeechPadMs === "number" &&
-      Number.isFinite(input.vadPreSpeechPadMs)
-        ? clamp(Math.round(input.vadPreSpeechPadMs), 0, 1000)
-        : defaults.vadPreSpeechPadMs,
-    vadRedemptionMs:
-      typeof input.vadRedemptionMs === "number" && Number.isFinite(input.vadRedemptionMs)
-        ? clamp(Math.round(input.vadRedemptionMs), 50, 5000)
-        : defaults.vadRedemptionMs,
-    vadPreservedPauseMs:
-      typeof input.vadPreservedPauseMs === "number" &&
-      Number.isFinite(input.vadPreservedPauseMs)
-        ? migrateVadPreservedPauseMs(input.vadPreservedPauseMs, defaults.vadPreservedPauseMs)
-        : defaults.vadPreservedPauseMs,
     remoteClipboardPasteDelayMs:
       typeof input.remoteClipboardPasteDelayMs === "number" &&
       Number.isFinite(input.remoteClipboardPasteDelayMs)
@@ -668,12 +634,3 @@ function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max);
 }
 
-function migrateVadPreservedPauseMs(value: number, defaultValue: number): number {
-  const rounded = Math.round(value);
-
-  if (rounded === 500 && defaultValue > rounded) {
-    return defaultValue;
-  }
-
-  return clamp(rounded, 0, 2000);
-}

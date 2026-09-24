@@ -2,7 +2,8 @@
         let host = cpal::default_host();
         let default_name = host
             .default_input_device()
-            .and_then(|device| device.name().ok());
+            .and_then(|device| device.description().ok())
+            .map(|description| description.name().to_string());
         let devices = host
             .input_devices()
             .map_err(|error| format!("Could not list input devices: {error}"))?;
@@ -10,7 +11,8 @@
 
         for device in devices {
             let name = device
-                .name()
+                .description()
+                .map(|description| description.name().to_string())
                 .map_err(|error| format!("Could not read input device name: {error}"))?;
 
             results.push(InputDevice {
@@ -69,6 +71,87 @@
         )
     }
 
+    /// Runs a WAV file through the same resample -> frame -> VAD path as live capture.
+    pub fn process_wav_file(
+        input_path: &str,
+        output_path: &str,
+        vad_config: super::NativeVadConfig,
+    ) -> Result<(), String> {
+        let (input, input_sample_rate) = read_wav_as_mono(input_path)?;
+        let mut resampler = FrameResampler::new(input_sample_rate, VOXTYPE_SAMPLE_RATE);
+        let mut frame_emitter = FrameEmitter::new(VAD_FRAME_SAMPLES);
+        let mut vad = create_vad(&vad_config)?;
+        let mut samples = Vec::<f32>::new();
+        let mut raw_samples = 0usize;
+        let mut vad_probabilities = Vec::<u8>::new();
+
+        for chunk in input.chunks(RESAMPLER_CHUNK_SIZE) {
+            resampler.push(chunk, &mut |resampled| {
+                raw_samples += resampled.len();
+                frame_emitter.push(resampled, &mut |frame| {
+                    process_vad_frame(frame, vad.as_mut(), &mut samples, &mut vad_probabilities);
+                });
+            });
+        }
+        resampler.finish(&mut |resampled| {
+            raw_samples += resampled.len();
+            frame_emitter.push(resampled, &mut |frame| {
+                process_vad_frame(frame, vad.as_mut(), &mut samples, &mut vad_probabilities);
+            });
+        });
+        frame_emitter.finish(&mut |frame| {
+            process_vad_frame(frame, vad.as_mut(), &mut samples, &mut vad_probabilities);
+        });
+
+        let output_path = Path::new(output_path);
+        // Drop the zero padding of the last VAD frame; the WAV is exactly the captured audio.
+        samples.truncate(raw_samples);
+        write_wav(output_path, &samples)?;
+        println!(
+            "{}",
+            serde_json::to_string(&RecordingResponse {
+                path: output_path.to_string_lossy().to_string(),
+                sample_rate: VOXTYPE_SAMPLE_RATE as u32,
+                samples: samples.len(),
+                raw_samples,
+                vad_enabled: vad_config.enabled,
+                capture_mode: "fileInput".to_string(),
+                speech_frames: count_speech_frames(&vad_probabilities),
+                vad_frame_samples: VAD_FRAME_SAMPLES,
+                vad_probabilities: BASE64_STANDARD.encode(&vad_probabilities),
+            })
+            .map_err(|error| error.to_string())?
+        );
+        Ok(())
+    }
+
+    fn read_wav_as_mono(input_path: &str) -> Result<(Vec<f32>, usize), String> {
+        let mut reader = hound::WavReader::open(input_path)
+            .map_err(|error| format!("Could not open WAV '{input_path}': {error}"))?;
+        let spec = reader.spec();
+        let channels = usize::from(spec.channels.max(1));
+        let interleaved = match spec.sample_format {
+            hound::SampleFormat::Float => reader
+                .samples::<f32>()
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(|error| error.to_string())?,
+            hound::SampleFormat::Int => {
+                let scale = (1i64 << (spec.bits_per_sample - 1)) as f32;
+                reader
+                    .samples::<i32>()
+                    .map(|sample| sample.map(|value| value as f32 / scale))
+                    .collect::<Result<Vec<_>, _>>()
+                    .map_err(|error| error.to_string())?
+            }
+        };
+        let mono = interleaved
+            .chunks_exact(channels)
+            .map(|frame| frame.iter().sum::<f32>() / channels as f32)
+            .collect();
+
+        Ok((mono, spec.sample_rate as usize))
+    }
+
     fn record_wav_shared_until_stdin_stop(
         output_path: &str,
         vad_config: super::NativeVadConfig,
@@ -84,7 +167,7 @@
                 .ok_or_else(|| "No input device found.".to_string())?,
         };
         let config = get_preferred_input_config(&device)?;
-        let sample_rate = config.sample_rate().0;
+        let sample_rate = config.sample_rate();
         let channels = config.channels() as usize;
         let stop_flag = Arc::new(AtomicBool::new(false));
         let stop_reader_flag = Arc::clone(&stop_flag);
@@ -137,26 +220,10 @@
         let mut realtime_resampler =
             emit_realtime_pcm16.then(|| FrameResampler::new(sample_rate as usize, OPENAI_REALTIME_SAMPLE_RATE));
         let mut frame_emitter = FrameEmitter::new(VAD_FRAME_SAMPLES);
-        let mut vad = if vad_config.enabled {
-            Some(SmoothedVad::new(
-                Box::new(SileroVad::new(
-                    vad_config
-                        .model_path
-                        .as_deref()
-                        .ok_or_else(|| "VAD model path is missing.".to_string())?,
-                    vad_config.threshold,
-                )?),
-                vad_config.prefill_frames,
-                vad_config.hangover_frames,
-                vad_config.preserved_pause_frames,
-                vad_config.onset_frames,
-            ))
-        } else {
-            None
-        };
+        let mut vad = create_vad(&vad_config)?;
         let mut samples = Vec::<f32>::new();
         let mut raw_samples = 0usize;
-        let mut speech_frames = 0usize;
+        let mut vad_probabilities = Vec::<u8>::new();
         let mut level_meter = LevelMeter::new();
 
         while !stop_flag.load(Ordering::SeqCst) {
@@ -169,7 +236,7 @@
                         vad.as_mut(),
                         &mut samples,
                         &mut raw_samples,
-                        &mut speech_frames,
+                        &mut vad_probabilities,
                         &mut level_meter,
                         realtime_resampler.as_mut(),
                     );
@@ -189,7 +256,7 @@
                 vad.as_mut(),
                 &mut samples,
                 &mut raw_samples,
-                &mut speech_frames,
+                &mut vad_probabilities,
                 &mut level_meter,
                 realtime_resampler.as_mut(),
             );
@@ -203,12 +270,13 @@
         resampler.finish(&mut |resampled| {
             raw_samples += resampled.len();
             frame_emitter.push(resampled, &mut |frame| {
-                process_vad_frame(frame, vad.as_mut(), &mut samples, &mut speech_frames);
+                process_vad_frame(frame, vad.as_mut(), &mut samples, &mut vad_probabilities);
             });
         });
         frame_emitter.finish(&mut |frame| {
-            process_vad_frame(frame, vad.as_mut(), &mut samples, &mut speech_frames);
+            process_vad_frame(frame, vad.as_mut(), &mut samples, &mut vad_probabilities);
         });
+        samples.truncate(raw_samples);
         write_wav(output_path, &samples)?;
         println!(
             "{}",
@@ -219,7 +287,9 @@
                 raw_samples,
                 vad_enabled: vad_config.enabled,
                 capture_mode: "sharedCapture".to_string(),
-                speech_frames,
+                speech_frames: count_speech_frames(&vad_probabilities),
+                vad_frame_samples: VAD_FRAME_SAMPLES,
+                vad_probabilities: BASE64_STANDARD.encode(&vad_probabilities),
             })
             .map_err(|error| error.to_string())?
         );
@@ -236,6 +306,8 @@
         vad_enabled: bool,
         capture_mode: String,
         speech_frames: usize,
+        vad_frame_samples: usize,
+        vad_probabilities: String,
     }
 
     #[derive(Serialize)]
@@ -290,13 +362,13 @@
                 .ok_or_else(|| "No input device found.".to_string())?,
         };
         let config = get_preferred_input_config(&device)?;
-        let sample_rate = config.sample_rate().0;
+        let sample_rate = config.sample_rate();
         let channels = config.channels() as usize;
         let paused_flag = Arc::new(AtomicBool::new(true));
         let (sample_tx, sample_rx) = mpsc::channel::<RecordingSessionAudioChunk>();
         let (command_tx, command_rx) = mpsc::channel::<RecordingSessionCommand>();
         let vad_enabled = vad_config.enabled;
-        let vad = create_smoothed_vad(&vad_config)?;
+        let vad = create_vad(&vad_config)?;
 
         let stream = match config.sample_format() {
             cpal::SampleFormat::U8 => build_session_input_stream::<u8>(
@@ -440,7 +512,7 @@
 
         device
             .build_input_stream(
-                &config.clone().into(),
+                config.clone().into(),
                 move |data: &[T], _| {
                     if paused_flag.load(Ordering::SeqCst) {
                         if !end_of_stream_sent {
@@ -475,7 +547,7 @@
         input_sample_rate: usize,
         capture_mode: &'static str,
         vad_enabled: bool,
-        mut vad: Option<SmoothedVad>,
+        mut vad: Option<SileroVad>,
         sample_rx: mpsc::Receiver<RecordingSessionAudioChunk>,
         command_rx: mpsc::Receiver<RecordingSessionCommand>,
         paused_flag: Arc<AtomicBool>,
@@ -487,7 +559,7 @@
         let mut frame_emitter = FrameEmitter::new(VAD_FRAME_SAMPLES);
         let mut samples = Vec::<f32>::new();
         let mut raw_samples = 0usize;
-        let mut speech_frames = 0usize;
+        let mut vad_probabilities = Vec::<u8>::new();
         let mut level_meter = LevelMeter::new();
         let mut recording = false;
         let mut output_path: Option<String> = None;
@@ -503,7 +575,7 @@
                             vad.as_mut(),
                             &mut samples,
                             &mut raw_samples,
-                            &mut speech_frames,
+                            &mut vad_probabilities,
                             &mut level_meter,
                             realtime_resampler.as_mut(),
                         );
@@ -519,7 +591,7 @@
                     RecordingSessionCommand::Start { output_path: path } => {
                         samples.clear();
                         raw_samples = 0;
-                        speech_frames = 0;
+                        vad_probabilities.clear();
                         output_path = Some(path);
                         resampler = FrameResampler::new(input_sample_rate, VOXTYPE_SAMPLE_RATE);
                         realtime_resampler = emit_realtime_pcm16
@@ -542,7 +614,7 @@
                             vad.as_mut(),
                             &mut samples,
                             &mut raw_samples,
-                            &mut speech_frames,
+                            &mut vad_probabilities,
                             &mut level_meter,
                             realtime_resampler.as_mut(),
                         );
@@ -556,7 +628,7 @@
                             vad.as_mut(),
                             &mut samples,
                             &mut raw_samples,
-                            &mut speech_frames,
+                            &mut vad_probabilities,
                             realtime_resampler.as_mut(),
                         );
 
@@ -573,7 +645,7 @@
         }
     }
 
-    fn create_smoothed_vad(vad_config: &super::NativeVadConfig) -> Result<Option<SmoothedVad>, String> {
+    fn create_vad(vad_config: &super::NativeVadConfig) -> Result<Option<SileroVad>, String> {
         if !vad_config.enabled {
             return Ok(None);
         }
@@ -582,25 +654,18 @@
             .model_path
             .as_deref()
             .ok_or_else(|| "VAD model path is missing.".to_string())?;
-        let silero = SileroVad::new(model_path, vad_config.threshold)?;
 
-        Ok(Some(SmoothedVad::new(
-            Box::new(silero),
-            vad_config.prefill_frames,
-            vad_config.hangover_frames,
-            vad_config.preserved_pause_frames,
-            vad_config.onset_frames,
-        )))
+        SileroVad::new(model_path).map(Some)
     }
 
     fn drain_session_stop(
         sample_rx: &mpsc::Receiver<RecordingSessionAudioChunk>,
         resampler: &mut FrameResampler,
         frame_emitter: &mut FrameEmitter,
-        mut vad: Option<&mut SmoothedVad>,
+        mut vad: Option<&mut SileroVad>,
         samples: &mut Vec<f32>,
         raw_samples: &mut usize,
-        speech_frames: &mut usize,
+        vad_probabilities: &mut Vec<u8>,
         level_meter: &mut LevelMeter,
         mut realtime_resampler: Option<&mut FrameResampler>,
     ) {
@@ -614,7 +679,7 @@
                         vad.as_deref_mut(),
                         samples,
                         raw_samples,
-                        speech_frames,
+                        vad_probabilities,
                         level_meter,
                         realtime_resampler.as_deref_mut(),
                     );
@@ -635,10 +700,10 @@
         vad_enabled: bool,
         resampler: &mut FrameResampler,
         frame_emitter: &mut FrameEmitter,
-        mut vad: Option<&mut SmoothedVad>,
+        mut vad: Option<&mut SileroVad>,
         samples: &mut Vec<f32>,
         raw_samples: &mut usize,
-        speech_frames: &mut usize,
+        vad_probabilities: &mut Vec<u8>,
         mut realtime_resampler: Option<&mut FrameResampler>,
     ) -> Result<(), String> {
         let output_path = output_path.ok_or_else(|| "Recording session stop arrived before start.".to_string())?;
@@ -652,13 +717,14 @@
         resampler.finish(&mut |resampled| {
             *raw_samples += resampled.len();
             frame_emitter.push(resampled, &mut |frame| {
-                process_vad_frame(frame, vad.as_deref_mut(), samples, speech_frames);
+                process_vad_frame(frame, vad.as_deref_mut(), samples, vad_probabilities);
             });
         });
         frame_emitter.finish(&mut |frame| {
-            process_vad_frame(frame, vad.as_deref_mut(), samples, speech_frames);
+            process_vad_frame(frame, vad.as_deref_mut(), samples, vad_probabilities);
         });
 
+        samples.truncate(*raw_samples);
         write_wav(output_path, samples)?;
         println!(
             "{}",
@@ -669,7 +735,9 @@
                 raw_samples: *raw_samples,
                 vad_enabled,
                 capture_mode: capture_mode.to_string(),
-                speech_frames: *speech_frames,
+                speech_frames: count_speech_frames(vad_probabilities),
+                vad_frame_samples: VAD_FRAME_SAMPLES,
+                vad_probabilities: BASE64_STANDARD.encode(&*vad_probabilities),
             })
             .map_err(|error| error.to_string())?
         );
@@ -712,7 +780,7 @@
         let format_ptr: *mut WAVEFORMATEX;
         let mut samples = Vec::<f32>::new();
         let mut raw_samples = 0usize;
-        let mut speech_frames = 0usize;
+        let mut vad_probabilities = Vec::<u8>::new();
         let mut level_meter = LevelMeter::new();
 
         unsafe {
@@ -759,23 +827,7 @@
             let mut realtime_resampler =
                 emit_realtime_pcm16.then(|| FrameResampler::new(format.sample_rate, OPENAI_REALTIME_SAMPLE_RATE));
             let mut frame_emitter = FrameEmitter::new(VAD_FRAME_SAMPLES);
-            let mut vad = if vad_config.enabled {
-                Some(SmoothedVad::new(
-                    Box::new(SileroVad::new(
-                        vad_config
-                            .model_path
-                            .as_deref()
-                            .ok_or_else(|| "VAD model path is missing.".to_string())?,
-                        vad_config.threshold,
-                    )?),
-                    vad_config.prefill_frames,
-                    vad_config.hangover_frames,
-                    vad_config.preserved_pause_frames,
-                    vad_config.onset_frames,
-                ))
-            } else {
-                None
-            };
+            let mut vad = create_vad(&vad_config)?;
 
             audio_client.Start().map_err(|error| error.to_string())?;
 
@@ -788,7 +840,7 @@
                     vad.as_mut(),
                     &mut samples,
                     &mut raw_samples,
-                    &mut speech_frames,
+                    &mut vad_probabilities,
                     &mut level_meter,
                     realtime_resampler.as_mut(),
                 )?;
@@ -803,7 +855,7 @@
                 vad.as_mut(),
                 &mut samples,
                 &mut raw_samples,
-                &mut speech_frames,
+                &mut vad_probabilities,
                 &mut level_meter,
                 realtime_resampler.as_mut(),
             )?;
@@ -817,11 +869,11 @@
             resampler.finish(&mut |resampled| {
                 raw_samples += resampled.len();
                 frame_emitter.push(resampled, &mut |frame| {
-                    process_vad_frame(frame, vad.as_mut(), &mut samples, &mut speech_frames);
+                    process_vad_frame(frame, vad.as_mut(), &mut samples, &mut vad_probabilities);
                 });
             });
             frame_emitter.finish(&mut |frame| {
-                process_vad_frame(frame, vad.as_mut(), &mut samples, &mut speech_frames);
+                process_vad_frame(frame, vad.as_mut(), &mut samples, &mut vad_probabilities);
             });
         }
 
@@ -831,6 +883,7 @@
             }
         }
 
+        samples.truncate(raw_samples);
         write_wav(output_path, &samples)?;
         println!(
             "{}",
@@ -841,7 +894,9 @@
                 raw_samples,
                 vad_enabled: vad_config.enabled,
                 capture_mode: "exclusiveCapture".to_string(),
-                speech_frames,
+                speech_frames: count_speech_frames(&vad_probabilities),
+                vad_frame_samples: VAD_FRAME_SAMPLES,
+                vad_probabilities: BASE64_STANDARD.encode(&vad_probabilities),
             })
             .map_err(|error| error.to_string())?
         );
@@ -920,10 +975,10 @@
         format: &WasapiInputFormat,
         resampler: &mut FrameResampler,
         frame_emitter: &mut FrameEmitter,
-        mut vad: Option<&mut SmoothedVad>,
+        mut vad: Option<&mut SileroVad>,
         samples: &mut Vec<f32>,
         raw_samples: &mut usize,
-        speech_frames: &mut usize,
+        vad_probabilities: &mut Vec<u8>,
         level_meter: &mut LevelMeter,
         mut realtime_resampler: Option<&mut FrameResampler>,
     ) -> Result<(), String> {
@@ -949,7 +1004,7 @@
                     vad.as_deref_mut(),
                     samples,
                     raw_samples,
-                    speech_frames,
+                    vad_probabilities,
                     level_meter,
                     realtime_resampler.as_deref_mut(),
                 );

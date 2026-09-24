@@ -261,6 +261,7 @@ export function useRecordingActions(ctx: RecordingActionContext): RecordingActio
       const entry = readiness.modeId === "openai.realtime"
         ? await window.voxtype.transcription.finalizeRealtime(recordingResult.wavBytes)
         : (await window.voxtype.transcription.transcribeWav(recordingResult.wavBytes, {
+            speechSegments: recordingResult.speechSegments,
             processName: options?.pasteTarget?.processName ?? hotkeyTargetRef.current?.processName,
             ocrContext: options?.ocrContext ?? hotkeyOcrContextRef.current
           })).entry;
