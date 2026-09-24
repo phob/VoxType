@@ -24,7 +24,7 @@ flowchart LR
 - **Understands screen context** by reading visible text with local OCR and using those terms to improve dictation.
 - **Adapts per app** with profiles for insertion mode, writing style, language, and send-after-insert behavior.
 - **Handles remote and legacy targets** with clipboard paste, remote clipboard paste, Unicode typing, chunked typing, and Windows Messaging experiments.
-- **Records through a native Windows helper** with local Silero VAD silence trimming.
+- **Records through a native Windows helper** with local Silero VAD speech detection that shortens pauses instead of cutting speech.
 
 ## Visual Proof
 

@@ -26,3 +26,13 @@ jobs:
       - run: bun run verify:packaging
 
       - run: bun run build
+
+  native-helper:
+    # The helper is almost entirely #[cfg(windows)]; a Linux check would only compile stubs.
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - run: cargo check --manifest-path native/windows-helper/Cargo.toml --release --locked

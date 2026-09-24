@@ -2,9 +2,10 @@
     use cpal::traits::{DeviceTrait, HostTrait, StreamTrait};
     use cpal::SizedSample;
     use image::{ImageBuffer, Rgba};
-    use rubato::{FftFixedIn, Resampler};
+    use rubato::audioadapter_buffers::direct::InterleavedSlice;
+    use rubato::{Fft, FixedSync, Resampler, WindowFunction};
     use serde::{Deserialize, Serialize};
-    use std::collections::{HashSet, VecDeque};
+    use std::collections::HashSet;
     use std::ffi::OsString;
     use std::fs::File;
     use std::io::{self, BufRead, BufReader, BufWriter, Write};
@@ -71,8 +72,8 @@
     const VOXTYPE_SAMPLE_RATE: usize = 16_000;
     const OPENAI_REALTIME_SAMPLE_RATE: usize = 24_000;
     const RESAMPLER_CHUNK_SIZE: usize = 1024;
-    const VAD_FRAME_MS: usize = 30;
-    const VAD_FRAME_SAMPLES: usize = VOXTYPE_SAMPLE_RATE * VAD_FRAME_MS / 1000;
+    // Silero v4 is trained on 512/1024/1536-sample windows at 16 kHz; 512 samples = 32 ms.
+    const VAD_FRAME_SAMPLES: usize = 512;
     const OCR_TILE_OVERLAP: u32 = 96;
 
     #[derive(Serialize)]

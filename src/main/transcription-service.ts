@@ -1,9 +1,7 @@
 import { app } from "electron";
-import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { promisify } from "node:util";
 import {
   getDictationMode,
   isCloudDictationMode,
@@ -25,6 +23,7 @@ import { getModelById } from "../shared/models";
 import { getProviderLanguageHint } from "../shared/provider-language";
 import { type OcrPromptContext } from "../shared/ocr-context";
 import { findAppProfile, type AppProfile, type AppSettings } from "../shared/settings";
+import { type SpeechSegment } from "../shared/speech-segments";
 import { type TranscriptEntry, type TranscriptionResult } from "../shared/transcripts";
 import { DictionaryStore } from "./dictionary-store";
 import { HistoryStore } from "./history-store";
@@ -36,9 +35,16 @@ import { RuntimeService } from "./runtime-service";
 import { SettingsStore } from "./settings-store";
 import { SherpaModelService } from "./sherpa-model-service";
 import { SherpaRuntimeService } from "./sherpa-runtime-service";
-import { compactLongSilencesInPcm16Wav } from "./wav-pcm";
+import { composeSpeechWav, decodeMonoPcm, planSpeechChunks, type MonoPcm } from "./speech-audio";
+import { transcribeChunksWithWhisperCli } from "./whisper-cli-transcriber";
+import { type WindowsHelperService } from "./windows-helper-service";
 
-const execFileAsync = promisify(execFile);
+interface ResolvedSpeech {
+  audio: MonoPcm;
+  segments: SpeechSegment[];
+  /** Speech with long pauses shortened; what single-file providers and history receive. */
+  wavBytes: Uint8Array;
+}
 
 export class TranscriptionService {
   constructor(
@@ -46,6 +52,7 @@ export class TranscriptionService {
     private readonly historyStore: HistoryStore,
     private readonly runtimeService: RuntimeService,
     private readonly dictionaryStore: DictionaryStore,
+    private readonly windowsHelperService: WindowsHelperService,
     private readonly sherpaModelService = new SherpaModelService(settingsStore),
     private readonly sherpaRuntimeService = new SherpaRuntimeService(),
     private readonly parakeetProvider = new ParakeetAsrProvider(),
@@ -56,6 +63,8 @@ export class TranscriptionService {
   async transcribeWav(
     audioBytes: Uint8Array,
     context?: {
+      /** Segments from the live recording; omitted for saved audio, null when VAD was disabled. */
+      speechSegments?: SpeechSegment[] | null;
       processName?: string | null;
       ocrContext?: OcrPromptContext | null;
       forceModeId?: "local.custom";
@@ -74,12 +83,14 @@ export class TranscriptionService {
         ? profile.whisperLanguage
         : settings.whisperLanguage;
 
+    const speech = await this.resolveSpeech(audioBytes, context?.speechSegments);
+
     if (isCloudDictationMode(mode.id)) {
-      return this.transcribeCloudFile(audioBytes, mode, settings, profile, whisperLanguage, context, startedAt);
+      return this.transcribeCloudFile(speech.wavBytes, mode, settings, profile, whisperLanguage, context, startedAt);
     }
 
     if (mode.providerId === "local-parakeet") {
-      return this.transcribeParakeetFile(audioBytes, mode, settings, context, startedAt);
+      return this.transcribeParakeetFile(speech.wavBytes, mode, settings, context, startedAt);
     }
 
     if (!model) {
@@ -97,10 +108,6 @@ export class TranscriptionService {
           })) ?? "whisper-cli";
     const workDirectory = join(app.getPath("temp"), "voxtype");
     const id = randomUUID();
-    const audioPath = join(workDirectory, `${id}.wav`);
-    const outputBase = join(workDirectory, id);
-    const outputTextPath = `${outputBase}.txt`;
-    const whisperAudioBytes = prepareLocalWhisperAudio(audioBytes);
     const generatedPromptContext = await this.dictionaryStore.buildPromptContext(
       context?.processName,
       context?.ocrContext?.terms
@@ -109,39 +116,37 @@ export class TranscriptionService {
       generatedPromptContext,
       settings.whisperPromptOverride
     );
-    const args = [
-      "-m",
-      modelPath,
-      "-f",
-      audioPath,
-      "-otxt",
-      "-of",
-      outputBase,
-      "-np"
-    ];
-
-    if (promptContext) {
-      args.push("--prompt", promptContext);
-    }
-
-    args.push("--language", whisperLanguage);
-
-    await mkdir(workDirectory, { recursive: true });
-    await writeFile(audioPath, whisperAudioBytes);
+    const chunks = planSpeechChunks(speech.audio, speech.segments);
 
     console.info("[voxtype] transcribe", {
       engine: "local-whisper",
       modeId: mode.id,
       modelId: model.id,
       backend: settings.whisperRuntimeBackend,
-      executable
+      executable,
+      speechSegments: speech.segments.length,
+      chunks: chunks.length
     });
 
     try {
-      const { stdout } = await execFileAsync(executable, args);
+      const result = await transcribeChunksWithWhisperCli({
+        executable,
+        modelPath,
+        chunks,
+        prompt: promptContext,
+        language: whisperLanguage,
+        workDirectory,
+        id
+      });
 
-      const rawText = (await readTextOutput(outputTextPath, stdout)).trim();
-      const normalizedText = normalizeTranscriptText(rawText);
+      if (result.removed.length > 0) {
+        console.info("[voxtype] whisper output filtered", {
+          reasons: result.removed.map((item) => item.reason)
+        });
+      }
+
+      const rawText = result.rawText;
+      const normalizedText = normalizeTranscriptText(result.text);
       const correction = await this.dictionaryStore.applyCorrections(
         normalizedText,
         context?.processName
@@ -156,7 +161,7 @@ export class TranscriptionService {
         throw new Error("Whisper completed but returned no transcript text.");
       }
 
-      const audioFileName = await this.historyStore.saveAudio(id, whisperAudioBytes);
+      const audioFileName = await this.historyStore.saveAudio(id, speech.wavBytes);
       const entry: TranscriptEntry = {
         id,
         text,
@@ -179,10 +184,38 @@ export class TranscriptionService {
       return { entry, promptContext: promptContext ?? null };
     } catch (error) {
       throw new Error(formatWhisperError(error, executable), { cause: error });
-    } finally {
-      await rm(audioPath, { force: true });
-      await rm(outputTextPath, { force: true });
     }
+  }
+
+  /**
+   * Live recordings arrive with the segments the recorder detected. Saved audio (re-transcription)
+   * is run through the native VAD again; `null` means VAD was disabled, so everything is speech.
+   */
+  private async resolveSpeech(
+    audioBytes: Uint8Array,
+    speechSegments: SpeechSegment[] | null | undefined
+  ): Promise<ResolvedSpeech> {
+    let audio: MonoPcm;
+    let segments: SpeechSegment[];
+
+    if (speechSegments === undefined) {
+      const analyzed = await this.windowsHelperService.analyzeSpeechWav(audioBytes);
+      audio = decodeMonoPcm(analyzed.wavBytes);
+      segments = analyzed.speechSegments;
+    } else {
+      audio = decodeMonoPcm(audioBytes);
+      segments = speechSegments ?? [
+        { start: 0, end: audio.samples.length, speechStart: 0, speechEnd: audio.samples.length }
+      ];
+    }
+
+    const wavBytes = composeSpeechWav(audio, segments);
+
+    if (!wavBytes) {
+      throw new Error("No speech detected.");
+    }
+
+    return { audio, segments, wavBytes };
   }
 
   private async transcribeCloudFile(
@@ -456,14 +489,6 @@ function resolveLocalModelId(settings: AppSettings, mode: DictationMode): string
   return settings.activeModelId;
 }
 
-async function readTextOutput(path: string, fallback: string): Promise<string> {
-  try {
-    return await readFile(path, "utf8");
-  } catch {
-    return fallback;
-  }
-}
-
 function formatWhisperError(error: unknown, executable: string): string {
   const detail = error instanceof Error ? error.message : String(error);
 
@@ -474,18 +499,16 @@ function formatWhisperError(error: unknown, executable: string): string {
   ].join(" ");
 }
 
-// The dictionary store returns a Whisper-flavored prompt sentence
-// ("Relevant terms: a, b, c. Use these spellings..."). sherpa-onnx hotwords want
-// one raw phrase per line, so unwrap the terms segment back into a list.
+// The dictionary store returns the Whisper prompt as a term list ("a, b, c."). sherpa-onnx
+// hotwords want one raw phrase per line, so split it back into terms.
 function promptContextToHotwordTerms(promptContext: string | null): string[] {
   if (!promptContext) {
     return [];
   }
 
-  const match = /Relevant terms:\s*(.+?)\.\s*Use these spellings/i.exec(promptContext);
-  const list = match ? match[1] : promptContext;
-
-  return list
+  return promptContext
+    .trim()
+    .replace(/\.$/, "")
     .split(",")
     .map((term) => term.trim())
     .filter(Boolean);
@@ -521,20 +544,6 @@ function combinePromptContext(
   }
 
   return `${generated} ${custom}`;
-}
-
-function prepareLocalWhisperAudio(audioBytes: Uint8Array): Uint8Array {
-  try {
-    // Whisper often loops on sparse files; keep pause cues short before decoding.
-    return compactLongSilencesInPcm16Wav(audioBytes, {
-      frameDurationMs: 100,
-      maxSilenceMs: 1000,
-      silenceThresholdDb: -45,
-      trimEdges: true
-    });
-  } catch {
-    return audioBytes;
-  }
 }
 
 function applyOcrTermCorrections(text: string, terms: string[]): {

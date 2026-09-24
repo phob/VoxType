@@ -24,11 +24,12 @@ fn main() {
         "input-devices" => input_devices_json(),
         "record-wav" => record_wav_from_args(),
         "record-wav-session" => record_wav_session_from_args(),
+        "process-wav" => process_wav_from_args(),
         "paste-text" => paste_text_from_stdin(),
         "type-text" => type_text_from_stdin(),
         "message-text" => message_text_from_stdin(),
         "help" | "--help" | "-h" => {
-            println!("Usage: voxtype-windows-helper active-window | focus-window <hwnd> | set-system-mute <true|false> | send-hotkey <accelerator> | wait-hotkey-release <accelerator> | capture-screenshot <output.png> [--active-window | --hwnd <hwnd>] | ocr-image <input.png> | message-targets [hwnd] | mute-capture-session <process-id> [process-name] | restore-capture-session | input-devices | record-wav <output.wav> [--capture-mode shared|exclusive-preferred|exclusive-required] [--input-device <name>] [--emit-realtime-pcm16] [--vad-preserved-pause-frames <frames>] | record-wav-session [--capture-mode shared] [--input-device <name>] [--emit-realtime-pcm16] [--vad-preserved-pause-frames <frames>] | paste-text | type-text [delay-ms] | message-text [focused-control|character-messages] [hwnd]");
+            println!("Usage: voxtype-windows-helper active-window | focus-window <hwnd> | set-system-mute <true|false> | send-hotkey <accelerator> | wait-hotkey-release <accelerator> | capture-screenshot <output.png> [--active-window | --hwnd <hwnd>] | ocr-image <input.png> | message-targets [hwnd] | mute-capture-session <process-id> [process-name] | restore-capture-session | input-devices | record-wav <output.wav> [--capture-mode shared|exclusive-preferred|exclusive-required] [--input-device <name>] [--emit-realtime-pcm16] [--vad-model <silero.onnx>] | record-wav-session [--capture-mode shared] [--input-device <name>] [--emit-realtime-pcm16] [--vad-model <silero.onnx>] | process-wav <input.wav> <output.wav> [--vad-model <silero.onnx>] | paste-text | type-text [delay-ms] | message-text [focused-control|character-messages] [hwnd]");
             Ok(())
         }
         _ => Err(format!("Unknown command: {command}")),
@@ -122,6 +123,23 @@ fn record_wav_session_from_args() -> Result<(), String> {
     Err("record-wav-session is only supported on Windows.".to_string())
 }
 
+#[cfg(windows)]
+fn process_wav_from_args() -> Result<(), String> {
+    let input_path = env::args()
+        .nth(2)
+        .ok_or_else(|| "process-wav requires an input path.".to_string())?;
+    let output_path = env::args()
+        .nth(3)
+        .ok_or_else(|| "process-wav requires an output path.".to_string())?;
+    let options = NativeRecordingConfig::from_args(4)?;
+    windows_impl::process_wav_file(&input_path, &output_path, options.vad)
+}
+
+#[cfg(not(windows))]
+fn process_wav_from_args() -> Result<(), String> {
+    Err("process-wav is only supported on Windows.".to_string())
+}
+
 #[derive(Clone)]
 struct NativeRecordingConfig {
     capture_mode: CaptureMode,
@@ -159,33 +177,6 @@ impl NativeRecordingConfig {
                     index += 1;
                     vad_config.enabled = true;
                     vad_config.model_path = args.get(index).cloned();
-                }
-                "--vad-threshold" => {
-                    index += 1;
-                    vad_config.threshold = args
-                        .get(index)
-                        .ok_or_else(|| "--vad-threshold requires a value.".to_string())?
-                        .parse::<f32>()
-                        .map_err(|error| format!("Invalid --vad-threshold: {error}"))?;
-                }
-                "--vad-prefill-frames" => {
-                    index += 1;
-                    vad_config.prefill_frames =
-                        parse_usize_arg(&args, index, "--vad-prefill-frames")?;
-                }
-                "--vad-hangover-frames" => {
-                    index += 1;
-                    vad_config.hangover_frames =
-                        parse_usize_arg(&args, index, "--vad-hangover-frames")?;
-                }
-                "--vad-preserved-pause-frames" => {
-                    index += 1;
-                    vad_config.preserved_pause_frames =
-                        parse_usize_arg(&args, index, "--vad-preserved-pause-frames")?;
-                }
-                "--vad-onset-frames" => {
-                    index += 1;
-                    vad_config.onset_frames = parse_usize_arg(&args, index, "--vad-onset-frames")?;
                 }
                 option => return Err(format!("Unknown record-wav option: {option}")),
             }
@@ -226,36 +217,10 @@ impl CaptureMode {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Default)]
 struct NativeVadConfig {
     enabled: bool,
     model_path: Option<String>,
-    threshold: f32,
-    prefill_frames: usize,
-    hangover_frames: usize,
-    preserved_pause_frames: usize,
-    onset_frames: usize,
-}
-
-impl Default for NativeVadConfig {
-    fn default() -> Self {
-        Self {
-            enabled: false,
-            model_path: None,
-            threshold: 0.3,
-            prefill_frames: 15,
-            hangover_frames: 15,
-            preserved_pause_frames: 67,
-            onset_frames: 2,
-        }
-    }
-}
-
-fn parse_usize_arg(args: &[String], index: usize, name: &str) -> Result<usize, String> {
-    args.get(index)
-        .ok_or_else(|| format!("{name} requires a value."))?
-        .parse::<usize>()
-        .map_err(|error| format!("Invalid {name}: {error}"))
 }
 
 #[cfg(windows)]

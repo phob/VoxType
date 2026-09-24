@@ -10,12 +10,8 @@
         let mut wav = hound::WavWriter::new(writer, spec).map_err(|error| error.to_string())?;
 
         for sample in samples {
-            let clamped = sample.clamp(-1.0, 1.0);
-            let value = if clamped < 0.0 {
-                (clamped * 32768.0) as i16
-            } else {
-                (clamped * i16::MAX as f32) as i16
-            };
+            // Same scale as the readers (x / 32768), rounded, so PCM16 input round-trips bit-exactly.
+            let value = (sample * 32768.0).round().clamp(-32768.0, 32767.0) as i16;
             wav.write_sample(value).map_err(|error| error.to_string())?;
         }
 

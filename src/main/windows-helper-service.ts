@@ -1,6 +1,7 @@
 import { app } from "electron";
 import { type ChildProcessWithoutNullStreams, execFile, spawn } from "node:child_process";
-import { access, mkdir, readFile, rm, stat } from "node:fs/promises";
+import { randomUUID } from "node:crypto";
+import { access, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import {
@@ -16,6 +17,13 @@ import {
   type ScreenshotCaptureResult,
   type WindowsHelperStatus
 } from "../shared/windows-helper";
+import {
+  defaultSpeechSegmentation,
+  detectSpeechSegments,
+  type SpeechSegment,
+  type SpeechSegmentationOptions,
+  type VadTrack
+} from "../shared/speech-segments";
 import { retainLatestFiles } from "./file-retention";
 
 const execFileAsync = promisify(execFile);
@@ -29,6 +37,8 @@ interface NativeRecording {
   stderr: Buffer[];
   diagnostics: NativeRecordingDiagnostics;
   onLevel?: (level: NativeRecordingLevel, pcm16Chunk?: Uint8Array) => void;
+  /** Segmentation applied to the helper's VAD probabilities at stop; null when VAD is off. */
+  speechSegmentation: SpeechSegmentationOptions | null;
   session?: NativeRecordingSession;
   stopPromise?: Promise<void>;
   resolveStop?: () => void;
@@ -427,7 +437,8 @@ export class WindowsHelperService {
       stdout,
       stderr,
       diagnostics,
-      onLevel
+      onLevel,
+      speechSegmentation: options.vadEnabled ? options.speechSegmentation : null
     };
 
     try {
@@ -490,9 +501,13 @@ export class WindowsHelperService {
     });
 
     const bytes = await readFile(recording.outputPath);
-    const metadata = parseNativeRecordingMetadata(
+    const { metadata, vadTrack } = parseNativeRecordingMetadata(
       Buffer.concat(recording.stdout).toString("utf8")
     );
+    const speechSegments =
+      recording.speechSegmentation && vadTrack
+        ? detectSpeechSegments(vadTrack, metadata.samples, recording.speechSegmentation)
+        : null;
     const diagnostics = {
       ...recording.diagnostics,
       finalWavByteLength: bytes.byteLength,
@@ -507,6 +522,7 @@ export class WindowsHelperService {
     return {
       wavBytes: new Uint8Array(bytes),
       ...metadata,
+      speechSegments,
       diagnostics
     };
   }
@@ -555,6 +571,7 @@ export class WindowsHelperService {
       stderr: session.stderr,
       diagnostics,
       onLevel,
+      speechSegmentation: options.vadEnabled ? options.speechSegmentation : null,
       session,
       stopPromise,
       resolveStop,
@@ -586,9 +603,13 @@ export class WindowsHelperService {
     }
 
     const bytes = await readFile(recording.outputPath);
-    const metadata = parseNativeRecordingMetadata(
+    const { metadata, vadTrack } = parseNativeRecordingMetadata(
       Buffer.concat(recording.stdout).toString("utf8")
     );
+    const speechSegments =
+      recording.speechSegmentation && vadTrack
+        ? detectSpeechSegments(vadTrack, metadata.samples, recording.speechSegmentation)
+        : null;
     recording.diagnostics.stoppedAt = new Date().toISOString();
     recording.diagnostics.durationMs =
       Date.parse(recording.diagnostics.stoppedAt) - Date.parse(recording.diagnostics.startedAt);
@@ -606,6 +627,7 @@ export class WindowsHelperService {
     return {
       wavBytes: new Uint8Array(bytes),
       ...metadata,
+      speechSegments,
       diagnostics
     };
   }
@@ -782,6 +804,48 @@ export class WindowsHelperService {
     }
   }
 
+  /**
+   * Runs saved audio through the same native resample + VAD path as live recording. Returns the
+   * 16 kHz mono audio and its speech segments (used when re-transcribing history audio).
+   */
+  async analyzeSpeechWav(
+    wavBytes: Uint8Array,
+    segmentation: SpeechSegmentationOptions = defaultSpeechSegmentation
+  ): Promise<{ wavBytes: Uint8Array; speechSegments: SpeechSegment[] }> {
+    const helperPath = await this.resolveHelperPath();
+    const vadModelPath = await this.resolveSileroVadModelPath();
+
+    if (!helperPath) {
+      throw new Error("Windows helper executable was not found.");
+    }
+    if (!vadModelPath) {
+      throw new Error("Silero VAD model was not found.");
+    }
+
+    const directory = join(app.getPath("temp"), "voxtype");
+    const id = randomUUID();
+    const inputPath = join(directory, `${id}.vad-in.wav`);
+    const outputPath = join(directory, `${id}.vad-out.wav`);
+    await mkdir(directory, { recursive: true });
+    await writeFile(inputPath, wavBytes);
+
+    try {
+      const { stdout } = await execFileAsync(
+        helperPath,
+        ["process-wav", inputPath, outputPath, "--vad-model", vadModelPath],
+        { maxBuffer: 64 * 1024 * 1024, windowsHide: true }
+      );
+      const { metadata, vadTrack } = parseNativeRecordingMetadata(stdout);
+
+      return {
+        wavBytes: new Uint8Array(await readFile(outputPath)),
+        speechSegments: vadTrack ? detectSpeechSegments(vadTrack, metadata.samples, segmentation) : []
+      };
+    } finally {
+      await Promise.all([rm(inputPath, { force: true }), rm(outputPath, { force: true })]);
+    }
+  }
+
   private async resolveHelperPath(): Promise<string | null> {
     const candidates = [
       process.env.VOXTYPE_WINDOWS_HELPER_PATH,
@@ -851,10 +915,6 @@ function isWindowsMediaOcrResult(value: unknown): value is WindowsMediaOcrResult
   );
 }
 
-function msToVadFrames(milliseconds: number): number {
-  return Math.max(0, Math.round(milliseconds / 30));
-}
-
 function createNativeRecordingArgs(
   command: "record-wav" | "record-wav-session",
   options: NativeRecordingOptions,
@@ -877,20 +937,7 @@ function createNativeRecordingArgs(
   }
 
   if (options.vadEnabled && vadModelPath) {
-    args.push(
-      "--vad-model",
-      vadModelPath,
-      "--vad-threshold",
-      String(options.vadPositiveSpeechThreshold),
-      "--vad-prefill-frames",
-      String(msToVadFrames(options.vadPreSpeechPadMs)),
-      "--vad-hangover-frames",
-      String(msToVadFrames(options.vadRedemptionMs)),
-      "--vad-preserved-pause-frames",
-      String(msToVadFrames(options.vadPreservedPauseMs)),
-      "--vad-onset-frames",
-      "2"
-    );
+    args.push("--vad-model", vadModelPath);
   }
 
   return args;
@@ -907,11 +954,7 @@ function createRecordingSessionKey(
     inputDeviceId: options.inputDeviceId,
     realtimePcm16Enabled: options.realtimePcm16Enabled,
     vadEnabled: options.vadEnabled,
-    vadModelPath,
-    vadPositiveSpeechThreshold: options.vadPositiveSpeechThreshold,
-    vadPreSpeechPadMs: options.vadPreSpeechPadMs,
-    vadRedemptionMs: options.vadRedemptionMs,
-    vadPreservedPauseMs: options.vadPreservedPauseMs
+    vadModelPath
   });
 }
 
@@ -1034,7 +1077,10 @@ function logNativeRecordingDiagnostics(
   });
 }
 
-function parseNativeRecordingMetadata(stdout: string): Omit<NativeRecordingResult, "wavBytes" | "diagnostics"> {
+function parseNativeRecordingMetadata(stdout: string): {
+  metadata: Omit<NativeRecordingResult, "wavBytes" | "diagnostics" | "speechSegments">;
+  vadTrack: VadTrack | null;
+} {
   const line = stdout
     .split(/\r?\n/)
     .map((item) => item.trim())
@@ -1047,14 +1093,27 @@ function parseNativeRecordingMetadata(stdout: string): Omit<NativeRecordingResul
 
   const parsed = JSON.parse(line) as Record<string, unknown>;
 
+  const sampleRate = typeof parsed.sampleRate === "number" ? parsed.sampleRate : 16000;
+  const vadEnabled = typeof parsed.vadEnabled === "boolean" ? parsed.vadEnabled : false;
+
   return {
-    sampleRate: typeof parsed.sampleRate === "number" ? parsed.sampleRate : 16000,
-    samples: typeof parsed.samples === "number" ? parsed.samples : 0,
-    rawSamples: typeof parsed.rawSamples === "number" ? parsed.rawSamples : 0,
-    vadEnabled: typeof parsed.vadEnabled === "boolean" ? parsed.vadEnabled : false,
-    captureMode:
-      parsed.captureMode === "exclusiveCapture" ? "exclusiveCapture" : "sharedCapture",
-    speechFrames: typeof parsed.speechFrames === "number" ? parsed.speechFrames : 0
+    metadata: {
+      sampleRate,
+      samples: typeof parsed.samples === "number" ? parsed.samples : 0,
+      rawSamples: typeof parsed.rawSamples === "number" ? parsed.rawSamples : 0,
+      vadEnabled,
+      captureMode:
+        parsed.captureMode === "exclusiveCapture" ? "exclusiveCapture" : "sharedCapture",
+      speechFrames: typeof parsed.speechFrames === "number" ? parsed.speechFrames : 0
+    },
+    vadTrack:
+      vadEnabled && typeof parsed.vadFrameSamples === "number" && typeof parsed.vadProbabilities === "string"
+        ? {
+            sampleRateHz: sampleRate,
+            frameSamples: parsed.vadFrameSamples,
+            probabilities: new Uint8Array(Buffer.from(parsed.vadProbabilities, "base64"))
+          }
+        : null
   };
 }
 

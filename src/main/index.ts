@@ -6,6 +6,7 @@ import { resolveCloudPromptPackOcrEnabled } from "../shared/cloud-prompt-pack-se
 import { getCloudDictationReadiness } from "../shared/cloud-status";
 import { type DictionaryCreateInput, type DictionaryPatch } from "../shared/dictionary";
 import { buildOcrPromptContext, type OcrPromptContext } from "../shared/ocr-context";
+import { type SpeechSegment } from "../shared/speech-segments";
 import { type AppProfile, type AppSettings, type InsertionMode, type SettingsPatch, findAppProfile } from "../shared/settings";
 import { type ActiveWindowInfo, type DictationHotkeyState, type NativeRecordingOptions, type RecordingOverlayState } from "../shared/windows-helper";
 import { DictionaryStore } from "./dictionary-store";
@@ -75,6 +76,7 @@ const transcriptionService = new TranscriptionService(
   historyStore,
   runtimeService,
   dictionaryStore,
+  windowsHelperService,
   sherpaModelService,
   sherpaRuntimeService,
   parakeetAsrProvider
@@ -784,6 +786,7 @@ ipcMain.handle(
     _event,
     bytes: Uint8Array,
     context?: {
+      speechSegments?: SpeechSegment[] | null;
       processName?: string | null;
       ocrContext?: OcrPromptContext | null;
       forceModeId?: "local.custom";

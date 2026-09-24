@@ -6,13 +6,18 @@ export function buildWhisperPromptContext(
   ocrTerms: string[]
 ): string | null {
   const filteredOcrTerms = ocrTerms.filter(isHighSignalOcrPromptTerm).slice(0, MAX_OCR_PROMPT_TERMS);
-  const terms = uniquePromptTerms([...dictionaryTerms, ...filteredOcrTerms]).slice(0, MAX_PROMPT_TERMS);
+  const uniqueDictionaryTerms = uniquePromptTerms(dictionaryTerms);
+  const terms = uniquePromptTerms([...uniqueDictionaryTerms, ...filteredOcrTerms]).slice(0, MAX_PROMPT_TERMS);
+  const dictionaryCount = Math.min(uniqueDictionaryTerms.length, terms.length);
 
   if (terms.length === 0) {
     return null;
   }
 
-  return `Relevant terms: ${terms.join(", ")}. Use these spellings when they are spoken.`;
+  // Whisper keeps only the last ~223 prompt tokens, so dictionary terms go last to survive
+  // truncation. A bare term list (instead of an English instruction) reads as prior transcript,
+  // does not bias other languages toward English, and is easy to recognize if echoed back.
+  return `${[...terms.slice(dictionaryCount), ...terms.slice(0, dictionaryCount)].join(", ")}.`;
 }
 
 export function isHighSignalOcrPromptTerm(term: string): boolean {

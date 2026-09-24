@@ -10,6 +10,7 @@ import { type HardwareAccelerationReport } from "../shared/hardware";
 import { type HotkeyStatus } from "../shared/hotkeys";
 import { type LocalModel } from "../shared/models";
 import { type OcrPromptContext } from "../shared/ocr-context";
+import { type SpeechSegment } from "../shared/speech-segments";
 import { type OcrResult } from "../shared/ocr";
 import { type OpenAiCredentialStatus } from "../shared/openai-credentials";
 import { type WhisperRuntime } from "../shared/runtimes";
@@ -150,6 +151,7 @@ const voxtype = {
     transcribeWav: (
       bytes: Uint8Array,
       context?: {
+        speechSegments?: SpeechSegment[] | null;
         processName?: string | null;
         ocrContext?: OcrPromptContext | null;
         forceModeId?: "local.custom";
