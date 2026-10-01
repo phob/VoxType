@@ -10,25 +10,22 @@
 //
 // --corpus user-history replays your own saved dictations (local only) and scores them against the
 // transcript you accepted at the time; that text is not ground truth, so review differences.
-import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
-import { decodeMonoPcm, defaultSpeechChunking, planSpeechChunks } from "../../src/main/speech-audio";
-import { transcribeChunksWithWhisperCli } from "../../src/main/whisper-cli-transcriber";
-import { defaultSpeechSegmentation, detectSpeechSegments } from "../../src/shared/speech-segments";
-import { buildWhisperPromptContext } from "../../src/shared/prompt-context";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+import { defaultSpeechChunking } from "../../src/main/speech-audio";
+import { defaultSpeechSegmentation } from "../../src/shared/speech-segments";
+import {
+  appDataDir,
+  argValue,
+  createPipelineContext,
+  currentPipeline,
+  e2eOutDir,
+  normalizeWords,
+  tryGit,
+  wordErrorRate,
+  type PipelineResult
+} from "./pipeline";
 import { buildCorpus, decodeWav, type Fixture } from "./corpus";
-
-interface PipelineResult {
-  speechDetected: boolean;
-  text: string;
-  audioSentMs: number;
-  whisperCalls: number;
-  chunks: number;
-  whisperMs: number;
-  totalMs: number;
-  notes: string[];
-}
 
 interface Report {
   pipeline: string;
@@ -46,14 +43,7 @@ interface Report {
   results: Array<PipelineResult & ReturnType<typeof scoreFixture> & { id: string; targets: string[]; durationMs: number; reference: string }>;
 }
 
-interface PipelineContext {
-  whisperCli: string;
-  whisperModel: string;
-  vadModel: string;
-  workDir: string;
-}
-
-const outDir = resolve("native/windows-helper/target/e2e");
+const outDir = e2eOutDir;
 const corpus = argValue("--corpus") ?? "synthetic";
 const only = argValue("--only")?.split(",").filter(Boolean);
 // Tuning overrides, e.g. --segmentation '{"offsetThreshold":0.25}' --label off025
@@ -62,19 +52,14 @@ const chunking = { ...defaultSpeechChunking, ...JSON.parse(argValue("--chunking"
 const label = argValue("--label") ?? (corpus === "synthetic" ? "current" : corpus);
 
 async function main(): Promise<void> {
-  const context: PipelineContext = {
-    whisperCli: resolveWhisperCli(),
-    whisperModel: process.env.VOXTYPE_WHISPER_MODEL ?? join(appDataDir(), "models", "ggml-large-v3-turbo.bin"),
-    vadModel: resolve("resources/models/silero_vad_v4.onnx"),
-    workDir: join(outDir, "work")
-  };
+  const context = createPipelineContext(join(outDir, "work"));
   mkdirSync(context.workDir, { recursive: true });
 
   const fixtures = corpus === "user-history" ? userHistoryCorpus() : buildCorpus(outDir, only);
   const results = [];
 
   for (const fixture of fixtures) {
-    const result = await currentPipeline(fixture, context);
+    const result = await currentPipeline({ ...fixture, segmentation, chunking }, context);
     const score = scoreFixture(fixture, result);
     results.push({ id: fixture.id, targets: fixture.targets, durationMs: fixture.durationMs, reference: fixture.reference, ...result, ...score });
     console.log(`${score.knownIssue ? "KNOWN" : score.pass ? "PASS " : "FAIL "} ${fixture.id.padEnd(18)} WER ${score.wer.toFixed(3)}  ${score.failures.join("; ")}`);
@@ -104,56 +89,6 @@ async function main(): Promise<void> {
   console.log(`\n${String(report.passed)}/${String(report.total)} passed, mean WER ${report.meanWer.toFixed(3)}, sentence ends ${String(report.punctuation?.found)}/${String(report.punctuation?.expected)}\nReport: ${reportBase}.md`);
 }
 
-// The app path: native helper (resample + per-frame VAD) -> speech segments -> chunks -> whisper-cli.
-async function currentPipeline(fixture: Fixture, ctx: PipelineContext): Promise<PipelineResult> {
-  const startedAt = performance.now();
-  const helperOut = join(ctx.workDir, `${fixture.id}.current.wav`);
-  const metadata = runHelper(resolve("native/windows-helper/target/release/voxtype-windows-helper.exe"), [
-    "process-wav", fixture.path, helperOut, "--vad-model", ctx.vadModel
-  ]);
-  const audio = decodeMonoPcm(new Uint8Array(readFileSync(helperOut)));
-  const segments = detectSpeechSegments(
-    {
-      sampleRateHz: audio.sampleRateHz,
-      frameSamples: Number(metadata.vadFrameSamples),
-      probabilities: new Uint8Array(Buffer.from(String(metadata.vadProbabilities), "base64"))
-    },
-    audio.samples.length,
-    segmentation
-  );
-
-  if (segments.length === 0) {
-    return { speechDetected: false, text: "", audioSentMs: 0, whisperCalls: 0, chunks: 0, whisperMs: 0, totalMs: performance.now() - startedAt, notes: [] };
-  }
-
-  const chunks = planSpeechChunks(audio, segments, chunking);
-  const whisperStartedAt = performance.now();
-  const result = await transcribeChunksWithWhisperCli({
-    executable: ctx.whisperCli,
-    modelPath: ctx.whisperModel,
-    chunks,
-    prompt: fixture.promptTerms ? buildWhisperPromptContext(fixture.promptTerms, []) : null,
-    language: "auto",
-    workDirectory: ctx.workDir,
-    id: fixture.id
-  });
-
-  return {
-    speechDetected: true,
-    text: result.text,
-    audioSentMs: chunks.reduce((sum, chunk) => sum + (chunk.samples.length / chunk.sampleRateHz) * 1000, 0),
-    whisperCalls: 1,
-    chunks: chunks.length,
-    whisperMs: performance.now() - whisperStartedAt,
-    totalMs: performance.now() - startedAt,
-    notes: [
-      `segments ${String(segments.length)}`,
-      ...result.removed.map((item) => `filtered ${item.reason}: "${item.text}"`),
-      ...(result.rawText !== result.text ? [`raw: ${result.rawText}`] : [])
-    ]
-  };
-}
-
 function userHistoryCorpus(): Fixture[] {
   const history = JSON.parse(readFileSync(join(appDataDir(), "transcripts.json"), "utf8")) as
     | Array<{ id: string; text: string; audioFileName?: string }>
@@ -175,15 +110,6 @@ function userHistoryCorpus(): Fixture[] {
         durationMs: Math.round((decodeWav(new Uint8Array(readFileSync(path))).length / 16_000) * 1000)
       };
     });
-}
-
-function runHelper(helper: string, args: string[]): { samples: number; rawSamples: number; speechFrames: number } & Record<string, unknown> {
-  const result = spawnSync(helper, args, { encoding: "utf8", maxBuffer: 256 * 1024 * 1024 });
-  const line = result.stdout.trim().split(/\r?\n/).at(-1) ?? "";
-  if (result.status !== 0) {
-    throw new Error(`helper ${args[0]} failed: ${line} ${result.stderr}`);
-  }
-  return JSON.parse(line);
 }
 
 // ---------- scoring ----------
@@ -271,33 +197,6 @@ function sumPunctuation(results: Array<{ punctuation: { expected: number; found:
   );
 }
 
-function normalizeWords(text: string): string[] {
-  return text
-    .toLowerCase()
-    .replace(/[-–—/]/g, " ")
-    .replace(/[^\p{L}\p{N}'\s]/gu, " ")
-    .split(/\s+/)
-    .filter(Boolean);
-}
-
-function wordErrorRate(reference: string[], hypothesis: string[]): number {
-  const previous = Array.from({ length: hypothesis.length + 1 }, (_, index) => index);
-  for (let row = 1; row <= reference.length; row += 1) {
-    let diagonal = previous[0];
-    previous[0] = row;
-    for (let column = 1; column <= hypothesis.length; column += 1) {
-      const above = previous[column];
-      previous[column] = Math.min(
-        previous[column] + 1,
-        previous[column - 1] + 1,
-        diagonal + (reference[row - 1] === hypothesis[column - 1] ? 0 : 1)
-      );
-      diagonal = above;
-    }
-  }
-  return reference.length > 0 ? previous[hypothesis.length] / reference.length : hypothesis.length;
-}
-
 function countOccurrences(haystack: string, needle: string): number {
   let count = 0;
   for (let index = haystack.indexOf(needle); index >= 0; index = haystack.indexOf(needle, index + 1)) {
@@ -348,51 +247,6 @@ function renderMarkdown(data: Report, baseline: Report | null): string {
     }
   }
   return `${lines.join("\n")}\n`;
-}
-
-// ---------- environment ----------
-
-function appDataDir(): string {
-  return join(process.env.APPDATA ?? "", "voxtype");
-}
-
-function resolveWhisperCli(): string {
-  if (process.env.VOXTYPE_WHISPER_CLI) {
-    return process.env.VOXTYPE_WHISPER_CLI;
-  }
-  const found: string[] = [];
-  const walk = (dir: string, depth: number) => {
-    if (depth > 6 || !existsSync(dir)) {
-      return;
-    }
-    for (const entry of readdirSync(dir)) {
-      const path = join(dir, entry);
-      if (statSync(path).isDirectory()) {
-        walk(path, depth + 1);
-      } else if (entry.toLowerCase() === "whisper-cli.exe") {
-        found.push(path);
-      }
-    }
-  };
-  walk(join(appDataDir(), "runtimes"), 0);
-  const preferred = found.find((path) => path.includes("cuda-12")) ?? found[0];
-  if (!preferred) {
-    throw new Error("No whisper-cli.exe found; set VOXTYPE_WHISPER_CLI.");
-  }
-  return preferred;
-}
-
-function argValue(name: string): string | undefined {
-  const index = process.argv.indexOf(name);
-  return index > 0 ? process.argv[index + 1] : undefined;
-}
-
-function tryGit(args: string[]): string | null {
-  try {
-    return execFileSync("git", args, { encoding: "utf8" }).trim();
-  } catch {
-    return null;
-  }
 }
 
 await main();

@@ -2,6 +2,40 @@
 
 Record important decisions here so future sessions do not reopen settled topics without a reason.
 
+## 2026-10-01: Local LLM Cleanup After ASR, Opt-In
+
+Decision:
+
+After dictionary and OCR corrections, every provider (local Whisper, Parakeet, OpenAI file and
+realtime) can pass its text through a local LLM cleanup step (`src/main/llm-cleanup-service.ts`).
+It is off by default and enabled in Settings, which downloads the runtime and model.
+
+- Runtime: official llama.cpp `llama-server` (pinned `b11325`), Vulkan or CPU zip, kept warm on
+  127.0.0.1 with a random port and API key while cleanup is enabled; stopped on quit. Not
+  node-llama-cpp (native module in the Electron bundle) and not CUDA (150-260 MB builds plus a
+  390-420 MB CUDA runtime zip; Vulkan runs on NVIDIA, AMD and Intel and is fast enough here).
+- Model: Qwen3.5 4B Q4_K_M with a GPU, Qwen3.5 2B Q4_K_M without one ("auto"). Superwhisper's
+  s1-mini is English-only; Qwen3.5 0.8B passed no more fixtures than Whisper alone.
+- Deterministic steps run in code for every model and also when the LLM output is rejected:
+  hesitation sounds (but not German "um" before a number), preferred term spellings, and no closing
+  period in chat style.
+- A guard (`src/shared/cleanup-guard.ts`) only accepts output that adds at most one new word (5% for
+  long text), keeps digits and dictionary terms, does not switch du to Sie, and drops no more than
+  15% of the words unless the speaker said a correction phrase. Otherwise the deterministic result is
+  inserted. Cleanup has a 6 s budget including a cold server start.
+- No language hint in the prompt. The profile's `writingStyle` picks the style; the new `raw` style
+  skips the LLM and is the default for new terminal and remote-desktop profiles.
+
+Reason:
+
+Wispr Flow and Typeless get their quality mostly from this kind of LLM rewrite, not from better ASR.
+The failure modes were written first (C1-C14 in `scripts/e2e-cleanup/corpus.ts`) and the messy-speech
+corpus (`bun run e2e:cleanup`, 34 English/German fixtures, German via Piper) chose the design: on an
+RTX 5080 the 4B model passes 34/34 (one known Whisper issue) at 132 ms p50 / 527 ms p95, Whisper
+alone passes 17/34; on CPU the 2B model passes 30/34 at 0.5 s p50 / 2.3 s p95. A `Language: German`
+hint made the model translate real English dictations, so it was removed. n-gram speculative
+decoding did not help enough to ship.
+
 ## 2026-09-25: Segment Speech From VAD Probabilities And Chunk Whisper Input
 
 Supersedes the splicing parts of `2026-04-25: Run Silero VAD In The Native Helper`,

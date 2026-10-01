@@ -150,12 +150,30 @@ function isTranscriptEntry(value: unknown): value is TranscriptEntry {
     (typeof entry.audioFileName === "string" || entry.audioFileName === undefined) &&
     (typeof entry.audioUnavailableReason === "string" || entry.audioUnavailableReason === undefined) &&
     (typeof entry.languageHint === "string" || entry.languageHint === undefined) &&
-    (entry.providerId === "local-whisper" || entry.providerId === "openai" || entry.providerId === undefined) &&
+    (entry.providerId === "local-whisper" ||
+      entry.providerId === "local-parakeet" ||
+      entry.providerId === "openai" ||
+      entry.providerId === undefined) &&
+    (isTranscriptCleanup(entry.cleanup) || entry.cleanup === undefined) &&
     (isDictationModeId(entry.dictationModeId) || entry.dictationModeId === undefined) &&
     (typeof entry.turnCount === "number" || entry.turnCount === undefined) &&
     (typeof entry.turnStatus === "string" || entry.turnStatus === undefined) &&
     typeof entry.modelId === "string" &&
     typeof entry.createdAt === "string" &&
     typeof entry.durationMs === "number"
+  );
+}
+
+function isTranscriptCleanup(value: unknown): boolean {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  const cleanup = value as Record<string, unknown>;
+
+  return (
+    (cleanup.status === "applied" || cleanup.status === "unchanged" || cleanup.status === "rejected" || cleanup.status === "failed") &&
+    typeof cleanup.modelId === "string" &&
+    typeof cleanup.durationMs === "number"
   );
 }

@@ -153,6 +153,23 @@ Implementation direction:
 - keep Whisper decoding settings pinned per model/profile so behavior does not drift unexpectedly
 - add local punctuation/casing restoration later if Whisper output remains inconsistent
 
+## LLM Cleanup
+
+Implemented 2026-10-01 as an opt-in setting ("Clean up dictation with local AI"). Decision record:
+`decisions.md` 2026-10-01.
+
+- Runtime: llama.cpp `llama-server` `b11325`, official Windows zips (Vulkan 33 MB, CPU 19 MB), installed
+  under `userData/runtimes/llama.cpp`. One warm server per model/backend on 127.0.0.1.
+- Models (`src/shared/llm-cleanup.ts`, stored in `<modelDirectory>/llm`): Qwen3.5 4B Q4_K_M (GPU default,
+  2.74 GB) and Qwen3.5 2B Q4_K_M (CPU default, 1.28 GB), from `unsloth/*-GGUF`, Apache-2.0.
+- Pipeline (`src/main/llm-cleanup-runner.ts`): strip hesitation sounds in code, ask the model with a fixed
+  system prompt plus few-shot examples (`src/shared/cleanup-prompt.ts`), check the answer with
+  `src/shared/cleanup-guard.ts`, then apply preferred term spellings and chat-style punctuation in code.
+- Measured with `bun run e2e:cleanup` (RTX 5080): 4B on Vulkan 34/34 at 132 ms p50 / 527 ms p95; 2B on
+  CPU 30/34 at 0.5 s p50 / 2.3 s p95; Whisper alone 17/34.
+- Known gaps: the 2B model misses most German self-corrections; on CPU the 4B model reaches the 6 s
+  budget on long dictations, which is why CPU uses 2B.
+
 ## Parakeet V3 Later
 
 Parakeet V3 is interesting as an optional engine later:

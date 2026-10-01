@@ -20,6 +20,7 @@ import { createHash } from "node:crypto";
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
+import { piperVoices, renderPiper } from "./piper";
 
 export const FIXTURE_SAMPLE_RATE = 48_000;
 
@@ -29,9 +30,11 @@ const LEAD_IN_MS = 600;
 const TAIL_MS = 600;
 const VOICES = ["Microsoft Zira Desktop", "Microsoft David Desktop"];
 
+export type SpeechLanguage = "en" | "de";
+
 type NoiseEvent = { kind: "click" | "cough" | "breath"; atMs: number } | { kind: "typing"; atMs: number; durationMs: number };
-type Part =
-  | { kind: "speech"; text: string; voice?: number; gainDb?: number }
+export type Part =
+  | { kind: "speech"; text: string; voice?: number; gainDb?: number; lang?: SpeechLanguage }
   | { kind: "pause"; ms: number; events?: NoiseEvent[] };
 
 export interface FixtureSpec {
@@ -175,12 +178,16 @@ export const FIXTURES: FixtureSpec[] = [
 ];
 
 export function buildCorpus(outDir: string, only?: string[]): Fixture[] {
+  return buildFixtures(outDir, "fixtures", FIXTURES.filter((spec) => !only?.length || only.includes(spec.id)));
+}
+
+/** Renders specs to 48 kHz WAV fixtures under `outDir/<fixtureSubdir>`, with TTS clips cached by text and voice. */
+export function buildFixtures<T extends FixtureSpec>(outDir: string, fixtureSubdir: string, specs: T[]): Array<T & Pick<Fixture, "path" | "reference" | "durationMs">> {
   const ttsDir = join(outDir, "tts-cache");
-  const fixtureDir = join(outDir, "fixtures");
+  const fixtureDir = join(outDir, fixtureSubdir);
   mkdirSync(ttsDir, { recursive: true });
   mkdirSync(fixtureDir, { recursive: true });
 
-  const specs = FIXTURES.filter((spec) => !only?.length || only.includes(spec.id));
   const speechParts = specs.flatMap((spec) => spec.parts.filter((part) => part.kind === "speech"));
   renderTts(ttsDir, speechParts);
 
@@ -198,14 +205,20 @@ export function buildCorpus(outDir: string, only?: string[]): Fixture[] {
   });
 }
 
+function voiceFor(part: Extract<Part, { kind: "speech" }>): string {
+  const voices = part.lang === "de" ? piperVoices.map((voice) => voice.id) : VOICES;
+  return voices[(part.voice ?? 0) % voices.length];
+}
+
 function ttsPath(ttsDir: string, part: Extract<Part, { kind: "speech" }>): string {
-  const voice = VOICES[(part.voice ?? 0) % VOICES.length];
+  const voice = voiceFor(part);
   const hash = createHash("sha1").update(`${voice}\n${part.text}`).digest("hex").slice(0, 16);
   return join(ttsDir, `${hash}.wav`);
 }
 
 function renderTts(ttsDir: string, parts: Part[]): void {
   const jobs = new Map<string, { text: string; voice: string; path: string }>();
+  const piperJobs = new Map<string, { text: string; voice: string; path: string }>();
 
   for (const part of parts) {
     if (part.kind !== "speech") {
@@ -213,8 +226,12 @@ function renderTts(ttsDir: string, parts: Part[]): void {
     }
     const path = ttsPath(ttsDir, part);
     if (!existsSync(path)) {
-      jobs.set(path, { text: part.text, voice: VOICES[(part.voice ?? 0) % VOICES.length], path });
+      (part.lang === "de" ? piperJobs : jobs).set(path, { text: part.text, voice: voiceFor(part), path });
     }
+  }
+
+  if (piperJobs.size > 0) {
+    renderPiper(join(ttsDir, "..", "tts-models"), [...piperJobs.values()]);
   }
 
   if (jobs.size === 0) {
@@ -236,7 +253,8 @@ function mixFixture(spec: FixtureSpec, ttsDir: string): Float32Array {
 
   for (const part of spec.parts) {
     if (part.kind === "speech") {
-      const voice = normalizeSpeech(trimDigitalSilence(decodeWav(readFileSync(ttsPath(ttsDir, part)))));
+      const clip = decodeWavWithRate(readFileSync(ttsPath(ttsDir, part)));
+      const voice = normalizeSpeech(trimDigitalSilence(resampleLinear(clip.samples, clip.sampleRate, FIXTURE_SAMPLE_RATE)));
       applyGain(voice, (spec.speechGainDb ?? 0) + (part.gainDb ?? 0));
       segments.push({ at: cursor, samples: voice });
       cursor += voice.length;
@@ -393,23 +411,47 @@ function mulberry32(seed: number): () => number {
 }
 
 export function decodeWav(bytes: Uint8Array): Float32Array {
+  return decodeWavWithRate(bytes).samples;
+}
+
+/** Mono PCM16 WAV decoder; Piper voices render at 16 or 22.05 kHz, System.Speech at 48 kHz. */
+function decodeWavWithRate(bytes: Uint8Array): { samples: Float32Array; sampleRate: number } {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   let offset = 12;
+  let sampleRate = FIXTURE_SAMPLE_RATE;
 
   while (offset + 8 <= bytes.byteLength) {
     const id = String.fromCharCode(...bytes.subarray(offset, offset + 4));
     const size = view.getUint32(offset + 4, true);
+    if (id === "fmt ") {
+      sampleRate = view.getUint32(offset + 12, true);
+    }
     if (id === "data") {
       const samples = new Float32Array(Math.floor(size / 2));
       for (let index = 0; index < samples.length; index += 1) {
         samples[index] = view.getInt16(offset + 8 + index * 2, true) / 32_768;
       }
-      return samples;
+      return { samples, sampleRate };
     }
     offset += 8 + size + (size % 2);
   }
 
   throw new Error("WAV has no data chunk.");
+}
+
+// Upsampling TTS speech to the fixture rate; linear interpolation is plenty for an ASR test signal.
+function resampleLinear(samples: Float32Array, fromRate: number, toRate: number): Float32Array {
+  if (fromRate === toRate) {
+    return samples;
+  }
+  const output = new Float32Array(Math.floor((samples.length * toRate) / fromRate));
+  for (let index = 0; index < output.length; index += 1) {
+    const position = (index * fromRate) / toRate;
+    const left = Math.floor(position);
+    const right = Math.min(left + 1, samples.length - 1);
+    output[index] = samples[left] + (samples[right] - samples[left]) * (position - left);
+  }
+  return output;
 }
 
 function encodeWav(samples: Float32Array, sampleRate: number): Uint8Array {

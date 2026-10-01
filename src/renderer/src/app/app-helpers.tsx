@@ -659,6 +659,10 @@ export function writingStyleLabel(style: AppProfile["writingStyle"]): string {
     return "professional style";
   }
 
+  if (style === "raw") {
+    return "raw, no AI cleanup";
+  }
+
   return "default style";
 }
 

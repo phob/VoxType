@@ -45,7 +45,8 @@ export const insertionModeOptions: SelectOption<InsertionMode>[] = [
 export const writingStyleOptions: SelectOption<AppProfile["writingStyle"]>[] = [
   { label: "Default", value: "default" },
   { label: "Chat", value: "chat" },
-  { label: "Professional", value: "professional" }
+  { label: "Professional", value: "professional" },
+  { label: "Raw (no AI cleanup)", value: "raw" }
 ];
 
 export const whisperLanguageOptions: SelectOption<WhisperLanguage>[] = [

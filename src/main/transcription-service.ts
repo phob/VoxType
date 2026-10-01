@@ -27,6 +27,7 @@ import { type SpeechSegment } from "../shared/speech-segments";
 import { type TranscriptEntry, type TranscriptionResult } from "../shared/transcripts";
 import { DictionaryStore } from "./dictionary-store";
 import { HistoryStore } from "./history-store";
+import { LlmCleanupService } from "./llm-cleanup-service";
 import { OpenAiFileAsrProvider } from "./openai-asr-provider";
 import { OpenAiCredentialStore } from "./openai-credential-store";
 import { ParakeetAsrProvider, type ParakeetHotwords } from "./parakeet-asr-provider";
@@ -53,6 +54,7 @@ export class TranscriptionService {
     private readonly runtimeService: RuntimeService,
     private readonly dictionaryStore: DictionaryStore,
     private readonly windowsHelperService: WindowsHelperService,
+    private readonly llmCleanupService: LlmCleanupService,
     private readonly sherpaModelService = new SherpaModelService(settingsStore),
     private readonly sherpaRuntimeService = new SherpaRuntimeService(),
     private readonly parakeetProvider = new ParakeetAsrProvider(),
@@ -155,10 +157,14 @@ export class TranscriptionService {
         correction.text,
         context?.ocrContext?.terms ?? []
       );
-      const text = ocrCorrection.text.trim();
+      const cleaned = await this.llmCleanupService.clean(ocrCorrection.text.trim(), {
+        processName: context?.processName,
+        ocrTerms: context?.ocrContext?.terms
+      });
+      const text = cleaned.text.trim();
 
       if (!text) {
-        throw new Error("Whisper completed but returned no transcript text.");
+        throw new Error(cleaned.cleanup ? "Only hesitation sounds were recognized." : "Whisper completed but returned no transcript text.");
       }
 
       const audioFileName = await this.historyStore.saveAudio(id, speech.wavBytes);
@@ -169,6 +175,7 @@ export class TranscriptionService {
         correctionsApplied: correction.applied.length > 0 ? correction.applied : undefined,
         ocrCorrectionsApplied:
           ocrCorrection.applied.length > 0 ? ocrCorrection.applied : undefined,
+        cleanup: cleaned.cleanup,
         promptContext: promptContext ?? undefined,
         audioFileName,
         providerId: "local-whisper",
@@ -294,10 +301,14 @@ export class TranscriptionService {
       normalizedText,
       context?.processName
     );
-    const text = correction.text.trim();
+    const cleaned = await this.llmCleanupService.clean(correction.text.trim(), {
+      processName: context?.processName,
+      ocrTerms: context?.ocrContext?.terms
+    });
+    const text = cleaned.text.trim();
 
     if (!text) {
-      throw new Error("OpenAI completed but returned no transcript text.");
+      throw new Error(cleaned.cleanup ? "Only hesitation sounds were recognized." : "OpenAI completed but returned no transcript text.");
     }
 
     const audioFileName = settings.cloudFileAudioHistoryEnabled
@@ -308,6 +319,7 @@ export class TranscriptionService {
       text,
       rawText: normalizedText !== text ? normalizedText : undefined,
       correctionsApplied: correction.applied.length > 0 ? correction.applied : undefined,
+      cleanup: cleaned.cleanup,
       audioFileName,
       providerId: asrResult.providerId,
       dictationModeId: asrResult.modeId,
@@ -403,12 +415,16 @@ export class TranscriptionService {
         correction.text,
         context?.ocrContext?.terms ?? []
       );
-      const text = ocrCorrection.text.trim();
+      const cleaned = await this.llmCleanupService.clean(ocrCorrection.text.trim(), {
+        processName: context?.processName,
+        ocrTerms: context?.ocrContext?.terms
+      });
+      const text = cleaned.text.trim();
 
       if (!text) {
         // Parakeet returns empty (not hallucinated) text on silence — surface it
         // the same way the Whisper path does rather than inserting nothing.
-        throw new Error("Parakeet completed but returned no transcript text.");
+        throw new Error(cleaned.cleanup ? "Only hesitation sounds were recognized." : "Parakeet completed but returned no transcript text.");
       }
 
       console.info("[voxtype] transcribe done", {
@@ -428,6 +444,7 @@ export class TranscriptionService {
         correctionsApplied: correction.applied.length > 0 ? correction.applied : undefined,
         ocrCorrectionsApplied:
           ocrCorrection.applied.length > 0 ? ocrCorrection.applied : undefined,
+        cleanup: cleaned.cleanup,
         audioFileName,
         providerId: "local-parakeet",
         dictationModeId: mode.id,

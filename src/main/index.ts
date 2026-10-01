@@ -13,6 +13,7 @@ import { DictionaryStore } from "./dictionary-store";
 import { HardwareService } from "./hardware-service";
 import { HistoryStore } from "./history-store";
 import { InsertionService } from "./insertion-service";
+import { LlmCleanupService } from "./llm-cleanup-service";
 import { ModelService } from "./model-service";
 import { OcrService } from "./ocr-service";
 import { OpenAiFileAsrProvider } from "./openai-asr-provider";
@@ -71,17 +72,19 @@ const ocrService = new OcrService(windowsHelperService);
 const openAiCredentialStore = new OpenAiCredentialStore();
 const openAiFileAsrProvider = new OpenAiFileAsrProvider(openAiCredentialStore);
 const updateService = new UpdateService();
+const llmCleanupService = new LlmCleanupService(settingsStore, dictionaryStore, hardwareService);
 const transcriptionService = new TranscriptionService(
   settingsStore,
   historyStore,
   runtimeService,
   dictionaryStore,
   windowsHelperService,
+  llmCleanupService,
   sherpaModelService,
   sherpaRuntimeService,
   parakeetAsrProvider
 );
-const realtimeCloudHistoryService = new RealtimeCloudHistoryService(dictionaryStore, historyStore);
+const realtimeCloudHistoryService = new RealtimeCloudHistoryService(dictionaryStore, historyStore, llmCleanupService);
 let activeRealtimeCloudSession: RealtimeCloudSession | null = null;
 let activeRealtimeCloudProcessName: string | null = null;
 const realtimeAudioBuffer = new RealtimeAudioBuffer();
@@ -114,6 +117,7 @@ function applyStartupSettings(settings: AppSettings): void {
 async function applySettingsSideEffects(settings: AppSettings): Promise<void> {
   applyStartupSettings(settings);
   startAutomaticUpdateChecks(settings);
+  void llmCleanupService.applySettings();
   await registerConfiguredHotkeys();
 }
 function shouldStartMinimized(settings: AppSettings): boolean {
@@ -699,6 +703,8 @@ ipcMain.handle("openai:test-connection", async () => {
   const modelId = getOpenAiModelIdForMode(dictationMode.id) ?? OPENAI_TRANSCRIBE_MODEL_ID;
   return openAiFileAsrProvider.testConnection(modelId);
 });
+ipcMain.handle("llm-cleanup:get-status", () => llmCleanupService.getStatus());
+ipcMain.handle("llm-cleanup:install", () => llmCleanupService.install());
 ipcMain.handle("models:list", () => modelService.list());
 ipcMain.handle("models:download", (_event, modelId: string) => modelService.download(modelId));
 ipcMain.handle("models:delete", (_event, modelId: string) => modelService.delete(modelId));
@@ -1054,6 +1060,7 @@ void app.whenReady().then(async () => {
   Menu.setApplicationMenu(null);
   void settingsStore.get().then((settings) => {
     applyStartupSettings(settings);
+    void llmCleanupService.applySettings();
     startAutomaticUpdateChecks(settings);
     void checkForUpdates({ revealWindowOnAvailable: true });
   });
@@ -1068,6 +1075,7 @@ void app.whenReady().then(async () => {
 });
 app.on("will-quit", () => {
   cancelActiveRealtimeCloudSession("Realtime Cloud Dictation cancelled because VoxType is quitting.");
+  llmCleanupService.stop();
   stopAutomaticUpdateChecks();
   stopFullscreenSuspensionWatch();
   overlayWindow?.destroy();
