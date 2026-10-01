@@ -18,6 +18,7 @@ export function ReleaseCleanupSettings({
   const [status, setStatus] = useState<LlmCleanupStatus | null>(null);
   const [installing, setInstalling] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [changedAt, setChangedAt] = useState(0);
 
   const refresh = useCallback(async () => {
     setStatus(await window.voxtype.llmCleanup.getStatus());
@@ -27,17 +28,20 @@ export function ReleaseCleanupSettings({
     void refresh();
   }, [refresh, settings.llmCleanupEnabled, settings.llmCleanupModelId, settings.llmCleanupBackend]);
 
-  // The server loads the model in the background after enabling; poll until it settles.
+  // The server loads the model in the background after a change; poll until it settles. After idle
+  // time it is stopped on purpose and loads again when a recording starts, so "stopped" alone is final.
   useEffect(() => {
-    if (status?.server !== "starting" && !(status?.enabled && status.server === "stopped" && status.model.status === "downloaded")) {
+    const justChanged = Date.now() - changedAt < 10_000;
+    if (status?.server !== "starting" && !(justChanged && status?.enabled && status.server === "stopped")) {
       return;
     }
     const timer = window.setTimeout(() => void refresh(), 1_000);
     return () => { window.clearTimeout(timer); };
-  }, [refresh, status]);
+  }, [refresh, status, changedAt]);
 
   async function applyAndInstall(patch: Partial<AppSettings>): Promise<void> {
     setError(null);
+    setChangedAt(Date.now());
     await updateSettings(patch);
     const next = await window.voxtype.llmCleanup.getStatus();
     setStatus(next);
@@ -140,6 +144,10 @@ function statusLabel(status: LlmCleanupStatus | null): string {
 
   if (status.server === "ready") {
     return `Ready. ${status.model.name} on ${where}. Set an app profile's style to Raw to skip cleanup there.`;
+  }
+
+  if (status.server === "stopped") {
+    return `Ready. ${status.model.name} on ${where} loads when you start dictating and unloads after 15 idle minutes.`;
   }
 
   return `Starting ${status.model.name} on ${where}...`;

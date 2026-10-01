@@ -55,7 +55,9 @@ export function filterWhisperSegments(
   context: { speechSpansMs: Array<{ startMs: number; endMs: number }>; prompt: string | null }
 ): { text: string; removed: FilteredSegment[] } {
   const removed: FilteredSegment[] = [];
-  const kept: string[] = [];
+  // Whisper may split a segment inside a word ("Mü" + "ller"); a segment that starts a new word begins
+  // with a space, so that space decides how segments are joined.
+  const kept: Array<{ text: string; newWord: boolean }> = [];
   const normalizedPrompt = context.prompt ? ` ${normalize(context.prompt)} ` : "";
 
   for (const segment of segments) {
@@ -92,15 +94,19 @@ export function filterWhisperSegments(
       continue;
     }
 
-    if (kept.length > 0 && normalize(kept[kept.length - 1]) === normalized && normalized.split(" ").length >= 2) {
+    if (kept.length > 0 && normalize(kept[kept.length - 1].text) === normalized && normalized.split(" ").length >= 2) {
       removed.push({ text, reason: "repeated-segment" });
       continue;
     }
 
-    kept.push(text);
+    kept.push({ text, newWord: /^\s/.test(segment.text) });
   }
 
-  const joined = kept.join(" ").replace(/\s+/g, " ").trim();
+  const joined = kept
+    .map((item, index) => (index > 0 && item.newWord ? ` ${item.text}` : item.text))
+    .join("")
+    .replace(/\s+/g, " ")
+    .trim();
   const collapsed = collapseRepetitionLoops(joined);
   if (collapsed !== joined) {
     removed.push({ text: joined, reason: "repetition-loop" });

@@ -1,7 +1,8 @@
 import { app } from "electron";
 import { randomUUID } from "node:crypto";
 import { mkdir, rm, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { existsSync } from "node:fs";
+import { dirname, join } from "node:path";
 import {
   getDictationMode,
   isCloudDictationMode,
@@ -21,6 +22,7 @@ import {
 } from "../shared/cloud-status";
 import { getModelById } from "../shared/models";
 import { getProviderLanguageHint } from "../shared/provider-language";
+import { type CursorContext } from "../shared/cursor-context";
 import { type OcrPromptContext } from "../shared/ocr-context";
 import { findAppProfile, type AppProfile, type AppSettings } from "../shared/settings";
 import { type SpeechSegment } from "../shared/speech-segments";
@@ -28,6 +30,7 @@ import { type TranscriptEntry, type TranscriptionResult } from "../shared/transc
 import { DictionaryStore } from "./dictionary-store";
 import { HistoryStore } from "./history-store";
 import { LlmCleanupService } from "./llm-cleanup-service";
+import { localModelIdleStopMs } from "./local-server-process";
 import { OpenAiFileAsrProvider } from "./openai-asr-provider";
 import { OpenAiCredentialStore } from "./openai-credential-store";
 import { ParakeetAsrProvider, type ParakeetHotwords } from "./parakeet-asr-provider";
@@ -36,8 +39,9 @@ import { RuntimeService } from "./runtime-service";
 import { SettingsStore } from "./settings-store";
 import { SherpaModelService } from "./sherpa-model-service";
 import { SherpaRuntimeService } from "./sherpa-runtime-service";
-import { composeSpeechWav, decodeMonoPcm, planSpeechChunks, type MonoPcm } from "./speech-audio";
-import { transcribeChunksWithWhisperCli } from "./whisper-cli-transcriber";
+import { composeSpeechWav, decodeMonoPcm, planSpeechChunks, type MonoPcm, type SpeechChunk } from "./speech-audio";
+import { transcribeChunksWithWhisperCli, type WhisperChunkTranscription } from "./whisper-cli-transcriber";
+import { WhisperServer, type WhisperServerConfig } from "./whisper-server";
 import { type WindowsHelperService } from "./windows-helper-service";
 
 interface ResolvedSpeech {
@@ -48,6 +52,8 @@ interface ResolvedSpeech {
 }
 
 export class TranscriptionService {
+  private readonly whisperServer = new WhisperServer(localModelIdleStopMs);
+
   constructor(
     private readonly settingsStore: SettingsStore,
     private readonly historyStore: HistoryStore,
@@ -70,6 +76,8 @@ export class TranscriptionService {
       processName?: string | null;
       ocrContext?: OcrPromptContext | null;
       forceModeId?: "local.custom";
+      /** Text before the cursor in the target app, captured when the dictation hotkey was pressed. */
+      cursorContext?: CursorContext | null;
     }
   ): Promise<TranscriptionResult> {
     const startedAt = Date.now();
@@ -131,7 +139,7 @@ export class TranscriptionService {
     });
 
     try {
-      const result = await transcribeChunksWithWhisperCli({
+      const result = await this.transcribeWhisperChunks({
         executable,
         modelPath,
         chunks,
@@ -159,7 +167,8 @@ export class TranscriptionService {
       );
       const cleaned = await this.llmCleanupService.clean(ocrCorrection.text.trim(), {
         processName: context?.processName,
-        ocrTerms: context?.ocrContext?.terms
+        ocrTerms: context?.ocrContext?.terms,
+        textBefore: context?.cursorContext?.before
       });
       const text = cleaned.text.trim();
 
@@ -225,13 +234,69 @@ export class TranscriptionService {
     return { audio, segments, wavBytes };
   }
 
+  /**
+   * Loads the local Whisper model in the background when a recording starts, so it is warm by the
+   * time the user stops speaking. Never installs anything and never throws.
+   */
+  async prewarm(processName: string | null): Promise<void> {
+    try {
+      const settings = await this.settingsStore.get();
+      const mode = resolveDictationMode(settings, findAppProfile(settings.appProfiles, processName));
+      const model = getModelById(resolveLocalModelId(settings, mode));
+
+      if (mode.providerId !== "local-whisper" || !model) {
+        return;
+      }
+
+      const executable =
+        settings.whisperExecutablePath.trim() ||
+        (await this.runtimeService.getExecutablePath({ allowInstall: false, preference: settings.whisperRuntimeBackend }));
+      const config = executable ? whisperServerConfig(executable, join(settings.modelDirectory, model.fileName)) : null;
+
+      if (config) {
+        await this.whisperServer.ensure(config);
+      }
+    } catch (error) {
+      console.warn("[voxtype] whisper-server prewarm failed", { message: formatErrorMessage(error) });
+    }
+  }
+
+  stop(): void {
+    this.whisperServer.stop();
+  }
+
+  // The warm whisper-server when the runtime ships one; whisper-cli (model loaded per call) otherwise
+  // or when the server fails, so a server problem never costs a dictation.
+  private async transcribeWhisperChunks(input: {
+    executable: string;
+    modelPath: string;
+    chunks: SpeechChunk[];
+    prompt: string | null;
+    language: string;
+    workDirectory: string;
+    id: string;
+  }): Promise<WhisperChunkTranscription> {
+    const config = whisperServerConfig(input.executable, input.modelPath);
+
+    if (config) {
+      try {
+        return await this.whisperServer.transcribeChunks(config, input);
+      } catch (error) {
+        console.warn("[voxtype] whisper-server failed; using whisper-cli", { message: formatErrorMessage(error) });
+        this.whisperServer.stop();
+      }
+    }
+
+    return transcribeChunksWithWhisperCli(input);
+  }
+
   private async transcribeCloudFile(
     audioBytes: Uint8Array,
     mode: DictationMode,
     settings: AppSettings,
     profile: AppProfile | null,
     whisperLanguage: AppSettings["whisperLanguage"],
-    context: { processName?: string | null; ocrContext?: OcrPromptContext | null } | undefined,
+    context: { processName?: string | null; ocrContext?: OcrPromptContext | null; cursorContext?: CursorContext | null } | undefined,
     startedAt: number
   ): Promise<TranscriptionResult> {
     const readiness = getCloudDictationReadinessForMode({
@@ -303,7 +368,8 @@ export class TranscriptionService {
     );
     const cleaned = await this.llmCleanupService.clean(correction.text.trim(), {
       processName: context?.processName,
-      ocrTerms: context?.ocrContext?.terms
+      ocrTerms: context?.ocrContext?.terms,
+      textBefore: context?.cursorContext?.before
     });
     const text = cleaned.text.trim();
 
@@ -338,7 +404,7 @@ export class TranscriptionService {
     audioBytes: Uint8Array,
     mode: DictationMode,
     settings: AppSettings,
-    context: { processName?: string | null; ocrContext?: OcrPromptContext | null } | undefined,
+    context: { processName?: string | null; ocrContext?: OcrPromptContext | null; cursorContext?: CursorContext | null } | undefined,
     startedAt: number
   ): Promise<TranscriptionResult> {
     const bundle = await this.sherpaModelService.resolveBundlePaths(mode.modelId);
@@ -402,7 +468,8 @@ export class TranscriptionService {
         executablePath,
         bundle,
         backend: settings.sherpaRuntimeBackend,
-        hotwords
+        hotwords,
+        workDirectory
       });
 
       const rawText = result.text.trim();
@@ -417,7 +484,8 @@ export class TranscriptionService {
       );
       const cleaned = await this.llmCleanupService.clean(ocrCorrection.text.trim(), {
         processName: context?.processName,
-        ocrTerms: context?.ocrContext?.terms
+        ocrTerms: context?.ocrContext?.terms,
+        textBefore: context?.cursorContext?.before
       });
       const text = cleaned.text.trim();
 
@@ -633,4 +701,9 @@ function replaceSpokenVariant(text: string, variant: string, term: string): stri
   const expression = new RegExp(`\\b${escaped}\\b`, "gi");
 
   return text.replace(expression, term);
+}
+
+function whisperServerConfig(cliExecutable: string, modelPath: string): WhisperServerConfig | null {
+  const executable = join(dirname(cliExecutable), "whisper-server.exe");
+  return existsSync(executable) && existsSync(modelPath) ? { executable, modelPath } : null;
 }

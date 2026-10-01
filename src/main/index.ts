@@ -8,6 +8,7 @@ import { type DictionaryCreateInput, type DictionaryPatch } from "../shared/dict
 import { buildOcrPromptContext, type OcrPromptContext } from "../shared/ocr-context";
 import { type SpeechSegment } from "../shared/speech-segments";
 import { type AppProfile, type AppSettings, type InsertionMode, type SettingsPatch, findAppProfile } from "../shared/settings";
+import { type CursorContext } from "../shared/cursor-context";
 import { type ActiveWindowInfo, type DictationHotkeyState, type NativeRecordingOptions, type RecordingOverlayState } from "../shared/windows-helper";
 import { DictionaryStore } from "./dictionary-store";
 import { HardwareService } from "./hardware-service";
@@ -36,6 +37,8 @@ let overlayWindow: BrowserWindow | null = null;
 let overlayState: RecordingOverlayState = { visible: false, mode: "recording", level: 0, message: "Recording" };
 let tray: Tray | null = null;
 let dictationHotkeyState: DictationHotkeyState = { recording: false, sessionId: 0, target: null, ocrContext: null };
+// Text before the cursor when the last hotkey dictation started; attached to that dictation's cleanup.
+let lastCursorContext: { processName: string | null; context: CursorContext } | null = null;
 let nextDictationSessionId = 1;
 let registeredShowWindowHotkey: string | null = null;
 let registeredDictationHotkey: string | null = null;
@@ -309,8 +312,15 @@ async function startDictationHotkey(): Promise<number | null> {
     return null;
   }
   const target = await windowsHelperService.getActiveWindow().catch(() => null);
-  await settingsStore.ensureAppProfile(target);
   const sessionId = nextDictationSessionId++;
+  // Read right away, while the target app still has keyboard focus.
+  lastCursorContext = null;
+  void windowsHelperService.getFocusedText().then((context) => {
+    if (context && dictationHotkeyState.sessionId === sessionId) {
+      lastCursorContext = { processName: target?.processName ?? null, context };
+    }
+  }, () => undefined);
+  await settingsStore.ensureAppProfile(target);
   dictationHotkeyState = {
     recording: true,
     sessionId,
@@ -797,8 +807,14 @@ ipcMain.handle(
       ocrContext?: OcrPromptContext | null;
       forceModeId?: "local.custom";
     }
-  ) =>
-    transcriptionService.transcribeWav(bytes, context)
+  ) => {
+    const cursorContext =
+      lastCursorContext && context?.processName && lastCursorContext.processName?.toLowerCase() === context.processName.toLowerCase()
+        ? lastCursorContext.context
+        : null;
+    lastCursorContext = null;
+    return transcriptionService.transcribeWav(bytes, { ...context, cursorContext });
+  }
 );
 ipcMain.handle(
   "transcription:realtime-start",
@@ -1021,6 +1037,9 @@ ipcMain.handle("windows-helper:capture-screenshot", (_event, mode: "screen" | "a
 );
 ipcMain.handle("windows-helper:start-recording", (_event, options: NativeRecordingOptions) =>
   {
+    // Load the speech and cleanup models while the user speaks; both unload after idle time.
+    void transcriptionService.prewarm(dictationHotkeyState.recording ? dictationHotkeyState.target?.processName ?? null : null);
+    void llmCleanupService.prewarm();
     resetPendingRealtimePcm16Audio();
     resetRecordingRealtimePcm16Counters();
     return windowsHelperService.startRecording(options, (level, pcm16Chunk) => {
@@ -1061,6 +1080,7 @@ void app.whenReady().then(async () => {
   void settingsStore.get().then((settings) => {
     applyStartupSettings(settings);
     void llmCleanupService.applySettings();
+    void transcriptionService.prewarm(null);
     startAutomaticUpdateChecks(settings);
     void checkForUpdates({ revealWindowOnAvailable: true });
   });
@@ -1076,6 +1096,7 @@ void app.whenReady().then(async () => {
 app.on("will-quit", () => {
   cancelActiveRealtimeCloudSession("Realtime Cloud Dictation cancelled because VoxType is quitting.");
   llmCleanupService.stop();
+  transcriptionService.stop();
   stopAutomaticUpdateChecks();
   stopFullscreenSuspensionWatch();
   overlayWindow?.destroy();

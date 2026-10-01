@@ -1,7 +1,7 @@
 // E2E dictation test: corpus -> native helper (resample + VAD) -> speech segments -> chunks ->
 // local Whisper -> output filter -> scored report. Uses the same modules as the app.
 //
-// Usage: bun scripts/e2e-dictation/run.ts [--only id,id] [--corpus synthetic|user-history] [--label name]
+// Usage: bun scripts/e2e-dictation/run.ts [--only id,id] [--corpus synthetic|user-history] [--label name] [--asr whisper|parakeet]
 //        tuning: [--segmentation '{"offsetThreshold":0.25}'] [--chunking '{"maxKeptGapMs":500}']
 // Artifacts: native/windows-helper/target/e2e/dictation-<label>.{json,md}; compared against
 // dictation-baseline.json (the pre-fix pipeline) when present.
@@ -23,6 +23,7 @@ import {
   normalizeWords,
   tryGit,
   wordErrorRate,
+  type AsrEngine,
   type PipelineResult
 } from "./pipeline";
 import { buildCorpus, decodeWav, type Fixture } from "./corpus";
@@ -36,6 +37,7 @@ interface Report {
   gitDirty: boolean;
   whisperCli: string;
   whisperModel: string;
+  whisperServer?: boolean;
   passed: number;
   total: number;
   meanWer: number;
@@ -49,20 +51,25 @@ const only = argValue("--only")?.split(",").filter(Boolean);
 // Tuning overrides, e.g. --segmentation '{"offsetThreshold":0.25}' --label off025
 const segmentation = { ...defaultSpeechSegmentation, ...JSON.parse(argValue("--segmentation") ?? "{}") };
 const chunking = { ...defaultSpeechChunking, ...JSON.parse(argValue("--chunking") ?? "{}") };
-const label = argValue("--label") ?? (corpus === "synthetic" ? "current" : corpus);
+const engine: AsrEngine = argValue("--asr") === "parakeet" ? "parakeet" : "whisper";
+const label = argValue("--label") ?? `${corpus === "synthetic" ? "current" : corpus}${engine === "parakeet" ? "-parakeet" : ""}`;
 
 async function main(): Promise<void> {
-  const context = createPipelineContext(join(outDir, "work"));
+  const context = createPipelineContext(join(outDir, "work"), engine);
   mkdirSync(context.workDir, { recursive: true });
 
   const fixtures = corpus === "user-history" ? userHistoryCorpus() : buildCorpus(outDir, only);
   const results = [];
 
-  for (const fixture of fixtures) {
-    const result = await currentPipeline({ ...fixture, segmentation, chunking }, context);
-    const score = scoreFixture(fixture, result);
-    results.push({ id: fixture.id, targets: fixture.targets, durationMs: fixture.durationMs, reference: fixture.reference, ...result, ...score });
-    console.log(`${score.knownIssue ? "KNOWN" : score.pass ? "PASS " : "FAIL "} ${fixture.id.padEnd(18)} WER ${score.wer.toFixed(3)}  ${score.failures.join("; ")}`);
+  try {
+    for (const fixture of fixtures) {
+      const result = await currentPipeline({ ...fixture, segmentation, chunking }, context);
+      const score = scoreFixture(fixture, result);
+      results.push({ id: fixture.id, targets: fixture.targets, durationMs: fixture.durationMs, reference: fixture.reference, ...result, ...score });
+      console.log(`${score.knownIssue ? "KNOWN" : score.pass ? "PASS " : "FAIL "} ${fixture.id.padEnd(18)} WER ${score.wer.toFixed(3)}  ${score.failures.join("; ")}`);
+    }
+  } finally {
+    context.whisperServer?.server.stop();
   }
 
   const report: Report = {
@@ -74,6 +81,7 @@ async function main(): Promise<void> {
     gitDirty: tryGit(["status", "--porcelain"]) !== "",
     whisperCli: context.whisperCli,
     whisperModel: context.whisperModel,
+    whisperServer: context.whisperServer !== null,
     passed: results.filter((result) => result.pass).length,
     total: results.length,
     meanWer: results.reduce((sum, result) => sum + result.wer, 0) / Math.max(1, results.length),
@@ -83,7 +91,7 @@ async function main(): Promise<void> {
   const reportBase = join(outDir, `dictation-${label}`);
   writeFileSync(`${reportBase}.json`, `${JSON.stringify(report, null, 2)}\n`);
   const baselinePath = join(outDir, "dictation-baseline.json");
-  const baseline = corpus === "synthetic" && existsSync(baselinePath) ? (JSON.parse(readFileSync(baselinePath, "utf8")) as Report) : null;
+  const baseline = corpus === "synthetic" && engine === "whisper" && existsSync(baselinePath) ? (JSON.parse(readFileSync(baselinePath, "utf8")) as Report) : null;
   writeFileSync(`${reportBase}.md`, renderMarkdown(report, baseline));
   process.exitCode = report.passed === report.total ? 0 : 1;
   console.log(`\n${String(report.passed)}/${String(report.total)} passed, mean WER ${report.meanWer.toFixed(3)}, sentence ends ${String(report.punctuation?.found)}/${String(report.punctuation?.expected)}\nReport: ${reportBase}.md`);

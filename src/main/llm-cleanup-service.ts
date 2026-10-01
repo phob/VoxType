@@ -21,6 +21,7 @@ import { downloadAndExpandZip, downloadFile, findFile } from "./archive-download
 import { DictionaryStore } from "./dictionary-store";
 import { HardwareService } from "./hardware-service";
 import { LlamaServer, type LlamaServerConfig } from "./llama-server";
+import { localModelIdleStopMs } from "./local-server-process";
 import { runCleanup, warmUpCleanup } from "./llm-cleanup-runner";
 import { SettingsStore } from "./settings-store";
 
@@ -29,10 +30,12 @@ const maxCleanupTerms = 40;
 export interface CleanupContext {
   processName?: string | null;
   ocrTerms?: string[];
+  /** Text before the cursor in the target app (UI Automation), if it could be read. */
+  textBefore?: string;
 }
 
 export class LlmCleanupService {
-  private readonly server = new LlamaServer();
+  private readonly server = new LlamaServer(localModelIdleStopMs);
   private readonly runtimeRootDirectory = join(app.getPath("userData"), "runtimes", "llama.cpp");
   private hardwareReport: Promise<HardwareAccelerationReport> | null = null;
   private installing: Promise<LlmCleanupStatus> | null = null;
@@ -65,6 +68,11 @@ export class LlmCleanupService {
       this.installing = null;
     });
     return this.installing;
+  }
+
+  /** Called when a recording starts: load the model while the user speaks (it unloads after idle time). */
+  prewarm(): Promise<void> {
+    return this.applySettings();
   }
 
   /** Called at startup and after settings changes: warm up when enabled and installed, stop otherwise. */
@@ -113,6 +121,7 @@ export class LlmCleanupService {
     const run = await runCleanup(this.server, config, {
       text,
       style,
+      textBefore: context.textBefore,
       terms: await this.cleanupTerms(context),
       modelId: model.id,
       timeoutMs: llmCleanupTimeoutMs

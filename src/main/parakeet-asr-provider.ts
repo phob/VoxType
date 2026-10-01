@@ -1,4 +1,3 @@
-import { app } from "electron";
 import { execFile } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { mkdir, rm, writeFile } from "node:fs/promises";
@@ -21,6 +20,8 @@ export interface ParakeetTranscribeInput {
   bundle: ResolvedParakeetBundle;
   backend: SherpaRuntimeBackend;
   hotwords?: ParakeetHotwords | null;
+  /** Where the temporary WAV is written. */
+  workDirectory: string;
 }
 
 // Drives `sherpa-onnx-offline.exe` — structurally identical to the whisper.cpp
@@ -28,11 +29,10 @@ export interface ParakeetTranscribeInput {
 // hotword flags are only added when decode-time biasing is explicitly enabled.
 export class ParakeetAsrProvider {
   async transcribe(input: ParakeetTranscribeInput): Promise<{ text: string }> {
-    const workDirectory = join(app.getPath("temp"), "voxtype");
     const id = randomUUID();
-    const audioPath = join(workDirectory, `${id}.wav`);
+    const audioPath = join(input.workDirectory, `${id}.wav`);
 
-    await mkdir(workDirectory, { recursive: true });
+    await mkdir(input.workDirectory, { recursive: true });
     await writeFile(audioPath, input.audioBytes);
 
     const args = buildParakeetArgs({
