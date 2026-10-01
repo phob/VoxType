@@ -165,12 +165,25 @@ Implemented 2026-10-01 as an opt-in setting ("Clean up dictation with local AI")
 - Pipeline (`src/main/llm-cleanup-runner.ts`): strip hesitation sounds in code, ask the model with a fixed
   system prompt plus few-shot examples (`src/shared/cleanup-prompt.ts`), check the answer with
   `src/shared/cleanup-guard.ts`, then apply preferred term spellings and chat-style punctuation in code.
-- Measured with `bun run e2e:cleanup` (RTX 5080): 4B on Vulkan 34/34 at 132 ms p50 / 527 ms p95; 2B on
-  CPU 30/34 at 0.5 s p50 / 2.3 s p95; Whisper alone 17/34.
+- Context: up to 300 characters before the cursor (UI Automation, read when the hotkey is pressed) and
+  dictionary/OCR terms. One retry with the rejection reason when the guard rejects an answer.
+- Measured with `bun run e2e:cleanup` (RTX 5080, 39 fixtures): 4B on Vulkan 39/39 at 145 ms p50 /
+  603 ms p95; 2B on CPU 33/39 at 0.5 s p50 / 2.7 s p95; Whisper alone 22/39.
+- The model loads when a recording starts and unloads after 15 idle minutes.
 - Known gaps: the 2B model misses most German self-corrections; on CPU the 4B model reaches the 6 s
   budget on long dictations, which is why CPU uses 2B.
 
+## Warm Whisper
+
+Local Whisper runs through `whisper-server.exe` from the managed whisper.cpp zip, kept warm with
+whisper-cli's decoding settings, loaded when a recording starts and stopped after 15 idle minutes.
+`whisper-cli` remains the fallback. Short dictations: ~0.35 s ASR instead of ~1.4 s (RTX 5080, CUDA).
+
 ## Parakeet V3 Later
+
+Measured 2026-10-01 (`--asr parakeet` in both E2E harnesses): Parakeet v3 int8 on CPU is not better
+than Whisper large-v3-turbo here: 17/22 on the pause corpus (truncates long audio, invents "Yeah." on
+breaths) and more German errors on messy speech, at similar cold latency. It stays optional.
 
 Parakeet V3 is interesting as an optional engine later:
 

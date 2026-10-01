@@ -135,4 +135,6 @@ export interface TranscriptCleanup {
   inputText?: string;
   /** The model's output when the guard rejected it, for diagnosis. */
   rejectedText?: string;
+  /** The first answer was rejected and the model was asked once more. */
+  retried?: boolean;
 }

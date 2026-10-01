@@ -2,7 +2,7 @@
 // through llama-server, then the guard decides whether the LLM's text may be used.
 // Never throws: when the LLM fails or is rejected, the deterministic result is used.
 import { guardCleanupOutput } from "../shared/cleanup-guard";
-import { buildCleanupMessages, cleanupMaxTokens, type CleanupPromptInput } from "../shared/cleanup-prompt";
+import { buildCleanupMessages, buildCleanupRetryMessages, cleanupMaxTokens, type CleanupPromptInput } from "../shared/cleanup-prompt";
 import { finishText, stripHesitations } from "../shared/cleanup-text";
 import { type TranscriptCleanup } from "../shared/llm-cleanup";
 import { type ChatCompletion, type LlamaServer, type LlamaServerConfig } from "./llama-server";
@@ -30,9 +30,26 @@ export async function runCleanup(
     return { text: "", completion, record: { status: "applied", modelId: input.modelId, durationMs: elapsed(), inputText: input.text } };
   }
 
-  try {
+  const messages = buildCleanupMessages({ ...input, text: prepared });
+  const chatOptions = { maxTokens: cleanupMaxTokens(prepared), signal };
+
+  const ask = async () => {
     await abortable(server.ensure(config), signal);
-    completion = await server.chat(buildCleanupMessages({ ...input, text: prepared }), { maxTokens: cleanupMaxTokens(prepared), signal });
+    return server.chat(messages, chatOptions);
+  };
+
+  try {
+    try {
+      completion = await ask();
+    } catch (error) {
+      if (signal.aborted) {
+        throw error;
+      }
+      // The server process can die between requests (crash, killed) before its exit is noticed;
+      // restart it once inside the same time budget.
+      server.stop();
+      completion = await ask();
+    }
   } catch (error) {
     const reason = signal.aborted ? `timed out after ${String(input.timeoutMs)} ms` : error instanceof Error ? error.message : String(error);
     return {
@@ -42,7 +59,25 @@ export async function runCleanup(
     };
   }
 
-  const verdict = guardCleanupOutput({ source: input.text, output: completion.text, terms: input.terms });
+  const guard = (output: string) => guardCleanupOutput({ source: input.text, output, terms: input.terms, context: input.textBefore });
+  let verdict = guard(completion.text);
+  let retried = false;
+
+  // One retry with the rejection reason, when there is time: small models often fix a single slip
+  // (e.g. "du" turned into "Sie") once it is pointed out. Costs one more short request.
+  if (!verdict.accepted && elapsed() < input.timeoutMs / 2) {
+    retried = true;
+    try {
+      const second = await server.chat(buildCleanupRetryMessages(messages, completion.text, verdict.reason), chatOptions);
+      const secondVerdict = guard(second.text);
+      if (secondVerdict.accepted) {
+        completion = second;
+        verdict = secondVerdict;
+      }
+    } catch {
+      // Keep the first rejection; the deterministic result is used below.
+    }
+  }
 
   if (!verdict.accepted) {
     return {
@@ -54,6 +89,7 @@ export async function runCleanup(
         modelId: input.modelId,
         durationMs: elapsed(),
         rejectedText: verdict.text,
+        retried,
         ...changedFromInput(fallback)
       }
     };
@@ -64,7 +100,13 @@ export async function runCleanup(
   return {
     text,
     completion,
-    record: { status: text === input.text ? "unchanged" : "applied", modelId: input.modelId, durationMs: elapsed(), ...changedFromInput(text) }
+    record: {
+      status: text === input.text ? "unchanged" : "applied",
+      modelId: input.modelId,
+      durationMs: elapsed(),
+      ...(retried ? { retried } : {}),
+      ...changedFromInput(text)
+    }
   };
 }
 

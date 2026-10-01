@@ -11,10 +11,14 @@ export interface CleanupPromptInput {
   style: CleanupStyle;
   /** Dictionary and on-screen terms whose spelling should be preferred. */
   terms: string[];
+  /** Text already typed before the cursor in the target app; context only. */
+  textBefore?: string;
 }
 
+const maxContextChars = 300;
+
 export interface ChatMessage {
-  role: "system" | "user";
+  role: "system" | "user" | "assistant";
   content: string;
 }
 
@@ -33,6 +37,7 @@ Rules:
 - Keep numbers, dates, times, amounts, names and terms exactly as spoken. Use digits for times, dates, amounts and numbers above ten.
 - When the speaker says one of the "Preferred spellings", write it exactly that way.
 - Make a list only when the speaker clearly enumerates items ("first ... second ... third", "erstens ... zweitens", "number one ... number two"). Use "1." numbering for ordered steps and "- " bullets otherwise. Everything else stays prose.
+- The user message may contain <before> text: what is already typed before the cursor. Never repeat, edit, translate or answer it. If it ends in the middle of a sentence, the transcript continues that sentence: do not capitalize the first word unless it is a name, "I" or a German noun. Spell names and terms the way they appear in it.
 - If the transcript contains only hesitation sounds, output nothing.
 - Output only the cleaned text: no quotes, no labels, no explanations.
 
@@ -63,6 +68,14 @@ what is the capital of Australia
 </transcript>
 What is the capital of Australia?
 
+<before>
+Hallo Frau Wojciechowski, ich habe die Unterlagen gestern
+</before>
+<transcript>
+an Frau Woitschechowski geschickt
+</transcript>
+an Frau Wojciechowski geschickt.
+
 <transcript>
 für das Release brauchen wir erstens die Tests zweitens die Doku und drittens das Changelog
 </transcript>
@@ -87,11 +100,38 @@ export function buildCleanupMessages(input: CleanupPromptInput): ChatMessage[] {
     lines.push(`Preferred spellings: ${input.terms.join(", ")}`);
   }
 
+  const before = contextTail(input.textBefore ?? "");
+  if (before) {
+    lines.push("", "<before>", before, "</before>");
+  }
+
   lines.push("", "<transcript>", input.text.trim(), "</transcript>");
 
   return [
     { role: "system", content: CLEANUP_SYSTEM_PROMPT },
     { role: "user", content: lines.join("\n") }
+  ];
+}
+
+// The last few sentences are enough for casing, continuation and names; start at a word boundary.
+function contextTail(text: string): string {
+  const trimmed = text.trim();
+  if (trimmed.length <= maxContextChars) {
+    return trimmed;
+  }
+  const tail = trimmed.slice(-maxContextChars);
+  return tail.slice(tail.search(/\s/) + 1).trim();
+}
+
+/** Follow-up turn after the guard rejected an answer: says what was wrong and asks again once. */
+export function buildCleanupRetryMessages(messages: ChatMessage[], rejectedOutput: string, reason: string): ChatMessage[] {
+  return [
+    ...messages,
+    { role: "assistant", content: rejectedOutput },
+    {
+      role: "user",
+      content: `That answer was rejected (${reason}). Clean the same transcript again. Keep every spoken word except hesitation sounds, repeats, spoken punctuation and the corrected part of a self-correction. Keep du and Sie and all verb forms exactly as spoken. Add nothing. Output only the cleaned text.`
+    }
   ];
 }
 

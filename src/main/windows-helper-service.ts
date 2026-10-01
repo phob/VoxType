@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { access, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
+import { cursorContextMaxBefore, parseCursorContext, type CursorContext } from "../shared/cursor-context";
 import {
   type ActiveWindowInfo,
   type CaptureSessionMuteState,
@@ -94,6 +95,25 @@ export class WindowsHelperService {
     }
 
     return normalizeActiveWindowInfo(parsed);
+  }
+
+  /**
+   * Text before the cursor in the focused control, via UI Automation. Null when the control exposes no
+   * text, is a password field, or does not answer quickly (UI Automation can block on a hung app).
+   */
+  async getFocusedText(): Promise<CursorContext | null> {
+    const helperPath = await this.resolveHelperPath();
+
+    if (!helperPath) {
+      return null;
+    }
+
+    const { stdout } = await execFileAsync(helperPath, ["focused-text", String(cursorContextMaxBefore), "0"], {
+      windowsHide: true,
+      timeout: 1_500
+    });
+
+    return parseCursorContext(JSON.parse(stdout));
   }
 
   async pasteText(pasteDelayMs = 0): Promise<void> {

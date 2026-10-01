@@ -16,6 +16,9 @@
 //  C12 the app style is ignored (chat vs professional)
 //  C13 cleanup is too slow, or a broken runtime blocks insertion
 //  C14 English tech terms inside German sentences are "corrected"
+//  C15 text before the cursor is ignored: a continued sentence gets a capital letter, a name already
+//      typed there is misspelled
+//  C16 text before the cursor is repeated, edited or answered
 import { type CleanupStyle } from "../../src/shared/cleanup-prompt";
 import { type FixtureSpec, type Part, type SpeechLanguage } from "../e2e-dictation/corpus";
 
@@ -32,6 +35,8 @@ export interface CleanupFixtureSpec extends FixtureSpec {
   mustMatch?: string;
   /** Regex (multiline) the cleaned text must not match. */
   mustNotMatch?: string;
+  /** Text already typed before the cursor in the target app (cursor context). */
+  before?: string;
 }
 
 const LIST = "(^|\\n)\\s*(1\\.|-|•)\\s";
@@ -151,6 +156,28 @@ const specs: Spec[] = [
     mustNotContain: ["um", "uh"]
   },
 
+  {
+    id: "en-continue", lang: "en", style: "default", targets: ["C15", "C16"], maxWer: 0.15,
+    before: "Thanks for the quick reply. I will send the report",
+    spoken: ["to the whole team tomorrow morning."],
+    expected: "to the whole team tomorrow morning.",
+    mustMatch: "^to the whole team", mustNotContain: ["Thanks for the quick reply"]
+  },
+  {
+    id: "en-context-name", lang: "en", style: "default", targets: ["C15"], maxWer: 0.2,
+    before: "Attendees: Anna Kowalczyk, Ravi Raghunathan.\n\n",
+    spoken: ["Please forward the minutes to Ravi Ragunatan."],
+    expected: "Please forward the minutes to Ravi Raghunathan.",
+    mustContain: ["Raghunathan"], mustNotContain: ["Attendees", "Kowalczyk"]
+  },
+  {
+    id: "en-context-question", lang: "en", style: "default", targets: ["C16", "C4"], maxWer: 0.1,
+    before: "Q: Which port does the staging server use?\nA: ",
+    spoken: ["I am not sure, let me check with Tom."],
+    expected: "I am not sure, let me check with Tom.",
+    mustNotMatch: "\\d"
+  },
+
   // ---------- German ----------
   {
     id: "de-clean", lang: "de", style: "default", targets: ["C1", "C6"], maxWer: 0.1,
@@ -255,6 +282,20 @@ const specs: Spec[] = [
     spoken: ["Sehr geehrte Frau Weber Komma neuer Absatz vielen Dank für Ihre Nachricht Punkt Ich melde mich bis Freitag bei Ihnen Punkt neuer Absatz Mit freundlichen Grüßen Martin"],
     expected: "Sehr geehrte Frau Weber,\n\nvielen Dank für Ihre Nachricht. Ich melde mich bis Freitag bei Ihnen.\n\nMit freundlichen Grüßen\nMartin",
     mustMatch: "Weber,\\s*\\n", mustNotContain: ["Komma", "neuer Absatz", "Punkt"]
+  },
+  {
+    id: "de-continue", lang: "de", style: "default", targets: ["C15", "C16"], maxWer: 0.15,
+    before: "Hallo Jonas, kurze Info: Ich habe die Unterlagen gestern",
+    spoken: ["an den Kunden geschickt und warte jetzt auf seine Antwort."],
+    expected: "an den Kunden geschickt und warte jetzt auf seine Antwort.",
+    mustMatch: "^an den Kunden", mustNotContain: ["Hallo Jonas"]
+  },
+  {
+    id: "de-context-name", lang: "de", style: "default", targets: ["C15"], maxWer: 0.2,
+    before: "Ansprechpartner beim Kunden: Herr Brzezinski (Einkauf).\n\n",
+    spoken: ["Bitte ruf morgen Herrn Bschesinski wegen der Lieferung an."],
+    expected: "Bitte ruf morgen Herrn Brzezinski wegen der Lieferung an.",
+    mustContain: ["Brzezinski"], mustNotContain: ["Ansprechpartner", "Einkauf"]
   },
   {
     id: "de-long", lang: "de", style: "default", targets: ["C13", "C2", "C1"], maxWer: 0.2,

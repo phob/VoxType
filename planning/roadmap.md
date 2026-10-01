@@ -177,4 +177,4 @@ Possible additions:
 - Faster Whisper/CTranslate2.
 - Additional cloud ASR providers after the OpenAI Cloud Dictation path is validated.
 - Additional OCR engines only if Windows Media OCR proves insufficient.
-- Local LLM formatting provider. Moved into Phase 5 as AI cleanup (2026-10-01). Follow-ups: unload the model after idle time, user edits as cleanup examples, text around the cursor through UI Automation as context.
+- Local LLM formatting provider. Moved into Phase 5 as AI cleanup (2026-10-01). Done: idle unload with load-on-record, text before the cursor through UI Automation as context, warm whisper-server. Follow-ups: user edits as cleanup examples, cursor context for realtime cloud dictation.

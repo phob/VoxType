@@ -40,7 +40,7 @@ const correctionPhrases = [
 
 const maxLengthRatio = 1.2;
 
-export function guardCleanupOutput(input: { source: string; output: string; terms: string[] }): CleanupVerdict {
+export function guardCleanupOutput(input: { source: string; output: string; terms: string[]; context?: string }): CleanupVerdict {
   const text = stripWrappers(input.output, input.source);
   const sourceWords = words(input.source);
   const outputWords = words(text);
@@ -55,7 +55,9 @@ export function guardCleanupOutput(input: { source: string; output: string; term
     return { accepted: false, reason: `output longer than input (${String(outputWords.length)} vs ${String(sourceWords.length)} words)`, text };
   }
 
-  const known = new Set([...sourceWords, ...input.terms.flatMap(words)]);
+  // Words from the text before the cursor may appear (a name spelled as already typed), but they do not
+  // count as source words for the length and dropped-word checks.
+  const known = new Set([...sourceWords, ...input.terms.flatMap(words), ...words(input.context ?? "")]);
   const joinedSource = sourceWords.join("");
   const sourceHasNumberWords = sourceWords.some((word) => numberWords.has(word) || isCompoundNumberWord(word));
   const added = outputWords.filter((word) => !isExplained(word, known, joinedSource, sourceHasNumberWords));

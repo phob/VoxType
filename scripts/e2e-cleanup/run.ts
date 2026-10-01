@@ -3,6 +3,7 @@
 //
 // Usage: bun scripts/e2e-cleanup/run.ts [--model <gguf>]... [--backend vulkan|cpu] [--spec ngram-simple]
 //        [--only id,id] [--label name] [--no-cleanup] [--fresh-asr] [--corpus synthetic|user-history]
+//        [--asr whisper|parakeet]
 // --model takes a path or a file name in %APPDATA%\voxtype\models\llm; repeat it to compare models.
 // Default: the model the app picks for the backend ("auto"), on Vulkan.
 // Artifacts: native/windows-helper/target/e2e/cleanup-<label>.{json,md}.
@@ -31,6 +32,7 @@ import {
   normalizeWords,
   tryGit,
   wordErrorRate,
+  type AsrEngine,
   type PipelineContext
 } from "../e2e-dictation/pipeline";
 import { CLEANUP_FIXTURES, type CleanupFixtureSpec } from "./corpus";
@@ -79,6 +81,7 @@ const only = argValue("--only")?.split(",").filter(Boolean);
 const backend: LlamaRuntimeBackend = argValue("--backend") === "cpu" ? "cpu" : "vulkan";
 const spec = argValue("--spec");
 const noCleanup = process.argv.includes("--no-cleanup");
+const engine: AsrEngine = argValue("--asr") === "parakeet" ? "parakeet" : "whisper";
 const freshAsr = process.argv.includes("--fresh-asr");
 const label = argValue("--label") ?? (noCleanup ? "asr-only" : corpus === "synthetic" ? "current" : corpus);
 
@@ -93,26 +96,30 @@ async function main(): Promise<void> {
   }
 
   const fixtures = buildFixtures(e2eOutDir, "cleanup-fixtures", CLEANUP_FIXTURES.filter((fixture) => !only?.length || only.includes(fixture.id)));
-  const pipeline = createPipelineContext(join(e2eOutDir, "work"));
+  const pipeline = createPipelineContext(join(e2eOutDir, "work"), engine);
   const results: FixtureResult[] = [];
 
-  for (const fixture of fixtures) {
-    const asr = await transcribeCached(fixture, pipeline);
-    const asrScore = scoreText(fixture, asr.text);
-    results.push({
-      id: fixture.id,
-      lang: fixture.lang,
-      style: fixture.style,
-      targets: fixture.targets,
-      spoken: fixture.reference,
-      expected: fixture.expected,
-      asrText: asr.text,
-      asrWer: asrScore.wer,
-      asrMs: asr.ms,
-      asrFailures: asrScore.failures,
-      runs: []
-    });
-    console.log(`ASR   ${fixture.id.padEnd(18)} ${asr.cached ? "(cached)" : `${String(Math.round(asr.ms))} ms`}  ${asr.text}`);
+  try {
+    for (const fixture of fixtures) {
+      const asr = await transcribeCached(fixture, pipeline);
+      const asrScore = scoreText(fixture, asr.text);
+      results.push({
+        id: fixture.id,
+        lang: fixture.lang,
+        style: fixture.style,
+        targets: fixture.targets,
+        spoken: fixture.reference,
+        expected: fixture.expected,
+        asrText: asr.text,
+        asrWer: asrScore.wer,
+        asrMs: asr.ms,
+        asrFailures: asrScore.failures,
+        runs: []
+      });
+      console.log(`ASR   ${fixture.id.padEnd(18)} ${asr.cached ? "(cached)" : `${String(Math.round(asr.ms))} ms`}  ${asr.text}`);
+    }
+  } finally {
+    pipeline.whisperServer?.server.stop();
   }
 
   for (const model of models) {
@@ -132,6 +139,7 @@ async function main(): Promise<void> {
           text: result.asrText,
           style: fixture.style,
           terms: fixture.terms ?? [],
+          textBefore: fixture.before,
           modelId: basename(model),
           timeoutMs: llmCleanupTimeoutMs
         });
@@ -151,6 +159,7 @@ async function main(): Promise<void> {
     generatedAt: new Date().toISOString(),
     gitCommit: tryGit(["rev-parse", "HEAD"]),
     gitDirty: tryGit(["status", "--porcelain"]) !== "",
+    asrEngine: pipeline.engine,
     whisperModel: pipeline.whisperModel,
     llamaServer,
     backend,
@@ -182,7 +191,7 @@ async function transcribeCached(fixture: Fixture, pipeline: PipelineContext): Pr
   mkdirSync(cacheDir, { recursive: true });
   const key = createHash("sha1")
     .update(readFileSync(fixture.path))
-    .update(`\n${pipeline.whisperModel}\n${fixture.lang}\n${(fixture.terms ?? []).join(",")}`)
+    .update(`\n${pipeline.engine}\n${pipeline.whisperServer ? "server" : "cli"}\n${pipeline.whisperModel}\n${fixture.lang}\n${(fixture.terms ?? []).join(",")}`)
     .digest("hex")
     .slice(0, 16);
   const cachePath = join(cacheDir, `${fixture.id}-${key}.json`);
@@ -326,6 +335,7 @@ function renderMarkdown(report: {
   generatedAt: string;
   gitCommit: string | null;
   gitDirty: boolean;
+  asrEngine: string;
   backend: string;
   speculative: string | null;
   promptHash: string;
@@ -340,7 +350,7 @@ function renderMarkdown(report: {
     "",
     "| Pipeline | Passed | Mean WER vs expected | Cleanup p50 | p95 | max | Outcomes |",
     "|---|---|---|---|---|---|---|",
-    `| Whisper only | ${String(report.asrOnly.passed)}/${String(report.asrOnly.total)} | ${report.asrOnly.meanWer.toFixed(3)} | - | - | - | - |`
+    `| ${report.asrEngine === "parakeet" ? "Parakeet" : "Whisper"} only | ${String(report.asrOnly.passed)}/${String(report.asrOnly.total)} | ${report.asrOnly.meanWer.toFixed(3)} | - | - | - | - |`
   ];
   for (const summary of report.models) {
     lines.push(
@@ -348,7 +358,7 @@ function renderMarkdown(report: {
     );
   }
 
-  lines.push("", "## Per fixture", "", `| Fixture | Targets | Whisper only | ${report.models.map((summary) => summary.model).join(" | ")} |`, `|---|---|---|${report.models.map(() => "---|").join("")}`);
+  lines.push("", "## Per fixture", "", `| Fixture | Targets | ASR only | ${report.models.map((summary) => summary.model).join(" | ")} |`, `|---|---|---|${report.models.map(() => "---|").join("")}`);
   for (const result of report.results) {
     const cells = result.runs.map((run) => `${run.knownIssue ? "known issue" : run.pass ? "pass" : "**fail**"} ${run.wer.toFixed(2)} (${run.cleanup?.status ?? "-"})`);
     lines.push(`| ${result.id} | ${result.targets.join(" ")} | ${result.asrFailures.length === 0 ? "pass" : "fail"} ${result.asrWer.toFixed(2)} | ${cells.join(" | ")} |`);
@@ -356,7 +366,8 @@ function renderMarkdown(report: {
 
   lines.push("", "## Transcripts", "");
   for (const result of report.results) {
-    lines.push(`### ${result.id} (${result.lang}, ${result.style})`, "", `- Spoken: ${result.spoken}`, `- Expected: ${inline(result.expected)}`, `- Whisper: ${inline(result.asrText)}`);
+    const fixture = CLEANUP_FIXTURES.find((item) => item.id === result.id);
+    lines.push(`### ${result.id} (${result.lang}, ${result.style})`, "", ...(fixture?.before ? [`- Before cursor: ${inline(fixture.before)}`] : []), `- Spoken: ${result.spoken}`, `- Expected: ${inline(result.expected)}`, `- ASR: ${inline(result.asrText)}`);
     for (const run of result.runs) {
       const rejected = run.cleanup?.status === "rejected" ? ` — rejected: ${run.cleanup.reason ?? ""}: ${inline(run.cleanup.rejectedText ?? "")}` : "";
       const failed = run.cleanup?.status === "failed" ? ` — failed: ${run.cleanup.reason ?? ""}` : "";
