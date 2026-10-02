@@ -15,14 +15,18 @@ const keyAliases: Record<string, string> = {
 };
 
 export function eventToAccelerator(event: KeyboardEvent): string | null {
-  const modifiers = modifierOrder.filter((modifier) => event.getModifierState(modifier));
   const key = normalizeKey(event.key);
 
   if (!key) {
     return null;
   }
 
-  return [...modifiers.map(normalizeModifier), key].join("+");
+  return [...eventModifiers(event), key].join("+");
+}
+
+/** Modifiers held during a key event, as accelerator parts ("CommandOrControl", "Super", ...). */
+export function eventModifiers(event: KeyboardEvent): string[] {
+  return modifierOrder.filter((modifier) => event.getModifierState(modifier)).map(normalizeModifier);
 }
 
 function normalizeModifier(modifier: (typeof modifierOrder)[number]): string {

@@ -9,6 +9,7 @@ import { buildOcrPromptContext, type OcrPromptContext } from "../shared/ocr-cont
 import { type SpeechSegment } from "../shared/speech-segments";
 import { type AppProfile, type AppSettings, type InsertionMode, type SettingsPatch, findAppProfile } from "../shared/settings";
 import { type CursorContext } from "../shared/cursor-context";
+import { isModifierOnlyAccelerator } from "../shared/hotkeys";
 import { type ActiveWindowInfo, type DictationHotkeyState, type NativeRecordingOptions, type RecordingOverlayState } from "../shared/windows-helper";
 import { DictionaryStore } from "./dictionary-store";
 import { HardwareService } from "./hardware-service";
@@ -16,6 +17,7 @@ import { HistoryStore } from "./history-store";
 import { InsertionService } from "./insertion-service";
 import { LlmCleanupService } from "./llm-cleanup-service";
 import { ModelService } from "./model-service";
+import { ModifierHotkeys, type ModifierHotkeyPress } from "./modifier-hotkeys";
 import { OcrService } from "./ocr-service";
 import { OpenAiFileAsrProvider } from "./openai-asr-provider";
 import { OpenAiCredentialStore } from "./openai-credential-store";
@@ -71,6 +73,9 @@ const sherpaRuntimeService = new SherpaRuntimeService();
 const parakeetAsrProvider = new ParakeetAsrProvider();
 const hardwareService = new HardwareService();
 const windowsHelperService = new WindowsHelperService();
+const modifierHotkeys = new ModifierHotkeys((accelerators, onEvent, onExit) =>
+  windowsHelperService.watchModifierHotkeys(accelerators, onEvent, onExit)
+);
 const ocrService = new OcrService(windowsHelperService);
 const openAiCredentialStore = new OpenAiCredentialStore();
 const openAiFileAsrProvider = new OpenAiFileAsrProvider(openAiCredentialStore);
@@ -278,18 +283,20 @@ function startAutomaticUpdateChecks(settings: AppSettings): void {
     void checkForUpdates();
   }, updateCheckIntervalMs);
 }
-function stopDictationHotkey(): boolean {
+/** `discard` stops without transcribing: the hotkey press turned out to be part of another shortcut. */
+function stopDictationHotkey(discard = false): boolean {
   if (!dictationHotkeyState.recording) {
     return false;
   }
-  logRealtimeTiming("dictation stop hotkey received", {
+  logRealtimeTiming(discard ? "dictation discarded" : "dictation stop hotkey received", {
     process: "main",
     sessionId: dictationHotkeyState.sessionId
   });
   const payload = {
     sessionId: dictationHotkeyState.sessionId,
     target: dictationHotkeyState.target,
-    ocrContext: dictationHotkeyState.ocrContext
+    ocrContext: dictationHotkeyState.ocrContext,
+    ...(discard ? { discard } : {})
   };
   dictationHotkeyState = {
     ...dictationHotkeyState,
@@ -356,12 +363,28 @@ async function startDictationHotkey(): Promise<number | null> {
   mainWindow?.webContents.send("dictation-hotkey-start", { sessionId, target, ocrContext: null });
   return sessionId;
 }
-async function holdDictationHotkey(): Promise<void> {
+// A modifier-only hotkey (Ctrl+Win) is also the start of other shortcuts (Ctrl+Win+Right switches
+// desktops). When such a press is interrupted by another key, the dictation it started is dropped.
+function discardOnInterrupt(press: ModifierHotkeyPress | undefined, sessionId: number): void {
+  if (!press) {
+    return;
+  }
+  press.onInterrupt = () => {
+    if (dictationHotkeyState.recording && dictationHotkeyState.sessionId === sessionId) {
+      stopDictationHotkey(true);
+    }
+  };
+  if (press.interrupted) {
+    press.onInterrupt();
+  }
+}
+async function holdDictationHotkey(press?: ModifierHotkeyPress): Promise<void> {
   const settings = await settingsStore.get();
   const sessionId = await startDictationHotkey();
   if (sessionId === null) {
     return;
   }
+  discardOnInterrupt(press, sessionId);
   try {
     await windowsHelperService.waitForHotkeyRelease(settings.dictationHoldHotkey);
   } finally {
@@ -370,13 +393,16 @@ async function holdDictationHotkey(): Promise<void> {
     }
   }
 }
-async function durationAwareDictationHotkey(accelerator: string): Promise<void> {
+async function durationAwareDictationHotkey(accelerator: string, press?: ModifierHotkeyPress): Promise<void> {
   if (stopDictationHotkey()) {
     return;
   }
   const startedAt = Date.now();
   const releasePromise = windowsHelperService.waitForHotkeyRelease(accelerator);
   const sessionId = await startDictationHotkey();
+  if (sessionId !== null) {
+    discardOnInterrupt(press, sessionId);
+  }
   try {
     await releasePromise;
   } catch {
@@ -533,19 +559,30 @@ async function registerConfiguredHotkeys(): Promise<void> {
   registeredDictationHoldHotkey = registerDictationHoldHotkey(settings);
   await refreshFullscreenHotkeySuspension();
 }
-function registerHotkey(accelerator: string, callback: () => void): string | null {
+function registerHotkey(accelerator: string, callback: (press?: ModifierHotkeyPress) => void): string | null {
   const trimmed = accelerator.trim();
   if (!trimmed) {
     return null;
   }
+  if (isModifierOnlyAccelerator(trimmed)) {
+    modifierHotkeys.register(trimmed, callback);
+    return trimmed;
+  }
   return globalShortcut.register(trimmed, callback) ? trimmed : null;
+}
+function unregisterHotkey(accelerator: string): void {
+  if (isModifierOnlyAccelerator(accelerator)) {
+    modifierHotkeys.unregister(accelerator);
+    return;
+  }
+  globalShortcut.unregister(accelerator);
 }
 function registerDictationToggleHotkey(settings: AppSettings): string | null {
   if (settings.dictationToggleHotkey === settings.showWindowHotkey) {
     return null;
   }
-  return registerHotkey(settings.dictationToggleHotkey, () => {
-    void durationAwareDictationHotkey(settings.dictationToggleHotkey);
+  return registerHotkey(settings.dictationToggleHotkey, (press) => {
+    void durationAwareDictationHotkey(settings.dictationToggleHotkey, press);
   });
 }
 function registerDictationHoldHotkey(settings: AppSettings): string | null {
@@ -555,31 +592,31 @@ function registerDictationHoldHotkey(settings: AppSettings): string | null {
   ) {
     return null;
   }
-  return registerHotkey(settings.dictationHoldHotkey, () => {
-    void holdDictationHotkey();
+  return registerHotkey(settings.dictationHoldHotkey, (press) => {
+    void holdDictationHotkey(press);
   });
 }
 function unregisterConfiguredHotkeys(): void {
   if (registeredShowWindowHotkey) {
-    globalShortcut.unregister(registeredShowWindowHotkey);
+    unregisterHotkey(registeredShowWindowHotkey);
     registeredShowWindowHotkey = null;
   }
   if (registeredDictationHotkey) {
-    globalShortcut.unregister(registeredDictationHotkey);
+    unregisterHotkey(registeredDictationHotkey);
     registeredDictationHotkey = null;
   }
   if (registeredDictationHoldHotkey) {
-    globalShortcut.unregister(registeredDictationHoldHotkey);
+    unregisterHotkey(registeredDictationHoldHotkey);
     registeredDictationHoldHotkey = null;
   }
 }
 function unregisterDictationHotkeys(): void {
   if (registeredDictationHotkey) {
-    globalShortcut.unregister(registeredDictationHotkey);
+    unregisterHotkey(registeredDictationHotkey);
     registeredDictationHotkey = null;
   }
   if (registeredDictationHoldHotkey) {
-    globalShortcut.unregister(registeredDictationHoldHotkey);
+    unregisterHotkey(registeredDictationHoldHotkey);
     registeredDictationHoldHotkey = null;
   }
 }

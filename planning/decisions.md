@@ -2,6 +2,27 @@
 
 Record important decisions here so future sessions do not reopen settled topics without a reason.
 
+## 2026-10-02: Modifier-Only Hotkeys (Ctrl+Win) Through A Keyboard Hook
+
+Decision:
+
+- Hotkeys made only of modifiers (at least two, e.g. `CommandOrControl+Super` = Ctrl+Win, the Wispr
+  Flow default) are watched by the helper's `modifier-hotkeys` command, a `WH_KEYBOARD_LL` hook that
+  never swallows keys. All other hotkeys stay on Electron's `globalShortcut`.
+- A press fires when the held modifiers become exactly the configured set. Release detection is the
+  existing `wait-hotkey-release` poll, so tap-to-toggle and hold-to-dictate behave as before.
+- If another key goes down while the set is held (Ctrl+Win+Right switches desktops), the dictation
+  that press started is discarded without transcribing.
+- When the set contains Win or Alt, the hook taps the unassigned key 0xE8 so their release cannot
+  open the Start menu or a menu bar (AutoHotkey's MenuMaskKey trick).
+- Injected input is ignored, so VoxType's own Ctrl+V paste and other tools' SendInput never trigger it.
+  `VOXTYPE_E2E_INJECTED_HOTKEYS=1` lifts this for `bun run e2e:hotkeys` only.
+
+Reason:
+
+`RegisterHotKey`, and Electron's `globalShortcut` on top of it, require a non-modifier key. A
+low-level hook is the only way to see a bare Ctrl+Win press without a background service.
+
 ## 2026-10-01: Warm Whisper Server, Models Load While Recording, Cursor Context; Parakeet Stays Optional
 
 Decision:

@@ -440,7 +440,7 @@ export function ReleaseView(props: ReadyAppViewProps): ReactElement {
                 <label className="setting-row">
                   <span>
                     <strong>Dictation</strong>
-                    <small>Tap to start or stop. Hold longer than 700 ms to record only while held.</small>
+                    <small>Tap to start or stop. Hold longer than 700 ms to record only while held. Modifier-only combos such as Ctrl+Win work too.</small>
                   </span>
                   <button
                     className="release-command-button"

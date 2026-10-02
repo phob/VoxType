@@ -283,8 +283,10 @@
             inputs.push(keyboard_input(*modifier, false));
         }
 
-        inputs.push(keyboard_input(hotkey.key, false));
-        inputs.push(keyboard_input(hotkey.key, true));
+        if let Some(key) = hotkey.key {
+            inputs.push(keyboard_input(key, false));
+            inputs.push(keyboard_input(key, true));
+        }
 
         for modifier in hotkey.modifiers.iter().rev() {
             inputs.push(keyboard_input(*modifier, true));

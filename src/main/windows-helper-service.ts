@@ -5,6 +5,7 @@ import { access, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { cursorContextMaxBefore, parseCursorContext, type CursorContext } from "../shared/cursor-context";
+import { type ModifierHotkeyEvent } from "../shared/hotkeys";
 import {
   type ActiveWindowInfo,
   type CaptureSessionMuteState,
@@ -225,6 +226,70 @@ export class WindowsHelperService {
 
     await execFileAsync(helperPath, ["wait-hotkey-release", accelerator], {
       windowsHide: true
+    });
+  }
+
+  /**
+   * Starts the helper's keyboard hook for modifier-only hotkeys (see `modifier-hotkeys` in the helper).
+   * Resolves once the hook is installed. `onExit` fires when the helper stops on its own.
+   */
+  async watchModifierHotkeys(
+    accelerators: string[],
+    onEvent: (event: ModifierHotkeyEvent) => void,
+    onExit: (error: Error) => void
+  ): Promise<{ stop: () => void }> {
+    const helperPath = await this.resolveHelperPath();
+
+    if (!helperPath) {
+      throw new Error("Windows helper executable was not found.");
+    }
+
+    // Test-only: the hotkey E2E can only press keys with SendInput, which the hook ignores otherwise.
+    const args = process.env.VOXTYPE_E2E_INJECTED_HOTKEYS === "1" ? ["--include-injected", ...accelerators] : accelerators;
+    const child = spawn(helperPath, ["modifier-hotkeys", ...args], { stdio: ["pipe", "pipe", "pipe"], windowsHide: true });
+    let stopped = false;
+    let remainder = "";
+    let output = "";
+
+    return new Promise((resolveWatch, rejectWatch) => {
+      let ready = false;
+
+      child.stdout.on("data", (chunk: Buffer) => {
+        const { complete, remainder: rest } = splitCompleteStdoutLines(`${remainder}${chunk.toString("utf8")}`);
+        remainder = rest;
+        for (const line of complete.split(/\r?\n/).filter(Boolean)) {
+          const event = parseModifierHotkeyEvent(line);
+          if (event?.event === "ready" && !ready) {
+            ready = true;
+            resolveWatch({
+              stop: () => {
+                stopped = true;
+                child.stdin.end();
+              }
+            });
+          } else if (event && event.event !== "ready") {
+            onEvent(event);
+          } else if (!event) {
+            output += `${line}\n`;
+          }
+        }
+      });
+      child.stderr.on("data", (chunk: Buffer) => {
+        output += chunk.toString("utf8");
+      });
+      child.once("error", (error) => {
+        if (!ready) {
+          rejectWatch(error);
+        }
+      });
+      child.once("close", (code) => {
+        const error = new Error(output.trim() || `Modifier hotkey watcher exited with code ${String(code)}.`);
+        if (!ready) {
+          rejectWatch(error);
+        } else if (!stopped) {
+          onExit(error);
+        }
+      });
     });
   }
 
@@ -1418,4 +1483,27 @@ function isCaptureSessionMuteState(value: unknown): value is CaptureSessionMuteS
       );
     })
   );
+}
+
+function parseModifierHotkeyEvent(line: string): ModifierHotkeyEvent | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(line);
+  } catch {
+    return null;
+  }
+
+  if (typeof parsed !== "object" || parsed === null || !("event" in parsed)) {
+    return null;
+  }
+
+  const accelerator = "accelerator" in parsed && typeof parsed.accelerator === "string" ? parsed.accelerator : null;
+
+  if (parsed.event === "ready") {
+    return { event: "ready" };
+  }
+  if ((parsed.event === "pressed" || parsed.event === "interrupted") && accelerator) {
+    return { event: parsed.event, accelerator };
+  }
+  return null;
 }
