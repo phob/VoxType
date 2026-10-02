@@ -61,8 +61,9 @@ export function guardCleanupOutput(input: { source: string; output: string; term
   const joinedSource = sourceWords.join("");
   const sourceHasNumberWords = sourceWords.some((word) => numberWords.has(word) || isCompoundNumberWord(word));
   const added = outputWords.filter((word) => !isExplained(word, known, joinedSource, sourceHasNumberWords));
-  // One new word covers a real ASR fix ("the first think" -> "I think"); more is a rewrite.
-  const allowedNovel = Math.max(1, Math.floor(outputWords.length * 0.05));
+  // Small rewordings ("it is" -> "This is", a real ASR fix) are fine; an answer, a followed instruction or
+  // a translation adds far more than this, and the length and du/Sie checks below catch those too.
+  const allowedNovel = Math.max(1, Math.floor(outputWords.length * 0.1));
 
   if (added.length > allowedNovel) {
     return { accepted: false, reason: `added words: ${[...new Set(added)].slice(0, 8).join(", ")}`, text };
@@ -150,6 +151,9 @@ export function stripWrappers(output: string, source: string): string {
 function words(text: string): string[] {
   return text
     .toLowerCase()
+    // "customer's", "customers'" and "customers" are the same word; splitting at the apostrophe would
+    // count a stray "s" as added when the transcript had no apostrophe.
+    .replace(/['’ʼ]/g, "")
     .replace(/[-–—/]/g, " ")
     .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .split(/\s+/)

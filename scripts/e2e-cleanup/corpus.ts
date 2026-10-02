@@ -40,6 +40,7 @@ export interface CleanupFixtureSpec extends FixtureSpec {
 }
 
 const LIST = "(^|\\n)\\s*(1\\.|-|•)\\s";
+const NUMBERED = "(^|\\n)1\\. .+\\n2\\. ";
 
 const say = (lang: SpeechLanguage, ...sentences: string[]): Part[] =>
   sentences.flatMap((text, index): Part[] => [
@@ -105,6 +106,19 @@ const specs: Spec[] = [
     mustNotMatch: LIST
   },
   {
+    // Numbered answers to someone's questions: each point is a whole sentence, there is no intro.
+    id: "en-answer-list", lang: "en", style: "default", targets: ["C11"], maxWer: 0.25,
+    spoken: ["First, yes, the new laptop can be ordered this week. Second, no, the old monitors stay in the office."],
+    expected: "1. Yes, the new laptop can be ordered this week.\n2. No, the old monitors stay in the office.",
+    mustMatch: NUMBERED
+  },
+  {
+    id: "en-first-prose", lang: "en", style: "default", targets: ["C11", "C1"], maxWer: 0.1,
+    spoken: ["First we have lunch, and then we look at the budget together."],
+    expected: "First we have lunch, and then we look at the budget together.",
+    mustNotMatch: LIST
+  },
+  {
     id: "en-numbers", lang: "en", style: "default", targets: ["C8"], maxWer: 0.5,
     spoken: ["The workshop is on March the third at two thirty and costs four hundred and fifty euros."],
     expected: "The workshop is on March 3rd at 2:30 and costs 450 euros.",
@@ -139,7 +153,8 @@ const specs: Spec[] = [
     id: "en-professional", lang: "en", style: "professional", targets: ["C12", "C2"], maxWer: 0.2,
     spoken: ["Hi Sarah comma new paragraph thanks for the update period I will review the contract by Friday period new paragraph best regards Martin"],
     expected: "Hi Sarah,\n\nThanks for the update. I will review the contract by Friday.\n\nBest regards,\nMartin",
-    mustMatch: "Sarah,\\s*\\n", mustNotContain: ["comma", "new paragraph", "period"]
+    // Whisper hears "Sara" or "Sarah" depending on the run; the spelling is not the cleanup's job.
+    mustMatch: "Sarah?,\\s*\\n", mustNotContain: ["comma", "new paragraph", "period"]
   },
   {
     id: "en-long", lang: "en", style: "default", targets: ["C13", "C2", "C1"], maxWer: 0.15,
@@ -245,6 +260,12 @@ const specs: Spec[] = [
     spoken: ["Wir brauchen noch Milch, Brot und etwas Kaffee für das Büro."],
     expected: "Wir brauchen noch Milch, Brot und etwas Kaffee für das Büro.",
     mustNotMatch: LIST
+  },
+  {
+    id: "de-answer-list", lang: "de", style: "default", targets: ["C11"], maxWer: 0.3,
+    spoken: ["Erstens, ja, der Vertrag kann so raus. Zweitens, nein, den Termin am Freitag verschieben wir nicht."],
+    expected: "1. Ja, der Vertrag kann so raus.\n2. Nein, den Termin am Freitag verschieben wir nicht.",
+    mustMatch: NUMBERED
   },
   {
     id: "de-numbers", lang: "de", style: "default", targets: ["C8"], maxWer: 0.5,

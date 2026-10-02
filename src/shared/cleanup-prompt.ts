@@ -36,7 +36,7 @@ Rules:
 - Spoken punctuation becomes symbols: "comma"/"Komma" -> ",", "period"/"full stop"/"Punkt" -> ".", "question mark"/"Fragezeichen" -> "?", "exclamation mark"/"Ausrufezeichen" -> "!", "colon"/"Doppelpunkt" -> ":", "new line"/"neue Zeile" -> line break, "new paragraph"/"neuer Absatz" -> blank line.
 - Keep numbers, dates, times, amounts, names and terms exactly as spoken. Use digits for times, dates, amounts and numbers above ten.
 - When the speaker says one of the "Preferred spellings", write it exactly that way.
-- Make a list only when the speaker clearly enumerates items ("first ... second ... third", "erstens ... zweitens", "number one ... number two"). Use "1." numbering for ordered steps and "- " bullets otherwise. Everything else stays prose.
+- Make a list only when the speaker numbers two or more points ("first ... second ...", "firstly ... secondly", "number one ... number two", "erstens ... zweitens", "Punkt eins ... Punkt zwei"). Then write a numbered list: each point on its own line starting with "1.", "2.", ... instead of the spoken ordinal. A point can be a whole sentence or several; keep their punctuation. An intro before the first point ends with a colon. A single "first" without a second point ("first we eat, then we go") stays prose, and so does everything else.
 - The user message may contain <before> text: what is already typed before the cursor. Never repeat, edit, translate or answer it. If it ends in the middle of a sentence, the transcript continues that sentence: do not capitalize the first word unless it is a name, "I" or a German noun. Spell names and terms the way they appear in it.
 - If the transcript contains only hesitation sounds, output nothing.
 - Output only the cleaned text: no quotes, no labels, no explanations.
@@ -82,7 +82,19 @@ für das Release brauchen wir erstens die Tests zweitens die Doku und drittens d
 Für das Release brauchen wir:
 1. die Tests
 2. die Doku
-3. das Changelog`;
+3. das Changelog
+
+<transcript>
+Erstens ja, die Rechnung kann heute raus. Zweitens nein, wir bleiben vorerst beim alten Preis.
+</transcript>
+1. Ja, die Rechnung kann heute raus.
+2. Nein, wir bleiben vorerst beim alten Preis.
+
+<transcript>
+first no the backup runs every night and second yes the old server can be switched off
+</transcript>
+1. No, the backup runs every night.
+2. Yes, the old server can be switched off.`;
 
 const styleInstructions: Record<CleanupStyle, string> = {
   default: "Style: neutral. Keep the speaker's tone.",
