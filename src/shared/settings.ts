@@ -18,10 +18,15 @@ export const realtimeLatencyPresets = ["fast", "balanced", "accurate"] as const;
 export const whisperRuntimePreferences = ["auto", "cpu", "cuda", "vulkan"] as const;
 import { isDictationModeId, type DictationModeId } from "./asr";
 import {
+  isCleanupLevel,
+  isCloudCleanupModelId,
   isLlmCleanupBackendPreference,
   isLlmCleanupModelPreference,
+  isLlmCleanupProvider,
+  type CleanupLevel,
   type LlmCleanupBackendPreference,
-  type LlmCleanupModelPreference
+  type LlmCleanupModelPreference,
+  type LlmCleanupProvider
 } from "./llm-cleanup";
 import { isSherpaRuntimeBackend, type SherpaRuntimeBackend } from "./sherpa-runtimes";
 
@@ -87,6 +92,10 @@ export interface AppSettings {
   llmCleanupEnabled: boolean;
   llmCleanupModelId: LlmCleanupModelPreference;
   llmCleanupBackend: LlmCleanupBackendPreference;
+  llmCleanupProvider: LlmCleanupProvider;
+  llmCleanupLevel: CleanupLevel;
+  llmCleanupOpenAiModelId: string;
+  llmCleanupAnthropicModelId: string;
   cloudDictationConsentAccepted: boolean;
   cloudDictationConsentAcceptedAt: string | null;
   cloudPromptPackOcrEnabled: boolean;
@@ -225,6 +234,16 @@ export function sanitizeSettings(
     llmCleanupBackend: isLlmCleanupBackendPreference(input.llmCleanupBackend)
       ? input.llmCleanupBackend
       : defaults.llmCleanupBackend,
+    llmCleanupProvider: isLlmCleanupProvider(input.llmCleanupProvider)
+      ? input.llmCleanupProvider
+      : defaults.llmCleanupProvider,
+    llmCleanupLevel: isCleanupLevel(input.llmCleanupLevel) ? input.llmCleanupLevel : defaults.llmCleanupLevel,
+    llmCleanupOpenAiModelId: isCloudCleanupModelId("openai", input.llmCleanupOpenAiModelId)
+      ? input.llmCleanupOpenAiModelId
+      : defaults.llmCleanupOpenAiModelId,
+    llmCleanupAnthropicModelId: isCloudCleanupModelId("anthropic", input.llmCleanupAnthropicModelId)
+      ? input.llmCleanupAnthropicModelId
+      : defaults.llmCleanupAnthropicModelId,
     cloudDictationConsentAccepted:
       typeof input.cloudDictationConsentAccepted === "boolean"
         ? input.cloudDictationConsentAccepted

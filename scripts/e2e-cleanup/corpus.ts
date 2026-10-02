@@ -19,7 +19,20 @@
 //  C15 text before the cursor is ignored: a continued sentence gets a capital letter, a name already
 //      typed there is misspelled
 //  C16 text before the cursor is repeated, edited or answered
+//
+// Rewrite level (--level rewrite): every fixture runs again with its `rewrite` expectations, which drop the
+// verbatim word checks but keep the safety ones above. The rewrite-only fixtures target what a rewrite
+// adds (failure modes written before the rewrite prompt and guard, see cleanup-guard.ts R1-R8):
+//  R1  the dictation is translated
+//  R2  a question is answered, an instruction followed, or greetings, apologies, sign-offs are added
+//  R3  points, details or reasons are dropped (summarized)
+//  R4  numbers, dates or amounts change
+//  R5  names or dictionary terms are lost
+//  R6  German du becomes Sie, or casual becomes formal
+//  R9  learner English (German word order, false friends, wrong tense and prepositions) or rough spoken
+//      German stays uncorrected
 import { type CleanupStyle } from "../../src/shared/cleanup-prompt";
+import { type CleanupLevel } from "../../src/shared/llm-cleanup";
 import { type FixtureSpec, type Part, type SpeechLanguage } from "../e2e-dictation/corpus";
 
 export interface CleanupFixtureSpec extends FixtureSpec {
@@ -37,6 +50,29 @@ export interface CleanupFixtureSpec extends FixtureSpec {
   mustNotMatch?: string;
   /** Text already typed before the cursor in the target app (cursor context). */
   before?: string;
+  /** Levels the fixture is scored at; default both. */
+  levels?: CleanupLevel[];
+  /**
+   * Expectations at the rewrite level; each given field replaces the light one. Without maxWer the word
+   * error rate is only reported, because a good rewrite changes words.
+   */
+  rewrite?: Partial<Pick<CleanupFixtureSpec, "maxWer" | "expected" | "mustContain" | "mustNotContain" | "mustMatch" | "mustNotMatch">>;
+}
+
+/** A fixture with the expectations of one level. maxWer null: the word error rate is not a pass criterion. */
+export type ScoredFixture = Omit<CleanupFixtureSpec, "maxWer"> & { maxWer: number | null };
+
+export function fixtureForLevel<T extends CleanupFixtureSpec>(fixture: T, level: CleanupLevel): (Omit<T, "maxWer"> & { maxWer: number | null }) | null {
+  if (fixture.levels && !fixture.levels.includes(level)) {
+    return null;
+  }
+
+  if (level === "light") {
+    return fixture;
+  }
+
+  const rewrite = fixture.rewrite ?? {};
+  return { ...fixture, ...rewrite, maxWer: rewrite.maxWer ?? null };
 }
 
 const LIST = "(^|\\n)\\s*(1\\.|-|•)\\s";
@@ -55,7 +91,8 @@ const specs: Spec[] = [
   {
     id: "en-clean", lang: "en", style: "default", targets: ["C1"], maxWer: 0.1,
     spoken: ["Please send the updated report to the whole team before the meeting starts."],
-    expected: "Please send the updated report to the whole team before the meeting starts."
+    expected: "Please send the updated report to the whole team before the meeting starts.",
+    rewrite: { maxWer: 0.25 }
   },
   {
     id: "en-fillers", lang: "en", style: "default", targets: ["C2"], maxWer: 0.2,
@@ -79,13 +116,15 @@ const specs: Spec[] = [
     id: "en-actually", lang: "en", style: "default", targets: ["C3", "C1"], maxWer: 0.1,
     spoken: ["I actually think the new design looks great."],
     expected: "I actually think the new design looks great.",
-    mustContain: ["actually"]
+    mustContain: ["actually"],
+    rewrite: { mustContain: ["design", "great"] }
   },
   {
     id: "en-question", lang: "en", style: "default", targets: ["C4"], maxWer: 0.1,
     spoken: ["What is the capital of Australia?"],
     expected: "What is the capital of Australia?",
-    mustNotContain: ["Canberra"]
+    mustNotContain: ["Canberra"],
+    rewrite: { mustMatch: "\\?\\s*$" }
   },
   {
     id: "en-instruction", lang: "en", style: "default", targets: ["C5", "C7"], maxWer: 0.1,
@@ -168,7 +207,8 @@ const specs: Spec[] = [
     ],
     expected:
       "Okay, so here is the update for the weekly planning call. The design team finished the new onboarding screens and they are ready for review. Engineering is still working on the performance problems in the search feature. Support reported that several customers could not export their data on Friday, so we should prioritize that problem because it blocks important workflows. Marketing would like to announce the new features at the end of the month. Please add your comments to the shared document before tomorrow afternoon.",
-    mustNotContain: ["um", "uh"]
+    mustNotContain: ["um", "uh"],
+    rewrite: { mustContain: ["onboarding", "search", "export", "friday", "end of the month", "tomorrow afternoon"] }
   },
 
   {
@@ -197,7 +237,8 @@ const specs: Spec[] = [
   {
     id: "de-clean", lang: "de", style: "default", targets: ["C1", "C6"], maxWer: 0.1,
     spoken: ["Bitte schick den aktualisierten Bericht vor dem Meeting an das ganze Team."],
-    expected: "Bitte schick den aktualisierten Bericht vor dem Meeting an das ganze Team."
+    expected: "Bitte schick den aktualisierten Bericht vor dem Meeting an das ganze Team.",
+    rewrite: { maxWer: 0.25, mustContain: ["schick"] }
   },
   {
     id: "de-fillers", lang: "de", style: "default", targets: ["C2"], maxWer: 0.2,
@@ -222,13 +263,15 @@ const specs: Spec[] = [
     id: "de-eigentlich", lang: "de", style: "default", targets: ["C3", "C1"], maxWer: 0.1,
     spoken: ["Ich finde das neue Design eigentlich ziemlich gut."],
     expected: "Ich finde das neue Design eigentlich ziemlich gut.",
-    mustContain: ["eigentlich"]
+    mustContain: ["eigentlich"],
+    rewrite: { mustContain: ["Design", "gut"] }
   },
   {
     id: "de-question", lang: "de", style: "default", targets: ["C4"], maxWer: 0.1,
     spoken: ["Wie spät ist es gerade in Tokio?"],
     expected: "Wie spät ist es gerade in Tokio?",
-    mustNotMatch: "\\d"
+    mustNotMatch: "\\d",
+    rewrite: { mustMatch: "\\?\\s*$" }
   },
   {
     id: "de-instruction", lang: "de", style: "default", targets: ["C5", "C7"], maxWer: 0.15,
@@ -302,7 +345,8 @@ const specs: Spec[] = [
     id: "de-professional", lang: "de", style: "professional", targets: ["C12", "C2"], maxWer: 0.25,
     spoken: ["Sehr geehrte Frau Weber Komma neuer Absatz vielen Dank für Ihre Nachricht Punkt Ich melde mich bis Freitag bei Ihnen Punkt neuer Absatz Mit freundlichen Grüßen Martin"],
     expected: "Sehr geehrte Frau Weber,\n\nvielen Dank für Ihre Nachricht. Ich melde mich bis Freitag bei Ihnen.\n\nMit freundlichen Grüßen\nMartin",
-    mustMatch: "Weber,\\s*\\n", mustNotContain: ["Komma", "neuer Absatz", "Punkt"]
+    mustMatch: "Weber,\\s*\\n", mustNotContain: ["Komma", "neuer Absatz", "Punkt"],
+    knownIssue: "Whisper hears \"Komma neuer Absatz\" as part of the name (\"Weber-Kummer-Neuer-Absatz\"); cleanup cannot recover the name"
   },
   {
     id: "de-continue", lang: "de", style: "default", targets: ["C15", "C16"], maxWer: 0.15,
@@ -329,7 +373,74 @@ const specs: Spec[] = [
     ],
     expected:
       "Also, kurz zum Stand vom Projekt. Das Designteam hat die neuen Bildschirme für das Onboarding fertig, und die können jetzt geprüft werden. Die Entwicklung arbeitet noch an den Performanceproblemen in der Suche. Der Support hat gemeldet, dass mehrere Kunden am Freitag ihre Daten nicht exportieren konnten, deshalb sollten wir das zuerst lösen. Bitte tragt eure Kommentare bis morgen Nachmittag in das gemeinsame Dokument ein.",
-    mustNotContain: ["ähm", "äh"]
+    mustNotContain: ["ähm", "äh"],
+    rewrite: { mustContain: ["Onboarding", "Suche", "Freitag", "exportieren", "morgen Nachmittag"] }
+  },
+
+  // ---------- Rewrite level only ----------
+  {
+    id: "rw-en-since", lang: "en", style: "default", targets: ["R9", "R3"], maxWer: 1, levels: ["rewrite"],
+    spoken: ["I am living in Munich since three years and at the moment I am working by a small software company."],
+    expected: "I have been living in Munich for three years, and at the moment I am working at a small software company.",
+    // Whisper writes "3 years".
+    mustContain: ["Munich"], mustMatch: "for (3|three) years", mustNotMatch: "since (3|three) years|working by a"
+  },
+  {
+    id: "rw-en-false-friends", lang: "en", style: "default", targets: ["R9"], maxWer: 1, levels: ["rewrite"],
+    spoken: ["Can you please control the invoice until Monday? The actual version still has a mistake in the address."],
+    expected: "Can you please check the invoice by Monday? The current version still has a mistake in the address.",
+    mustContain: ["Monday", "address"], mustMatch: "\\b(current|latest)\\b", mustNotMatch: "\\bcontrol\\b|until Monday|\\bactual\\b"
+  },
+  {
+    id: "rw-en-word-order", lang: "en", style: "default", targets: ["R9", "R3"], maxWer: 1, levels: ["rewrite"],
+    spoken: ["Yesterday have I talked with the customer and he said me that he needs the export feature already next week."],
+    expected: "Yesterday I talked to the customer, and he told me that he already needs the export feature next week.",
+    mustContain: ["customer", "export", "next week"], mustNotMatch: "have I talked|said me"
+  },
+  {
+    id: "rw-en-become", lang: "en", style: "default", targets: ["R9", "R2"], maxWer: 1, levels: ["rewrite"],
+    spoken: ["When can I become the access to the new server? I am waiting already since Monday."],
+    expected: "When can I get access to the new server? I have been waiting since Monday.",
+    mustContain: ["server", "Monday"], mustMatch: "\\b(get|receive|have)\\b", mustNotMatch: "\\bbecome\\b|waiting already since"
+  },
+  {
+    id: "rw-en-howto-question", lang: "en", style: "default", targets: ["R2", "R5"], maxWer: 1, levels: ["rewrite"],
+    spoken: ["How I can make a backup from the database in Postgres?"],
+    terms: ["Postgres"],
+    expected: "How can I make a backup of the database in Postgres?",
+    mustContain: ["Postgres"], mustMatch: "\\?\\s*$", mustNotMatch: "pg_dump|\\n"
+  },
+  {
+    id: "rw-en-message", lang: "en", style: "default", targets: ["R2", "R3"], maxWer: 1, levels: ["rewrite"],
+    spoken: ["tell Sarah that I can not come to the meeting tomorrow because I have an appointment by the doctor"],
+    expected: "Tell Sarah that I can't come to the meeting tomorrow because I have a doctor's appointment.",
+    mustContain: ["Sarah", "tomorrow", "doctor"], mustNotContain: ["Dear", "Hi Sarah", "regards", "apologize", "sorry"]
+  },
+  {
+    id: "rw-en-numbers", lang: "en", style: "default", targets: ["R4"], maxWer: 1, levels: ["rewrite"],
+    spoken: ["The offer is for twelve licenses for eighty nine euros per month and it runs until end of March."],
+    expected: "The offer is for 12 licenses at 89 euros per month and runs until the end of March.",
+    mustMatch: "(12|twelve)[^\\n]*(89|eighty-nine)[^\\n]*end of March", mustNotMatch: "\\b(2025|2026|90|100|1068)\\b"
+  },
+  {
+    id: "rw-de-colloquial", lang: "de", style: "default", targets: ["R9", "R1", "R3"], maxWer: 1, levels: ["rewrite"],
+    spoken: ["Also wegen dem Termin morgen, da wollte ich halt fragen, ob wir den nicht verschieben können, weil ich hab da irgendwie keine Zeit."],
+    expected: "Ich wollte fragen, ob wir den Termin morgen verschieben können, weil ich keine Zeit habe.",
+    mustContain: ["Termin", "morgen", "verschieben", "keine Zeit"], mustNotContain: ["meeting", "tomorrow", "halt", "irgendwie"], mustNotMatch: "wegen dem"
+  },
+  {
+    id: "rw-de-du", lang: "de", style: "default", targets: ["R6", "R9"], maxWer: 1, levels: ["rewrite"],
+    spoken: ["kannst du mir bitte noch mal die Präsentation schicken, die wo du für den Kunden gemacht hast"],
+    expected: "Kannst du mir bitte noch einmal die Präsentation schicken, die du für den Kunden gemacht hast?",
+    mustContain: ["du", "Präsentation", "Kunden"], mustNotContain: ["Sie", "Ihnen", "die wo"]
+  },
+  {
+    id: "rw-de-mixed", lang: "de", style: "default", targets: ["R1", "R5", "C14"], maxWer: 1, levels: ["rewrite"],
+    spoken: ["wir müssen noch das Logging im Backend fixen, weil die Errors gar nicht im Monitoring ankommen"],
+    // Whisper hears "Backend" in this voice as "Bucket", even with it as a prompt term; not cleanup's job.
+    terms: ["Monitoring"],
+    expected: "Wir müssen noch das Logging im Backend fixen, weil die Errors gar nicht im Monitoring ankommen.",
+    mustContain: ["Logging", "Monitoring"], mustNotContain: ["Protokollierung", "we need", "Überwachung"]
   }
 ];
 

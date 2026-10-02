@@ -178,3 +178,4 @@ Possible additions:
 - Additional cloud ASR providers after the OpenAI Cloud Dictation path is validated.
 - Additional OCR engines only if Windows Media OCR proves insufficient.
 - Local LLM formatting provider. Moved into Phase 5 as AI cleanup (2026-10-01). Done: idle unload with load-on-record, text before the cursor through UI Automation as context, warm whisper-server. Follow-ups: user edits as cleanup examples, cursor context for realtime cloud dictation.
+- Cloud AI cleanup and a rewrite level (2026-10-02): cleanup can run on OpenAI or Anthropic with the user's own API key, and a "Rewrite" level fixes grammar, word choice and phrasing (learner English, rough spoken German) behind its own guard. See `decisions.md` 2026-10-02. Follow-ups: open the HTTPS connection when recording starts, rewrite examples from the user's own corrections.

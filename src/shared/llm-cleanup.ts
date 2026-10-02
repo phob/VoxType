@@ -1,4 +1,77 @@
-// Catalog and status types for local LLM transcript cleanup (llama.cpp `llama-server` + a small GGUF model).
+// Catalog and status types for LLM transcript cleanup: local (llama.cpp `llama-server` + a small GGUF model)
+// or a cloud model through the user's own OpenAI or Anthropic API key.
+
+/** Where cleanup runs. */
+export type LlmCleanupProvider = "local" | "openai" | "anthropic";
+export type CloudCleanupProvider = Exclude<LlmCleanupProvider, "local">;
+
+export const llmCleanupProviderValues = ["local", "openai", "anthropic"] as const;
+
+/**
+ * How much cleanup may change. "light" keeps the spoken words (fillers, self-corrections, punctuation);
+ * "rewrite" also fixes grammar, word choice and phrasing, like an editor would.
+ */
+export type CleanupLevel = "light" | "rewrite";
+
+export const cleanupLevelValues = ["light", "rewrite"] as const;
+
+export function isLlmCleanupProvider(value: unknown): value is LlmCleanupProvider {
+  return typeof value === "string" && (llmCleanupProviderValues as readonly string[]).includes(value);
+}
+
+export function isCleanupLevel(value: unknown): value is CleanupLevel {
+  return typeof value === "string" && (cleanupLevelValues as readonly string[]).includes(value);
+}
+
+export interface CloudCleanupModel {
+  id: string;
+  provider: CloudCleanupProvider;
+  name: string;
+  description: string;
+  /** OpenAI reasoning models: "none" answers without a reasoning pass. Omitted for models without the parameter. */
+  reasoningEffort?: "none" | "minimal" | "low";
+  /** Anthropic: how to keep thinking short. "off" sends no thinking config (models without thinking by default). */
+  anthropicThinking?: "off" | "between-tools" | "low-effort";
+}
+
+// Default per provider is chosen from the cleanup E2E corpus (bun run e2e:cleanup --provider ...).
+export const cloudCleanupModelCatalog: CloudCleanupModel[] = [
+  { id: "gpt-6-luna", provider: "openai", name: "GPT-6 Luna", description: "Best OpenAI rewrites in our tests, and the cheapest.", reasoningEffort: "none" },
+  { id: "gpt-5.4-mini", provider: "openai", name: "GPT-5.4 mini", description: "Slightly faster; misses some self-corrections.", reasoningEffort: "none" },
+  { id: "gpt-4.1-mini", provider: "openai", name: "GPT-4.1 mini", description: "Older; sometimes repeats the text before the cursor." },
+  { id: "claude-haiku-4-5", provider: "anthropic", name: "Claude Haiku 4.5", description: "Fast and cheap.", anthropicThinking: "off" },
+  { id: "claude-sonnet-5-5", provider: "anthropic", name: "Claude Sonnet 5.5", description: "Strong rewrites, thinking off.", anthropicThinking: "between-tools" },
+  { id: "claude-opus-5-5", provider: "anthropic", name: "Claude Opus 5.5", description: "Best quality; always thinks, so slowest.", anthropicThinking: "low-effort" }
+];
+
+export const defaultCloudCleanupModelIds: Record<CloudCleanupProvider, string> = {
+  openai: "gpt-6-luna",
+  anthropic: "claude-sonnet-5-5"
+};
+
+export function getCloudCleanupModel(provider: CloudCleanupProvider, id: string): CloudCleanupModel {
+  const model =
+    cloudCleanupModelCatalog.find((item) => item.provider === provider && item.id === id) ??
+    cloudCleanupModelCatalog.find((item) => item.id === defaultCloudCleanupModelIds[provider]);
+
+  if (!model) {
+    throw new Error(`Cloud cleanup catalog is missing ${defaultCloudCleanupModelIds[provider]}.`);
+  }
+
+  return model;
+}
+
+export function isCloudCleanupModelId(provider: CloudCleanupProvider, value: unknown): value is string {
+  return typeof value === "string" && cloudCleanupModelCatalog.some((item) => item.provider === provider && item.id === value);
+}
+
+/**
+ * Cloud cleanup budget: a network round trip plus output time that grows with the dictation. Past it the
+ * deterministic cleanup is inserted instead.
+ */
+export function cloudCleanupTimeoutMs(text: string): number {
+  return Math.min(30_000, 8_000 + text.length * 10);
+}
 
 export type LlamaRuntimeBackend = "cpu" | "vulkan";
 export type LlmCleanupBackendPreference = "auto" | LlamaRuntimeBackend;
@@ -117,11 +190,20 @@ export type LlmCleanupServerState = "stopped" | "starting" | "ready" | "error";
 
 export interface LlmCleanupStatus {
   enabled: boolean;
+  provider: LlmCleanupProvider;
+  level: CleanupLevel;
+  /** For a cloud provider: the model in use and whether its API key is available. */
+  cloud: { model: CloudCleanupModel; hasApiKey: boolean; blockedByOfflineMode: boolean } | null;
   backend: LlamaRuntimeBackend;
   runtime: LlamaRuntime;
   model: LlmModel;
   server: LlmCleanupServerState;
   error: string | null;
+}
+
+export interface LlmCleanupTestResult {
+  text: string;
+  cleanup: TranscriptCleanup | null;
 }
 
 /** What happened to one dictation's cleanup, stored in transcript history. */
@@ -130,6 +212,9 @@ export interface TranscriptCleanup {
   /** Why the cleaned text was not used (rejected/failed). */
   reason?: string;
   modelId: string;
+  /** Missing in entries from before cloud cleanup: those ran locally at the light level. */
+  provider?: LlmCleanupProvider;
+  level?: CleanupLevel;
   durationMs: number;
   /** Text before cleanup, kept when cleanup changed it. */
   inputText?: string;

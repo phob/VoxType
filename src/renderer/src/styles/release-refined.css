@@ -403,6 +403,12 @@
   padding-right: 2px;
 }
 
+/* A height-limited grid shrinks its rows to their min-height; settings rows need their content height
+   (a row with an input and buttons below its label is twice as tall). */
+.release-scroll-panel .settings-list {
+  grid-auto-rows: max-content;
+}
+
 .release-home-stack .release-panel {
   margin-top: 0;
 }
