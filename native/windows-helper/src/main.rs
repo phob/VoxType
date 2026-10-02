@@ -12,10 +12,12 @@ fn main() {
     let command = env::args().nth(1).unwrap_or_else(|| "help".to_string());
     let result = match command.as_str() {
         "active-window" => active_window_json(),
+        "focused-text" => focused_text_json(),
         "focus-window" => focus_window_from_arg(),
         "set-system-mute" => set_system_mute_from_arg(),
         "send-hotkey" => send_hotkey_from_arg(),
         "wait-hotkey-release" => wait_hotkey_release_from_arg(),
+        "modifier-hotkeys" => modifier_hotkeys_from_args(),
         "capture-screenshot" => capture_screenshot_from_args(),
         "ocr-image" => ocr_image_from_args(),
         "message-targets" => message_targets_from_arg(),
@@ -29,7 +31,7 @@ fn main() {
         "type-text" => type_text_from_stdin(),
         "message-text" => message_text_from_stdin(),
         "help" | "--help" | "-h" => {
-            println!("Usage: voxtype-windows-helper active-window | focus-window <hwnd> | set-system-mute <true|false> | send-hotkey <accelerator> | wait-hotkey-release <accelerator> | capture-screenshot <output.png> [--active-window | --hwnd <hwnd>] | ocr-image <input.png> | message-targets [hwnd] | mute-capture-session <process-id> [process-name] | restore-capture-session | input-devices | record-wav <output.wav> [--capture-mode shared|exclusive-preferred|exclusive-required] [--input-device <name>] [--emit-realtime-pcm16] [--vad-model <silero.onnx>] | record-wav-session [--capture-mode shared] [--input-device <name>] [--emit-realtime-pcm16] [--vad-model <silero.onnx>] | process-wav <input.wav> <output.wav> [--vad-model <silero.onnx>] | paste-text | type-text [delay-ms] | message-text [focused-control|character-messages] [hwnd]");
+            println!("Usage: voxtype-windows-helper active-window | focused-text [max-before] [max-after] | focus-window <hwnd> | set-system-mute <true|false> | send-hotkey <accelerator> | wait-hotkey-release <accelerator> | modifier-hotkeys [--include-injected] <accelerator>... | capture-screenshot <output.png> [--active-window | --hwnd <hwnd>] | ocr-image <input.png> | message-targets [hwnd] | mute-capture-session <process-id> [process-name] | restore-capture-session | input-devices | record-wav <output.wav> [--capture-mode shared|exclusive-preferred|exclusive-required] [--input-device <name>] [--emit-realtime-pcm16] [--vad-model <silero.onnx>] | record-wav-session [--capture-mode shared] [--input-device <name>] [--emit-realtime-pcm16] [--vad-model <silero.onnx>] | process-wav <input.wav> <output.wav> [--vad-model <silero.onnx>] | paste-text | type-text [delay-ms] | message-text [focused-control|character-messages] [hwnd]");
             Ok(())
         }
         _ => Err(format!("Unknown command: {command}")),
@@ -239,6 +241,29 @@ fn active_window_json() -> Result<(), String> {
 }
 
 #[cfg(windows)]
+fn focused_text_json() -> Result<(), String> {
+    let max_before = env::args()
+        .nth(2)
+        .and_then(|value| value.parse::<i32>().ok())
+        .unwrap_or(600);
+    let max_after = env::args()
+        .nth(3)
+        .and_then(|value| value.parse::<i32>().ok())
+        .unwrap_or(200);
+    let text = windows_impl::focused_text(max_before, max_after)?;
+    println!(
+        "{}",
+        serde_json::to_string(&text).map_err(|error| error.to_string())?
+    );
+    Ok(())
+}
+
+#[cfg(not(windows))]
+fn focused_text_json() -> Result<(), String> {
+    Err("focused-text is only supported on Windows.".to_string())
+}
+
+#[cfg(windows)]
 fn focus_window_from_arg() -> Result<(), String> {
     let hwnd = env::args()
         .nth(2)
@@ -411,3 +436,14 @@ fn set_system_mute_from_arg() -> Result<(), String> {
 #[cfg(windows)]
 #[cfg(windows)]
 mod windows_impl;
+
+#[cfg(windows)]
+fn modifier_hotkeys_from_args() -> Result<(), String> {
+    let args = env::args().skip(2).collect::<Vec<_>>();
+    windows_impl::modifier_hotkeys(&args)
+}
+
+#[cfg(not(windows))]
+fn modifier_hotkeys_from_args() -> Result<(), String> {
+    Err("modifier-hotkeys is only supported on Windows.".to_string())
+}

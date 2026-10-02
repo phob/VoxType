@@ -5,7 +5,8 @@ export const insertionModes = [
   "chunked",
   "windowsMessaging"
 ] as const;
-export const writingStyles = ["default", "chat", "professional"] as const;
+// "raw" inserts the transcript without LLM cleanup.
+export const writingStyles = ["default", "chat", "professional", "raw"] as const;
 export const recordingCoordinationModes = ["none", "muteCaptureSession", "sendHotkey"] as const;
 export const recorderCaptureModes = [
   "sharedCapture",
@@ -16,6 +17,12 @@ export const ocrTermModes = ["strict", "balanced", "broad"] as const;
 export const realtimeLatencyPresets = ["fast", "balanced", "accurate"] as const;
 export const whisperRuntimePreferences = ["auto", "cpu", "cuda", "vulkan"] as const;
 import { isDictationModeId, type DictationModeId } from "./asr";
+import {
+  isLlmCleanupBackendPreference,
+  isLlmCleanupModelPreference,
+  type LlmCleanupBackendPreference,
+  type LlmCleanupModelPreference
+} from "./llm-cleanup";
 import { isSherpaRuntimeBackend, type SherpaRuntimeBackend } from "./sherpa-runtimes";
 
 export const whisperLanguages = [
@@ -77,6 +84,9 @@ export interface AppSettings {
   sherpaRuntimeBackend: SherpaRuntimeBackend;
   parakeetHotwordsEnabled: boolean;
   parakeetHotwordsScore: number;
+  llmCleanupEnabled: boolean;
+  llmCleanupModelId: LlmCleanupModelPreference;
+  llmCleanupBackend: LlmCleanupBackendPreference;
   cloudDictationConsentAccepted: boolean;
   cloudDictationConsentAcceptedAt: string | null;
   cloudPromptPackOcrEnabled: boolean;
@@ -207,6 +217,14 @@ export function sanitizeSettings(
       Number.isFinite(input.parakeetHotwordsScore)
         ? clamp(input.parakeetHotwordsScore, 0, 10)
         : defaults.parakeetHotwordsScore,
+    llmCleanupEnabled:
+      typeof input.llmCleanupEnabled === "boolean" ? input.llmCleanupEnabled : defaults.llmCleanupEnabled,
+    llmCleanupModelId: isLlmCleanupModelPreference(input.llmCleanupModelId)
+      ? input.llmCleanupModelId
+      : defaults.llmCleanupModelId,
+    llmCleanupBackend: isLlmCleanupBackendPreference(input.llmCleanupBackend)
+      ? input.llmCleanupBackend
+      : defaults.llmCleanupBackend,
     cloudDictationConsentAccepted:
       typeof input.cloudDictationConsentAccepted === "boolean"
         ? input.cloudDictationConsentAccepted
@@ -456,7 +474,7 @@ function getProfileDefaults(processName: string): {
     return {
       displayName: remoteDisplayName(processName),
       insertionMode: "chunked",
-      writingStyle: "default",
+      writingStyle: "raw",
       recordingCoordinationMode: "none",
       whisperLanguage: "inherit"
     };
@@ -470,7 +488,7 @@ function getProfileDefaults(processName: string): {
     return {
       displayName: terminalDisplayName(processName),
       insertionMode: "keyboard",
-      writingStyle: "default",
+      writingStyle: "raw",
       recordingCoordinationMode: "none",
       whisperLanguage: "inherit"
     };

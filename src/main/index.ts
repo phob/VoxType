@@ -8,12 +8,16 @@ import { type DictionaryCreateInput, type DictionaryPatch } from "../shared/dict
 import { buildOcrPromptContext, type OcrPromptContext } from "../shared/ocr-context";
 import { type SpeechSegment } from "../shared/speech-segments";
 import { type AppProfile, type AppSettings, type InsertionMode, type SettingsPatch, findAppProfile } from "../shared/settings";
+import { type CursorContext } from "../shared/cursor-context";
+import { isModifierOnlyAccelerator } from "../shared/hotkeys";
 import { type ActiveWindowInfo, type DictationHotkeyState, type NativeRecordingOptions, type RecordingOverlayState } from "../shared/windows-helper";
 import { DictionaryStore } from "./dictionary-store";
 import { HardwareService } from "./hardware-service";
 import { HistoryStore } from "./history-store";
 import { InsertionService } from "./insertion-service";
+import { LlmCleanupService } from "./llm-cleanup-service";
 import { ModelService } from "./model-service";
+import { ModifierHotkeys, type ModifierHotkeyPress } from "./modifier-hotkeys";
 import { OcrService } from "./ocr-service";
 import { OpenAiFileAsrProvider } from "./openai-asr-provider";
 import { OpenAiCredentialStore } from "./openai-credential-store";
@@ -35,6 +39,8 @@ let overlayWindow: BrowserWindow | null = null;
 let overlayState: RecordingOverlayState = { visible: false, mode: "recording", level: 0, message: "Recording" };
 let tray: Tray | null = null;
 let dictationHotkeyState: DictationHotkeyState = { recording: false, sessionId: 0, target: null, ocrContext: null };
+// Text before the cursor when the last hotkey dictation started; attached to that dictation's cleanup.
+let lastCursorContext: { processName: string | null; context: CursorContext } | null = null;
 let nextDictationSessionId = 1;
 let registeredShowWindowHotkey: string | null = null;
 let registeredDictationHotkey: string | null = null;
@@ -67,21 +73,26 @@ const sherpaRuntimeService = new SherpaRuntimeService();
 const parakeetAsrProvider = new ParakeetAsrProvider();
 const hardwareService = new HardwareService();
 const windowsHelperService = new WindowsHelperService();
+const modifierHotkeys = new ModifierHotkeys((accelerators, onEvent, onExit) =>
+  windowsHelperService.watchModifierHotkeys(accelerators, onEvent, onExit)
+);
 const ocrService = new OcrService(windowsHelperService);
 const openAiCredentialStore = new OpenAiCredentialStore();
 const openAiFileAsrProvider = new OpenAiFileAsrProvider(openAiCredentialStore);
 const updateService = new UpdateService();
+const llmCleanupService = new LlmCleanupService(settingsStore, dictionaryStore, hardwareService);
 const transcriptionService = new TranscriptionService(
   settingsStore,
   historyStore,
   runtimeService,
   dictionaryStore,
   windowsHelperService,
+  llmCleanupService,
   sherpaModelService,
   sherpaRuntimeService,
   parakeetAsrProvider
 );
-const realtimeCloudHistoryService = new RealtimeCloudHistoryService(dictionaryStore, historyStore);
+const realtimeCloudHistoryService = new RealtimeCloudHistoryService(dictionaryStore, historyStore, llmCleanupService);
 let activeRealtimeCloudSession: RealtimeCloudSession | null = null;
 let activeRealtimeCloudProcessName: string | null = null;
 const realtimeAudioBuffer = new RealtimeAudioBuffer();
@@ -114,6 +125,7 @@ function applyStartupSettings(settings: AppSettings): void {
 async function applySettingsSideEffects(settings: AppSettings): Promise<void> {
   applyStartupSettings(settings);
   startAutomaticUpdateChecks(settings);
+  void llmCleanupService.applySettings();
   await registerConfiguredHotkeys();
 }
 function shouldStartMinimized(settings: AppSettings): boolean {
@@ -271,18 +283,20 @@ function startAutomaticUpdateChecks(settings: AppSettings): void {
     void checkForUpdates();
   }, updateCheckIntervalMs);
 }
-function stopDictationHotkey(): boolean {
+/** `discard` stops without transcribing: the hotkey press turned out to be part of another shortcut. */
+function stopDictationHotkey(discard = false): boolean {
   if (!dictationHotkeyState.recording) {
     return false;
   }
-  logRealtimeTiming("dictation stop hotkey received", {
+  logRealtimeTiming(discard ? "dictation discarded" : "dictation stop hotkey received", {
     process: "main",
     sessionId: dictationHotkeyState.sessionId
   });
   const payload = {
     sessionId: dictationHotkeyState.sessionId,
     target: dictationHotkeyState.target,
-    ocrContext: dictationHotkeyState.ocrContext
+    ocrContext: dictationHotkeyState.ocrContext,
+    ...(discard ? { discard } : {})
   };
   dictationHotkeyState = {
     ...dictationHotkeyState,
@@ -305,8 +319,15 @@ async function startDictationHotkey(): Promise<number | null> {
     return null;
   }
   const target = await windowsHelperService.getActiveWindow().catch(() => null);
-  await settingsStore.ensureAppProfile(target);
   const sessionId = nextDictationSessionId++;
+  // Read right away, while the target app still has keyboard focus.
+  lastCursorContext = null;
+  void windowsHelperService.getFocusedText().then((context) => {
+    if (context && dictationHotkeyState.sessionId === sessionId) {
+      lastCursorContext = { processName: target?.processName ?? null, context };
+    }
+  }, () => undefined);
+  await settingsStore.ensureAppProfile(target);
   dictationHotkeyState = {
     recording: true,
     sessionId,
@@ -342,12 +363,28 @@ async function startDictationHotkey(): Promise<number | null> {
   mainWindow?.webContents.send("dictation-hotkey-start", { sessionId, target, ocrContext: null });
   return sessionId;
 }
-async function holdDictationHotkey(): Promise<void> {
+// A modifier-only hotkey (Ctrl+Win) is also the start of other shortcuts (Ctrl+Win+Right switches
+// desktops). When such a press is interrupted by another key, the dictation it started is dropped.
+function discardOnInterrupt(press: ModifierHotkeyPress | undefined, sessionId: number): void {
+  if (!press) {
+    return;
+  }
+  press.onInterrupt = () => {
+    if (dictationHotkeyState.recording && dictationHotkeyState.sessionId === sessionId) {
+      stopDictationHotkey(true);
+    }
+  };
+  if (press.interrupted) {
+    press.onInterrupt();
+  }
+}
+async function holdDictationHotkey(press?: ModifierHotkeyPress): Promise<void> {
   const settings = await settingsStore.get();
   const sessionId = await startDictationHotkey();
   if (sessionId === null) {
     return;
   }
+  discardOnInterrupt(press, sessionId);
   try {
     await windowsHelperService.waitForHotkeyRelease(settings.dictationHoldHotkey);
   } finally {
@@ -356,13 +393,16 @@ async function holdDictationHotkey(): Promise<void> {
     }
   }
 }
-async function durationAwareDictationHotkey(accelerator: string): Promise<void> {
+async function durationAwareDictationHotkey(accelerator: string, press?: ModifierHotkeyPress): Promise<void> {
   if (stopDictationHotkey()) {
     return;
   }
   const startedAt = Date.now();
   const releasePromise = windowsHelperService.waitForHotkeyRelease(accelerator);
   const sessionId = await startDictationHotkey();
+  if (sessionId !== null) {
+    discardOnInterrupt(press, sessionId);
+  }
   try {
     await releasePromise;
   } catch {
@@ -519,19 +559,30 @@ async function registerConfiguredHotkeys(): Promise<void> {
   registeredDictationHoldHotkey = registerDictationHoldHotkey(settings);
   await refreshFullscreenHotkeySuspension();
 }
-function registerHotkey(accelerator: string, callback: () => void): string | null {
+function registerHotkey(accelerator: string, callback: (press?: ModifierHotkeyPress) => void): string | null {
   const trimmed = accelerator.trim();
   if (!trimmed) {
     return null;
   }
+  if (isModifierOnlyAccelerator(trimmed)) {
+    modifierHotkeys.register(trimmed, callback);
+    return trimmed;
+  }
   return globalShortcut.register(trimmed, callback) ? trimmed : null;
+}
+function unregisterHotkey(accelerator: string): void {
+  if (isModifierOnlyAccelerator(accelerator)) {
+    modifierHotkeys.unregister(accelerator);
+    return;
+  }
+  globalShortcut.unregister(accelerator);
 }
 function registerDictationToggleHotkey(settings: AppSettings): string | null {
   if (settings.dictationToggleHotkey === settings.showWindowHotkey) {
     return null;
   }
-  return registerHotkey(settings.dictationToggleHotkey, () => {
-    void durationAwareDictationHotkey(settings.dictationToggleHotkey);
+  return registerHotkey(settings.dictationToggleHotkey, (press) => {
+    void durationAwareDictationHotkey(settings.dictationToggleHotkey, press);
   });
 }
 function registerDictationHoldHotkey(settings: AppSettings): string | null {
@@ -541,31 +592,31 @@ function registerDictationHoldHotkey(settings: AppSettings): string | null {
   ) {
     return null;
   }
-  return registerHotkey(settings.dictationHoldHotkey, () => {
-    void holdDictationHotkey();
+  return registerHotkey(settings.dictationHoldHotkey, (press) => {
+    void holdDictationHotkey(press);
   });
 }
 function unregisterConfiguredHotkeys(): void {
   if (registeredShowWindowHotkey) {
-    globalShortcut.unregister(registeredShowWindowHotkey);
+    unregisterHotkey(registeredShowWindowHotkey);
     registeredShowWindowHotkey = null;
   }
   if (registeredDictationHotkey) {
-    globalShortcut.unregister(registeredDictationHotkey);
+    unregisterHotkey(registeredDictationHotkey);
     registeredDictationHotkey = null;
   }
   if (registeredDictationHoldHotkey) {
-    globalShortcut.unregister(registeredDictationHoldHotkey);
+    unregisterHotkey(registeredDictationHoldHotkey);
     registeredDictationHoldHotkey = null;
   }
 }
 function unregisterDictationHotkeys(): void {
   if (registeredDictationHotkey) {
-    globalShortcut.unregister(registeredDictationHotkey);
+    unregisterHotkey(registeredDictationHotkey);
     registeredDictationHotkey = null;
   }
   if (registeredDictationHoldHotkey) {
-    globalShortcut.unregister(registeredDictationHoldHotkey);
+    unregisterHotkey(registeredDictationHoldHotkey);
     registeredDictationHoldHotkey = null;
   }
 }
@@ -699,6 +750,8 @@ ipcMain.handle("openai:test-connection", async () => {
   const modelId = getOpenAiModelIdForMode(dictationMode.id) ?? OPENAI_TRANSCRIBE_MODEL_ID;
   return openAiFileAsrProvider.testConnection(modelId);
 });
+ipcMain.handle("llm-cleanup:get-status", () => llmCleanupService.getStatus());
+ipcMain.handle("llm-cleanup:install", () => llmCleanupService.install());
 ipcMain.handle("models:list", () => modelService.list());
 ipcMain.handle("models:download", (_event, modelId: string) => modelService.download(modelId));
 ipcMain.handle("models:delete", (_event, modelId: string) => modelService.delete(modelId));
@@ -791,8 +844,14 @@ ipcMain.handle(
       ocrContext?: OcrPromptContext | null;
       forceModeId?: "local.custom";
     }
-  ) =>
-    transcriptionService.transcribeWav(bytes, context)
+  ) => {
+    const cursorContext =
+      lastCursorContext && context?.processName && lastCursorContext.processName?.toLowerCase() === context.processName.toLowerCase()
+        ? lastCursorContext.context
+        : null;
+    lastCursorContext = null;
+    return transcriptionService.transcribeWav(bytes, { ...context, cursorContext });
+  }
 );
 ipcMain.handle(
   "transcription:realtime-start",
@@ -1015,6 +1074,9 @@ ipcMain.handle("windows-helper:capture-screenshot", (_event, mode: "screen" | "a
 );
 ipcMain.handle("windows-helper:start-recording", (_event, options: NativeRecordingOptions) =>
   {
+    // Load the speech and cleanup models while the user speaks; both unload after idle time.
+    void transcriptionService.prewarm(dictationHotkeyState.recording ? dictationHotkeyState.target?.processName ?? null : null);
+    void llmCleanupService.prewarm();
     resetPendingRealtimePcm16Audio();
     resetRecordingRealtimePcm16Counters();
     return windowsHelperService.startRecording(options, (level, pcm16Chunk) => {
@@ -1054,6 +1116,8 @@ void app.whenReady().then(async () => {
   Menu.setApplicationMenu(null);
   void settingsStore.get().then((settings) => {
     applyStartupSettings(settings);
+    void llmCleanupService.applySettings();
+    void transcriptionService.prewarm(null);
     startAutomaticUpdateChecks(settings);
     void checkForUpdates({ revealWindowOnAvailable: true });
   });
@@ -1068,6 +1132,8 @@ void app.whenReady().then(async () => {
 });
 app.on("will-quit", () => {
   cancelActiveRealtimeCloudSession("Realtime Cloud Dictation cancelled because VoxType is quitting.");
+  llmCleanupService.stop();
+  transcriptionService.stop();
   stopAutomaticUpdateChecks();
   stopFullscreenSuspensionWatch();
   overlayWindow?.destroy();

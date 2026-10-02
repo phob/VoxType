@@ -139,6 +139,8 @@ export interface DictationHotkeyPayload {
   sessionId: number;
   target: ActiveWindowInfo | null;
   ocrContext: OcrPromptContext | null;
+  /** Stop without transcribing (the hotkey press was part of another shortcut). */
+  discard?: boolean;
 }
 
 export interface DictationOcrContextPayload {

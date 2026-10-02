@@ -2,6 +2,94 @@
 
 Record important decisions here so future sessions do not reopen settled topics without a reason.
 
+## 2026-10-02: Modifier-Only Hotkeys (Ctrl+Win) Through A Keyboard Hook
+
+Decision:
+
+- Hotkeys made only of modifiers (at least two, e.g. `CommandOrControl+Super` = Ctrl+Win, the Wispr
+  Flow default) are watched by the helper's `modifier-hotkeys` command, a `WH_KEYBOARD_LL` hook that
+  never swallows keys. All other hotkeys stay on Electron's `globalShortcut`.
+- A press fires when the held modifiers become exactly the configured set. Release detection is the
+  existing `wait-hotkey-release` poll, so tap-to-toggle and hold-to-dictate behave as before.
+- If another key goes down while the set is held (Ctrl+Win+Right switches desktops), the dictation
+  that press started is discarded without transcribing.
+- When the set contains Win or Alt, the hook taps the unassigned key 0xE8 so their release cannot
+  open the Start menu or a menu bar (AutoHotkey's MenuMaskKey trick).
+- Injected input is ignored, so VoxType's own Ctrl+V paste and other tools' SendInput never trigger it.
+  `VOXTYPE_E2E_INJECTED_HOTKEYS=1` lifts this for `bun run e2e:hotkeys` only.
+
+Reason:
+
+`RegisterHotKey`, and Electron's `globalShortcut` on top of it, require a non-modifier key. A
+low-level hook is the only way to see a bare Ctrl+Win press without a background service.
+
+## 2026-10-01: Warm Whisper Server, Models Load While Recording, Cursor Context; Parakeet Stays Optional
+
+Decision:
+
+- Local Whisper runs through `whisper-server.exe` from the same whisper.cpp release zip
+  (`src/main/whisper-server.ts`), kept warm on 127.0.0.1 with whisper-cli's decoding settings
+  (beam 5 / best-of 5, `-sns`, one request per speech chunk). If the server cannot start or a request
+  fails, that dictation falls back to `whisper-cli`.
+- Both model servers (whisper-server, llama-server) start loading when a recording starts and stop
+  after 15 minutes without a dictation (`src/main/local-server-process.ts`). Loading overlaps with
+  speaking, so idle VoxType does not hold VRAM and dictation does not wait for a cold model.
+- When the dictation hotkey is pressed, the helper's `focused-text` command reads up to 600
+  characters before the caret through UI Automation (TextPattern2 caret, else selection, else
+  ValuePattern; never password fields). The last 300 characters go to the cleanup prompt as
+  `<before>` context only: continue a sentence without a capital, spell names as already typed.
+  Context words may appear in the output but do not count as spoken words for the guard.
+- When the guard rejects a cleanup and at least half the time budget is left, the model gets the
+  rejection reason and one more try.
+- Parakeet TDT 0.6B v3 stays an optional engine; Whisper large-v3-turbo stays the default.
+- Whisper segments are joined by their own leading spaces (a segment split inside a word no longer
+  becomes "Mü ller").
+
+Reason:
+
+Measured with both E2E corpora (`bun run e2e:dictation [--asr parakeet]`, `bun run e2e:cleanup
+[--asr parakeet]`). Parakeet (CPU, as shipped): 17/22 on the pause corpus vs 22/22 for Whisper
+(it truncates the end of a 46 s dictation, clips a first word, invents "Yeah." on breath-only audio),
+17/34 vs 17/34 on messy speech with more German errors, and no faster cold (~1.2-1.9 s vs ~1.3 s).
+The warm Whisper server passes 22/22 with the same transcripts apart from punctuation noise and cuts
+ASR from ~1.4 s to ~0.35 s per short dictation. With cursor context and the retry, Qwen3.5 4B passes
+39/39 messy-speech fixtures (WER 0.019, 145 ms p50 / 603 ms p95); the retry recovered a correct
+name fix that the model had combined with a du-to-Sie rewrite.
+
+## 2026-10-01: Local LLM Cleanup After ASR, Opt-In
+
+Decision:
+
+After dictionary and OCR corrections, every provider (local Whisper, Parakeet, OpenAI file and
+realtime) can pass its text through a local LLM cleanup step (`src/main/llm-cleanup-service.ts`).
+It is off by default and enabled in Settings, which downloads the runtime and model.
+
+- Runtime: official llama.cpp `llama-server` (pinned `b11325`), Vulkan or CPU zip, kept warm on
+  127.0.0.1 with a random port and API key while cleanup is enabled; stopped on quit. Not
+  node-llama-cpp (native module in the Electron bundle) and not CUDA (150-260 MB builds plus a
+  390-420 MB CUDA runtime zip; Vulkan runs on NVIDIA, AMD and Intel and is fast enough here).
+- Model: Qwen3.5 4B Q4_K_M with a GPU, Qwen3.5 2B Q4_K_M without one ("auto"). Superwhisper's
+  s1-mini is English-only; Qwen3.5 0.8B passed no more fixtures than Whisper alone.
+- Deterministic steps run in code for every model and also when the LLM output is rejected:
+  hesitation sounds (but not German "um" before a number), preferred term spellings, and no closing
+  period in chat style.
+- A guard (`src/shared/cleanup-guard.ts`) only accepts output that adds at most one new word (5% for
+  long text), keeps digits and dictionary terms, does not switch du to Sie, and drops no more than
+  15% of the words unless the speaker said a correction phrase. Otherwise the deterministic result is
+  inserted. Cleanup has a 6 s budget including a cold server start.
+- No language hint in the prompt. The profile's `writingStyle` picks the style; the new `raw` style
+  skips the LLM and is the default for new terminal and remote-desktop profiles.
+
+Reason:
+
+Wispr Flow and Typeless get their quality mostly from this kind of LLM rewrite, not from better ASR.
+The failure modes were written first (C1-C14 in `scripts/e2e-cleanup/corpus.ts`) and the messy-speech
+corpus (`bun run e2e:cleanup`, 34 English/German fixtures, German via Piper) chose the design: on an
+RTX 5080 the 4B model passes 34/34 (one known Whisper issue) at 132 ms p50 / 527 ms p95, Whisper
+alone passes 17/34; on CPU the 2B model passes 30/34 at 0.5 s p50 / 2.3 s p95. A `Language: German`
+hint made the model translate real English dictations, so it was removed. n-gram speculative
+decoding did not help enough to ship.
+
 ## 2026-09-25: Segment Speech From VAD Probabilities And Chunk Whisper Input
 
 Supersedes the splicing parts of `2026-04-25: Run Silero VAD In The Native Helper`,

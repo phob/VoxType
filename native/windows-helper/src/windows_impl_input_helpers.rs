@@ -210,7 +210,8 @@
 
     struct ParsedHotkey {
         modifiers: Vec<VIRTUAL_KEY>,
-        key: VIRTUAL_KEY,
+        /// None for a modifier-only hotkey such as Ctrl+Win.
+        key: Option<VIRTUAL_KEY>,
     }
 
     fn parse_hotkey(accelerator: &str) -> Result<ParsedHotkey, String> {
@@ -225,21 +226,33 @@
         let mut modifiers = Vec::new();
 
         for part in &parts[..parts.len().saturating_sub(1)] {
-            match part.to_ascii_lowercase().as_str() {
-                "commandorcontrol" | "control" | "ctrl" => push_unique(&mut modifiers, VK_CONTROL),
-                "alt" | "option" => push_unique(&mut modifiers, VK_LMENU),
-                "shift" => push_unique(&mut modifiers, VK_LSHIFT),
-                "super" | "meta" | "win" | "windows" | "command" => {
-                    push_unique(&mut modifiers, VK_LWIN)
-                }
-                unknown => return Err(format!("Unsupported hotkey modifier: {unknown}")),
+            let modifier = parse_hotkey_modifier(part)
+                .ok_or_else(|| format!("Unsupported hotkey modifier: {part}"))?;
+            push_unique(&mut modifiers, modifier);
+        }
+
+        if let Some(modifier) = parse_hotkey_modifier(key_name) {
+            push_unique(&mut modifiers, modifier);
+            if modifiers.len() < 2 {
+                return Err(format!("A modifier-only hotkey needs at least two modifiers: {accelerator}"));
             }
+            return Ok(ParsedHotkey { modifiers, key: None });
         }
 
         Ok(ParsedHotkey {
             modifiers,
-            key: parse_hotkey_key(key_name)?,
+            key: Some(parse_hotkey_key(key_name)?),
         })
+    }
+
+    fn parse_hotkey_modifier(name: &str) -> Option<VIRTUAL_KEY> {
+        match name.to_ascii_lowercase().as_str() {
+            "commandorcontrol" | "control" | "ctrl" => Some(VK_CONTROL),
+            "alt" | "option" => Some(VK_LMENU),
+            "shift" => Some(VK_LSHIFT),
+            "super" | "meta" | "win" | "windows" | "command" => Some(VK_LWIN),
+            _ => None,
+        }
     }
 
     fn push_unique(values: &mut Vec<VIRTUAL_KEY>, value: VIRTUAL_KEY) {
@@ -250,7 +263,7 @@
 
     fn hotkey_is_pressed(hotkey: &ParsedHotkey) -> bool {
         hotkey.modifiers.iter().all(|key| virtual_key_is_down(*key))
-            && virtual_key_is_down(hotkey.key)
+            && hotkey.key.is_none_or(virtual_key_is_down)
     }
 
     fn virtual_key_is_down(key: VIRTUAL_KEY) -> bool {
@@ -314,6 +327,18 @@
             "F10" => 0x79,
             "F11" => 0x7A,
             "F12" => 0x7B,
+            "F13" => 0x7C,
+            "F14" => 0x7D,
+            "F15" => 0x7E,
+            "F16" => 0x7F,
+            "F17" => 0x80,
+            "F18" => 0x81,
+            "F19" => 0x82,
+            "F20" => 0x83,
+            "F21" => 0x84,
+            "F22" => 0x85,
+            "F23" => 0x86,
+            "F24" => 0x87,
             _ => return Err(format!("Unsupported hotkey key: {key}")),
         };
 

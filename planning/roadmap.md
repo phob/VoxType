@@ -154,8 +154,8 @@ Features:
 - Context Engine as the next dictionary/context integration layer. First slice: improve post-ASR correction quality with correction candidates, confidence scores, safe auto-apply rules, and correction explanations in history. Later slices should reuse that scoring model for prompt-pack ranking.
 - Dictation modes.
 - Confidence review.
-- Local formatting engine.
-- Transcript consistency layer for stable punctuation, casing, spacing, and style level.
+- Local formatting engine. Initial implementation: opt-in local LLM cleanup (llama.cpp `llama-server`, Qwen3.5 4B/2B) removes fillers and self-corrections, fixes punctuation, formats spoken lists and applies the profile writing style, behind a guard that falls back to the uncleaned text. See `decisions.md` 2026-10-01 and `bun run e2e:cleanup`.
+- Transcript consistency layer for stable punctuation, casing, spacing, and style level. The LLM cleanup above covers punctuation and style per profile; history keeps the text before cleanup.
 - Separate raw ASR text from final inserted text in transcript history.
 - Better model manager.
 - Opt-in OpenAI Cloud Dictation through provider-backed Dictation Modes, with detailed scope in [cloud-dictation.md](cloud-dictation.md).
@@ -177,4 +177,4 @@ Possible additions:
 - Faster Whisper/CTranslate2.
 - Additional cloud ASR providers after the OpenAI Cloud Dictation path is validated.
 - Additional OCR engines only if Windows Media OCR proves insufficient.
-- Local LLM formatting provider.
+- Local LLM formatting provider. Moved into Phase 5 as AI cleanup (2026-10-01). Done: idle unload with load-on-record, text before the cursor through UI Automation as context, warm whisper-server. Follow-ups: user edits as cleanup examples, cursor context for realtime cloud dictation.

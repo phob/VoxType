@@ -357,6 +357,7 @@ export function DebugView(props: ReadyAppViewProps): ReactElement {
                           <option value="default">default</option>
                           <option value="chat">chat</option>
                           <option value="professional">professional</option>
+                          <option value="raw">raw</option>
                         </select>
                       </td>
                       <td>

@@ -1,11 +1,5 @@
 import { app } from "electron";
-import { execFile } from "node:child_process";
-import { createWriteStream } from "node:fs";
-import { mkdir, readdir, rename, rm } from "node:fs/promises";
-import { dirname, join } from "node:path";
-import { Readable } from "node:stream";
-import { pipeline } from "node:stream/promises";
-import { promisify } from "node:util";
+import { join } from "node:path";
 import {
   getRuntimeById,
   type WhisperRuntime,
@@ -14,9 +8,9 @@ import {
   type WhisperRuntimePreference,
   whisperRuntimeCatalog
 } from "../shared/runtimes";
+import { downloadAndExpandZip, findFile } from "./archive-download";
 import { HardwareService } from "./hardware-service";
 
-const execFileAsync = promisify(execFile);
 const executableCandidates = ["whisper-cli.exe", "main.exe"];
 
 export class RuntimeService {
@@ -63,46 +57,21 @@ export class RuntimeService {
       throw new Error(`${runtime.name} is not available as a managed download yet.`);
     }
 
-    const runtimeDirectory = this.getRuntimeDirectory(runtime);
-    const archivePath = join(runtimeDirectory, runtime.archiveName);
-    const temporaryArchivePath = `${archivePath}.download`;
-    const extractDirectory = join(runtimeDirectory, "extract");
+    await downloadAndExpandZip({
+      url: runtime.url,
+      archiveName: runtime.archiveName,
+      runtimeDirectory: this.getRuntimeDirectory(runtime),
+      extractDirectory: join(this.getRuntimeDirectory(runtime), "extract"),
+      label: runtime.name
+    });
 
-    try {
-      await mkdir(dirname(archivePath), { recursive: true });
-      await rm(extractDirectory, { recursive: true, force: true });
-      await mkdir(extractDirectory, { recursive: true });
+    const installedRuntime = await this.hydrateRuntime(runtime);
 
-      const response = await fetch(runtime.url);
-
-      if (!response.ok || !response.body) {
-        throw new Error(
-          `Failed to download ${runtime.name}: ${String(response.status)} ${response.statusText}`
-        );
-      }
-
-      await pipeline(
-        Readable.fromWeb(response.body as unknown as Parameters<typeof Readable.fromWeb>[0]),
-        createWriteStream(temporaryArchivePath)
-      );
-      await rm(archivePath, { force: true });
-      await rename(temporaryArchivePath, archivePath);
-      await this.expandArchive(archivePath, extractDirectory);
-
-      const installedRuntime = await this.hydrateRuntime(runtime);
-
-      if (!installedRuntime.executablePath) {
-        throw new Error(`Installed ${runtime.name}, but no whisper-cli.exe was found.`);
-      }
-
-      return installedRuntime;
-    } catch (error) {
-      await rm(extractDirectory, { recursive: true, force: true }).catch(() => undefined);
-      throw error;
-    } finally {
-      await rm(temporaryArchivePath, { force: true }).catch(() => undefined);
-      await rm(archivePath, { force: true }).catch(() => undefined);
+    if (!installedRuntime.executablePath) {
+      throw new Error(`Installed ${runtime.name}, but no whisper-cli.exe was found.`);
     }
+
+    return installedRuntime;
   }
 
   async getFirstRunCudaRuntimeTarget(): Promise<WhisperRuntimeCatalogItem | null> {
@@ -214,26 +183,6 @@ export class RuntimeService {
     };
   }
 
-  private async expandArchive(archivePath: string, destination: string): Promise<void> {
-    await execFileAsync("powershell.exe", [
-      "-NoProfile",
-      "-ExecutionPolicy",
-      "Bypass",
-      "-Command",
-      [
-        "$archivePath = [Environment]::GetEnvironmentVariable('VOXTYPE_ARCHIVE_PATH')",
-        "$destinationPath = [Environment]::GetEnvironmentVariable('VOXTYPE_EXTRACT_PATH')",
-        "Expand-Archive -LiteralPath $archivePath -DestinationPath $destinationPath -Force"
-      ].join("; ")
-    ], {
-      env: {
-        ...process.env,
-        VOXTYPE_ARCHIVE_PATH: archivePath,
-        VOXTYPE_EXTRACT_PATH: destination
-      }
-    });
-  }
-
   private async findExecutable(runtime: WhisperRuntimeCatalogItem): Promise<string | null> {
     const runtimeDirectory = this.getRuntimeDirectory(runtime);
 
@@ -251,32 +200,6 @@ export class RuntimeService {
   private getRuntimeDirectory(runtime: WhisperRuntimeCatalogItem): string {
     return join(this.runtimeRootDirectory, runtime.version, runtime.id);
   }
-}
-
-async function findFile(directory: string, fileName: string): Promise<string | null> {
-  try {
-    const entries = await readdir(directory, { withFileTypes: true });
-
-    for (const entry of entries) {
-      const fullPath = join(directory, entry.name);
-
-      if (entry.isFile() && entry.name.toLowerCase() === fileName.toLowerCase()) {
-        return fullPath;
-      }
-
-      if (entry.isDirectory()) {
-        const found = await findFile(fullPath, fileName);
-
-        if (found) {
-          return found;
-        }
-      }
-    }
-  } catch {
-    return null;
-  }
-
-  return null;
 }
 
 function parseDriverMajorVersion(driverVersion?: string): number | null {

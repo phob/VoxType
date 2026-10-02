@@ -126,11 +126,20 @@ export function DebugDictationSection(props: ReadyAppViewProps): ReactElement {
                 <dd>{latestTranscript?.correctionsApplied?.length ?? 0}</dd>
                 <dt>ocrFixes</dt>
                 <dd>{latestTranscript?.ocrCorrectionsApplied?.length ?? 0}</dd>
+                <dt>aiCleanup</dt>
+                <dd>
+                  {latestTranscript?.cleanup
+                    ? `${latestTranscript.cleanup.status} in ${String(latestTranscript.cleanup.durationMs)} ms (${latestTranscript.cleanup.modelId})`
+                    : "off"}
+                </dd>
               </dl>
               <pre>
                 {[
                   ...(latestTranscript?.correctionsApplied ?? []).map((item: string) => `dictionary: ${item}`),
-                  ...(latestTranscript?.ocrCorrectionsApplied ?? []).map((item: string) => `ocr: ${item}`)
+                  ...(latestTranscript?.ocrCorrectionsApplied ?? []).map((item: string) => `ocr: ${item}`),
+                  ...(latestTranscript?.cleanup?.reason ? [`ai cleanup: ${latestTranscript.cleanup.reason}`] : []),
+                  ...(latestTranscript?.cleanup?.inputText ? [`before ai cleanup: ${latestTranscript.cleanup.inputText}`] : []),
+                  ...(latestTranscript?.cleanup?.rejectedText ? [`rejected ai output: ${latestTranscript.cleanup.rejectedText}`] : [])
                 ].join("\n") || "no corrections"}
               </pre>
               {latestTranscript ? (

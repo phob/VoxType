@@ -1,6 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect, useRef, useState, type ReactElement } from "react";
-import { eventToAccelerator } from "../hotkey-capture";
+import { eventModifiers, eventToAccelerator } from "../hotkey-capture";
 import { type PcmRecorder, type PcmRecordingResult } from "../audio-recorder";
 import { type OcrPromptContext } from "../../../shared/ocr-context";
 import { type OcrResult } from "../../../shared/ocr";
@@ -11,7 +11,7 @@ import {
   type ScreenshotCaptureMode,
   type ScreenshotCaptureResult
 } from "../../../shared/windows-helper";
-import { RecordingOverlay, WindowTitleBar } from "./app-helpers";
+import { formatError, RecordingOverlay, WindowTitleBar } from "./app-helpers";
 import { ReleaseView } from "./ReleaseView";
 import { DebugView } from "./DebugView";
 import { type HotkeyCaptureTarget } from "./app-helpers";
@@ -233,11 +233,19 @@ export function ConnectedAppView(): ReactElement {
       return;
     }
 
+    // Handle start and stop in order: a stop that arrives while the recorder is still starting (a quick
+    // tap, or a discarded Ctrl+Win+Right) must wait for the start, or the recording would keep running.
+    let hotkeyQueue = Promise.resolve();
+    const enqueueHotkey = (task: () => Promise<void>): void => {
+      hotkeyQueue = hotkeyQueue.then(task).catch((hotkeyError: unknown) => {
+        setError(formatError(hotkeyError));
+      });
+    };
     const removeStart = window.voxtype.dictation.onHotkeyStart((payload) => {
-      void recordingActions.handleHotkeyStart(payload);
+      enqueueHotkey(() => recordingActions.handleHotkeyStart(payload));
     });
     const removeStop = window.voxtype.dictation.onHotkeyStop((payload) => {
-      void recordingActions.handleHotkeyStop(payload);
+      enqueueHotkey(() => recordingActions.handleHotkeyStop(payload));
     });
     const removeOcrContext = window.voxtype.dictation.onOcrContext((payload) => {
       if (hotkeySessionIdRef.current !== payload.sessionId) {
@@ -250,11 +258,11 @@ export function ConnectedAppView(): ReactElement {
 
     void window.voxtype.dictation.getHotkeyState().then((hotkeyState) => {
       if (hotkeyState.recording) {
-        void recordingActions.handleHotkeyStart({
+        enqueueHotkey(() => recordingActions.handleHotkeyStart({
           sessionId: hotkeyState.sessionId,
           target: hotkeyState.target,
           ocrContext: hotkeyState.ocrContext
-        });
+        }));
       }
     });
 
@@ -344,6 +352,10 @@ export function ConnectedAppView(): ReactElement {
       return;
     }
 
+    // A modifier-only hotkey (Ctrl+Win) has no key-down of its own: remember the most modifiers held
+    // at once and take them when the first one is released.
+    let heldModifiers: string[] = [];
+
     function handleKeyDown(event: KeyboardEvent): void {
       event.preventDefault();
       event.stopPropagation();
@@ -360,9 +372,30 @@ export function ConnectedAppView(): ReactElement {
       const accelerator = eventToAccelerator(event);
 
       if (!accelerator) {
+        const modifiers = eventModifiers(event);
+        if (modifiers.length > heldModifiers.length) {
+          heldModifiers = modifiers;
+        }
         return;
       }
 
+      heldModifiers = [];
+      captureAccelerator(accelerator);
+    }
+
+    function handleKeyUp(event: KeyboardEvent): void {
+      event.preventDefault();
+      event.stopPropagation();
+      const modifiers = heldModifiers;
+      heldModifiers = [];
+
+      // Profile hotkeys are sent to the app after insertion; a modifier-only combo would do nothing there.
+      if (modifiers.length >= 2 && !capturingProfileHotkey) {
+        captureAccelerator(modifiers.join("+"));
+      }
+    }
+
+    function captureAccelerator(accelerator: string): void {
       if (capturingProfileHotkey) {
         const duplicate = settingsActions.findDuplicateHotkey(
           accelerator,
@@ -395,9 +428,11 @@ export function ConnectedAppView(): ReactElement {
     }
 
     window.addEventListener("keydown", handleKeyDown, { capture: true });
+    window.addEventListener("keyup", handleKeyUp, { capture: true });
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown, { capture: true });
+      window.removeEventListener("keyup", handleKeyUp, { capture: true });
     };
   }, [capturingHotkey, capturingProfileHotkey, state.settings]);
 

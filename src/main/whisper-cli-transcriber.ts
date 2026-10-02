@@ -1,6 +1,7 @@
 // Runs whisper.cpp's CLI over speech chunks in a single process (the model loads once). Each chunk
 // is its own input file, so whisper.cpp resets decoder context between chunks and every chunk is
-// decoded with the same initial prompt inside one 30 s window.
+// decoded with the same initial prompt inside one 30 s window. Used when the warm whisper-server is
+// unavailable (see whisper-server.ts).
 import { execFile } from "node:child_process";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
@@ -18,6 +19,11 @@ export interface WhisperChunkTranscription {
   text: string;
   removed: FilteredSegment[];
   detectedLanguages: string[];
+}
+
+export interface WhisperChunkOutput {
+  language: string | null;
+  segments: WhisperSegment[];
 }
 
 export async function transcribeChunksWithWhisperCli(input: {
@@ -45,28 +51,12 @@ export async function transcribeChunksWithWhisperCli(input: {
 
     await execFileAsync(input.executable, args, { maxBuffer: 64 * 1024 * 1024, windowsHide: true });
 
-    const rawParts: string[] = [];
-    const parts: string[] = [];
-    const removed: FilteredSegment[] = [];
-    const detectedLanguages: string[] = [];
-
-    for (const [index, chunk] of input.chunks.entries()) {
-      const output = parseWhisperJson(await readFile(`${bases[index]}.json`, "utf8"));
-      const filtered = filterWhisperSegments(output.segments, { speechSpansMs: chunk.speechSpansMs, prompt: input.prompt });
-      rawParts.push(output.segments.map((segment) => segment.text.trim()).join(" "));
-      parts.push(filtered.text);
-      removed.push(...filtered.removed);
-      if (output.language) {
-        detectedLanguages.push(output.language);
-      }
+    const outputs: WhisperChunkOutput[] = [];
+    for (const base of bases) {
+      outputs.push(parseWhisperJson(await readFile(`${base}.json`, "utf8")));
     }
 
-    return {
-      rawText: joinText(rawParts),
-      text: joinText(parts),
-      removed,
-      detectedLanguages
-    };
+    return combineChunkOutputs(input.chunks, outputs, input.prompt);
   } finally {
     await Promise.all(
       bases.flatMap((base) => [rm(`${base}.wav`, { force: true }), rm(`${base}.json`, { force: true })])
@@ -74,7 +64,39 @@ export async function transcribeChunksWithWhisperCli(input: {
   }
 }
 
-function parseWhisperJson(json: string): { language: string | null; segments: WhisperSegment[] } {
+/** Filters each chunk's segments against that chunk's speech spans and joins the chunks. */
+export function combineChunkOutputs(
+  chunks: SpeechChunk[],
+  outputs: WhisperChunkOutput[],
+  prompt: string | null
+): WhisperChunkTranscription {
+  const rawParts: string[] = [];
+  const parts: string[] = [];
+  const removed: FilteredSegment[] = [];
+  const detectedLanguages: string[] = [];
+
+  for (const [index, chunk] of chunks.entries()) {
+    const output = outputs[index];
+    const filtered = filterWhisperSegments(output.segments, { speechSpansMs: chunk.speechSpansMs, prompt });
+    // Segment texts carry their own leading space; joining them as-is keeps words split across
+    // segments intact.
+    rawParts.push(output.segments.map((segment) => segment.text).join(""));
+    parts.push(filtered.text);
+    removed.push(...filtered.removed);
+    if (output.language) {
+      detectedLanguages.push(output.language);
+    }
+  }
+
+  return {
+    rawText: joinText(rawParts),
+    text: joinText(parts),
+    removed,
+    detectedLanguages
+  };
+}
+
+function parseWhisperJson(json: string): WhisperChunkOutput {
   const parsed = JSON.parse(json) as {
     result?: { language?: string };
     transcription?: Array<{
@@ -96,10 +118,10 @@ function parseWhisperJson(json: string): { language: string | null; segments: Wh
 }
 
 // Special tokens ([_BEG_], [_TT_123], ...) carry no text and have unrelated probabilities.
-function minTextTokenProbability(tokens: Array<{ text?: string; p?: number }>): number | null {
-  const probabilities = tokens
-    .filter((token) => typeof token.p === "number" && token.text && !token.text.startsWith("[_") && token.text.trim())
-    .map((token) => token.p as number);
+export function minTextTokenProbability(tokens: Array<{ text?: string; p?: number }>): number | null {
+  const probabilities = tokens.flatMap((token) =>
+    typeof token.p === "number" && token.text && !token.text.startsWith("[_") && token.text.trim() ? [token.p] : []
+  );
 
   return probabilities.length > 0 ? Math.min(...probabilities) : null;
 }

@@ -96,6 +96,11 @@ export class DictionaryStore {
     return buildWhisperPromptContext(dictionaryTerms, ocrTerms ?? []);
   }
 
+  /** Preferred spellings of the enabled entries that apply to this app. */
+  async relevantTerms(processName?: string | null): Promise<string[]> {
+    return (await this.relevantEntries(processName)).map((entry) => entry.preferred).filter(Boolean);
+  }
+
   async applyCorrections(text: string, processName?: string | null): Promise<{
     text: string;
     applied: string[];

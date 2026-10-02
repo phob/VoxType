@@ -23,6 +23,7 @@ flowchart LR
 - **Uses local Whisper runtimes** with managed model and runtime downloads.
 - **Understands screen context** by reading visible text with local OCR and using those terms to improve dictation.
 - **Adapts per app** with profiles for insertion mode, writing style, language, and send-after-insert behavior.
+- **Cleans up dictation with local AI** (optional): removes filler words and self-corrections, fixes punctuation, and formats spoken lists with a small model running on your own GPU or CPU. It reads the text before your cursor to continue sentences and spell names the way they are already written.
 - **Handles remote and legacy targets** with clipboard paste, remote clipboard paste, Unicode typing, chunked typing, and Windows Messaging experiments.
 - **Records through a native Windows helper** with local Silero VAD speech detection that shortens pauses instead of cutting speech.
 

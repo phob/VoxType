@@ -8,6 +8,7 @@ import { type PromptPack } from "../shared/asr";
 import { type CloudDictationReadiness } from "../shared/cloud-status";
 import { type HardwareAccelerationReport } from "../shared/hardware";
 import { type HotkeyStatus } from "../shared/hotkeys";
+import { type LlmCleanupStatus } from "../shared/llm-cleanup";
 import { type LocalModel } from "../shared/models";
 import { type OcrPromptContext } from "../shared/ocr-context";
 import { type SpeechSegment } from "../shared/speech-segments";
@@ -110,6 +111,10 @@ const voxtype = {
       invoke<SherpaModel[]>("sherpa-models:download", modelId),
     delete: (modelId: string) =>
       invoke<SherpaModel[]>("sherpa-models:delete", modelId)
+  },
+  llmCleanup: {
+    getStatus: () => invoke<LlmCleanupStatus>("llm-cleanup:get-status"),
+    install: () => invoke<LlmCleanupStatus>("llm-cleanup:install")
   },
   sherpaRuntime: {
     list: () => invoke<SherpaRuntime[]>("sherpa-runtime:list"),

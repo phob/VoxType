@@ -189,14 +189,48 @@ export function useRecordingActions(ctx: RecordingActionContext): RecordingActio
       setLatestOcrContext(payload.ocrContext);
     }
 
-    await stopAndTranscribe({
-      pasteTarget: hotkeyTargetRef.current,
-      ocrContext: hotkeyOcrContextRef.current
-    });
+    if (payload.discard) {
+      await discardRecording();
+    } else {
+      await stopAndTranscribe({
+        pasteTarget: hotkeyTargetRef.current,
+        ocrContext: hotkeyOcrContextRef.current
+      });
+    }
     await window.voxtype.dictation.setHotkeyRecording(false);
     hotkeyTargetRef.current = null;
     hotkeyOcrContextRef.current = null;
     hotkeySessionIdRef.current = null;
+  }
+
+  /** Stops the recording without transcribing or inserting anything. */
+  async function discardRecording(): Promise<void> {
+    const recorder = recorderRef.current;
+
+    if (!recorder) {
+      return;
+    }
+
+    recorderRef.current = null;
+    clearCloudSessionLimitTimer();
+    setRecording(false);
+
+    try {
+      const stopError = await recorder.stop().then(
+        () => null,
+        (error: unknown) => formatError(error)
+      );
+      // A no-op unless a realtime cloud session is open.
+      await window.voxtype.transcription.cancelRealtime("Dictation discarded: the hotkey was part of another shortcut.").catch(() => undefined);
+      const coordinationError = await stopRecordingCoordination();
+      const unmuteError = await unmuteSystemAudio();
+      const cleanupError = joinErrors(joinErrors(stopError ?? "", coordinationError), unmuteError).trim();
+      if (cleanupError) {
+        setError(cleanupError);
+      }
+    } finally {
+      await window.voxtype.recordingOverlay.hide();
+    }
   }
 
   async function stopAndTranscribe(options?: {
