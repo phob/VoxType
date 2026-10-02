@@ -129,7 +129,7 @@ export function DebugDictationSection(props: ReadyAppViewProps): ReactElement {
                 <dt>aiCleanup</dt>
                 <dd>
                   {latestTranscript?.cleanup
-                    ? `${latestTranscript.cleanup.status} in ${String(latestTranscript.cleanup.durationMs)} ms (${latestTranscript.cleanup.modelId})`
+                    ? `${latestTranscript.cleanup.status} in ${String(latestTranscript.cleanup.durationMs)} ms (${latestTranscript.cleanup.modelId}, ${latestTranscript.cleanup.level ?? "light"})`
                     : "off"}
                 </dd>
               </dl>

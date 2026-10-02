@@ -2,6 +2,7 @@
 // Electron-free so the E2E harness drives exactly the same code as the app.
 import { randomBytes } from "node:crypto";
 import { type ChatMessage } from "../shared/cleanup-prompt";
+import { type ChatCompletion } from "./cleanup-chat";
 import { type LlamaRuntimeBackend } from "../shared/llm-cleanup";
 import { LocalServerProcess, type LocalServerState } from "./local-server-process";
 
@@ -11,13 +12,6 @@ export interface LlamaServerConfig {
   backend: LlamaRuntimeBackend;
   /** Extra llama-server arguments, e.g. speculative decoding experiments from the E2E harness. */
   extraArgs?: string[];
-}
-
-export interface ChatCompletion {
-  text: string;
-  promptTokens: number | null;
-  predictedTokens: number | null;
-  predictedPerSecond: number | null;
 }
 
 const contextSize = 4096;

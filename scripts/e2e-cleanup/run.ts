@@ -1,11 +1,15 @@
 // E2E cleanup test: messy-speech corpus (TTS) -> the app's local Whisper path -> LLM cleanup through a
-// real llama-server -> scored report. Uses the same modules as the app.
+// real llama-server or a cloud model -> scored report. Uses the same modules as the app.
 //
-// Usage: bun scripts/e2e-cleanup/run.ts [--model <gguf>]... [--backend vulkan|cpu] [--spec ngram-simple]
+// Usage: bun scripts/e2e-cleanup/run.ts [--provider local|openai|anthropic] [--level light|rewrite]
+//        [--model <gguf or cloud model id>]... [--backend vulkan|cpu] [--spec ngram-simple]
 //        [--only id,id] [--label name] [--no-cleanup] [--fresh-asr] [--corpus synthetic|user-history]
 //        [--asr whisper|parakeet]
-// --model takes a path or a file name in %APPDATA%\voxtype\models\llm; repeat it to compare models.
-// Default: the model the app picks for the backend ("auto"), on Vulkan.
+// Local: --model takes a path or a file name in %APPDATA%\voxtype\models\llm; default is the model the
+// app picks for the backend ("auto"), on Vulkan. Cloud: --model takes catalog ids (default: the app's
+// default for the provider) and the key comes from OPENAI_API_KEY / ANTHROPIC_API_KEY. Repeat --model to
+// compare models. --level rewrite runs the rewrite prompt and guard with each fixture's rewrite
+// expectations, plus the rewrite-only fixtures.
 // Artifacts: native/windows-helper/target/e2e/cleanup-<label>.{json,md}.
 // Needs: release build of the native helper, a whisper.cpp runtime + large-v3-turbo model, and a llama.cpp
 // runtime (VOXTYPE_LLAMA_SERVER or %APPDATA%\voxtype\runtimes\llama.cpp). German speech is rendered with
@@ -16,10 +20,23 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { basename, join } from "node:path";
-import { LlamaServer, type LlamaServerConfig } from "../../src/main/llama-server";
+import { AnthropicCleanupChat, LocalCleanupChat, OpenAiCleanupChat, type CleanupChat } from "../../src/main/cleanup-chat";
+import { LlamaServer } from "../../src/main/llama-server";
 import { runCleanup, warmUpCleanup, type CleanupRun } from "../../src/main/llm-cleanup-runner";
-import { CLEANUP_SYSTEM_PROMPT } from "../../src/shared/cleanup-prompt";
-import { llmCleanupTimeoutMs, resolveLlmCleanupModel, type LlamaRuntimeBackend, type TranscriptCleanup } from "../../src/shared/llm-cleanup";
+import { cleanupSystemPrompt } from "../../src/shared/cleanup-prompt";
+import {
+  cloudCleanupModelCatalog,
+  cloudCleanupTimeoutMs,
+  defaultCloudCleanupModelIds,
+  isCleanupLevel,
+  isLlmCleanupProvider,
+  llmCleanupTimeoutMs,
+  resolveLlmCleanupModel,
+  type CleanupLevel,
+  type LlamaRuntimeBackend,
+  type LlmCleanupProvider,
+  type TranscriptCleanup
+} from "../../src/shared/llm-cleanup";
 import { buildFixtures } from "../e2e-dictation/corpus";
 import {
   appDataDir,
@@ -35,7 +52,7 @@ import {
   type AsrEngine,
   type PipelineContext
 } from "../e2e-dictation/pipeline";
-import { CLEANUP_FIXTURES, type CleanupFixtureSpec } from "./corpus";
+import { CLEANUP_FIXTURES, fixtureForLevel, type CleanupFixtureSpec, type ScoredFixture } from "./corpus";
 
 type Fixture = ReturnType<typeof buildFixtures<CleanupFixtureSpec>>[number];
 
@@ -44,6 +61,8 @@ interface ModelRun {
   text: string;
   cleanup: TranscriptCleanup | null;
   predictedPerSecond: number | null;
+  promptTokens: number | null;
+  cachedPromptTokens: number | null;
   wer: number;
   failures: string[];
   pass: boolean;
@@ -73,29 +92,50 @@ interface ModelSummary {
   latencyP50Ms: number;
   latencyP95Ms: number;
   latencyMaxMs: number;
+  cachedPromptShare: number | null;
+}
+
+/** One model under test: a local GGUF on llama-server or a cloud model. */
+interface Engine {
+  name: string;
+  chat: CleanupChat;
+  stop: () => void;
 }
 
 const hesitations = new Set(["um", "uh", "uhm", "hmm", "hm", "mhm", "äh", "ähm", "öh", "er", "erm"]);
 const corpus = argValue("--corpus") ?? "synthetic";
 const only = argValue("--only")?.split(",").filter(Boolean);
 const backend: LlamaRuntimeBackend = argValue("--backend") === "cpu" ? "cpu" : "vulkan";
+const providerArg = argValue("--provider") ?? "local";
+const levelArg = argValue("--level") ?? "light";
+if (!isLlmCleanupProvider(providerArg) || !isCleanupLevel(levelArg)) {
+  throw new Error(`Unknown --provider ${providerArg} or --level ${levelArg}.`);
+}
+const provider: LlmCleanupProvider = providerArg;
+const level: CleanupLevel = levelArg;
 const spec = argValue("--spec");
 const noCleanup = process.argv.includes("--no-cleanup");
 const engine: AsrEngine = argValue("--asr") === "parakeet" ? "parakeet" : "whisper";
 const freshAsr = process.argv.includes("--fresh-asr");
-const label = argValue("--label") ?? (noCleanup ? "asr-only" : corpus === "synthetic" ? "current" : corpus);
+const defaultLabel = provider === "local" && level === "light" ? "current" : `${provider}-${level}`;
+const label = argValue("--label") ?? (noCleanup ? "asr-only" : corpus === "synthetic" ? defaultLabel : corpus);
 
 async function main(): Promise<void> {
   mkdirSync(join(e2eOutDir, "work"), { recursive: true });
-  const models = noCleanup ? [] : resolveModels();
-  const llamaServer = noCleanup ? null : resolveLlamaServer();
+  const llamaServer = noCleanup || provider !== "local" ? null : resolveLlamaServer();
+  const engines = noCleanup ? [] : createEngines(llamaServer);
 
   if (corpus === "user-history") {
-    await runUserHistory(models, llamaServer);
+    await runUserHistory(engines);
     return;
   }
 
-  const fixtures = buildFixtures(e2eOutDir, "cleanup-fixtures", CLEANUP_FIXTURES.filter((fixture) => !only?.length || only.includes(fixture.id)));
+  // Rendering every fixture keeps the ASR cache warm for both levels; the level picks which are scored.
+  const fixtures = buildFixtures(e2eOutDir, "cleanup-fixtures", CLEANUP_FIXTURES.filter((fixture) => !only?.length || only.includes(fixture.id)))
+    .flatMap((fixture) => {
+      const scored = fixtureForLevel(fixture, level);
+      return scored ? [{ ...fixture, ...scored }] : [];
+    });
   const pipeline = createPipelineContext(join(e2eOutDir, "work"), engine);
   const results: FixtureResult[] = [];
 
@@ -122,12 +162,10 @@ async function main(): Promise<void> {
     pipeline.whisperServer?.server.stop();
   }
 
-  for (const model of models) {
-    const server = new LlamaServer();
-    const config: LlamaServerConfig = { executable: llamaServer ?? "", modelPath: model, backend, extraArgs: spec ? ["--spec-type", spec] : [] };
+  for (const engine of engines) {
     const startedAt = performance.now();
-    await warmUpCleanup(server, config);
-    console.log(`\n${basename(model)} on ${backend}${spec ? ` + ${spec}` : ""}: ready in ${String(Math.round(performance.now() - startedAt))} ms`);
+    await warmUpCleanup(engine.chat, level);
+    console.log(`\n${engine.name}${provider === "local" ? ` on ${backend}${spec ? ` + ${spec}` : ""}` : ""}, ${level}: ready in ${String(Math.round(performance.now() - startedAt))} ms`);
 
     try {
       for (const result of results) {
@@ -135,24 +173,25 @@ async function main(): Promise<void> {
         if (!fixture) {
           continue;
         }
-        const run = await runCleanup(server, config, {
+        const run = await runCleanup(engine.chat, {
           text: result.asrText,
           style: fixture.style,
+          level,
           terms: fixture.terms ?? [],
           textBefore: fixture.before,
-          modelId: basename(model),
-          timeoutMs: llmCleanupTimeoutMs
+          provider,
+          timeoutMs: timeoutFor(result.asrText)
         });
-        const modelRun = toModelRun(fixture, basename(model), run);
+        const modelRun = toModelRun(fixture, engine.name, run);
         result.runs.push(modelRun);
         console.log(`${modelRun.knownIssue ? "KNOWN" : modelRun.pass ? "PASS " : "FAIL "} ${fixture.id.padEnd(18)} ${run.record.status.padEnd(9)} ${String(run.record.durationMs).padStart(5)} ms  WER ${modelRun.wer.toFixed(2)}  ${modelRun.failures.join("; ")}`);
       }
     } finally {
-      server.stop();
+      engine.stop();
     }
   }
 
-  const summaries = models.length > 0 ? models.map((model) => summarize(basename(model), results)) : [];
+  const summaries = engines.map((engine) => summarize(engine.name, results));
   const asrPassed = results.filter((result) => result.asrFailures.length === 0).length;
   const report = {
     label,
@@ -162,10 +201,12 @@ async function main(): Promise<void> {
     asrEngine: pipeline.engine,
     whisperModel: pipeline.whisperModel,
     llamaServer,
+    provider,
+    level,
     backend,
     speculative: spec ?? null,
-    promptHash: createHash("sha1").update(CLEANUP_SYSTEM_PROMPT).digest("hex").slice(0, 12),
-    timeoutMs: llmCleanupTimeoutMs,
+    promptHash: createHash("sha1").update(cleanupSystemPrompt(level)).digest("hex").slice(0, 12),
+    timeoutMs: provider === "local" ? llmCleanupTimeoutMs : "cloudCleanupTimeoutMs(text)",
     asrOnly: { passed: asrPassed, total: results.length, meanWer: mean(results.map((result) => result.asrWer)) },
     models: summaries,
     results
@@ -186,7 +227,7 @@ async function main(): Promise<void> {
 
 // ---------- ASR (cached: TTS audio + Whisper are deterministic per fixture and slow to redo) ----------
 
-async function transcribeCached(fixture: Fixture, pipeline: PipelineContext): Promise<{ text: string; ms: number; cached: boolean }> {
+async function transcribeCached(fixture: Pick<Fixture, "id" | "path" | "lang" | "terms">, pipeline: PipelineContext): Promise<{ text: string; ms: number; cached: boolean }> {
   const cacheDir = join(e2eOutDir, "asr-cache");
   mkdirSync(cacheDir, { recursive: true });
   const key = createHash("sha1")
@@ -209,7 +250,7 @@ async function transcribeCached(fixture: Fixture, pipeline: PipelineContext): Pr
 
 // ---------- scoring ----------
 
-function scoreText(fixture: CleanupFixtureSpec, text: string): { wer: number; failures: string[] } {
+function scoreText(fixture: ScoredFixture, text: string): { wer: number; failures: string[] } {
   const failures: string[] = [];
   const outputWords = normalizeWords(text);
 
@@ -219,7 +260,7 @@ function scoreText(fixture: CleanupFixtureSpec, text: string): { wer: number; fa
   }
 
   const wer = wordErrorRate(normalizeWords(fixture.expected), outputWords);
-  if (wer > fixture.maxWer) {
+  if (fixture.maxWer !== null && wer > fixture.maxWer) {
     failures.push(`WER ${wer.toFixed(2)} > ${String(fixture.maxWer)}`);
   }
   for (const needle of fixture.mustContain ?? []) {
@@ -243,7 +284,7 @@ function scoreText(fixture: CleanupFixtureSpec, text: string): { wer: number; fa
   return { wer, failures };
 }
 
-function toModelRun(fixture: CleanupFixtureSpec, model: string, run: CleanupRun): ModelRun {
+function toModelRun(fixture: ScoredFixture, model: string, run: CleanupRun): ModelRun {
   const score = scoreText(fixture, run.text);
   const failures = [...score.failures];
   if (run.record.status === "failed") {
@@ -254,6 +295,8 @@ function toModelRun(fixture: CleanupFixtureSpec, model: string, run: CleanupRun)
     text: run.text,
     cleanup: run.record,
     predictedPerSecond: run.completion?.predictedPerSecond ?? null,
+    promptTokens: run.completion?.promptTokens ?? null,
+    cachedPromptTokens: run.completion?.cachedPromptTokens ?? null,
     wer: score.wer,
     failures,
     pass: failures.length === 0 || Boolean(fixture.knownIssue),
@@ -269,6 +312,8 @@ function summarize(model: string, results: FixtureResult[]): ModelSummary {
     const status = run.cleanup?.status ?? "none";
     statuses[status] = (statuses[status] ?? 0) + 1;
   }
+  const prompt = runs.reduce((sum, run) => sum + (run.promptTokens ?? 0), 0);
+  const cached = runs.reduce((sum, run) => sum + (run.cachedPromptTokens ?? 0), 0);
   return {
     model,
     passed: runs.filter((run) => run.pass).length,
@@ -277,32 +322,32 @@ function summarize(model: string, results: FixtureResult[]): ModelSummary {
     statuses,
     latencyP50Ms: percentile(latencies, 0.5),
     latencyP95Ms: percentile(latencies, 0.95),
-    latencyMaxMs: latencies.at(-1) ?? 0
+    latencyMaxMs: latencies.at(-1) ?? 0,
+    cachedPromptShare: provider === "local" || prompt === 0 ? null : cached / prompt
   };
 }
 
 // ---------- user history (review only) ----------
 
-async function runUserHistory(models: string[], llamaServer: string | null): Promise<void> {
+async function runUserHistory(engines: Engine[]): Promise<void> {
   const history = JSON.parse(readFileSync(join(appDataDir(), "transcripts.json"), "utf8")) as
     | Array<{ id: string; text: string }>
     | { entries?: Array<{ id: string; text: string }> };
   const entries = Array.isArray(history) ? history : (history.entries ?? []);
   const lines = [`# Cleanup review: your saved dictations`, "", `Generated ${new Date().toISOString()}. Review each pair by hand; there is no expected text.`, ""];
 
-  for (const model of models) {
-    const server = new LlamaServer();
-    const config: LlamaServerConfig = { executable: llamaServer ?? "", modelPath: model, backend, extraArgs: spec ? ["--spec-type", spec] : [] };
-    await warmUpCleanup(server, config);
-    lines.push(`## ${basename(model)}`, "");
+  for (const engine of engines) {
+    await warmUpCleanup(engine.chat, level);
+    lines.push(`## ${engine.name} (${level})`, "");
     try {
       for (const entry of entries) {
-        const run = await runCleanup(server, config, {
+        const run = await runCleanup(engine.chat, {
           text: entry.text,
           style: "default",
+          level,
           terms: [],
-          modelId: basename(model),
-          timeoutMs: llmCleanupTimeoutMs
+          provider,
+          timeoutMs: timeoutFor(entry.text)
         });
         console.log(`${run.record.status.padEnd(9)} ${String(run.record.durationMs).padStart(5)} ms  ${entry.id.slice(0, 8)}`);
         lines.push(
@@ -319,7 +364,7 @@ async function runUserHistory(models: string[], llamaServer: string | null): Pro
         );
       }
     } finally {
-      server.stop();
+      engine.stop();
     }
   }
 
@@ -336,6 +381,8 @@ function renderMarkdown(report: {
   gitCommit: string | null;
   gitDirty: boolean;
   asrEngine: string;
+  provider: string;
+  level: string;
   backend: string;
   speculative: string | null;
   promptHash: string;
@@ -346,15 +393,15 @@ function renderMarkdown(report: {
   const lines = [
     `# Cleanup E2E: ${report.label}`,
     "",
-    `Generated ${report.generatedAt} at ${String(report.gitCommit)}${report.gitDirty ? " (dirty)" : ""}. Backend ${report.backend}${report.speculative ? ` + ${report.speculative}` : ""}, prompt ${report.promptHash}.`,
+    `Generated ${report.generatedAt} at ${String(report.gitCommit)}${report.gitDirty ? " (dirty)" : ""}. Provider ${report.provider}${report.provider === "local" ? ` (${report.backend}${report.speculative ? ` + ${report.speculative}` : ""})` : ""}, level ${report.level}, prompt ${report.promptHash}.`,
     "",
-    "| Pipeline | Passed | Mean WER vs expected | Cleanup p50 | p95 | max | Outcomes |",
-    "|---|---|---|---|---|---|---|",
-    `| ${report.asrEngine === "parakeet" ? "Parakeet" : "Whisper"} only | ${String(report.asrOnly.passed)}/${String(report.asrOnly.total)} | ${report.asrOnly.meanWer.toFixed(3)} | - | - | - | - |`
+    "| Pipeline | Passed | Mean WER vs expected | Cleanup p50 | p95 | max | Cached prompt | Outcomes |",
+    "|---|---|---|---|---|---|---|---|",
+    `| ${report.asrEngine === "parakeet" ? "Parakeet" : "Whisper"} only | ${String(report.asrOnly.passed)}/${String(report.asrOnly.total)} | ${report.asrOnly.meanWer.toFixed(3)} | - | - | - | - | - |`
   ];
   for (const summary of report.models) {
     lines.push(
-      `| + ${summary.model} | ${String(summary.passed)}/${String(summary.total)} | ${summary.meanWer.toFixed(3)} | ${String(summary.latencyP50Ms)} ms | ${String(summary.latencyP95Ms)} ms | ${String(summary.latencyMaxMs)} ms | ${Object.entries(summary.statuses).map(([key, value]) => `${key} ${String(value)}`).join(", ")} |`
+      `| + ${summary.model} | ${String(summary.passed)}/${String(summary.total)} | ${summary.meanWer.toFixed(3)} | ${String(summary.latencyP50Ms)} ms | ${String(summary.latencyP95Ms)} ms | ${String(summary.latencyMaxMs)} ms | ${summary.cachedPromptShare === null ? "-" : `${String(Math.round(summary.cachedPromptShare * 100))}%`} | ${Object.entries(summary.statuses).map(([key, value]) => `${key} ${String(value)}`).join(", ")} |`
     );
   }
 
@@ -380,6 +427,37 @@ function renderMarkdown(report: {
 }
 
 // ---------- environment ----------
+
+function timeoutFor(text: string): number {
+  return provider === "local" ? llmCleanupTimeoutMs : cloudCleanupTimeoutMs(text);
+}
+
+function createEngines(llamaServer: string | null): Engine[] {
+  if (provider === "local") {
+    return resolveModels().map((modelPath) => {
+      const server = new LlamaServer();
+      const config = { executable: llamaServer ?? "", modelPath, backend, extraArgs: spec ? ["--spec-type", spec] : [] };
+      return { name: basename(modelPath), chat: new LocalCleanupChat(server, config, basename(modelPath)), stop: () => server.stop() };
+    });
+  }
+
+  const environmentVariable = provider === "openai" ? "OPENAI_API_KEY" : "ANTHROPIC_API_KEY";
+  const apiKey = process.env[environmentVariable]?.trim();
+  if (!apiKey) {
+    throw new Error(`Set ${environmentVariable} to run the cleanup corpus against ${provider}.`);
+  }
+
+  const requested = argValues("--model");
+  const ids = requested.length > 0 ? requested : [defaultCloudCleanupModelIds[provider]];
+  return ids.map((id) => {
+    const model = cloudCleanupModelCatalog.find((item) => item.provider === provider && item.id === id);
+    if (!model) {
+      throw new Error(`${id} is not a ${provider} model in the cleanup catalog.`);
+    }
+    const chat = provider === "openai" ? new OpenAiCleanupChat(apiKey, model) : new AnthropicCleanupChat(apiKey, model);
+    return { name: model.id, chat, stop: () => undefined };
+  });
+}
 
 function resolveModels(): string[] {
   const requested = argValues("--model");

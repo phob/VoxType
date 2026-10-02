@@ -694,6 +694,35 @@
   min-width: 180px;
 }
 
+/* A row whose controls include a text input: label on top, controls below, like the Cloud key row. */
+.release-shell .setting-row.setting-row-wide {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.setting-row-wide .setting-actions {
+  justify-content: flex-start;
+  flex-wrap: nowrap;
+}
+
+.setting-row-wide .setting-actions input {
+  flex: 1 1 260px;
+  max-width: 560px;
+}
+
+.setting-row-wide .setting-actions button {
+  flex: 0 0 auto;
+}
+
+/* The cleaned sample text: shown as inserted, line breaks included. */
+.setting-row .cleanup-try-output {
+  display: block;
+  margin-top: 4px;
+  white-space: pre-wrap;
+  color: #d7dde7;
+}
+
 .setting-row input[type="checkbox"],
 .checkbox-field input {
   position: relative;

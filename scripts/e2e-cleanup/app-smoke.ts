@@ -5,12 +5,16 @@
 // between dictations (whisper-server), "raw" profile skips cleanup, a killed llama-server does not block
 // dictation, quitting leaves no llama-server or whisper-server behind, and the native helper reads the
 // text before the cursor in a real Notepad window.
+// Cloud cleanup (needs OPENAI_API_KEY; ANTHROPIC_API_KEY optional): switching to a cloud provider stops
+// llama-server, a dictation is rewritten by OpenAI, Offline Mode and a profile that blocks cloud keep the
+// text local, and a missing Anthropic key falls back without a network request.
 //
 // Usage: bun run build && bun scripts/e2e-cleanup/app-smoke.ts
 // Needs: bun run e2e:cleanup once before (it renders the fixture audio), a whisper.cpp runtime and the
 // large-v3-turbo + Qwen3.5 GGUF models in %APPDATA%\voxtype\models. Your real settings and history are not
 // touched; the llama.cpp runtime is downloaded into the throwaway directory to exercise the installer.
-// Artifacts: native/windows-helper/target/e2e/cleanup-app-smoke.{json,md} and cleanup-settings.png.
+// Artifacts: native/windows-helper/target/e2e/cleanup-app-smoke.{json,md}, cleanup-settings.png and
+// cleanup-settings-cloud.png.
 import { spawn, spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -52,7 +56,10 @@ async function main(): Promise<void> {
       localCustomModelId: "large-v3-turbo",
       whisperLanguage: "en",
       llmCleanupBackend: "vulkan",
-      appProfiles: [{ processName: "powershell.exe", writingStyle: "raw" }]
+      appProfiles: [
+        { processName: "powershell.exe", writingStyle: "raw" },
+        { processName: "keepass.exe", writingStyle: "default", forbidCloudDictation: true }
+      ]
     })})`);
 
     const installStartedAt = performance.now();
@@ -86,6 +93,8 @@ async function main(): Promise<void> {
     check("killed llama-server restarts within the dictation", afterKill.cleanupStatus === "applied" && !/thursday/i.test(afterKill.text),
       `killed ${killed} process(es); next dictation ${afterKill.cleanupStatus ?? "no cleanup"} in ${String(afterKill.cleanupMs ?? "-")} ms: "${afterKill.text}"`);
 
+    await checkCloudCleanup(page, englishWav);
+
     await page.quitApp();
     await Promise.race([appExited, sleep(15_000)]);
     const appGone = app.exitCode !== null;
@@ -104,13 +113,82 @@ async function main(): Promise<void> {
   }
 }
 
-async function transcribe(page: RendererPage, wavPath: string, processName: string | null): Promise<{ text: string; cleanupStatus: string | null; cleanupMs: number | null; durationMs: number }> {
+interface Dictation {
+  text: string;
+  cleanupStatus: string | null;
+  cleanupMs: number | null;
+  cleanupReason: string | null;
+  cleanupProvider: string | null;
+  cleanupModel: string | null;
+  durationMs: number;
+}
+
+async function transcribe(page: RendererPage, wavPath: string, processName: string | null): Promise<Dictation> {
   const base64 = readFileSync(wavPath).toString("base64");
   return page.evaluate(`(async () => {
     const bytes = Uint8Array.from(atob(${JSON.stringify(base64)}), (char) => char.charCodeAt(0));
     const result = await window.voxtype.transcription.transcribeWav(bytes, { processName: ${JSON.stringify(processName)} });
-    return { text: result.entry.text, cleanupStatus: result.entry.cleanup?.status ?? null, cleanupMs: result.entry.cleanup?.durationMs ?? null, durationMs: result.entry.durationMs };
+    const cleanup = result.entry.cleanup;
+    return {
+      text: result.entry.text,
+      cleanupStatus: cleanup?.status ?? null,
+      cleanupMs: cleanup?.durationMs ?? null,
+      cleanupReason: cleanup?.reason ?? null,
+      cleanupProvider: cleanup?.provider ?? null,
+      cleanupModel: cleanup?.modelId ?? null,
+      durationMs: result.entry.durationMs
+    };
   })()`);
+}
+
+interface TryResult {
+  text: string;
+  cleanup: { status: string; reason?: string; modelId: string; provider?: string; level?: string; durationMs: number } | null;
+}
+
+async function tryCleanup(page: RendererPage, text: string): Promise<TryResult> {
+  return page.evaluate<TryResult>(`window.voxtype.llmCleanup.test(${JSON.stringify(text)})`);
+}
+
+async function checkCloudCleanup(page: RendererPage, englishWav: string): Promise<void> {
+  if (!process.env.OPENAI_API_KEY) {
+    check("cloud cleanup", false, "OPENAI_API_KEY is not set; cloud checks need it");
+    return;
+  }
+
+  await page.evaluate(`window.voxtype.settings.update({ llmCleanupProvider: "openai", llmCleanupLevel: "rewrite" })`);
+  await sleep(1_000);
+  check("switching to a cloud provider stops llama-server", llamaServersUnder(userDataDir) === 0, `${String(llamaServersUnder(userDataDir))} llama-server left`);
+  await page.screenshotSettings(join(e2eOutDir, "cleanup-settings-cloud.png"));
+
+  const rewritten = await transcribe(page, englishWav, null);
+  check("OpenAI rewrites a dictation", rewritten.cleanupStatus === "applied" && rewritten.cleanupProvider === "openai" && /friday/i.test(rewritten.text) && !/thursday|no wait/i.test(rewritten.text),
+    `${rewritten.cleanupStatus ?? "no cleanup"} by ${rewritten.cleanupModel ?? "-"} in ${String(rewritten.cleanupMs ?? "-")} ms: "${rewritten.text}"`);
+
+  const learner = "uh I am working here since two years and I become every week the same question";
+  const fixed = await tryCleanup(page, learner);
+  check("rewrite fixes learner English", fixed.cleanup?.status === "applied" && /for two years/i.test(fixed.text) && !/\bbecome\b/i.test(fixed.text),
+    `${fixed.cleanup?.status ?? "off"} in ${String(fixed.cleanup?.durationMs ?? "-")} ms: "${fixed.text}"`);
+
+  const blocked = await transcribe(page, englishWav, "keepass.exe");
+  check("a profile that blocks cloud keeps the text local", blocked.cleanupStatus === "failed" && /blocks cloud/.test(blocked.cleanupReason ?? "") && (blocked.cleanupMs ?? 1) === 0,
+    `${blocked.cleanupStatus ?? "no cleanup"}: ${blocked.cleanupReason ?? ""}: "${blocked.text}"`);
+
+  await page.evaluate("window.voxtype.settings.update({ offlineMode: true })");
+  const offline = await tryCleanup(page, learner);
+  check("Offline Mode keeps the text local", offline.cleanup?.status === "failed" && /Offline Mode/.test(offline.cleanup.reason ?? "") && offline.text.startsWith("I am working"),
+    `${offline.cleanup?.status ?? "off"}: ${offline.cleanup?.reason ?? ""}: "${offline.text}"`);
+  await page.evaluate("window.voxtype.settings.update({ offlineMode: false })");
+
+  await page.evaluate(`window.voxtype.settings.update({ llmCleanupProvider: "anthropic" })`);
+  const anthropic = await tryCleanup(page, learner);
+  if (process.env.ANTHROPIC_API_KEY) {
+    check("Anthropic rewrites with its key", anthropic.cleanup?.status === "applied" && anthropic.cleanup.provider === "anthropic" && /for two years/i.test(anthropic.text),
+      `${anthropic.cleanup?.status ?? "off"} by ${anthropic.cleanup?.modelId ?? "-"} in ${String(anthropic.cleanup?.durationMs ?? "-")} ms: "${anthropic.text}"`);
+  } else {
+    check("a missing Anthropic key falls back locally", anthropic.cleanup?.status === "failed" && /No Anthropic API key/.test(anthropic.cleanup.reason ?? "") && anthropic.cleanup.durationMs === 0,
+      `${anthropic.cleanup?.status ?? "off"}: ${anthropic.cleanup?.reason ?? ""}: "${anthropic.text}"`);
+  }
 }
 
 // ---------- helpers ----------

@@ -8,7 +8,7 @@ import { type PromptPack } from "../shared/asr";
 import { type CloudDictationReadiness } from "../shared/cloud-status";
 import { type HardwareAccelerationReport } from "../shared/hardware";
 import { type HotkeyStatus } from "../shared/hotkeys";
-import { type LlmCleanupStatus } from "../shared/llm-cleanup";
+import { type LlmCleanupStatus, type LlmCleanupTestResult } from "../shared/llm-cleanup";
 import { type LocalModel } from "../shared/models";
 import { type OcrPromptContext } from "../shared/ocr-context";
 import { type SpeechSegment } from "../shared/speech-segments";
@@ -98,6 +98,14 @@ const voxtype = {
     clearApiKey: () =>
       invoke<OpenAiCredentialStatus>("openai-credentials:clear-api-key")
   },
+  anthropicCredentials: {
+    getStatus: () =>
+      invoke<OpenAiCredentialStatus>("anthropic-credentials:get-status"),
+    setApiKey: (apiKey: string) =>
+      invoke<OpenAiCredentialStatus>("anthropic-credentials:set-api-key", apiKey),
+    clearApiKey: () =>
+      invoke<OpenAiCredentialStatus>("anthropic-credentials:clear-api-key")
+  },
   models: {
     list: () => invoke<LocalModel[]>("models:list"),
     download: (modelId: string) =>
@@ -114,7 +122,9 @@ const voxtype = {
   },
   llmCleanup: {
     getStatus: () => invoke<LlmCleanupStatus>("llm-cleanup:get-status"),
-    install: () => invoke<LlmCleanupStatus>("llm-cleanup:install")
+    install: () => invoke<LlmCleanupStatus>("llm-cleanup:install"),
+    /** Cleans `text` with the current settings, as a dictation into an app without a profile would be. */
+    test: (text: string) => invoke<LlmCleanupTestResult>("llm-cleanup:test", text)
   },
   sherpaRuntime: {
     list: () => invoke<SherpaRuntime[]>("sherpa-runtime:list"),

@@ -2,6 +2,33 @@
 
 Record important decisions here so future sessions do not reopen settled topics without a reason.
 
+## 2026-10-02: Cloud AI Cleanup With The User's API Key, And A Rewrite Level
+
+Decision:
+
+- AI cleanup can run on this computer (llama-server, unchanged default), on OpenAI or on Anthropic.
+  Cloud providers use the user's own API key, stored like the Cloud Dictation key (safeStorage,
+  `OPENAI_API_KEY` / `ANTHROPIC_API_KEY` override); the OpenAI key is shared with Cloud Dictation.
+- A second setting picks how much cleanup may change: "Light" is the verbatim cleanup from
+  2026-10-01; "Rewrite" (`REWRITE_SYSTEM_PROMPT`) fixes grammar, word choice, idioms, German-English
+  false friends and rough spoken German, in both languages, while meaning, language, names, numbers,
+  du/Sie and formality stay. Rewrite has its own guard (`guardRewriteOutput`) without word-level
+  checks: it rejects a changed language, much longer or much shorter output, new numbers, lost
+  dictionary terms, du turned into Sie, and repeating the text before the cursor.
+- Cloud cleanup never runs in Offline Mode or for an app profile with "forbid cloud dictation"; the
+  deterministic steps still run. Requests use `store: false` (OpenAI); logs never contain text.
+- Defaults from the corpus: OpenAI `gpt-6-luna` (reasoning off), Anthropic `claude-sonnet-5-5`
+  (thinking off via `between_tools`, effort low, prompt caching, server-side refusal fallback).
+  GPT-5.4 nano is not offered: it translated English dictations into German.
+- Using the Claude Code subscription (`claude -p`) was rejected: ~3.2 s CLI start per dictation, and
+  Anthropic's terms do not allow third-party apps to use consumer subscriptions.
+
+Reason:
+
+The verbatim guard (at most 10% new words) rejects exactly the corrections a non-native speaker
+wants, so a better model alone could not help. Results: see the PR and the reports from
+`bun run e2e:cleanup --provider <p> --level rewrite`.
+
 ## 2026-10-02: Modifier-Only Hotkeys (Ctrl+Win) Through A Keyboard Hook
 
 Decision:

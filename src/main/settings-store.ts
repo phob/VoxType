@@ -9,6 +9,7 @@ import {
   findAppProfile,
   sanitizeSettings
 } from "../shared/settings";
+import { defaultCloudCleanupModelIds } from "../shared/llm-cleanup";
 import { type ActiveWindowInfo } from "../shared/windows-helper";
 
 export class SettingsStore {
@@ -35,6 +36,10 @@ export class SettingsStore {
       llmCleanupEnabled: false,
       llmCleanupModelId: "auto",
       llmCleanupBackend: "auto",
+      llmCleanupProvider: "local",
+      llmCleanupLevel: "light",
+      llmCleanupOpenAiModelId: defaultCloudCleanupModelIds.openai,
+      llmCleanupAnthropicModelId: defaultCloudCleanupModelIds.anthropic,
       cloudDictationConsentAccepted: false,
       cloudDictationConsentAcceptedAt: null,
       cloudPromptPackOcrEnabled: false,

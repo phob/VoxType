@@ -20,6 +20,7 @@ import { ModelService } from "./model-service";
 import { ModifierHotkeys, type ModifierHotkeyPress } from "./modifier-hotkeys";
 import { OcrService } from "./ocr-service";
 import { OpenAiFileAsrProvider } from "./openai-asr-provider";
+import { AnthropicCredentialStore } from "./api-key-store";
 import { OpenAiCredentialStore } from "./openai-credential-store";
 import { buildCloudPromptPack } from "./prompt-pack";
 import { RealtimeAudioBuffer } from "./realtime-audio-buffer";
@@ -80,7 +81,11 @@ const ocrService = new OcrService(windowsHelperService);
 const openAiCredentialStore = new OpenAiCredentialStore();
 const openAiFileAsrProvider = new OpenAiFileAsrProvider(openAiCredentialStore);
 const updateService = new UpdateService();
-const llmCleanupService = new LlmCleanupService(settingsStore, dictionaryStore, hardwareService);
+const anthropicCredentialStore = new AnthropicCredentialStore();
+const llmCleanupService = new LlmCleanupService(settingsStore, dictionaryStore, hardwareService, {
+  openai: openAiCredentialStore,
+  anthropic: anthropicCredentialStore
+});
 const transcriptionService = new TranscriptionService(
   settingsStore,
   historyStore,
@@ -726,6 +731,15 @@ ipcMain.handle("openai-credentials:clear-api-key", async () => {
   await openAiCredentialStore.clearApiKey();
   return openAiCredentialStore.getStatus();
 });
+ipcMain.handle("anthropic-credentials:get-status", () => anthropicCredentialStore.getStatus());
+ipcMain.handle("anthropic-credentials:set-api-key", async (_event, apiKey: string) => {
+  await anthropicCredentialStore.setApiKey(apiKey);
+  return anthropicCredentialStore.getStatus();
+});
+ipcMain.handle("anthropic-credentials:clear-api-key", async () => {
+  await anthropicCredentialStore.clearApiKey();
+  return anthropicCredentialStore.getStatus();
+});
 ipcMain.handle("openai:test-connection", async () => {
   const settings = await settingsStore.get();
   if (settings.offlineMode) {
@@ -752,6 +766,7 @@ ipcMain.handle("openai:test-connection", async () => {
 });
 ipcMain.handle("llm-cleanup:get-status", () => llmCleanupService.getStatus());
 ipcMain.handle("llm-cleanup:install", () => llmCleanupService.install());
+ipcMain.handle("llm-cleanup:test", (_event, text: string) => llmCleanupService.test(text));
 ipcMain.handle("models:list", () => modelService.list());
 ipcMain.handle("models:download", (_event, modelId: string) => modelService.download(modelId));
 ipcMain.handle("models:delete", (_event, modelId: string) => modelService.delete(modelId));

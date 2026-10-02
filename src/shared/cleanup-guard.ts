@@ -3,6 +3,8 @@
 // not to add or drop content: an answered question, a followed instruction, a translation, a preamble or a
 // more formal rewording all show up as words the speaker never said; a lost sentence shows up as deleted
 // words without a correction phrase. When in doubt the original text is inserted, so a rejection is safe.
+// The rewrite level allows new wording and has its own, looser checks (guardRewriteOutput).
+import { type CleanupLevel } from "./llm-cleanup";
 
 export type CleanupVerdict =
   | { accepted: true; text: string }
@@ -40,7 +42,133 @@ const correctionPhrases = [
 
 const maxLengthRatio = 1.2;
 
-export function guardCleanupOutput(input: { source: string; output: string; terms: string[]; context?: string }): CleanupVerdict {
+export interface GuardInput {
+  source: string;
+  output: string;
+  terms: string[];
+  context?: string;
+}
+
+export function guardCleanupOutput(input: GuardInput & { level?: CleanupLevel }): CleanupVerdict {
+  return input.level === "rewrite" ? guardRewriteOutput(input) : guardLightOutput(input);
+}
+
+// Rewrite level: the wording may change freely, so word-level checks do not apply. What a rewrite must
+// not do, and how each shows up:
+//  R1 translate                    -> the output's language differs from the transcript's
+//  R2 answer or follow the text    -> far more words than the transcript
+//  R3 summarize, drop points       -> far fewer words than the transcript (fillers and a self-correction
+//                                     explain some of the loss)
+//  R4 change numbers               -> digits that neither appear in the transcript nor were said as words
+//  R5 lose names or terms          -> a dictionary term from the transcript is missing
+//  R6 make German more formal      -> "Sie" as address where the transcript had none
+//  R7 wrap the text                -> labels, quotes, think blocks (stripped by stripWrappers)
+//  R8 invent text from fillers     -> any output from a hesitation-only transcript
+//  R9 repeat the text before the   -> the last words before the cursor appear in the output in a row,
+//     cursor                          but were not spoken
+const maxRewriteGrowth = 1.6;
+const minRewriteShare = 0.35;
+const minRewriteShareWithCorrection = 0.2;
+
+function guardRewriteOutput(input: GuardInput): CleanupVerdict {
+  const text = stripWrappers(input.output, input.source);
+  const sourceWords = words(input.source);
+  const outputWords = words(text);
+  const meaningfulSource = sourceWords.filter((word) => !hesitations.has(word));
+
+  if (outputWords.length === 0) {
+    return meaningfulSource.length === 0 ? { accepted: true, text: "" } : { accepted: false, reason: "empty output", text };
+  }
+
+  if (meaningfulSource.length === 0) {
+    return { accepted: false, reason: "text from hesitation sounds only", text };
+  }
+
+  if (outputWords.length > meaningfulSource.length * maxRewriteGrowth + 4) {
+    return { accepted: false, reason: `output much longer than input (${String(outputWords.length)} vs ${String(meaningfulSource.length)} words)`, text };
+  }
+
+  const sourcePhrase = ` ${sourceWords.join(" ")} `;
+  const hasCorrection = correctionPhrases.some((phrase) => sourcePhrase.includes(` ${phrase} `));
+  const minShare = hasCorrection ? minRewriteShareWithCorrection : minRewriteShare;
+  if (meaningfulSource.length >= 8 && outputWords.length < meaningfulSource.length * minShare) {
+    return { accepted: false, reason: `output much shorter than input (${String(outputWords.length)} vs ${String(meaningfulSource.length)} words)`, text };
+  }
+
+  const sourceLanguage = guessLanguage(sourceWords);
+  const outputLanguage = guessLanguage(outputWords);
+  if (sourceLanguage && outputLanguage && sourceLanguage !== outputLanguage) {
+    return { accepted: false, reason: `changed language from ${sourceLanguage} to ${outputLanguage}`, text };
+  }
+
+  if (repeatsContext(words(input.context ?? ""), sourceWords, outputWords)) {
+    return { accepted: false, reason: "repeated the text before the cursor", text };
+  }
+
+  const known = new Set([...sourceWords, ...input.terms.flatMap(words), ...words(input.context ?? "")]);
+  const sourceHasNumberWords = sourceWords.some((word) => numberWords.has(word) || isCompoundNumberWord(word));
+  const newNumbers = outputWords.filter((word) => /\d/.test(word) && !known.has(word) && !sourceHasNumberWords);
+  if (newNumbers.length > 0) {
+    return { accepted: false, reason: `changed numbers: ${newNumbers.join(", ")}`, text };
+  }
+
+  if (/(?<!^|[.!?:]\s)\bSie\b/u.test(text) && !/\bsie\b/iu.test(input.source)) {
+    return { accepted: false, reason: "changed du to Sie", text };
+  }
+
+  const lostTerm = findLostTerm(input, text);
+  if (lostTerm) {
+    return { accepted: false, reason: `dropped term "${lostTerm}"`, text };
+  }
+
+  return { accepted: true, text };
+}
+
+/** The last few words before the cursor, in order, in the output but not in what was said. */
+function repeatsContext(contextWords: string[], sourceWords: string[], outputWords: string[]): boolean {
+  const tail = contextWords.slice(-4);
+  if (tail.length < 3) {
+    return false;
+  }
+  const phrase = ` ${tail.join(" ")} `;
+  return ` ${outputWords.join(" ")} `.includes(phrase) && !` ${sourceWords.join(" ")} `.includes(phrase);
+}
+
+// Frequent function words that exist in only one of the two languages ("in", "so", "also", "was", "will",
+// "an" are in both); a short dictation has a few of them even when it is full of English terms.
+const englishMarkers = new Set([
+  "the", "and", "is", "are", "to", "of", "a", "you", "i", "we", "it", "that", "this", "for", "with", "have", "has",
+  "be", "not", "can", "please", "on", "my", "your", "what", "do", "does", "yes", "no", "but", "or", "if", "because",
+  "were", "from", "at", "by", "they", "our", "there", "would", "should", "could"
+]);
+const germanMarkers = new Set([
+  "der", "die", "das", "und", "ist", "sind", "zu", "ich", "du", "wir", "es", "nicht", "ein", "eine", "mit", "für",
+  "auf", "dass", "den", "dem", "bitte", "kannst", "wie", "noch", "auch", "mir", "uns", "sie", "haben", "habe", "wird",
+  "im", "kann", "werden", "ja", "nein", "bei", "von", "zum", "zur", "aber", "oder", "wenn", "weil", "sich", "ihr",
+  "mein", "dein", "wollte", "können", "müssen", "diese", "dieser", "bleiben"
+]);
+
+/** "en", "de" or null when the text is too short or too mixed to tell. */
+function guessLanguage(textWords: string[]): "en" | "de" | null {
+  const english = textWords.filter((word) => englishMarkers.has(word)).length;
+  const german = textWords.filter((word) => germanMarkers.has(word)).length;
+
+  if (english >= 2 && english > german * 2) {
+    return "en";
+  }
+  if (german >= 2 && german > english * 2) {
+    return "de";
+  }
+  return null;
+}
+
+function findLostTerm(input: GuardInput, text: string): string | undefined {
+  const lowerSource = input.source.toLowerCase();
+  const lowerOutput = text.toLowerCase();
+  return input.terms.find((term) => lowerSource.includes(term.toLowerCase()) && !lowerOutput.includes(term.toLowerCase()));
+}
+
+function guardLightOutput(input: GuardInput): CleanupVerdict {
   const text = stripWrappers(input.output, input.source);
   const sourceWords = words(input.source);
   const outputWords = words(text);
@@ -88,10 +216,7 @@ export function guardCleanupOutput(input: { source: string; output: string; term
     return { accepted: false, reason: `dropped words: ${dropped.slice(0, 8).join(", ")}`, text };
   }
 
-  const lowerOutput = text.toLowerCase();
-  const lostTerm = input.terms.find(
-    (term) => input.source.toLowerCase().includes(term.toLowerCase()) && !lowerOutput.includes(term.toLowerCase())
-  );
+  const lostTerm = findLostTerm(input, text);
   if (lostTerm) {
     return { accepted: false, reason: `dropped term "${lostTerm}"`, text };
   }
