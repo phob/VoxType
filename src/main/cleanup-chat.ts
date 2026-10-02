@@ -137,7 +137,10 @@ export class AnthropicCleanupChat implements CleanupChat {
   ) {
     this.modelId = model.id;
     // The cleanup has its own time budget and falls back on failure; SDK retries would only overrun it.
-    this.client = new Anthropic({ apiKey, maxRetries: 0 });
+    // Endpoint and credentials are explicit: by default the SDK also reads ANTHROPIC_BASE_URL and
+    // ANTHROPIC_AUTH_TOKEN, which other tools (Claude Code, proxies) set for their own use, and which
+    // would send dictations elsewhere.
+    this.client = new Anthropic({ apiKey, authToken: null, baseURL: "https://api.anthropic.com", maxRetries: 0 });
   }
 
   prepare(): Promise<void> {
