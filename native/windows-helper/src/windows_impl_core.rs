@@ -59,6 +59,9 @@
         KEYEVENTF_UNICODE, VIRTUAL_KEY, VK_CONTROL, VK_LCONTROL, VK_LMENU, VK_LSHIFT, VK_LWIN,
         VK_RCONTROL, VK_RMENU, VK_RSHIFT, VK_RWIN, VK_V,
     };
+    use windows::Win32::UI::HiDpi::{
+        SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2,
+    };
     use windows::Win32::UI::WindowsAndMessaging::{
         EnumChildWindows, GetClassNameW, GetForegroundWindow, GetGUIThreadInfo, GetSystemMetrics,
         GetWindowRect, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId, IsChild,
@@ -141,6 +144,13 @@
         width: u32,
         height: u32,
         bgra: Vec<u8>,
+    }
+
+    /// Without this, Windows virtualizes GetMonitorInfo and the screen DC to 96 DPI while DWM frame
+    /// bounds stay physical, so on a scaled display a fullscreen game never matches its monitor.
+    pub fn enable_per_monitor_dpi_awareness() {
+        // Fails only if awareness was already set (e.g. by a manifest); either way we're aware.
+        let _ = unsafe { SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) };
     }
 
     pub fn get_active_window() -> Result<ActiveWindow, String> {

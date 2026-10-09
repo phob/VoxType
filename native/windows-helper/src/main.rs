@@ -9,6 +9,9 @@ struct ErrorResponse {
 }
 
 fn main() {
+    #[cfg(windows)]
+    windows_impl::enable_per_monitor_dpi_awareness();
+
     let command = env::args().nth(1).unwrap_or_else(|| "help".to_string());
     let result = match command.as_str() {
         "active-window" => active_window_json(),
