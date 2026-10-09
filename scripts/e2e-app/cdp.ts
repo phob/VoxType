@@ -18,7 +18,11 @@ export async function connectToRenderer(port: number): Promise<RendererPage> {
     throw new Error("VoxType window did not appear on the DevTools port.");
   }
 
-  const socket = await openSocket(targets.webSocketDebuggerUrl);
+  // The page target can refuse the first connection while the window is still loading.
+  const socket = await waitFor(() => openSocket(targets.webSocketDebuggerUrl), 10_000);
+  if (!socket) {
+    throw new Error(`Could not connect to ${targets.webSocketDebuggerUrl}.`);
+  }
   await waitFor(async () => ((await send<{ result: { value: boolean } }>(socket, "Runtime.evaluate", { expression: "Boolean(window.voxtype)", returnByValue: true })).result.value ? true : null), 30_000);
 
   return {
@@ -60,6 +64,13 @@ function openSocket(url: string): Promise<WebSocket> {
     const socket = new WebSocket(url);
     socket.addEventListener("open", () => resolveSocket(socket));
     socket.addEventListener("error", () => reject(new Error(`CDP socket failed: ${url}`)));
+    // Without this, a call in flight when the app dies waits forever.
+    socket.addEventListener("close", () => {
+      for (const [id, waiter] of pending) {
+        pending.delete(id);
+        waiter.reject(new Error(`CDP socket closed: ${url}`));
+      }
+    });
     socket.addEventListener("message", (event) => {
       const message = JSON.parse(String(event.data)) as { id?: number; result?: unknown; error?: { message: string } };
       const waiter = message.id === undefined ? undefined : pending.get(message.id);
@@ -78,6 +89,10 @@ function openSocket(url: string): Promise<WebSocket> {
 function send<T>(socket: WebSocket, method: string, params: Record<string, unknown>): Promise<T> {
   const id = nextId++;
   return new Promise<T>((resolveReply, reject) => {
+    if (socket.readyState !== WebSocket.OPEN) {
+      reject(new Error(`CDP socket is not open (${method}).`));
+      return;
+    }
     // CDP replies are untyped JSON; callers state the shape of the one method they call.
     pending.set(id, { resolve: (value) => resolveReply(value as T), reject });
     socket.send(JSON.stringify({ id, method, params }));
