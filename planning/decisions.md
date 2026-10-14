@@ -524,6 +524,8 @@ Electron global shortcuts do not expose global key-up events. The native helper 
 
 Decision:
 
+Superseded by `2026-10-14: Suspend Dictation Hotkeys In Games, Not Fullscreen Apps`.
+
 VoxType should offer an optional setting that suspends dictation hotkeys while the foreground window covers its monitor. The global toggle belongs in Settings, while each app's Never suspend override belongs inside that app's profile and should only appear when fullscreen suspension is enabled.
 
 Reason:
@@ -625,3 +627,13 @@ Decision:
 Reason:
 
 The Handy-parity rewrite silently ignored the preserved-pause setting, so every pause longer than the ~450 ms hangover was butt-spliced out of the WAV. Local Whisper then decoded long recordings as dense, unnaturally joined speech, producing weird cuts and dropped or merged words around pauses. Bounded preserved pauses give Whisper natural segmentation cues without recreating the sparse-file repetition loop, because preserved silence is capped at 2 s in the VAD and at 1 s again by the local Whisper compaction step.
+
+## 2026-10-14: Suspend Dictation Hotkeys In Games, Not Fullscreen Apps
+
+Decision:
+
+The optional Settings toggle "Suspend dictation hotkeys in games" suspends dictation hotkeys while the foreground executable is one Windows recognizes as a game: its full path matches a `MatchedExeFullPath` under `HKCU\System\GameConfigStore\Children`, the list Xbox Game Bar maintains. Window size no longer matters. Each app profile has a "Dictation hotkeys in this app" choice: Auto follows the global toggle, Always suspend and Never suspend apply regardless of it. Legacy `suspendDictationHotkeysInFullscreenApps` migrates to the new toggle and a profile's `neverSuspendDictationInFullscreen: true` migrates to Never suspend.
+
+Reason:
+
+Fullscreen detection compared the foreground window with its monitor, so with an auto-hidden taskbar every maximized browser or editor matched and lost its dictation hotkeys, and it could never tell a game from a browser in F11 or a video player. The GameConfigStore list is local, already maintained by Windows, and on the maintainer's machine lists the installed games and no browsers. Always suspend covers a game Game Bar has not recognized; Never suspend covers a recognized game where dictation is still wanted.

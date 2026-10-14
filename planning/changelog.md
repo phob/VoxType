@@ -1,5 +1,10 @@
 # Planning Changelog
 
+## 2026-10-14
+
+- Replaced fullscreen-app dictation hotkey suspension with game detection: the Windows helper's `active-window` reports `isGame` when the foreground executable is listed in Xbox Game Bar's `HKCU\System\GameConfigStore\Children`. Fullscreen matched every maximized window on a display with an auto-hidden taskbar and could not tell a game from a browser or video player.
+- Replaced the per-app Never suspend checkbox with a "Dictation hotkeys in this app" choice of Auto, Always suspend, or Never suspend. Always and Never apply regardless of the global "Suspend dictation hotkeys in games" setting; Auto follows it. Existing settings migrate automatically.
+
 ## 2026-07-05
 
 - Implemented Phase 1 of the local Parakeet engine (`planning/parakeet-phase1-plan.md`): NVIDIA Parakeet TDT 0.6B v3 (INT8) as a new local, offline, batch dictation engine alongside Whisper, driven by the external `sherpa-onnx-offline.exe` CLI the same way the app already shells out to whisper.cpp.
