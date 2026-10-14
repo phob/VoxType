@@ -30,8 +30,8 @@ export interface CloudCleanupModel {
   description: string;
   /** OpenAI reasoning models: "none" answers without a reasoning pass. Omitted for models without the parameter. */
   reasoningEffort?: "none" | "minimal" | "low";
-  /** Anthropic: how to keep thinking short. "off" sends no thinking config (models without thinking by default). */
-  anthropicThinking?: "off" | "between-tools" | "low-effort";
+  /** Anthropic: how to keep thinking short; every request also asks for low effort. "low-effort" is for models that always think. */
+  anthropicThinking?: "disabled" | "between-tools" | "low-effort";
 }
 
 // Default per provider is chosen from the cleanup E2E corpus (bun run e2e:cleanup --provider ...).
@@ -39,7 +39,7 @@ export const cloudCleanupModelCatalog: CloudCleanupModel[] = [
   { id: "gpt-6-luna", provider: "openai", name: "GPT-6 Luna", description: "Best OpenAI rewrites in our tests, and the cheapest.", reasoningEffort: "none" },
   { id: "gpt-5.4-mini", provider: "openai", name: "GPT-5.4 mini", description: "Slightly faster; misses some self-corrections.", reasoningEffort: "none" },
   { id: "gpt-4.1-mini", provider: "openai", name: "GPT-4.1 mini", description: "Older; sometimes repeats the text before the cursor." },
-  { id: "claude-haiku-4-5", provider: "anthropic", name: "Claude Haiku 4.5", description: "Fast and cheap.", anthropicThinking: "off" },
+  { id: "claude-haiku-5-5", provider: "anthropic", name: "Claude Haiku 5.5", description: "Fast and cheap, thinking off.", anthropicThinking: "disabled" },
   { id: "claude-sonnet-5-5", provider: "anthropic", name: "Claude Sonnet 5.5", description: "Strong rewrites, thinking off.", anthropicThinking: "between-tools" },
   { id: "claude-opus-5-5", provider: "anthropic", name: "Claude Opus 5.5", description: "Best quality; always thinks, so slowest.", anthropicThinking: "low-effort" }
 ];

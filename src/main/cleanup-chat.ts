@@ -153,22 +153,22 @@ export class AnthropicCleanupChat implements CleanupChat {
     const conversation: Anthropic.Beta.BetaMessageParam[] = messages.flatMap((message) =>
       message.role === "system" ? [] : [{ role: message.role, content: message.content }]
     );
-    const thinking = this.model.anthropicThinking ?? "off";
+    const thinking = this.model.anthropicThinking ?? "disabled";
 
     const response = await this.client.beta.messages.create(
       {
         model: this.model.id,
         // A model that always thinks spends part of the budget on thinking before it writes the text.
         max_tokens: options.maxTokens + (thinking === "low-effort" ? 2_000 : 0),
-        // The system prompt is the same for every dictation; caching it saves time and cost on models whose
-        // minimum cacheable length it reaches (Sonnet and Opus 5.5; Haiku 4.5 needs 4,096 tokens).
+        // The system prompt is the same for every dictation; caching it saves time and cost.
         system: [{ type: "text", text: system, cache_control: { type: "ephemeral" } }],
         messages: conversation,
-        ...(thinking === "between-tools" ? { thinking: { type: "between_tools" as const }, output_config: { effort: "low" as const } } : {}),
-        ...(thinking === "low-effort" ? { output_config: { effort: "low" as const } } : {}),
+        output_config: { effort: "low" },
+        ...(thinking === "disabled" ? { thinking: { type: "disabled" as const } } : {}),
+        ...(thinking === "between-tools" ? { thinking: { type: "between_tools" as const } } : {}),
         // A safety classifier can decline harmless text; "default" lets the API rerun the request on a
-        // suitable fallback model instead of returning nothing. Haiku 4.5 does not support it.
-        ...(thinking === "off" ? {} : { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const })
+        // suitable fallback model instead of returning nothing. Haiku 5.5 has no fallback.
+        ...(thinking === "disabled" ? {} : { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const })
       },
       { signal: options.signal }
     );
