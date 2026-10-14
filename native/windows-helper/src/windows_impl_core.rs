@@ -22,19 +22,20 @@
     use std::thread;
     use std::time::Duration;
     use vad_rs::Vad;
-    use windows::core::{Interface, BOOL, GUID, PWSTR};
+    use windows::core::{Interface, BOOL, GUID, HSTRING, PWSTR};
     use windows::Globalization::Language;
     use windows::Graphics::Imaging::{BitmapAlphaMode, BitmapPixelFormat, SoftwareBitmap};
     use windows::Media::Ocr::OcrEngine;
     use windows::Storage::Streams::DataWriter;
     use windows::Win32::Devices::Properties;
-    use windows::Win32::Foundation::{CloseHandle, HWND, LPARAM, MAX_PATH, RECT, WPARAM};
+    use windows::Win32::Foundation::{
+        CloseHandle, ERROR_SUCCESS, HWND, LPARAM, MAX_PATH, RECT, WPARAM,
+    };
     use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_EXTENDED_FRAME_BOUNDS};
     use windows::Win32::Graphics::Gdi::{
         BitBlt, CreateCompatibleBitmap, CreateCompatibleDC, DeleteDC, DeleteObject, GetDC,
-        GetDIBits, GetMonitorInfoW, MonitorFromWindow, ReleaseDC, SelectObject, BITMAPINFO,
-        BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS, HBITMAP, HDC, HGDIOBJ, MONITORINFO,
-        MONITOR_DEFAULTTONEAREST, SRCCOPY,
+        GetDIBits, ReleaseDC, SelectObject, BITMAPINFO, BITMAPINFOHEADER, BI_RGB, DIB_RGB_COLORS,
+        HBITMAP, HDC, HGDIOBJ, SRCCOPY,
     };
     use windows::Win32::Media::Audio::Endpoints::IAudioEndpointVolume;
     use windows::Win32::Media::Audio::{
@@ -48,6 +49,10 @@
     use windows::Win32::System::Com::{
         CoCreateInstance, CoInitializeEx, CoTaskMemFree, CoUninitialize, StructuredStorage,
         CLSCTX_ALL, COINIT_APARTMENTTHREADED, STGM_READ,
+    };
+    use windows::Win32::System::Registry::{
+        RegCloseKey, RegEnumKeyExW, RegGetValueW, RegOpenKeyExW, HKEY, HKEY_CURRENT_USER, KEY_READ,
+        RRF_RT_REG_SZ,
     };
     use windows::Win32::System::Threading::{
         OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_WIN32,
@@ -88,7 +93,7 @@
         process_path: Option<String>,
         process_name: Option<String>,
         bounds: Option<WindowBounds>,
-        fullscreen: bool,
+        is_game: bool,
     }
 
     #[derive(Serialize)]
@@ -146,8 +151,8 @@
         bgra: Vec<u8>,
     }
 
-    /// Without this, Windows virtualizes GetMonitorInfo and the screen DC to 96 DPI while DWM frame
-    /// bounds stay physical, so on a scaled display a fullscreen game never matches its monitor.
+    /// Without this, Windows virtualizes the screen DC to 96 DPI while DWM frame bounds stay
+    /// physical, so on a scaled display window bounds and screenshots disagree.
     pub fn enable_per_monitor_dpi_awareness() {
         // Fails only if awareness was already set (e.g. by a manifest); either way we're aware.
         let _ = unsafe { SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2) };
@@ -167,11 +172,8 @@
             .and_then(|path| path.rsplit(['\\', '/']).next())
             .filter(|name| !name.is_empty())
             .map(ToOwned::to_owned);
-        let rect = window_rect(hwnd, "foreground window").ok();
-        let bounds = rect.map(window_bounds);
-        let fullscreen = rect
-            .map(|value| window_covers_monitor(hwnd, value))
-            .unwrap_or(false);
+        let bounds = window_rect(hwnd, "foreground window").ok().map(window_bounds);
+        let is_game = process_path.as_deref().is_some_and(is_registered_game);
 
         Ok(ActiveWindow {
             hwnd: format!("{:#x}", hwnd.0 as usize),
@@ -180,7 +182,7 @@
             process_path,
             process_name,
             bounds,
-            fullscreen,
+            is_game,
         })
     }
 

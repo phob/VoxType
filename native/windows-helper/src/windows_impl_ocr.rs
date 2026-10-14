@@ -266,32 +266,6 @@
         }
     }
 
-    fn window_covers_monitor(hwnd: HWND, rect: RECT) -> bool {
-        let monitor = unsafe { MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST) };
-
-        if monitor.0.is_null() {
-            return false;
-        }
-
-        let mut info = MONITORINFO {
-            cbSize: std::mem::size_of::<MONITORINFO>() as u32,
-            ..Default::default()
-        };
-
-        if !unsafe { GetMonitorInfoW(monitor, &mut info) }.as_bool() {
-            return false;
-        }
-
-        rects_match_with_tolerance(rect, info.rcMonitor, 2)
-    }
-
-    fn rects_match_with_tolerance(first: RECT, second: RECT, tolerance: i32) -> bool {
-        (first.left - second.left).abs() <= tolerance
-            && (first.top - second.top).abs() <= tolerance
-            && (first.right - second.right).abs() <= tolerance
-            && (first.bottom - second.bottom).abs() <= tolerance
-    }
-
     fn capture_rect_to_png(screen_dc: HDC, rect: RECT, output_path: &str) -> Result<(), String> {
         let width = rect.right - rect.left;
         let height = rect.bottom - rect.top;

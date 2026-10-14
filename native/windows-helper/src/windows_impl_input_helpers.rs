@@ -463,6 +463,109 @@
         Some(String::from_utf16_lossy(initialized))
     }
 
+    /// Xbox Game Bar records each executable it recognizes as a game under this HKCU key.
+    const GAME_CONFIG_STORE_KEY: &str = r"System\GameConfigStore\Children";
+
+    fn is_registered_game(process_path: &str) -> bool {
+        let key_path = std::env::var("VOXTYPE_GAME_CONFIG_STORE_KEY")
+            .unwrap_or_else(|_| GAME_CONFIG_STORE_KEY.to_string());
+        let target = normalize_exe_path(process_path);
+
+        registered_game_paths(&key_path)
+            .iter()
+            .any(|path| normalize_exe_path(path) == target)
+    }
+
+    fn registered_game_paths(key_path: &str) -> Vec<String> {
+        let mut children = HKEY::default();
+        let opened = unsafe {
+            RegOpenKeyExW(
+                HKEY_CURRENT_USER,
+                &HSTRING::from(key_path),
+                None,
+                KEY_READ,
+                &mut children,
+            )
+        };
+
+        if opened != ERROR_SUCCESS {
+            return Vec::new();
+        }
+
+        let mut paths = Vec::new();
+
+        for index in 0.. {
+            // Registry key names are limited to 255 characters.
+            let mut name = [0u16; 256];
+            let mut name_len = name.len() as u32;
+            let status = unsafe {
+                RegEnumKeyExW(
+                    children,
+                    index,
+                    Some(PWSTR(name.as_mut_ptr())),
+                    &mut name_len,
+                    None,
+                    None,
+                    None,
+                    None,
+                )
+            };
+
+            if status != ERROR_SUCCESS {
+                break;
+            }
+
+            let subkey = String::from_utf16_lossy(&name[..name_len as usize]);
+
+            if let Some(path) = read_registry_string(children, &subkey, "MatchedExeFullPath") {
+                paths.push(path);
+            }
+        }
+
+        unsafe {
+            let _ = RegCloseKey(children);
+        }
+
+        paths
+    }
+
+    fn read_registry_string(key: HKEY, subkey: &str, value: &str) -> Option<String> {
+        let subkey = HSTRING::from(subkey);
+        let value = HSTRING::from(value);
+        let mut size = 0u32;
+        let sized = unsafe {
+            RegGetValueW(key, &subkey, &value, RRF_RT_REG_SZ, None, None, Some(&mut size))
+        };
+
+        if sized != ERROR_SUCCESS || size == 0 {
+            return None;
+        }
+
+        let mut buffer = vec![0u16; (size as usize).div_ceil(2)];
+        let read = unsafe {
+            RegGetValueW(
+                key,
+                &subkey,
+                &value,
+                RRF_RT_REG_SZ,
+                None,
+                Some(buffer.as_mut_ptr().cast()),
+                Some(&mut size),
+            )
+        };
+
+        if read != ERROR_SUCCESS {
+            return None;
+        }
+
+        let len = buffer.iter().position(|unit| *unit == 0).unwrap_or(buffer.len());
+        Some(String::from_utf16_lossy(&buffer[..len]))
+    }
+
+    fn normalize_exe_path(path: &str) -> String {
+        path.trim().replace('/', "\\").to_lowercase()
+    }
+
     fn pwstr_to_string_and_free(value: PWSTR) -> String {
         if value.is_null() {
             return String::new();
