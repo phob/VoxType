@@ -91,6 +91,12 @@ export const profileCloudPromptPackOcrOptions: SelectOption<AppProfile["cloudPro
   { label: "Block", meta: "never include OCR terms for this profile", value: false }
 ];
 
+export const profileDictationHotkeySuspensionOptions: SelectOption<AppProfile["dictationHotkeySuspension"]>[] = [
+  { label: "Auto", meta: "suspend in games when the global game setting is on", value: "auto" },
+  { label: "Always suspend", meta: "unregister dictation hotkeys whenever this app is focused", value: "always" },
+  { label: "Never suspend", meta: "keep dictation hotkeys active, even in a game", value: "never" }
+];
+
 export const debugTabs: { id: DebugTab; label: string }[] = [
   { id: "dictation", label: "Dictation" },
   { id: "models", label: "Models" },

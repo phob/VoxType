@@ -39,7 +39,7 @@ export class ModifierHotkeys {
   }
 
   private sync(): void {
-    // Registrations change in bursts (settings save, fullscreen suspension); apply them in order.
+    // Registrations change in bursts (settings save, game suspension); apply them in order.
     this.syncing = this.syncing
       .then(() => this.syncNow())
       .catch((error: unknown) => {

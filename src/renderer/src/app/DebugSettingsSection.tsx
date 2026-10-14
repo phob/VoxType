@@ -259,15 +259,15 @@ export function DebugSettingsSection(props: ReadyAppViewProps): ReactElement {
               </label>
               <label className="checkbox-field">
                 <input
-                  checked={state.settings.suspendDictationHotkeysInFullscreenApps}
+                  checked={state.settings.suspendDictationHotkeysInGames}
                   type="checkbox"
                   onChange={(event) =>
                     void updateSettings({
-                      suspendDictationHotkeysInFullscreenApps: event.target.checked
+                      suspendDictationHotkeysInGames: event.target.checked
                     })
                   }
                 />
-                suspendDictationHotkeysInFullscreenApps
+                suspendDictationHotkeysInGames
               </label>
               <label className="checkbox-field">
                 <input

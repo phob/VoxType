@@ -413,15 +413,18 @@ export function ReleaseView(props: ReadyAppViewProps): ReactElement {
                 </label>
                 <label className="setting-row">
                   <span>
-                    <strong>Suspend dictation hotkeys in fullscreen apps</strong>
-                    <small>Temporarily unregister dictation hotkeys while a fullscreen app is focused.</small>
+                    <strong>Suspend dictation hotkeys in games</strong>
+                    <small>
+                      Unregister dictation hotkeys while a game is focused. VoxType recognizes games the
+                      way Windows Game Bar does.
+                    </small>
                   </span>
                   <input
-                    checked={state.settings.suspendDictationHotkeysInFullscreenApps}
+                    checked={state.settings.suspendDictationHotkeysInGames}
                     type="checkbox"
                     onChange={(event) =>
                       void updateSettings({
-                        suspendDictationHotkeysInFullscreenApps: event.target.checked
+                        suspendDictationHotkeysInGames: event.target.checked
                       })
                     }
                   />
@@ -491,8 +494,8 @@ export function ReleaseView(props: ReadyAppViewProps): ReactElement {
                 <div className="release-status-strip">
                   <ReleaseStatusBadge tone={state.hotkeys?.dictationToggleHotkey ? "ready" : "disabled"}>
                     Dictation{" "}
-                    {state.hotkeys?.dictationSuspendedForFullscreen
-                      ? `suspended for ${state.hotkeys.fullscreenProcessName ?? "fullscreen app"}`
+                    {state.hotkeys?.dictationSuspendedForGame
+                      ? `suspended for ${state.hotkeys.suspendedProcessName ?? "a game"}`
                       : state.hotkeys?.dictationToggleHotkey
                         ? "registered"
                         : "not registered"}

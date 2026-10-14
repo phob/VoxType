@@ -16,6 +16,7 @@ export const recorderCaptureModes = [
 export const ocrTermModes = ["strict", "balanced", "broad"] as const;
 export const realtimeLatencyPresets = ["fast", "balanced", "accurate"] as const;
 export const whisperRuntimePreferences = ["auto", "cpu", "cuda", "vulkan"] as const;
+export const dictationHotkeySuspensions = ["auto", "always", "never"] as const;
 import { isDictationModeId, type DictationModeId } from "./asr";
 import {
   isCleanupLevel,
@@ -56,6 +57,25 @@ export type RealtimeLatencyPreset = (typeof realtimeLatencyPresets)[number];
 export type WhisperRuntimePreference = (typeof whisperRuntimePreferences)[number];
 export type WhisperLanguage = (typeof whisperLanguages)[number];
 export type ProfileWhisperLanguage = (typeof profileWhisperLanguages)[number];
+export type DictationHotkeySuspension = (typeof dictationHotkeySuspensions)[number];
+
+const dictationHotkeySuspensionRules: Record<
+  DictationHotkeySuspension,
+  (suspendInGames: boolean, isGame: boolean) => boolean
+> = {
+  always: () => true,
+  never: () => false,
+  auto: (suspendInGames, isGame) => suspendInGames && isGame
+};
+
+/** Per-app Always/Never win outright; only Auto follows the global game setting. */
+export function shouldSuspendDictationHotkeys(
+  suspension: DictationHotkeySuspension,
+  suspendInGames: boolean,
+  isGame: boolean
+): boolean {
+  return dictationHotkeySuspensionRules[suspension](suspendInGames, isGame);
+}
 
 export interface AppProfile {
   id: string;
@@ -72,7 +92,7 @@ export interface AppProfile {
   dictationModeId: DictationModeId | "inherit";
   forbidCloudDictation: boolean;
   cloudPromptPackOcrEnabled: "inherit" | boolean;
-  neverSuspendDictationInFullscreen: boolean;
+  dictationHotkeySuspension: DictationHotkeySuspension;
   createdAt: string;
   updatedAt: string;
 }
@@ -119,7 +139,7 @@ export interface AppSettings {
   startMinimized: boolean;
   startWithWindows: boolean;
   debugViewEnabled: boolean;
-  suspendDictationHotkeysInFullscreenApps: boolean;
+  suspendDictationHotkeysInGames: boolean;
   autoMuteSystemAudio: boolean;
   restoreClipboard: boolean;
   vadEnabled: boolean;
@@ -164,6 +184,13 @@ export function isWhisperRuntimePreference(value: unknown): value is WhisperRunt
   return (
     typeof value === "string" &&
     whisperRuntimePreferences.includes(value as WhisperRuntimePreference)
+  );
+}
+
+export function isDictationHotkeySuspension(value: unknown): value is DictationHotkeySuspension {
+  return (
+    typeof value === "string" &&
+    dictationHotkeySuspensions.includes(value as DictationHotkeySuspension)
   );
 }
 
@@ -325,10 +352,7 @@ export function sanitizeSettings(
     debugViewEnabled: getDebugViewEnabled(input, defaults),
     realtimeVadThresholdOverride:
       sanitizeRealtimeVadThresholdOverride(input.realtimeVadThresholdOverride),
-    suspendDictationHotkeysInFullscreenApps:
-      typeof input.suspendDictationHotkeysInFullscreenApps === "boolean"
-        ? input.suspendDictationHotkeysInFullscreenApps
-        : defaults.suspendDictationHotkeysInFullscreenApps,
+    suspendDictationHotkeysInGames: getSuspendDictationHotkeysInGames(input, defaults),
     autoMuteSystemAudio:
       typeof input.autoMuteSystemAudio === "boolean"
         ? input.autoMuteSystemAudio
@@ -382,7 +406,7 @@ export function createAppProfile(input: {
     dictationModeId: "inherit",
     forbidCloudDictation: false,
     cloudPromptPackOcrEnabled: "inherit",
-    neverSuspendDictationInFullscreen: false,
+    dictationHotkeySuspension: "auto",
     createdAt: now,
     updatedAt: now
   };
@@ -449,10 +473,7 @@ function sanitizeAppProfiles(value: unknown): AppProfile[] {
         item.cloudPromptPackOcrEnabled === "inherit" || typeof item.cloudPromptPackOcrEnabled === "boolean"
           ? item.cloudPromptPackOcrEnabled
           : "inherit",
-      neverSuspendDictationInFullscreen:
-        typeof item.neverSuspendDictationInFullscreen === "boolean"
-          ? item.neverSuspendDictationInFullscreen
-          : false,
+      dictationHotkeySuspension: getProfileDictationHotkeySuspension(item),
       createdAt:
         typeof item.createdAt === "string" && item.createdAt.trim()
           ? item.createdAt
@@ -640,6 +661,31 @@ function getDebugViewEnabled(input: Record<string, unknown>, defaults: AppSettin
   }
 
   return defaults.debugViewEnabled;
+}
+
+function getSuspendDictationHotkeysInGames(
+  input: Record<string, unknown>,
+  defaults: AppSettings
+): boolean {
+  if (typeof input.suspendDictationHotkeysInGames === "boolean") {
+    return input.suspendDictationHotkeysInGames;
+  }
+
+  if (typeof input.suspendDictationHotkeysInFullscreenApps === "boolean") {
+    return input.suspendDictationHotkeysInFullscreenApps;
+  }
+
+  return defaults.suspendDictationHotkeysInGames;
+}
+
+function getProfileDictationHotkeySuspension(
+  item: Record<string, unknown>
+): DictationHotkeySuspension {
+  if (isDictationHotkeySuspension(item.dictationHotkeySuspension)) {
+    return item.dictationHotkeySuspension;
+  }
+
+  return item.neverSuspendDictationInFullscreen === true ? "never" : "auto";
 }
 
 function sanitizeCloudSessionMaxMs(

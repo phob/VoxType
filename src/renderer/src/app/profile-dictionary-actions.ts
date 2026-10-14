@@ -178,9 +178,8 @@ export function useProfileDictionaryActions(
       dictationModeId: patch.dictationModeId ?? profile.dictationModeId,
       forbidCloudDictation: patch.forbidCloudDictation ?? profile.forbidCloudDictation,
       cloudPromptPackOcrEnabled: patch.cloudPromptPackOcrEnabled ?? profile.cloudPromptPackOcrEnabled,
-      neverSuspendDictationInFullscreen:
-        patch.neverSuspendDictationInFullscreen ??
-        profile.neverSuspendDictationInFullscreen
+      dictationHotkeySuspension:
+        patch.dictationHotkeySuspension ?? profile.dictationHotkeySuspension
     };
     const settings = await window.voxtype.appProfiles.update(profile.processName, nextProfile);
     setState((current: AppState) => ({ ...current, settings }));

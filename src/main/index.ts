@@ -7,9 +7,9 @@ import { getCloudDictationReadiness } from "../shared/cloud-status";
 import { type DictionaryCreateInput, type DictionaryPatch } from "../shared/dictionary";
 import { buildOcrPromptContext, type OcrPromptContext } from "../shared/ocr-context";
 import { type SpeechSegment } from "../shared/speech-segments";
-import { type AppProfile, type AppSettings, type InsertionMode, type SettingsPatch, findAppProfile } from "../shared/settings";
+import { type AppProfile, type AppSettings, type InsertionMode, type SettingsPatch, findAppProfile, shouldSuspendDictationHotkeys } from "../shared/settings";
 import { type CursorContext } from "../shared/cursor-context";
-import { isModifierOnlyAccelerator } from "../shared/hotkeys";
+import { type HotkeyStatus, isModifierOnlyAccelerator } from "../shared/hotkeys";
 import { type ActiveWindowInfo, type DictationHotkeyState, type NativeRecordingOptions, type RecordingOverlayState } from "../shared/windows-helper";
 import { DictionaryStore } from "./dictionary-store";
 import { HardwareService } from "./hardware-service";
@@ -46,9 +46,9 @@ let nextDictationSessionId = 1;
 let registeredShowWindowHotkey: string | null = null;
 let registeredDictationHotkey: string | null = null;
 let registeredDictationHoldHotkey: string | null = null;
-let dictationSuspendedForFullscreen = false;
-let fullscreenSuspensionProcessName: string | null = null;
-let fullscreenSuspensionTimer: ReturnType<typeof setInterval> | null = null;
+let dictationSuspendedForGame = false;
+let suspendedProcessName: string | null = null;
+let gameSuspensionTimer: ReturnType<typeof setInterval> | null = null;
 let updateCheckTimer: ReturnType<typeof setInterval> | null = null;
 let hotkeysManuallySuspended = false;
 let revealMainWindowOnReady = false;
@@ -562,7 +562,7 @@ async function registerConfiguredHotkeys(): Promise<void> {
   registeredShowWindowHotkey = registerHotkey(settings.showWindowHotkey, showMainWindow);
   registeredDictationHotkey = registerDictationToggleHotkey(settings);
   registeredDictationHoldHotkey = registerDictationHoldHotkey(settings);
-  await refreshFullscreenHotkeySuspension();
+  await refreshGameHotkeySuspension();
 }
 function registerHotkey(accelerator: string, callback: (press?: ModifierHotkeyPress) => void): string | null {
   const trimmed = accelerator.trim();
@@ -629,62 +629,63 @@ function registerDictationHotkeys(settings: AppSettings): void {
   registeredDictationHotkey ??= registerDictationToggleHotkey(settings);
   registeredDictationHoldHotkey ??= registerDictationHoldHotkey(settings);
 }
-function startFullscreenSuspensionWatch(): void {
-  if (fullscreenSuspensionTimer) {
+function startGameSuspensionWatch(): void {
+  if (gameSuspensionTimer) {
     return;
   }
-  fullscreenSuspensionTimer = setInterval(() => {
-    void refreshFullscreenHotkeySuspension();
+  gameSuspensionTimer = setInterval(() => {
+    void refreshGameHotkeySuspension();
   }, 2000);
 }
-function stopFullscreenSuspensionWatch(): void {
-  if (!fullscreenSuspensionTimer) {
+function stopGameSuspensionWatch(): void {
+  if (!gameSuspensionTimer) {
     return;
   }
-  clearInterval(fullscreenSuspensionTimer);
-  fullscreenSuspensionTimer = null;
+  clearInterval(gameSuspensionTimer);
+  gameSuspensionTimer = null;
 }
-async function refreshFullscreenHotkeySuspension(): Promise<void> {
+async function refreshGameHotkeySuspension(): Promise<void> {
   const settings = await settingsStore.get();
   if (hotkeysManuallySuspended) {
     return;
   }
-  if (!settings.suspendDictationHotkeysInFullscreenApps) {
-    stopFullscreenSuspensionWatch();
-    dictationSuspendedForFullscreen = false;
-    fullscreenSuspensionProcessName = null;
+  const watchNeeded =
+    settings.suspendDictationHotkeysInGames ||
+    settings.appProfiles.some((profile) => profile.dictationHotkeySuspension === "always");
+  if (!watchNeeded) {
+    stopGameSuspensionWatch();
+    dictationSuspendedForGame = false;
+    suspendedProcessName = null;
     registerDictationHotkeys(settings);
     return;
   }
-  startFullscreenSuspensionWatch();
+  startGameSuspensionWatch();
   const activeWindow = await windowsHelperService.getActiveWindow().catch(() => null);
   const profile = findAppProfile(settings.appProfiles, activeWindow?.processName ?? null);
-  const shouldSuspend = Boolean(
-    activeWindow?.fullscreen && !profile?.neverSuspendDictationInFullscreen
-  );
+  const shouldSuspend =
+    activeWindow !== null &&
+    shouldSuspendDictationHotkeys(
+      profile?.dictationHotkeySuspension ?? "auto",
+      settings.suspendDictationHotkeysInGames,
+      activeWindow.isGame
+    );
   if (shouldSuspend) {
     unregisterDictationHotkeys();
-    dictationSuspendedForFullscreen = true;
-    fullscreenSuspensionProcessName = activeWindow?.processName ?? null;
+    dictationSuspendedForGame = true;
+    suspendedProcessName = activeWindow.processName;
     return;
   }
-  dictationSuspendedForFullscreen = false;
-  fullscreenSuspensionProcessName = null;
+  dictationSuspendedForGame = false;
+  suspendedProcessName = null;
   registerDictationHotkeys(settings);
 }
-function getHotkeyStatus(): {
-  showWindowHotkey: string | null;
-  dictationToggleHotkey: string | null;
-  dictationHoldHotkey: string | null;
-  dictationSuspendedForFullscreen: boolean;
-  fullscreenProcessName: string | null;
-} {
+function getHotkeyStatus(): HotkeyStatus {
   return {
     showWindowHotkey: registeredShowWindowHotkey,
     dictationToggleHotkey: registeredDictationHotkey,
     dictationHoldHotkey: registeredDictationHoldHotkey,
-    dictationSuspendedForFullscreen,
-    fullscreenProcessName: fullscreenSuspensionProcessName
+    dictationSuspendedForGame,
+    suspendedProcessName
   };
 }
 ipcMain.handle("app:get-version", () => app.getVersion());
@@ -1043,6 +1044,14 @@ ipcMain.handle("hotkeys:resume", async () => {
   await registerConfiguredHotkeys();
   return getHotkeyStatus();
 });
+// A profile set to Always suspend has to start the foreground watch even with the game toggle off.
+async function updateAppProfilesAndRefreshSuspension(
+  update: () => Promise<AppSettings>
+): Promise<AppSettings> {
+  const settings = await update();
+  await refreshGameHotkeySuspension();
+  return settings;
+}
 ipcMain.handle("windows-helper:status", () => windowsHelperService.getStatus());
 ipcMain.handle("windows-helper:active-window", async () => {
   const activeWindow = await windowsHelperService.getActiveWindow();
@@ -1070,13 +1079,12 @@ ipcMain.handle(
       | "dictationModeId"
       | "cloudPromptPackOcrEnabled"
       | "forbidCloudDictation"
-      | "neverSuspendDictationInFullscreen"
+      | "dictationHotkeySuspension"
     >
-  ) =>
-    settingsStore.updateAppProfile(processName, patch)
+  ) => updateAppProfilesAndRefreshSuspension(() => settingsStore.updateAppProfile(processName, patch))
 );
 ipcMain.handle("app-profiles:remove", (_event, processName: string) =>
-  settingsStore.removeAppProfile(processName)
+  updateAppProfilesAndRefreshSuspension(() => settingsStore.removeAppProfile(processName))
 );
 ipcMain.handle("windows-helper:set-system-mute", (_event, muted: boolean) =>
   windowsHelperService.setSystemMute(muted)
@@ -1150,7 +1158,7 @@ app.on("will-quit", () => {
   llmCleanupService.stop();
   transcriptionService.stop();
   stopAutomaticUpdateChecks();
-  stopFullscreenSuspensionWatch();
+  stopGameSuspensionWatch();
   overlayWindow?.destroy();
   globalShortcut.unregisterAll();
 });

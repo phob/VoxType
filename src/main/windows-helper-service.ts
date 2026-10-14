@@ -1402,7 +1402,13 @@ async function fileExists(path: string): Promise<boolean> {
   }
 }
 
-function isActiveWindowInfo(value: unknown): value is ActiveWindowInfo {
+/** An older helper build omits fields added later; treat them as absent rather than failing. */
+type HelperActiveWindow = Omit<ActiveWindowInfo, "bounds" | "isGame"> & {
+  bounds?: ActiveWindowInfo["bounds"];
+  isGame?: boolean;
+};
+
+function isActiveWindowInfo(value: unknown): value is HelperActiveWindow {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     return false;
   }
@@ -1416,15 +1422,15 @@ function isActiveWindowInfo(value: unknown): value is ActiveWindowInfo {
     (typeof info.processPath === "string" || info.processPath === null) &&
     (typeof info.processName === "string" || info.processName === null) &&
     (info.bounds === undefined || info.bounds === null || isWindowBounds(info.bounds)) &&
-    (info.fullscreen === undefined || typeof info.fullscreen === "boolean")
+    (info.isGame === undefined || typeof info.isGame === "boolean")
   );
 }
 
-function normalizeActiveWindowInfo(value: ActiveWindowInfo): ActiveWindowInfo {
+function normalizeActiveWindowInfo(value: HelperActiveWindow): ActiveWindowInfo {
   return {
     ...value,
     bounds: value.bounds ?? null,
-    fullscreen: value.fullscreen
+    isGame: value.isGame ?? false
   };
 }
 

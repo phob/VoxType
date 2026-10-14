@@ -5,6 +5,7 @@ import { ReleaseIcon, ReleaseSelect, insertionModeLabel, profileWhisperLanguageL
 import {
   insertionModeOptions,
   profileCloudPromptPackOcrOptions,
+  profileDictationHotkeySuspensionOptions,
   profileDictationModeOptions,
   profileWhisperLanguageOptions,
   writingStyleOptions
@@ -67,13 +68,12 @@ export function ReleaseProfilesSection(props: ReadyAppViewProps): ReactElement {
                           <small>Send key</small>
                           {profile.postTranscriptionHotkey || "None"}
                         </span>
-                        {state.settings.suspendDictationHotkeysInFullscreenApps &&
-                        profile.neverSuspendDictationInFullscreen ? (
+                        {profile.dictationHotkeySuspension === "auto" ? null : (
                           <span>
-                            <small>Fullscreen</small>
-                            Keep hotkeys
+                            <small>Hotkeys</small>
+                            {profile.dictationHotkeySuspension === "always" ? "Always suspend" : "Never suspend"}
                           </span>
-                        ) : null}
+                        )}
                       </span>
                     </button>
                     <button
@@ -238,23 +238,19 @@ export function ReleaseProfilesSection(props: ReadyAppViewProps): ReactElement {
                           : selectedProfile.postTranscriptionHotkey || "None"}
                       </button>
                     </div>
-                    {state.settings.suspendDictationHotkeysInFullscreenApps ? (
-                      <label className="setting-row">
-                        <span>
-                          <strong>Never suspend in fullscreen</strong>
-                          <small>Keep dictation hotkeys active for this app.</small>
-                        </span>
-                        <input
-                          checked={selectedProfile.neverSuspendDictationInFullscreen}
-                          type="checkbox"
-                          onChange={(event) =>
-                            void updateAppProfile(selectedProfile, {
-                              neverSuspendDictationInFullscreen: event.target.checked
-                            })
-                          }
-                        />
-                      </label>
-                    ) : null}
+                    <div className="release-field">
+                      <span>Dictation hotkeys in this app</span>
+                      <ReleaseSelect
+                        ariaLabel={`Dictation hotkeys in ${selectedProfile.displayName}`}
+                        options={profileDictationHotkeySuspensionOptions}
+                        value={selectedProfile.dictationHotkeySuspension}
+                        onChange={(value) =>
+                          void updateAppProfile(selectedProfile, {
+                            dictationHotkeySuspension: value
+                          })
+                        }
+                      />
+                    </div>
                   </div>
 
                   <div className="release-form-actions">

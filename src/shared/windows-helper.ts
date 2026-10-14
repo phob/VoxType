@@ -16,7 +16,8 @@ export interface ActiveWindowInfo {
     width: number;
     height: number;
   } | null;
-  fullscreen: boolean;
+  /** Windows Game Bar recognizes the foreground executable as a game. */
+  isGame: boolean;
 }
 
 export interface WindowsHelperStatus {

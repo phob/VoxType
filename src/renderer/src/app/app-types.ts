@@ -86,7 +86,7 @@ export type AppProfilePatch = Partial<
     | "dictationModeId"
     | "forbidCloudDictation"
     | "cloudPromptPackOcrEnabled"
-    | "neverSuspendDictationInFullscreen"
+    | "dictationHotkeySuspension"
   >
 >;
 

@@ -63,7 +63,7 @@ export class SettingsStore {
       startMinimized: false,
       startWithWindows: false,
       debugViewEnabled: false,
-      suspendDictationHotkeysInFullscreenApps: false,
+      suspendDictationHotkeysInGames: false,
       autoMuteSystemAudio: false,
       restoreClipboard: true,
       vadEnabled: true,
@@ -145,7 +145,7 @@ export class SettingsStore {
       | "dictationModeId"
       | "forbidCloudDictation"
       | "cloudPromptPackOcrEnabled"
-      | "neverSuspendDictationInFullscreen"
+      | "dictationHotkeySuspension"
     >
   ): Promise<AppSettings> {
     const settings = await this.get();
@@ -170,7 +170,7 @@ export class SettingsStore {
               dictationModeId: patch.dictationModeId,
               forbidCloudDictation: patch.forbidCloudDictation,
               cloudPromptPackOcrEnabled: patch.cloudPromptPackOcrEnabled,
-              neverSuspendDictationInFullscreen: patch.neverSuspendDictationInFullscreen,
+              dictationHotkeySuspension: patch.dictationHotkeySuspension,
               updatedAt: new Date().toISOString()
             }
           : profile

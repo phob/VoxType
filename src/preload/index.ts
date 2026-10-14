@@ -271,7 +271,7 @@ const voxtype = {
         | "dictationModeId"
         | "forbidCloudDictation"
         | "cloudPromptPackOcrEnabled"
-        | "neverSuspendDictationInFullscreen"
+        | "dictationHotkeySuspension"
       >
     ) => invoke<AppSettings>("app-profiles:update", processName, patch),
     remove: (processName: string) =>

@@ -2,8 +2,8 @@ export interface HotkeyStatus {
   showWindowHotkey: string | null;
   dictationToggleHotkey: string | null;
   dictationHoldHotkey: string | null;
-  dictationSuspendedForFullscreen: boolean;
-  fullscreenProcessName: string | null;
+  dictationSuspendedForGame: boolean;
+  suspendedProcessName: string | null;
 }
 
 const modifierNames = new Set(["commandorcontrol", "control", "ctrl", "alt", "option", "shift", "super", "meta", "win", "windows", "command"]);
