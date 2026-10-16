@@ -5,6 +5,7 @@ import { writeFileSync } from "node:fs";
 export interface RendererPage {
   evaluate<T>(expression: string): Promise<T>;
   screenshotSettings(path: string): Promise<void>;
+  screenshot(path: string): Promise<void>;
   quitApp(): Promise<void>;
 }
 
@@ -45,6 +46,9 @@ export async function connectToRenderer(port: number): Promise<RendererPage> {
         expression: "document.querySelector('.release-settings-link')?.click(); document.querySelector('.release-scroll-panel')?.scrollTo(0, 0)"
       });
       await sleep(1_500);
+      await this.screenshot(path);
+    },
+    async screenshot(path: string): Promise<void> {
       const shot = await send<{ data: string }>(socket, "Page.captureScreenshot", { format: "png" });
       writeFileSync(path, Buffer.from(shot.data, "base64"));
     },
@@ -52,6 +56,12 @@ export async function connectToRenderer(port: number): Promise<RendererPage> {
       const version = (await (await fetch(`http://127.0.0.1:${String(port)}/json/version`)).json()) as { webSocketDebuggerUrl: string };
       const browser = await openSocket(version.webSocketDebuggerUrl);
       void send(browser, "Browser.close", {}).catch(() => undefined);
+      // Bun does not always see these sockets close when Electron exits, and an open socket keeps the
+      // harness process alive after its report is written.
+      setTimeout(() => {
+        browser.close();
+        socket.close();
+      }, 1_000);
     }
   };
 }

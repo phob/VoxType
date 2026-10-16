@@ -114,6 +114,8 @@ export interface AppSettings {
   llmCleanupBackend: LlmCleanupBackendPreference;
   llmCleanupProvider: LlmCleanupProvider;
   llmCleanupLevel: CleanupLevel;
+  /** The user's own system prompt per level; empty uses the built-in one. */
+  llmCleanupCustomPrompts: Record<CleanupLevel, string>;
   llmCleanupOpenAiModelId: string;
   llmCleanupAnthropicModelId: string;
   cloudDictationConsentAccepted: boolean;
@@ -265,6 +267,7 @@ export function sanitizeSettings(
       ? input.llmCleanupProvider
       : defaults.llmCleanupProvider,
     llmCleanupLevel: isCleanupLevel(input.llmCleanupLevel) ? input.llmCleanupLevel : defaults.llmCleanupLevel,
+    llmCleanupCustomPrompts: sanitizeCleanupCustomPrompts(input.llmCleanupCustomPrompts, defaults.llmCleanupCustomPrompts),
     llmCleanupOpenAiModelId: isCloudCleanupModelId("openai", input.llmCleanupOpenAiModelId)
       ? input.llmCleanupOpenAiModelId
       : defaults.llmCleanupOpenAiModelId,
@@ -707,6 +710,19 @@ function sanitizeCloudSessionMaxMs(
       : 60_000;
 
   return clamp(Math.round(value), Math.max(60_000, warnMs), 4 * 60 * 60_000);
+}
+
+function sanitizeCleanupCustomPrompts(
+  value: unknown,
+  defaults: Record<CleanupLevel, string>
+): Record<CleanupLevel, string> {
+  const input = isRecord(value) ? value : {};
+  const prompt = (level: CleanupLevel): string => {
+    const item = input[level];
+    return typeof item === "string" ? item.slice(0, 20_000) : defaults[level];
+  };
+
+  return { light: prompt("light"), rewrite: prompt("rewrite") };
 }
 
 function sanitizeRealtimeVadThresholdOverride(value: unknown): number | null {

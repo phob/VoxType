@@ -53,9 +53,9 @@ export class WhisperServer {
     await Promise.race([
       this.ensure(config),
       new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error("whisper-server did not become ready in time.")), dictationStartupWaitMs);
+        timer = setTimeout(() =>{  reject(new Error("whisper-server did not become ready in time.")); }, dictationStartupWaitMs);
       })
-    ]).finally(() => clearTimeout(timer));
+    ]).finally(() =>{  clearTimeout(timer); });
     const outputs: WhisperChunkOutput[] = [];
 
     for (const chunk of input.chunks) {

@@ -515,9 +515,12 @@ export function DebugView(props: ReadyAppViewProps): ReactElement {
                   <span>mode</span>
                   <select
                     value={screenshotMode}
-                    onChange={(event) =>
-                      { setScreenshotMode(event.target.value); }
-                    }
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      if (value === "screen" || value === "activeWindow") {
+                        setScreenshotMode(value);
+                      }
+                    }}
                   >
                     <option value="activeWindow">activeWindow</option>
                     <option value="screen">screen</option>

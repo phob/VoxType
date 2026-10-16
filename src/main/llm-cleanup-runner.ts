@@ -134,7 +134,7 @@ export function skipCleanup(
  * First local requests are slow (GPU shader compilation, empty prompt cache); pay that before a real
  * dictation. A cold model load has no time limit here.
  */
-export async function warmUpCleanup(chat: CleanupChat, level: CleanupLevel = "light"): Promise<void> {
+export async function warmUpCleanup(chat: CleanupChat, level: CleanupLevel = "light", customSystemPrompt = ""): Promise<void> {
   await chat.prepare(new AbortController().signal);
-  await chat.chat(buildCleanupMessages({ text: "um so this is a test", style: "default", level, terms: [] }), { maxTokens: 16 });
+  await chat.chat(buildCleanupMessages({ text: "um so this is a test", style: "default", level, terms: [], customSystemPrompt }), { maxTokens: 16 });
 }

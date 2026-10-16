@@ -51,7 +51,7 @@ export function detectSpeechSegments(
   const onset = Math.round(options.onsetThreshold * 255);
   const offset = Math.round(options.offsetThreshold * 255);
   const msToFrames = (ms: number) => Math.round((ms * track.sampleRateHz) / 1000 / track.frameSamples);
-  const regions: Array<{ first: number; last: number; confident: boolean }> = [];
+  const regions: { first: number; last: number; confident: boolean }[] = [];
 
   for (let frame = 0; frame < track.probabilities.length; frame += 1) {
     const probability = track.probabilities[frame];

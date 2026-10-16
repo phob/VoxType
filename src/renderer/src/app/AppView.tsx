@@ -1,4 +1,4 @@
-/* eslint-disable react-hooks/exhaustive-deps */
+/* oxlint-disable react-hooks/exhaustive-deps */
 import { useEffect, useRef, useState, type ReactElement } from "react";
 import { eventModifiers, eventToAccelerator } from "../hotkey-capture";
 import { type PcmRecorder, type PcmRecordingResult } from "../audio-recorder";

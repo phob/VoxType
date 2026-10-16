@@ -81,7 +81,7 @@ export class SherpaRuntimeService {
       }
 
       await pipeline(
-        Readable.fromWeb(response.body as unknown as Parameters<typeof Readable.fromWeb>[0]),
+        Readable.fromWeb(response.body),
         createWriteStream(temporaryArchivePath)
       );
       await rm(archivePath, { force: true });

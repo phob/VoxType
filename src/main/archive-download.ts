@@ -22,7 +22,7 @@ export async function downloadFile(url: string, destination: string, label: stri
 
     await pipeline(
       // Node's web ReadableStream type differs from the DOM one fetch() is typed with; same object at runtime.
-      Readable.fromWeb(response.body as unknown as Parameters<typeof Readable.fromWeb>[0]),
+      Readable.fromWeb(response.body),
       createWriteStream(temporaryPath)
     );
     await rm(destination, { force: true });

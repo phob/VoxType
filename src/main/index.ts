@@ -125,7 +125,7 @@ function applyStartupSettings(settings: AppSettings): void {
   if (process.platform !== "win32") {
     return;
   }
-  app.setLoginItemSettings({ openAtLogin: settings.startWithWindows, openAsHidden: shouldStartMinimized(settings) });
+  app.setLoginItemSettings({ openAtLogin: settings.startWithWindows });
 }
 async function applySettingsSideEffects(settings: AppSettings): Promise<void> {
   applyStartupSettings(settings);

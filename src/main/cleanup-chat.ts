@@ -200,7 +200,7 @@ function abortable<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {
       reject(new Error("aborted"));
       return;
     }
-    const onAbort = () => reject(new Error("aborted"));
+    const onAbort = () =>{  reject(new Error("aborted")); };
     signal.addEventListener("abort", onAbort, { once: true });
     promise.then(
       (value) => {

@@ -65,12 +65,12 @@ export class ModifierHotkeys {
 
     this.watcher = await this.watch(
       accelerators,
-      (event) => this.handle(event),
+      (event) =>{  this.handle(event); },
       (error) => {
         console.warn("[voxtype] modifier hotkey watcher stopped", error.message);
         this.watcher = null;
         this.watchedKey = "";
-        setTimeout(() => this.sync(), restartDelayMs);
+        setTimeout(() =>{  this.sync(); }, restartDelayMs);
       }
     );
     this.watchedKey = key;

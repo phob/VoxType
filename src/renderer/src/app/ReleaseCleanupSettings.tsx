@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState, type ReactElement } from "react";
+import { cleanupSystemPrompt, defaultCleanupSystemPrompt } from "../../../shared/cleanup-prompt";
 import {
   cloudCleanupModelCatalog,
   isCleanupLevel,
   isLlmCleanupBackendPreference,
   isLlmCleanupProvider,
   llmModelCatalog,
+  type CleanupLevel,
   type CloudCleanupProvider,
   type LlmCleanupStatus,
   type LlmCleanupTestResult
@@ -13,6 +15,7 @@ import { type OpenAiCredentialStatus } from "../../../shared/openai-credentials"
 import { type AppSettings } from "../../../shared/settings";
 
 const providerNames: Record<CloudCleanupProvider, string> = { openai: "OpenAI", anthropic: "Anthropic" };
+const levelNames: Record<CleanupLevel, string> = { light: "Light", rewrite: "Rewrite" };
 
 // Settings rows for AI cleanup. Owns its install/status, API key and try-it state so the rest of the app
 // only sees the settings fields.
@@ -34,9 +37,8 @@ export function ReleaseCleanupSettings({
   }, []);
 
   useEffect(() => {
-    void refresh();
+    void window.voxtype.llmCleanup.getStatus().then(setStatus);
   }, [
-    refresh,
     settings.llmCleanupEnabled,
     settings.llmCleanupModelId,
     settings.llmCleanupBackend,
@@ -125,6 +127,7 @@ export function ReleaseCleanupSettings({
               <option value="rewrite">Rewrite: fix grammar and phrasing</option>
             </select>
           </label>
+          <CleanupPromptRow key={settings.llmCleanupLevel} level={settings.llmCleanupLevel} settings={settings} updateSettings={updateSettings} />
           <label className="setting-row">
             <span>
               <strong>AI cleanup runs on</strong>
@@ -150,7 +153,7 @@ export function ReleaseCleanupSettings({
             </select>
           </label>
           {cloudProvider ? (
-            <CloudCleanupRows provider={cloudProvider} settings={settings} updateSettings={applyAndInstall} onKeyChange={refresh} />
+            <CloudCleanupRows key={cloudProvider} provider={cloudProvider} settings={settings} updateSettings={applyAndInstall} onKeyChange={refresh} />
           ) : (
             <LocalCleanupRows installing={installing} settings={settings} updateSettings={applyAndInstall} />
           )}
@@ -158,6 +161,51 @@ export function ReleaseCleanupSettings({
         </>
       ) : null}
     </>
+  );
+}
+
+// The system prompt for the selected level. Saving the built-in text or a blank one stores "" so a
+// later update of the built-in prompt still reaches users who never changed it.
+function CleanupPromptRow({
+  level,
+  settings,
+  updateSettings
+}: {
+  level: CleanupLevel;
+  settings: AppSettings;
+  updateSettings: (patch: Partial<AppSettings>) => Promise<void>;
+}): ReactElement {
+  const custom = settings.llmCleanupCustomPrompts[level];
+  const saved = cleanupSystemPrompt(level, custom);
+  const [draft, setDraft] = useState(saved);
+
+  async function save(text: string): Promise<void> {
+    const value = text.trim() === defaultCleanupSystemPrompt(level).trim() ? "" : text;
+    await updateSettings({ llmCleanupCustomPrompts: { ...settings.llmCleanupCustomPrompts, [level]: value } });
+    setDraft(cleanupSystemPrompt(level, value));
+  }
+
+  return (
+    <div className="setting-row setting-row-wide">
+      <span>
+        <strong>AI cleanup instructions ({levelNames[level]})</strong>
+        <small>
+          {custom.trim() ? "Your own instructions." : "Built-in instructions."} Answers that translate, drop or add text are still not used.
+        </small>
+      </span>
+      <textarea
+        aria-label="AI cleanup instructions"
+        rows={14}
+        spellCheck={false}
+        value={draft}
+        onChange={(event) => { setDraft(event.target.value); }}
+      />
+      <div className="setting-actions">
+        <button disabled={draft === saved} onClick={() => void save(draft)} type="button">Save</button>
+        <button disabled={draft === saved} onClick={() => { setDraft(saved); }} type="button">Discard</button>
+        <button disabled={!custom.trim()} onClick={() => void save("")} type="button">Reset to default</button>
+      </div>
+    </div>
   );
 }
 
@@ -234,8 +282,6 @@ function CloudCleanupRows({
   const selectedModel = models.find((model) => model.id === modelId);
 
   useEffect(() => {
-    setDraft("");
-    setKeyError(null);
     void credentialsFor(provider).getStatus().then(setKeyStatus);
   }, [provider]);
 

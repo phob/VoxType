@@ -79,7 +79,7 @@ export class SherpaModelService {
       }
 
       await pipeline(
-        Readable.fromWeb(response.body as unknown as Parameters<typeof Readable.fromWeb>[0]),
+        Readable.fromWeb(response.body),
         createWriteStream(temporaryArchivePath)
       );
       await rm(archivePath, { force: true });
@@ -175,7 +175,7 @@ export class SherpaModelService {
       }
 
       await pipeline(
-        Readable.fromWeb(response.body as unknown as Parameters<typeof Readable.fromWeb>[0]),
+        Readable.fromWeb(response.body),
         createWriteStream(temporaryPath)
       );
       await rm(targetPath, { force: true });

@@ -99,11 +99,11 @@ export function combineChunkOutputs(
 function parseWhisperJson(json: string): WhisperChunkOutput {
   const parsed = JSON.parse(json) as {
     result?: { language?: string };
-    transcription?: Array<{
+    transcription?: {
       offsets?: { from?: number; to?: number };
       text?: string;
-      tokens?: Array<{ text?: string; p?: number }>;
-    }>;
+      tokens?: { text?: string; p?: number }[];
+    }[];
   };
 
   return {
@@ -118,7 +118,7 @@ function parseWhisperJson(json: string): WhisperChunkOutput {
 }
 
 // Special tokens ([_BEG_], [_TT_123], ...) carry no text and have unrelated probabilities.
-export function minTextTokenProbability(tokens: Array<{ text?: string; p?: number }>): number | null {
+export function minTextTokenProbability(tokens: { text?: string; p?: number }[]): number | null {
   const probabilities = tokens.flatMap((token) =>
     typeof token.p === "number" && token.text && !token.text.startsWith("[_") && token.text.trim() ? [token.p] : []
   );

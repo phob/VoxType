@@ -115,7 +115,8 @@ export class LlmCleanupService {
     if (config && (this.server.state !== "ready" || configKey !== this.warmConfigKey)) {
       this.warmConfigKey = configKey;
       const model = resolveLlmCleanupModel(settings.llmCleanupModelId, config.backend);
-      void warmUpCleanup(new LocalCleanupChat(this.server, config, model.id), settings.llmCleanupLevel).catch((error: unknown) => {
+      const level = settings.llmCleanupLevel;
+      void warmUpCleanup(new LocalCleanupChat(this.server, config, model.id), level, settings.llmCleanupCustomPrompts[level]).catch((error: unknown) => {
         this.warmConfigKey = null;
         this.lastError = error instanceof Error ? error.message : String(error);
       });
@@ -139,6 +140,7 @@ export class LlmCleanupService {
       text,
       style,
       level: settings.llmCleanupLevel,
+      customSystemPrompt: settings.llmCleanupCustomPrompts[settings.llmCleanupLevel],
       textBefore: context.textBefore,
       terms: await this.cleanupTerms(ocrAllowed ? context : { ...context, ocrTerms: [] }),
       provider

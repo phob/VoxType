@@ -47,7 +47,7 @@ export class ModelService {
     }
 
     await pipeline(
-      Readable.fromWeb(response.body as unknown as Parameters<typeof Readable.fromWeb>[0]),
+      Readable.fromWeb(response.body),
       createWriteStream(temporaryDestination)
     );
     await rm(destination, { force: true });

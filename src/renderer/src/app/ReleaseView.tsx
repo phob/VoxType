@@ -1,6 +1,6 @@
 import { type ReactElement } from "react";
 import { ArrowRight, CheckCircle2, Clipboard, Download, FileText, MoreVertical, Play, RefreshCw, Trash2 } from "lucide-react";
-import { dictationModes } from "../../../shared/asr";
+import { dictationModes, isDictationModeId } from "../../../shared/asr";
 import { getDictationModeAvailability } from "../../../shared/dictation-mode-availability";
 import { currentOpenAiModeImplementationReadiness } from "../../../shared/openai-readiness";
 import { type LocalModel } from "../../../shared/models";
@@ -232,9 +232,12 @@ export function ReleaseView(props: ReadyAppViewProps): ReactElement {
                   </span>
                   <select
                     value={state.settings.dictationModeId}
-                    onChange={(event) =>
-                      void updateSettings(dictationModeSettingsPatch(event.target.value))
-                    }
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      if (isDictationModeId(value)) {
+                        void updateSettings(dictationModeSettingsPatch(value));
+                      }
+                    }}
                   >
                     {dictationModes.map((mode) => {
                       const availability = getDictationModeAvailability({

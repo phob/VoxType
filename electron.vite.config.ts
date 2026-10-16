@@ -10,11 +10,14 @@ const electronExternal = ["electron", /^electron\/.+/];
 // the main process: electron-vite puts its __dirname shim after the last line that looks like an import,
 // and the SDK has one inside a JSDoc comment.
 const mainExternal = [...electronExternal, "@anthropic-ai/sdk", /^@anthropic-ai\/sdk\/.+/];
+// Vite 8 deprecates rollupOptions for rolldownOptions, but electron-vite 5 reads build.rollupOptions.input
+// itself to find the entry, so the old name has to stay until electron-vite supports Vite 8.
 
 export default defineConfig({
   main: {
     build: {
       externalizeDeps: true,
+      // oxlint-disable-next-line typescript/no-deprecated
       rollupOptions: {
         input: resolve(__dirname, "src/main/index.ts"),
         external: mainExternal
@@ -24,6 +27,7 @@ export default defineConfig({
   preload: {
     build: {
       externalizeDeps: true,
+      // oxlint-disable-next-line typescript/no-deprecated
       rollupOptions: {
         input: resolve(__dirname, "src/preload/index.ts"),
         external: electronExternal,

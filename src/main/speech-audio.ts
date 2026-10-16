@@ -30,7 +30,7 @@ export interface SpeechChunk {
   samples: Int16Array;
   sampleRateHz: number;
   /** Detected speech inside this chunk, in chunk-local milliseconds. */
-  speechSpansMs: Array<{ startMs: number; endMs: number }>;
+  speechSpansMs: { startMs: number; endMs: number }[];
 }
 
 interface SourceRange {

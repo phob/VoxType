@@ -90,7 +90,7 @@ export class LocalServerProcess {
     if (this.idleTimer) {
       clearTimeout(this.idleTimer);
     }
-    this.idleTimer = setTimeout(() => this.stop(), this.idleStopMs);
+    this.idleTimer = setTimeout(() =>{  this.stop(); }, this.idleStopMs);
     // An idle timer must not keep a script (E2E harness) alive.
     this.idleTimer.unref();
   }
@@ -111,8 +111,8 @@ export class LocalServerProcess {
     });
 
     const exited = new Promise<never>((_, reject) => {
-      child.once("error", (error) => reject(error));
-      child.once("exit", (code) => reject(new Error(`${launch.name} exited with code ${String(code)}: ${this.stderrTail.slice(-6).join(" | ")}`)));
+      child.once("error", (error) =>{  reject(error); });
+      child.once("exit", (code) =>{  reject(new Error(`${launch.name} exited with code ${String(code)}: ${this.stderrTail.slice(-6).join(" | ")}`)); });
     });
     child.once("exit", () => {
       if (this.running?.process === child) {

@@ -8,13 +8,14 @@
   "type": "module",
   "scripts": {
     "dev": "electron-vite dev",
-    "lint": "eslint electron.vite.config.ts src --max-warnings=0",
-    "build": "tsc --noEmit && electron-vite build",
+    "lint": "oxlint electron.vite.config.ts src --max-warnings=0",
+    "build": "bun run typecheck && electron-vite build",
     "build:native:release": "cargo build --manifest-path native/windows-helper/Cargo.toml --release",
     "e2e:native-recording": "node scripts/e2e-native-recording.mjs",
     "e2e:dictation": "bun scripts/e2e-dictation/run.ts",
     "e2e:cleanup": "bun scripts/e2e-cleanup/run.ts",
     "e2e:cleanup-app": "bun run build && bun scripts/e2e-cleanup/app-smoke.ts",
+    "e2e:cleanup-prompt": "bun run build && bun scripts/e2e-cleanup/custom-prompt.ts",
     "e2e:hotkeys": "bun run build && bun scripts/e2e-hotkeys/run.ts",
     "e2e:game-suspension": "bun run build && bun scripts/e2e-game-suspension/run.ts",
     "dist:win": "bun run verify:packaging && bun run build && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --win nsis --x64 --publish never",
@@ -23,7 +24,7 @@
     "changelog": "node scripts/generate-release-notes.mjs",
     "changelog:detailed": "node scripts/generate-detailed-release-notes.mjs",
     "preview": "electron-vite preview",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "tsc -p tsconfig.node.json --noEmit && tsc -p tsconfig.web.json --noEmit",
     "verify:packaging": "node scripts/verify-packaging-config.mjs"
   },
   "build": {
@@ -79,7 +80,6 @@
     "react-dom": "latest"
   },
   "devDependencies": {
-    "@eslint/js": "^10.0.1",
     "@swc/core": "^1.15.5",
     "@types/node": "latest",
     "@types/react": "latest",
@@ -89,11 +89,9 @@
     "electron": "latest",
     "electron-builder": "^26.8.1",
     "electron-vite": "^5.0.0",
-    "eslint": "^10.4.0",
-    "eslint-plugin-react-hooks": "^7.1.1",
-    "globals": "^17.6.0",
+    "oxlint": "^1.88.0",
+    "oxlint-tsgolint": "^7.0.2004",
     "typescript": "latest",
-    "typescript-eslint": "^8.59.4",
     "vite": "^8.0.0"
   }
 }

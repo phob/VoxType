@@ -52,12 +52,12 @@ const NON_SPEECH_WORDS =
 
 export function filterWhisperSegments(
   segments: WhisperSegment[],
-  context: { speechSpansMs: Array<{ startMs: number; endMs: number }>; prompt: string | null }
+  context: { speechSpansMs: { startMs: number; endMs: number }[]; prompt: string | null }
 ): { text: string; removed: FilteredSegment[] } {
   const removed: FilteredSegment[] = [];
   // Whisper may split a segment inside a word ("Mü" + "ller"); a segment that starts a new word begins
   // with a space, so that space decides how segments are joined.
-  const kept: Array<{ text: string; newWord: boolean }> = [];
+  const kept: { text: string; newWord: boolean }[] = [];
   const normalizedPrompt = context.prompt ? ` ${normalize(context.prompt)} ` : "";
 
   for (const segment of segments) {
@@ -124,13 +124,13 @@ function stripAnnotations(text: string): string {
     .trim();
 }
 
-function totalSpeechMs(spans: Array<{ startMs: number; endMs: number }>): number {
+function totalSpeechMs(spans: { startMs: number; endMs: number }[]): number {
   return spans.reduce((sum, span) => sum + span.endMs - span.startMs, 0);
 }
 
 // Whisper segments start where the previous one ended, so they include the pause before the words;
 // compare absolute overlap with detected speech rather than a ratio.
-function speechOverlapMs(segment: WhisperSegment, spans: Array<{ startMs: number; endMs: number }>): number {
+function speechOverlapMs(segment: WhisperSegment, spans: { startMs: number; endMs: number }[]): number {
   return spans.reduce(
     (sum, span) => sum + Math.max(0, Math.min(segment.endMs, span.endMs) - Math.max(segment.startMs, span.startMs)),
     0

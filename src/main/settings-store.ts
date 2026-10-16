@@ -38,6 +38,7 @@ export class SettingsStore {
       llmCleanupBackend: "auto",
       llmCleanupProvider: "local",
       llmCleanupLevel: "light",
+      llmCleanupCustomPrompts: { light: "", rewrite: "" },
       llmCleanupOpenAiModelId: defaultCloudCleanupModelIds.openai,
       llmCleanupAnthropicModelId: defaultCloudCleanupModelIds.anthropic,
       cloudDictationConsentAccepted: false,

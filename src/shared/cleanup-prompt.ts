@@ -17,6 +17,8 @@ export interface CleanupPromptInput {
   terms: string[];
   /** Text already typed before the cursor in the target app; context only. */
   textBefore?: string;
+  /** Replaces the built-in system prompt for the level when not blank. */
+  customSystemPrompt?: string;
 }
 
 const maxContextChars = 300;
@@ -205,12 +207,19 @@ export function buildCleanupMessages(input: CleanupPromptInput): ChatMessage[] {
   lines.push("", "<transcript>", input.text.trim(), "</transcript>");
 
   return [
-    { role: "system", content: cleanupSystemPrompt(input.level ?? "light") },
+    { role: "system", content: cleanupSystemPrompt(input.level ?? "light", input.customSystemPrompt) },
     { role: "user", content: lines.join("\n") }
   ];
 }
 
-export function cleanupSystemPrompt(level: CleanupLevel): string {
+export function cleanupSystemPrompt(level: CleanupLevel, customSystemPrompt = ""): string {
+  if (customSystemPrompt.trim()) {
+    return customSystemPrompt;
+  }
+  return defaultCleanupSystemPrompt(level);
+}
+
+export function defaultCleanupSystemPrompt(level: CleanupLevel): string {
   return level === "rewrite" ? REWRITE_SYSTEM_PROMPT : CLEANUP_SYSTEM_PROMPT;
 }
 
