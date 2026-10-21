@@ -352,7 +352,8 @@ html.overlay-page #root {
   justify-content: center;
   box-sizing: border-box;
   height: 100vh;
-  padding: 16px;
+  /* Equals overlayShadowMargin; the card's shadow has to fit inside it. */
+  padding: 40px;
 }
 
 .recording-overlay {
@@ -410,12 +411,14 @@ html.overlay-page #root {
   line-height: 1;
 }
 
+/* Fills the pill from the label to the right edge; the canvas draws as many bars as fit. */
 .overlay-meter-canvas {
   display: block;
-  width: 80px;
+  width: 0;
+  min-width: 80px;
   height: 22px;
-  flex: 0 0 80px;
-  margin-left: auto;
+  flex: 1 1 0;
+  margin-left: 6px;
 }
 
 /* Live microphone: a solid dot with a ring that keeps expanding out of it. */

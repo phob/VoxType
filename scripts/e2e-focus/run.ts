@@ -144,6 +144,9 @@ async function checkOverlay(page: RendererPage, blocker: TestWindow, pid: number
     `overlay ${JSON.stringify(listening)}; foreground ${foregroundHwnd()}, blocker ${blocker.hwnd}`);
   captureOverlay(pid, "overlay-listening.png");
   const listeningBackdrop = await opaqueOverlayBackgrounds();
+  const listeningShadow = await shadowRoom();
+  const meterGap = await overlayDom<number>(`Math.round(document.querySelector(".overlay-meter-canvas").getBoundingClientRect().left - document.querySelector(".overlay-status-label").getBoundingClientRect().right)`);
+  check("level meter starts right after the label", meterGap <= 20, `${String(meterGap)} px between "Listening" and the meter`);
   await page.evaluate("window.voxtype.windowsHelper.stopRecording()");
 
   await page.evaluate("window.voxtype.recordingOverlay.showTranscribing()");
@@ -164,8 +167,11 @@ async function checkOverlay(page: RendererPage, blocker: TestWindow, pid: number
     `foreground ${foregroundHwnd()}, blocker ${blocker.hwnd}; overlay ${JSON.stringify(shortWindow)}`);
   captureOverlay(pid, "overlay-error.png");
   const errorBackdrop = await opaqueOverlayBackgrounds();
+  const errorShadow = await shadowRoom();
   check("overlay is transparent around its card", listeningBackdrop.length === 0 && errorBackdrop.length === 0,
     `opaque while listening: ${listeningBackdrop.join(", ") || "none"}; on error: ${errorBackdrop.join(", ") || "none"}`);
+  check("card shadow fits inside the overlay window", listeningShadow.fits && errorShadow.fits,
+    `listening ${listeningShadow.detail}; error ${errorShadow.detail}`);
 
   const longError = `Transcription failed: ${"whisper-server exited with code 3221225477 while loading the model, and whisper-cli could not start either. ".repeat(3)}Check the runtime in Settings.`;
   await page.evaluate(`window.voxtype.recordingOverlay.showError(${JSON.stringify(longError)})`);
@@ -202,6 +208,31 @@ function opaqueOverlayBackgrounds(): Promise<string[]> {
   return overlayDom(`["html", "body", "#root"]
     .map((selector) => \`\${selector} \${getComputedStyle(document.querySelector(selector)).backgroundColor}\`)
     .filter((entry) => !entry.endsWith("rgba(0, 0, 0, 0)"))`);
+}
+
+/**
+ * Whether the card's outer shadows end inside the window; a window edge that cuts a shadow shows as a
+ * faint box around the card. A shadow reaches blur + spread past the card, shifted by its offset.
+ */
+function shadowRoom(): Promise<{ fits: boolean; detail: string }> {
+  return overlayDom(`(() => {
+    const card = document.querySelector(".recording-overlay");
+    const box = card.getBoundingClientRect();
+    const needed = { left: 0, top: 0, right: 0, bottom: 0 };
+    for (const shadow of getComputedStyle(card).boxShadow.split(/,(?![^(]*\\))/)) {
+      if (shadow.includes("inset")) continue;
+      const [x, y, blur, spread] = [...shadow.matchAll(/(-?[\\d.]+)px/g)].map((match) => Number(match[1]));
+      const reach = blur + spread;
+      needed.left = Math.max(needed.left, reach - x);
+      needed.right = Math.max(needed.right, reach + x);
+      needed.top = Math.max(needed.top, reach - y);
+      needed.bottom = Math.max(needed.bottom, reach + y);
+    }
+    const room = { left: box.left, top: box.top, right: window.innerWidth - box.right, bottom: window.innerHeight - box.bottom };
+    const fits = Object.keys(needed).every((side) => room[side] >= needed[side]);
+    const sides = Object.keys(needed).map((side) => side + " " + Math.round(room[side]) + "/" + Math.round(needed[side]));
+    return { fits, detail: "room/needed px: " + sides.join(", ") };
+  })()`);
 }
 
 async function errorCard(): Promise<{ fits: boolean; height: number } | null> {

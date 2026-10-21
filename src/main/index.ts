@@ -67,7 +67,8 @@ const livePreviewOverlayBounds = {
 };
 const errorOverlayWidth = 440;
 const errorOverlayDurationMs = 30_000;
-const overlayShadowMargin = 16;
+// Room for the card's drop shadow (10 px down, 28 px blur); smaller margins clip it into a visible box.
+const overlayShadowMargin = 40;
 // The error card reports its height once rendered (see recording-overlay:fit-error).
 let errorOverlayHeight = 88;
 let errorOverlayTimer: ReturnType<typeof setTimeout> | null = null;
