@@ -56,14 +56,21 @@ const holdToDictateThresholdMs = 700;
 const updateCheckIntervalMs = 60 * 60 * 1000;
 const isDeveloperBuild = !app.isPackaged;
 const hasDevRendererUrl = Boolean(process.env.ELECTRON_RENDERER_URL);
+// Sizes of the overlay card. The window adds a transparent margin for the card's shadow.
 const compactOverlayBounds = {
-  width: 196,
-  height: 30
+  width: 292,
+  height: 44
 };
 const livePreviewOverlayBounds = {
   width: 520,
   height: 180
 };
+const errorOverlayWidth = 440;
+const errorOverlayDurationMs = 30_000;
+const overlayShadowMargin = 16;
+// The error card reports its height once rendered (see recording-overlay:fit-error).
+let errorOverlayHeight = 88;
+let errorOverlayTimer: ReturnType<typeof setTimeout> | null = null;
 const settingsStore = new SettingsStore();
 const dictionaryStore = new DictionaryStore();
 const historyStore = new HistoryStore();
@@ -451,10 +458,11 @@ function createOverlayWindow(): BrowserWindow {
   });
   overlayWindow.setAlwaysOnTop(true, "screen-saver");
   overlayWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+  // Nothing in the overlay is clickable; clicks go to the window underneath.
+  overlayWindow.setIgnoreMouseEvents(true);
   overlayWindow.on("closed", () => {
     overlayWindow = null;
-  });
-  overlayWindow.webContents.once("did-finish-load", () => {
+  });  overlayWindow.webContents.once("did-finish-load", () => {
     sendOverlayState();
   });
   if (hasDevRendererUrl && process.env.ELECTRON_RENDERER_URL) {
@@ -471,16 +479,16 @@ function positionOverlayWindow(): void {
   const bounds = getOverlayWindowBounds();
   const display = screen.getDisplayNearestPoint(screen.getCursorScreenPoint());
   const workArea = display.workArea;
-  const x = Math.round(workArea.x + (workArea.width - bounds.width) / 2);
-  const y = Math.round(workArea.y + workArea.height - bounds.height - 24);
-  window.setBounds({
-    x,
-    y,
-    width: bounds.width,
-    height: bounds.height
-  }, false);
+  const width = bounds.width + overlayShadowMargin * 2;
+  const height = bounds.height + overlayShadowMargin * 2;
+  const x = Math.round(workArea.x + (workArea.width - width) / 2);
+  const y = Math.round(workArea.y + workArea.height - height - 24 + overlayShadowMargin);
+  window.setBounds({ x, y, width, height }, false);
 }
 function getOverlayWindowBounds(): { width: number; height: number } {
+  if (overlayState.mode === "error") {
+    return { width: errorOverlayWidth, height: errorOverlayHeight };
+  }
   return hasLivePreviewText(overlayState) ? livePreviewOverlayBounds : compactOverlayBounds;
 }
 function hasLivePreviewText(state: RecordingOverlayState): boolean {
@@ -489,6 +497,7 @@ function hasLivePreviewText(state: RecordingOverlayState): boolean {
   ) ?? false;
 }
 function showOverlay(next: Partial<RecordingOverlayState>): void {
+  clearErrorOverlayTimer();
   overlayState = {
     ...overlayState,
     ...next,
@@ -516,7 +525,24 @@ function updateOverlay(next: Partial<RecordingOverlayState>): void {
   }
   sendOverlayState();
 }
+/** Shows a failed dictation for errorOverlayDurationMs, or until the next dictation starts. */
+function showErrorOverlay(message: string): void {
+  showOverlayMode("error", message, {
+    errorShownAtMs: Date.now(),
+    cloudProviderLabel: undefined,
+    elapsedMs: undefined,
+    livePreviewTurns: undefined
+  });
+  errorOverlayTimer = setTimeout(hideOverlay, errorOverlayDurationMs);
+}
+function clearErrorOverlayTimer(): void {
+  if (errorOverlayTimer) {
+    clearTimeout(errorOverlayTimer);
+    errorOverlayTimer = null;
+  }
+}
 function hideOverlay(): void {
+  clearErrorOverlayTimer();
   overlayState = {
     ...overlayState,
     visible: false,
@@ -1129,8 +1155,20 @@ ipcMain.handle("recording-overlay:show-transcribing", (_event, state?: Partial<R
 ipcMain.handle("recording-overlay:show-finalizing", (_event, state?: Partial<RecordingOverlayState>) => {
   showOverlayMode("finalizing", "Finalizing", state);
 });
+ipcMain.handle("recording-overlay:show-error", (_event, message: string) => {
+  showErrorOverlay(message);
+});
+ipcMain.handle("recording-overlay:fit-error", (_event, height: number) => {
+  errorOverlayHeight = Math.min(Math.max(Math.ceil(height), 56), 320);
+  if (overlayState.mode === "error" && overlayWindow && !overlayWindow.isDestroyed()) {
+    positionOverlayWindow();
+  }
+});
 ipcMain.handle("recording-overlay:hide", () => {
-  hideOverlay();
+  // A failed dictation reports its error and then hides the overlay as it ends; the error stays up.
+  if (overlayState.mode !== "error") {
+    hideOverlay();
+  }
 });
 ipcMain.handle("recording-overlay:get-state", () => overlayState);
 void app.whenReady().then(async () => {

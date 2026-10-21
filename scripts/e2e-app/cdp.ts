@@ -9,14 +9,15 @@ export interface RendererPage {
   quitApp(): Promise<void>;
 }
 
-export async function connectToRenderer(port: number): Promise<RendererPage> {
+/** `kind: "overlay"` attaches to the recording overlay, which only exists while it is shown. */
+export async function connectToRenderer(port: number, kind: "main" | "overlay" = "main"): Promise<RendererPage> {
   const targets = await waitFor(async () => {
     const response = await fetch(`http://127.0.0.1:${String(port)}/json/list`).catch(() => null);
     const list = response?.ok ? ((await response.json()) as Array<{ type: string; url: string; webSocketDebuggerUrl: string }>) : [];
-    return list.find((target) => target.type === "page" && target.url.includes("index.html") && !target.url.includes("overlay")) ?? null;
+    return list.find((target) => target.type === "page" && target.url.includes("index.html") && target.url.includes("overlay") === (kind === "overlay")) ?? null;
   }, 30_000);
   if (!targets) {
-    throw new Error("VoxType window did not appear on the DevTools port.");
+    throw new Error(`VoxType ${kind} window did not appear on the DevTools port.`);
   }
 
   // The page target can refuse the first connection while the window is still loading.
@@ -66,12 +67,17 @@ export async function connectToRenderer(port: number): Promise<RendererPage> {
   };
 }
 
+type Waiter = { resolve: (value: unknown) => void; reject: (error: Error) => void };
+
 let nextId = 1;
-const pending = new Map<number, { resolve: (value: unknown) => void; reject: (error: Error) => void }>();
+// Per socket: a socket that closes (such as a refused first attempt) must only fail its own calls.
+const pendingBySocket = new WeakMap<WebSocket, Map<number, Waiter>>();
 
 function openSocket(url: string): Promise<WebSocket> {
   return new Promise((resolveSocket, reject) => {
     const socket = new WebSocket(url);
+    const pending = new Map<number, Waiter>();
+    pendingBySocket.set(socket, pending);
     socket.addEventListener("open", () => resolveSocket(socket));
     socket.addEventListener("error", () => reject(new Error(`CDP socket failed: ${url}`)));
     // Without this, a call in flight when the app dies waits forever.
@@ -99,7 +105,8 @@ function openSocket(url: string): Promise<WebSocket> {
 function send<T>(socket: WebSocket, method: string, params: Record<string, unknown>): Promise<T> {
   const id = nextId++;
   return new Promise<T>((resolveReply, reject) => {
-    if (socket.readyState !== WebSocket.OPEN) {
+    const pending = pendingBySocket.get(socket);
+    if (socket.readyState !== WebSocket.OPEN || !pending) {
       reject(new Error(`CDP socket is not open (${method}).`));
       return;
     }

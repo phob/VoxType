@@ -117,9 +117,11 @@ export interface NativeRecordingDiagnostics {
 
 export interface RecordingOverlayState {
   visible: boolean;
-  mode: "recording" | "transcribing" | "finalizing";
+  mode: "recording" | "transcribing" | "finalizing" | "error";
   level: number;
   message: string;
+  /** When the current error was shown; restarts its countdown when the same message repeats. */
+  errorShownAtMs?: number;
   cloudProviderLabel?: string;
   elapsedMs?: number;
   livePreviewTurns?: TranscriptTurn[];

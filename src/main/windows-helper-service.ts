@@ -128,6 +128,8 @@ export class WindowsHelperService {
 
     await execFileAsync(helperPath, ["paste-text", String(pasteDelayMs)], {
       windowsHide: true
+    }).catch((error: unknown) => {
+      throw helperCommandError(error);
     });
   }
 
@@ -176,6 +178,8 @@ export class WindowsHelperService {
 
     await execFileAsync(helperPath, ["focus-window", hwnd], {
       windowsHide: true
+    }).catch((error: unknown) => {
+      throw helperCommandError(error);
     });
   }
 
@@ -1320,6 +1324,22 @@ function nativeCaptureModeArg(mode: NativeRecordingOptions["captureMode"]): stri
 
 function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
+}
+
+/** execFile reports "Command failed: <path> <args>"; the helper's reason is the JSON on its stdout. */
+function helperCommandError(error: unknown): Error {
+  const stdout = typeof error === "object" && error !== null && "stdout" in error ? String(error.stdout) : "";
+
+  try {
+    const parsed: unknown = JSON.parse(stdout);
+    if (typeof parsed === "object" && parsed !== null && "error" in parsed && typeof parsed.error === "string") {
+      return new Error(parsed.error, { cause: error });
+    }
+  } catch {
+    // Not the helper's JSON error; keep execFile's message.
+  }
+
+  return error instanceof Error ? error : new Error(String(error));
 }
 
 function waitForHelperStartup(

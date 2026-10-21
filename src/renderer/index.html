@@ -4,6 +4,13 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>VoxType</title>
+    <script>
+      // The recording overlay loads this page in a transparent window; mark it before the first paint
+      // so neither the page background nor the app's boot skeleton ever shows there.
+      if (new URLSearchParams(location.search).get("overlay") === "1") {
+        document.documentElement.classList.add("overlay-page");
+      }
+    </script>
     <style>
       :root {
         color-scheme: dark;
@@ -174,6 +181,15 @@
           transform: scale(1);
           opacity: 1;
         }
+      }
+
+      html.overlay-page,
+      html.overlay-page body {
+        background: transparent;
+      }
+
+      html.overlay-page .boot-shell {
+        display: none;
       }
     </style>
   </head>

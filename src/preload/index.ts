@@ -246,6 +246,8 @@ const voxtype = {
       invokeVoid("recording-overlay:show-transcribing", state),
     showFinalizing: (state?: Partial<RecordingOverlayState>) =>
       invokeVoid("recording-overlay:show-finalizing", state),
+    showError: (message: string) => invokeVoid("recording-overlay:show-error", message),
+    fitError: (height: number) => invokeVoid("recording-overlay:fit-error", height),
     hide: () => invokeVoid("recording-overlay:hide"),
     getState: () =>
       invoke<RecordingOverlayState>("recording-overlay:get-state"),

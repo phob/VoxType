@@ -70,7 +70,7 @@
     use windows::Win32::UI::WindowsAndMessaging::{
         EnumChildWindows, GetClassNameW, GetForegroundWindow, GetGUIThreadInfo, GetSystemMetrics,
         GetWindowRect, GetWindowTextLengthW, GetWindowTextW, GetWindowThreadProcessId, IsChild,
-        IsIconic, IsWindowVisible, SendMessageTimeoutW, SetForegroundWindow, ShowWindow,
+        IsIconic, IsWindow, IsWindowVisible, SendMessageTimeoutW, SetForegroundWindow, ShowWindow,
         GUITHREADINFO, SMTO_ABORTIFHUNG, SM_CXVIRTUALSCREEN, SM_CYVIRTUALSCREEN, SM_XVIRTUALSCREEN,
         SM_YVIRTUALSCREEN, SW_RESTORE, WM_CHAR,
     };
@@ -254,16 +254,35 @@
         let hwnd = parse_hwnd(hwnd)?;
 
         unsafe {
+            if !IsWindow(Some(hwnd)).as_bool() {
+                return Err("The target window was closed.".to_string());
+            }
+
             if IsIconic(hwnd).as_bool() {
                 let _ = ShowWindow(hwnd, SW_RESTORE);
             }
 
-            if SetForegroundWindow(hwnd).as_bool() == false {
-                return Err("Failed to focus target window.".to_string());
+            if GetForegroundWindow() == hwnd || SetForegroundWindow(hwnd).as_bool() {
+                return Ok(());
+            }
+
+            // The foreground lock only lets the process that sent the last input take the foreground.
+            // Tapping the unassigned mask key makes this process that one without side effects.
+            let mut inputs = [menu_mask_input(false), menu_mask_input(true)];
+            SendInput(&mut inputs, std::mem::size_of::<INPUT>() as i32);
+
+            if SetForegroundWindow(hwnd).as_bool() {
+                return Ok(());
             }
         }
 
-        Ok(())
+        let foreground = unsafe { GetForegroundWindow() };
+        let foreground_process = get_process_path(get_process_id(foreground))
+            .and_then(|path| path.rsplit(['\\', '/']).next().map(ToOwned::to_owned))
+            .unwrap_or_else(|| "unknown".to_string());
+        Err(format!(
+            "Windows did not allow focusing the target window ({foreground_process} stayed in front)."
+        ))
     }
 
     pub fn set_system_mute(muted: bool) -> Result<(), String> {

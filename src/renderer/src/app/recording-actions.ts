@@ -25,7 +25,7 @@ export function useRecordingActions(ctx: RecordingActionContext): RecordingActio
     );
 
     if (!readiness.ready) {
-      setError(readiness.reason ?? "Dictation is not ready.");
+      reportDictationError(readiness.reason ?? "Dictation is not ready.");
       return;
     }
 
@@ -41,7 +41,7 @@ export function useRecordingActions(ctx: RecordingActionContext): RecordingActio
           )?.status === "downloaded";
 
     if (!readiness.cloud && !localModelDownloaded) {
-      setError(`Download ${readinessMode.label} (${readinessMode.modelId}) before recording.`);
+      reportDictationError(`Download ${readinessMode.label} (${readinessMode.modelId}) before recording.`);
       return;
     }
 
@@ -99,7 +99,7 @@ export function useRecordingActions(ctx: RecordingActionContext): RecordingActio
       }
       const coordinationError = await stopRecordingCoordination();
       const unmuteError = await unmuteSystemAudio();
-      setError(
+      reportDictationError(
         joinErrors(
           joinErrors(joinErrors(formatError(recordingError), recorderStopError), coordinationError),
           unmuteError
@@ -226,7 +226,7 @@ export function useRecordingActions(ctx: RecordingActionContext): RecordingActio
       const unmuteError = await unmuteSystemAudio();
       const cleanupError = joinErrors(joinErrors(stopError ?? "", coordinationError), unmuteError).trim();
       if (cleanupError) {
-        setError(cleanupError);
+        reportDictationError(cleanupError);
       }
     } finally {
       await window.voxtype.recordingOverlay.hide();
@@ -315,16 +315,7 @@ export function useRecordingActions(ctx: RecordingActionContext): RecordingActio
       if (coordinationError) {
         setError(coordinationError);
       }
-      if (state.settings?.insertionMode === "clipboard" && !options?.pasteTarget?.hwnd) {
-        await window.voxtype.insertion.copy(entry.text);
-      } else if (options?.pasteTarget?.hwnd) {
-        await window.voxtype.insertion.insertWindow(
-          entry.text,
-          options.pasteTarget.hwnd,
-          options.pasteTarget.processName
-        );
-        await sendProfilePostTranscriptionHotkey(options.pasteTarget.processName);
-      }
+      // The entry is already saved; show it before inserting so a failed insert still lists it.
       const [runtime, sherpaRuntimes, history, dictionary] = await Promise.all([
         window.voxtype.runtime.getWhisper(),
         window.voxtype.sherpaRuntime.list(),
@@ -338,17 +329,35 @@ export function useRecordingActions(ctx: RecordingActionContext): RecordingActio
         dictionary,
         history: history.length > 0 ? history : [entry, ...current.history]
       }));
+      if (state.settings?.insertionMode === "clipboard" && !options?.pasteTarget?.hwnd) {
+        await window.voxtype.insertion.copy(entry.text);
+      } else if (options?.pasteTarget?.hwnd) {
+        await window.voxtype.insertion.insertWindow(
+          entry.text,
+          options.pasteTarget.hwnd,
+          options.pasteTarget.processName
+        ).catch((insertError: unknown) => {
+          throw new Error(`${formatError(insertError)} The transcript is in the history.`, { cause: insertError });
+        });
+        await sendProfilePostTranscriptionHotkey(options.pasteTarget.processName);
+      }
     } catch (transcriptionError) {
       if (stopReadinessModeId === "openai.realtime") {
         await window.voxtype.transcription.cancelRealtime("Realtime Cloud Dictation cancelled after finalization failed.").catch(() => undefined);
       }
       const coordinationError = await stopRecordingCoordination();
       const unmuteError = await unmuteSystemAudio();
-      setError(joinErrors(joinErrors(formatError(transcriptionError), coordinationError), unmuteError));
+      reportDictationError(joinErrors(joinErrors(formatError(transcriptionError), coordinationError), unmuteError));
     } finally {
       await window.voxtype.recordingOverlay.hide();
       setBusyMessage(null);
     }
+  }
+
+  /** Dictation runs while the user works in another app, so a failure is also shown in the overlay. */
+  function reportDictationError(message: string): void {
+    setError(message);
+    void window.voxtype.recordingOverlay.showError(message);
   }
 
   async function startRecordingCoordination(settings: AppSettings | null): Promise<void> {

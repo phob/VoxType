@@ -1,9 +1,3 @@
-@media (prefers-reduced-motion: reduce) {
-  .overlay-activity {
-    animation: none;
-  }
-}
-
 .inline-error {
   display: grid;
   grid-template-columns: auto 1fr;

@@ -41,9 +41,14 @@ export class InsertionService {
     hwnd: string,
     options?: InsertOptions
   ): Promise<void> {
-    await this.windowsHelperService.focusWindow(hwnd);
-    await wait(FOCUS_SETTLE_DELAY_MS);
-    await this.insertText(text, { ...options, hwnd });
+    try {
+      await this.windowsHelperService.focusWindow(hwnd);
+      await wait(FOCUS_SETTLE_DELAY_MS);
+      await this.insertText(text, { ...options, hwnd });
+    } catch (error) {
+      const target = options?.processName ?? "the target app";
+      throw new Error(`Could not insert the transcript into ${target}: ${formatInsertionError(error)}`, { cause: error });
+    }
   }
 
   async pasteIntoActiveApp(text: string): Promise<void> {

@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState, type ReactElement, type ReactNode } from "react";
-import { ArrowRight, BookOpen, Box, Check, ChevronDown, Cloud, Code2, FileText, History, Home, Keyboard, Minus, Settings, ShieldCheck, UserPlus, X, Zap, type LucideIcon } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState, type ReactElement, type ReactNode } from "react";
+import { AlertCircle, ArrowRight, BookOpen, Box, Check, ChevronDown, Cloud, Code2, FileText, History, Home, Keyboard, Minus, Settings, ShieldCheck, UserPlus, X, Zap, type LucideIcon } from "lucide-react";
 import { buildWhisperPromptContext } from "../../../shared/prompt-context";
 import { type DictionaryEntry } from "../../../shared/dictionary";
 import { type HardwareAccelerationReport } from "../../../shared/hardware";
@@ -56,7 +56,9 @@ export function getOpenAiCredentialStatusText(status: OpenAiCredentialStatus | n
 }
 
 export function formatError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+  const message = error instanceof Error ? error.message : String(error);
+  // Electron wraps errors thrown by IPC handlers in "Error invoking remote method '<channel>': Error: ".
+  return message.replace(/^Error invoking remote method '[^']*': (?:\w*Error: )?/, "");
 }
 
 export function appHotkeyEntries(settings: AppSettings | null): {
@@ -307,11 +309,15 @@ export function formatBytes(value: number | null | undefined): string {
 }
 
 export function formatElapsedCloudSession(elapsedMs: number): string {
+  return `Cloud Dictation ${formatElapsed(elapsedMs)}`;
+}
+
+function formatElapsed(elapsedMs: number): string {
   const totalSeconds = Math.max(0, Math.floor(elapsedMs / 1000));
   const minutes = Math.floor(totalSeconds / 60);
   const seconds = totalSeconds % 60;
 
-  return `Cloud Dictation ${String(minutes)}:${seconds.toString().padStart(2, "0")}`;
+  return `${String(minutes)}:${seconds.toString().padStart(2, "0")}`;
 }
 
 export function RecordingOverlay({ state }: { state: RecordingOverlayState }): ReactElement {
@@ -445,7 +451,7 @@ export function RecordingOverlay({ state }: { state: RecordingOverlayState }): R
       const normalized = Math.min(Math.max(energy * 1.75, 0), 1);
       const history = meterHistoryRef.current;
       const barWidth = Math.max(2, Math.round(3 * scale));
-      const gap = Math.max(2, Math.round(3 * scale));
+      const gap = Math.max(2, Math.round(2 * scale));
       const maxBars = Math.max(1, Math.floor(width / (barWidth + gap)));
 
       if (timestamp - meterSampleAtRef.current >= 110) {
@@ -468,6 +474,10 @@ export function RecordingOverlay({ state }: { state: RecordingOverlayState }): R
     };
   }, [state.mode]);
 
+  if (state.mode === "error") {
+    return <OverlayError message={state.message} shownAtMs={state.errorShownAtMs ?? 0} />;
+  }
+
   const statusLabel =
     state.mode === "recording"
       ? state.cloudProviderLabel ?? "Listening"
@@ -478,31 +488,48 @@ export function RecordingOverlay({ state }: { state: RecordingOverlayState }): R
   const hasPreviewText = previewTurns.some((turn) =>
     Boolean((turn.finalText ?? turn.provisionalText ?? "").trim())
   );
-  const elapsedLabel =
-    typeof state.elapsedMs === "number" ? formatElapsedCloudSession(state.elapsedMs) : null;
+  const elapsedLabel = typeof state.elapsedMs === "number" ? formatElapsed(state.elapsedMs) : null;
 
   return (
     <main className={`recording-overlay${hasPreviewText ? " recording-overlay-live" : ""}`} aria-label={statusLabel}>
       {state.mode === "recording" ? (
-        <>
-          <div className="overlay-status-row">
-            <span className="overlay-status-dot" aria-hidden="true" />
-            <span className="overlay-status-label">{elapsedLabel ?? statusLabel}</span>
-            <canvas
-              ref={canvasRef}
-              aria-label="Input gain timeline"
-              className="overlay-meter-canvas"
-            />
-          </div>
-          {previewTurns.length > 0 ? <LivePreview turns={previewTurns} /> : null}
-        </>
+        <div className="overlay-status-row">
+          <span className="overlay-live-dot" aria-hidden="true" />
+          <span className="overlay-status-label">{statusLabel}</span>
+          {elapsedLabel ? <span className="overlay-elapsed">{elapsedLabel}</span> : null}
+          <canvas ref={canvasRef} aria-label="Input level" className="overlay-meter-canvas" />
+        </div>
       ) : (
-        <div className="overlay-transcribing">
-          <span className="overlay-activity" aria-hidden="true" />
-          <span>{statusLabel}</span>
-          {previewTurns.length > 0 ? <LivePreview turns={previewTurns} /> : null}
+        <div className="overlay-status-row overlay-status-working">
+          <span className="overlay-spinner" aria-hidden="true" />
+          <span className="overlay-status-label overlay-shimmer">{statusLabel}</span>
         </div>
       )}
+      {previewTurns.length > 0 ? <LivePreview turns={previewTurns} /> : null}
+    </main>
+  );
+}
+
+function OverlayError({ message, shownAtMs }: { message: string; shownAtMs: number }): ReactElement {
+  const cardRef = useRef<HTMLElement | null>(null);
+
+  // The window is sized by the main process; tell it how tall this message turned out.
+  useLayoutEffect(() => {
+    if (cardRef.current) {
+      void window.voxtype.recordingOverlay.fitError(cardRef.current.offsetHeight);
+    }
+  }, [message]);
+
+  return (
+    <main className="recording-overlay recording-overlay-error" ref={cardRef} role="alert">
+      <span className="overlay-error-icon" aria-hidden="true">
+        <AlertCircle />
+      </span>
+      <div className="overlay-error-body">
+        <strong>Dictation failed</strong>
+        <p>{message}</p>
+      </div>
+      <span className="overlay-error-countdown" key={shownAtMs} aria-hidden="true" />
     </main>
   );
 }
@@ -550,55 +577,37 @@ export function paintMeter(
   gap: number,
   scale: number
 ): void {
-  const baselineHeight = Math.max(2, Math.round(2 * scale));
-  const paddingX = Math.round(2 * scale);
-  const paddingTop = Math.round(1 * scale);
-  const paddingBottom = Math.round(2 * scale);
-  const meterHeight = height - paddingTop - paddingBottom;
-  const baselineY = height - paddingBottom;
+  // Bars grow from the vertical center, newest on the right; older bars fade towards the left edge.
+  const minBarHeight = barWidth;
+  const centerY = height / 2;
+  const totalStep = barWidth + gap;
+  const startX = width - levels.length * totalStep;
 
   context.clearRect(0, 0, width, height);
-  context.fillStyle = "rgba(13, 22, 29, 0.96)";
-  context.fillRect(0, 0, width, height);
-
-  const gridColor = "rgba(75, 91, 107, 0.32)";
-  context.strokeStyle = gridColor;
-  context.lineWidth = Math.max(1, scale);
-
-  for (const threshold of [0.36, 0.7]) {
-    const y = baselineY - meterHeight * threshold;
-    context.beginPath();
-    context.moveTo(paddingX, y);
-    context.lineTo(width - paddingX, y);
-    context.stroke();
-  }
-
-  const totalStep = barWidth + gap;
-  const startX = width - paddingX - levels.length * totalStep;
 
   levels.forEach((level, index) => {
     const x = startX + index * totalStep;
-    const quiet = level < 0.018;
-    const shaped = Math.pow(level, 0.58);
-    const dynamicHeight = quiet ? baselineHeight : Math.max(baselineHeight, meterHeight * shaped);
-    const y = baselineY - dynamicHeight;
+    const shaped = level < 0.018 ? 0 : Math.pow(level, 0.58);
+    const barHeight = Math.max(minBarHeight, (height - 2 * scale) * shaped);
 
+    context.globalAlpha = 0.25 + 0.75 * Math.max(0, x / width);
     context.fillStyle = meterColor(level);
-    roundRect(context, x, y, barWidth, dynamicHeight, Math.max(2, barWidth / 2));
+    roundRect(context, x, centerY - barHeight / 2, barWidth, barHeight, barWidth / 2);
     context.fill();
   });
+  context.globalAlpha = 1;
 }
 
 export function meterColor(level: number): string {
   if (level > 0.78) {
-    return "#ff6262";
+    return "#ff6b6b";
   }
 
   if (level > 0.46) {
-    return "#ffcf99";
+    return "#ffc46b";
   }
 
-  return "#37d7a0";
+  return "#3ee0d3";
 }
 
 export function roundRect(
@@ -609,10 +618,8 @@ export function roundRect(
   height: number,
   radius: number
 ): void {
-  void radius;
-
   context.beginPath();
-  context.rect(x, y, width, height);
+  context.roundRect(x, y, width, height, radius);
   context.closePath();
 }
 
