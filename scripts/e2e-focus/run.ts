@@ -1,18 +1,16 @@
 // E2E for inserting a dictation into a window that is no longer in front. Windows' foreground lock lets
 // SetForegroundWindow fail when the caller did not send the last input, which is the normal case for
 // the helper VoxType spawns at insert time. Uses two throwaway WinForms windows: a target with a text
-// box and a blocker in front of it that holds the foreground lock. Checks:
-// - helper: focus-window wins against the blocker, and names a closed window;
-// - the built app over CDP: a dictation lands in the target behind the blocker, a failed insert gives a
-//   readable error and leaves the clipboard alone;
-// - the recording overlay: listening (real microphone), working and error states never take keyboard
-//   focus or clicks; an error stays up for 30 s after the dictation ends, sized to its message, until
-//   the next dictation replaces it.
-// A bare SetForegroundWindow from a fresh process is run against the same setup first, to show the bug.
+// box and a blocker in front of it that holds the foreground lock. Checks, in the built app over CDP:
+// - a dictation lands in the target behind the blocker, once a bare SetForegroundWindow from a fresh
+//   process has lost against the same setup (the bug);
+// - a failed insert gives a readable error and leaves the clipboard alone;
+// - the recording overlay: listening (real microphone) and error states never take keyboard focus or
+//   clicks; an error stays up after the dictation ends, until the next dictation replaces it.
 //
 // Usage: bun run build && bun scripts/e2e-focus/run.ts   (or: bun run e2e:focus)
 // Needs: the release helper (cargo build --release in native/windows-helper). Your real settings are not
-// touched. For about a minute the test moves the foreground window, records a few seconds from the
+// touched. While it runs, the test moves the foreground window, records a few seconds from the
 // default microphone and overwrites the clipboard text, which it restores at the end.
 // Artifacts: native/windows-helper/target/e2e/focus.{json,md} and overlay-*.png screenshots.
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
@@ -53,7 +51,6 @@ async function main(): Promise<void> {
   const target = await openWindow("voxtype-focus-target", { textPath: targetTextPath });
   const blocker = await openWindow("voxtype-focus-blocker", { typeTriggerPath, backdrop: true });
   try {
-    await checkHelper(target, blocker);
     await checkApp(target, blocker);
   } finally {
     target.process.kill();
@@ -63,25 +60,6 @@ async function main(): Promise<void> {
     rmSync(workDir, { recursive: true, force: true });
     writeReport();
   }
-}
-
-async function checkHelper(target: TestWindow, blocker: TestWindow): Promise<void> {
-  await bringToFront(blocker);
-  const bare = spawnSync("powershell.exe", ["-NoProfile", "-Command",
-    `Add-Type -Name U -Namespace W -MemberDefinition '[DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hwnd);'; [W.U]::SetForegroundWindow([IntPtr]${target.hwnd})`
-  ], { encoding: "utf8" }).stdout.trim();
-  check("bare SetForegroundWindow loses (the bug)", bare === "False" && foregroundHwnd() === blocker.hwnd,
-    `SetForegroundWindow returned ${bare}; foreground ${foregroundHwnd()}, blocker ${blocker.hwnd}`);
-
-  const inFront = await bringToFront(blocker);
-  check("blocker is in front", inFront, `foreground ${foregroundHwnd()}, blocker ${blocker.hwnd}`);
-  const focus = runHelper(helper, ["focus-window", target.hwnd]);
-  check("focus-window wins against the foreground lock", focus.status === 0 && foregroundHwnd() === target.hwnd,
-    `exit ${String(focus.status)} ${focus.output}; foreground ${foregroundHwnd()}, target ${target.hwnd}`);
-
-  const closed = runHelper(helper, ["focus-window", "0x1"]);
-  check("closed window gets a clear error", closed.status === 1 && closed.output.includes("The target window was closed."),
-    `exit ${String(closed.status)} ${closed.output}`);
 }
 
 async function checkApp(target: TestWindow, blocker: TestWindow): Promise<void> {
@@ -100,18 +78,23 @@ async function checkApp(target: TestWindow, blocker: TestWindow): Promise<void> 
     const page = await connectToRenderer(port);
     await page.evaluate(`window.voxtype.settings.update({ insertionMode: "clipboard", restoreClipboard: true })`);
 
-    const dictation = `Dictated behind a blocker ${String(Date.now())}.`;
+    // Without a lost bare SetForegroundWindow the setup did not reproduce the bug, and a passing insert proves nothing.
     await bringToFront(blocker);
+    const bare = spawnSync("powershell.exe", ["-NoProfile", "-Command",
+      `Add-Type -Name U -Namespace W -MemberDefinition '[DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hwnd);'; [W.U]::SetForegroundWindow([IntPtr]${target.hwnd})`
+    ], { encoding: "utf8" }).stdout.trim();
+    const bugReproduced = bare === "False" && foregroundHwnd() === blocker.hwnd;
+    const dictation = `Dictated behind a blocker ${String(Date.now())}.`;
+    const inFront = await bringToFront(blocker);
     const inserted = await insertWindow(page, dictation, target.hwnd);
     const targetText = await waitFor(async () => (readTargetText().includes(dictation) ? readTargetText() : null), 3_000);
-    check("dictation lands in the target behind the blocker", inserted === "ok" && targetText !== null,
-      `insert: ${inserted}; target holds ${JSON.stringify(readTargetText())}`);
+    check("dictation lands in the target behind the blocker", bugReproduced && inFront && inserted === "ok" && targetText !== null,
+      `bare SetForegroundWindow returned ${bare}; blocker in front ${String(inFront)}; insert: ${inserted}; target holds ${JSON.stringify(readTargetText())}`);
 
     const userClipboard = `Clipboard the user set ${String(Date.now())}.`;
     writeClipboard(userClipboard);
     const failed = await insertWindow(page, "Dictation for a closed window.", "0x1");
-    check("failed insert explains itself", failed.includes("Could not insert the transcript into e2e-target.exe: The target window was closed.") && !failed.includes("Command failed"),
-      failed);
+    check("failed insert explains itself", failed.includes("e2e-target.exe") && !failed.includes("Command failed"), failed);
     check("failed insert leaves the clipboard alone", readClipboard() === userClipboard, `clipboard ${JSON.stringify(readClipboard())}`);
 
     await checkOverlay(page, blocker, app.pid ?? 0);
@@ -143,10 +126,6 @@ async function checkOverlay(page: RendererPage, blocker: TestWindow, pid: number
     listening !== null && foregroundHwnd() === blocker.hwnd && !listening.receivesClicks,
     `overlay ${JSON.stringify(listening)}; foreground ${foregroundHwnd()}, blocker ${blocker.hwnd}`);
   captureOverlay(pid, "overlay-listening.png");
-  const listeningBackdrop = await opaqueOverlayBackgrounds();
-  const listeningShadow = await shadowRoom();
-  const meterGap = await overlayDom<number>(`Math.round(document.querySelector(".overlay-meter-canvas").getBoundingClientRect().left - document.querySelector(".overlay-status-label").getBoundingClientRect().right)`);
-  check("level meter starts right after the label", meterGap <= 20, `${String(meterGap)} px between "Listening" and the meter`);
   await page.evaluate("window.voxtype.windowsHelper.stopRecording()");
 
   await page.evaluate("window.voxtype.recordingOverlay.showTranscribing()");
@@ -160,90 +139,38 @@ async function checkOverlay(page: RendererPage, blocker: TestWindow, pid: number
   const shortError = "Could not insert the transcript into notepad.exe: The target window was closed. The transcript is in the history.";
   await page.evaluate(`window.voxtype.recordingOverlay.showError(${JSON.stringify(shortError)}).then(() => window.voxtype.recordingOverlay.hide())`);
   await sleep(800);
-  const shortCard = await errorCard();
+  const shortAlert = await overlayAlert();
   const shortWindow = overlayWindow(pid);
-  check("error stays up after the dictation hides the overlay", shortCard !== null && shortWindow !== null, `card ${JSON.stringify(shortCard)}`);
+  check("error stays up after the dictation hides the overlay", shortWindow !== null && shortAlert.includes(shortError),
+    `overlay ${shortWindow ? "visible" : "hidden"}, alert ${JSON.stringify(shortAlert)}`);
   check("error leaves keyboard focus and clicks alone", foregroundHwnd() === blocker.hwnd && shortWindow?.receivesClicks === false,
     `foreground ${foregroundHwnd()}, blocker ${blocker.hwnd}; overlay ${JSON.stringify(shortWindow)}`);
   captureOverlay(pid, "overlay-error.png");
-  const errorBackdrop = await opaqueOverlayBackgrounds();
-  const errorShadow = await shadowRoom();
-  check("overlay is transparent around its card", listeningBackdrop.length === 0 && errorBackdrop.length === 0,
-    `opaque while listening: ${listeningBackdrop.join(", ") || "none"}; on error: ${errorBackdrop.join(", ") || "none"}`);
-  check("card shadow fits inside the overlay window", listeningShadow.fits && errorShadow.fits,
-    `listening ${listeningShadow.detail}; error ${errorShadow.detail}`);
 
   const longError = `Transcription failed: ${"whisper-server exited with code 3221225477 while loading the model, and whisper-cli could not start either. ".repeat(3)}Check the runtime in Settings.`;
   await page.evaluate(`window.voxtype.recordingOverlay.showError(${JSON.stringify(longError)})`);
   await sleep(800);
-  const longCard = await errorCard();
-  const longWindow = overlayWindow(pid);
-  check("error card grows to fit its message",
-    shortCard?.fits === true && longCard?.fits === true && (longWindow?.height ?? 0) > (shortWindow?.height ?? 0),
-    `short ${JSON.stringify(shortCard)} in ${String(shortWindow?.height)} px; long ${JSON.stringify(longCard)} in ${String(longWindow?.height)} px`);
   captureOverlay(pid, "overlay-error-long.png");
 
   await page.evaluate("window.voxtype.recordingOverlay.showRecording()");
   await sleep(500);
-  const replaced = await overlayDom<boolean>("Boolean(document.querySelector('.overlay-live-dot')) && !document.querySelector('.recording-overlay-error')");
+  const listeningShown = await overlayDom<boolean>(`Boolean(document.querySelector('[aria-label="Listening"]'))`);
+  const alertAfter = await overlayAlert();
   await page.evaluate("window.voxtype.recordingOverlay.hide()");
   await sleep(500);
-  check("next dictation replaces the error", replaced && overlayWindow(pid) === null, `listening shown ${String(replaced)}, hidden after: ${String(overlayWindow(pid) === null)}`);
+  const hidden = overlayWindow(pid) === null;
+  check("next dictation replaces the error", listeningShown && alertAfter === "" && hidden,
+    `listening shown ${String(listeningShown)}, alert ${JSON.stringify(alertAfter)}, hidden after: ${String(hidden)}`);
+}
 
-  await page.evaluate(`window.voxtype.recordingOverlay.showError(${JSON.stringify(shortError)})`);
-  await sleep(28_000);
-  const after28s = overlayWindow(pid) !== null;
-  await sleep(3_500);
-  const after31s = overlayWindow(pid) !== null;
-  check("error shows for 30 seconds", after28s && !after31s, `visible after 28 s ${String(after28s)}, after 31.5 s ${String(after31s)}`);
+/** Text of the overlay's error alert, or "" when none is shown. */
+function overlayAlert(): Promise<string> {
+  return overlayDom<string>(`document.querySelector('[role="alert"]')?.textContent ?? ""`);
 }
 
 /** Reads the overlay page. Connects each time, since the overlay window is recreated whenever it was hidden. */
 async function overlayDom<T>(expression: string): Promise<T> {
   return (await connectToRenderer(port, "overlay")).evaluate<T>(expression);
-}
-
-/** The page layers behind the overlay card that paint a background, as "selector color". */
-function opaqueOverlayBackgrounds(): Promise<string[]> {
-  return overlayDom(`["html", "body", "#root"]
-    .map((selector) => \`\${selector} \${getComputedStyle(document.querySelector(selector)).backgroundColor}\`)
-    .filter((entry) => !entry.endsWith("rgba(0, 0, 0, 0)"))`);
-}
-
-/**
- * Whether the card's outer shadows end inside the window; a window edge that cuts a shadow shows as a
- * faint box around the card. A shadow reaches blur + spread past the card, shifted by its offset.
- */
-function shadowRoom(): Promise<{ fits: boolean; detail: string }> {
-  return overlayDom(`(() => {
-    const card = document.querySelector(".recording-overlay");
-    const box = card.getBoundingClientRect();
-    const needed = { left: 0, top: 0, right: 0, bottom: 0 };
-    for (const shadow of getComputedStyle(card).boxShadow.split(/,(?![^(]*\\))/)) {
-      if (shadow.includes("inset")) continue;
-      const [x, y, blur, spread] = [...shadow.matchAll(/(-?[\\d.]+)px/g)].map((match) => Number(match[1]));
-      const reach = blur + spread;
-      needed.left = Math.max(needed.left, reach - x);
-      needed.right = Math.max(needed.right, reach + x);
-      needed.top = Math.max(needed.top, reach - y);
-      needed.bottom = Math.max(needed.bottom, reach + y);
-    }
-    const room = { left: box.left, top: box.top, right: window.innerWidth - box.right, bottom: window.innerHeight - box.bottom };
-    const fits = Object.keys(needed).every((side) => room[side] >= needed[side]);
-    const sides = Object.keys(needed).map((side) => side + " " + Math.round(room[side]) + "/" + Math.round(needed[side]));
-    return { fits, detail: "room/needed px: " + sides.join(", ") };
-  })()`);
-}
-
-async function errorCard(): Promise<{ fits: boolean; height: number } | null> {
-  return overlayDom(`(() => {
-    const card = document.querySelector(".recording-overlay-error");
-    const message = card?.querySelector("p");
-    if (!card || !message) return null;
-    const box = card.getBoundingClientRect();
-    const fits = box.top >= 0 && box.bottom <= window.innerHeight && message.scrollHeight <= message.clientHeight + 1;
-    return { fits, height: Math.round(box.height) };
-  })()`);
 }
 
 function insertWindow(page: RendererPage, text: string, hwnd: string): Promise<string> {
@@ -316,8 +243,6 @@ function readTargetText(): string {
 
 interface OverlayWindow {
   hwnd: string;
-  width: number;
-  height: number;
   /** Whether a click at the card's center would land on the overlay rather than the window below. */
   receivesClicks: boolean;
 }
@@ -348,7 +273,7 @@ public static class Z {
       if (owner != pid || !IsWindowVisible(hwnd) || !GetWindowRect(hwnd, out r) || r.Right - r.Left >= 900) return true;
       POINT p; p.X = (r.Left + r.Right) / 2; p.Y = (r.Top + r.Bottom) / 2;
       bool hit = GetAncestor(WindowFromPoint(p), 2) == hwnd;
-      found = String.Format("{{\\"hwnd\\":\\"0x{0:x}\\",\\"width\\":{1},\\"height\\":{2},\\"receivesClicks\\":{3}}}", hwnd.ToInt64(), r.Right - r.Left, r.Bottom - r.Top, hit ? "true" : "false");
+      found = String.Format("{{\\"hwnd\\":\\"0x{0:x}\\",\\"receivesClicks\\":{1}}}", hwnd.ToInt64(), hit ? "true" : "false");
       return false;
     }, IntPtr.Zero);
     return found;

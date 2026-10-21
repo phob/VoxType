@@ -9,7 +9,6 @@ interface Run {
   model: string;
   text: string;
   failures: string[];
-  knownIssue?: string;
   cleanup: { status: string; reason?: string; rejectedText?: string; durationMs: number } | null;
 }
 
@@ -29,7 +28,7 @@ const report = JSON.parse(readFileSync(join(e2eOutDir, `cleanup-${label}.json`),
 const show = (text: string) => text.replace(/\n/g, "⏎");
 
 for (const result of report.results) {
-  for (const run of result.runs.filter((item) => item.failures.length > 0 && !item.knownIssue && (!model || item.model === model))) {
+  for (const run of result.runs.filter((item) => item.failures.length > 0 && (!model || item.model === model))) {
     console.log(`${run.model} ${result.id}: ${run.failures.join("; ")}`);
     console.log(`  asr:      ${show(result.asrText)}`);
     console.log(`  output:   ${show(run.text)} [${run.cleanup?.status ?? "-"}${run.cleanup?.reason ? `: ${run.cleanup.reason}` : ""}]`);

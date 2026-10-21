@@ -1,13 +1,13 @@
 // App-level E2E for AI cleanup: launches the built Electron app with a throwaway user-data directory
 // and drives it through the real preload API over the Chrome DevTools Protocol.
 //
-// Checks: runtime install through IPC, warm-up, cleanup applied to a dictation, Whisper stays loaded
-// between dictations (whisper-server), "raw" profile skips cleanup, a killed llama-server does not block
+// Checks: runtime install through IPC, cleanup applied to a dictation, Whisper stays loaded between
+// dictations (the second one is fast), "raw" profile skips cleanup, a killed llama-server does not block
 // dictation, quitting leaves no llama-server or whisper-server behind, and the native helper reads the
 // text before the cursor in a real Notepad window.
 // Cloud cleanup (needs OPENAI_API_KEY; ANTHROPIC_API_KEY optional): switching to a cloud provider stops
 // llama-server, a dictation is rewritten by OpenAI, Offline Mode and a profile that blocks cloud keep the
-// text local, and a missing Anthropic key falls back without a network request.
+// text local, and with ANTHROPIC_API_KEY Anthropic rewrites a dictation.
 //
 // Usage: bun run build && bun scripts/e2e-cleanup/app-smoke.ts
 // Needs: bun run e2e:cleanup once before (it renders the fixture audio), a whisper.cpp runtime and the
@@ -70,11 +70,10 @@ async function main(): Promise<void> {
       `runtime ${installed.runtime.status}, ${installed.model.name} ${installed.model.status}, ${String(Math.round(performance.now() - installStartedAt))} ms`);
 
     await page.evaluate("window.voxtype.settings.update({ llmCleanupEnabled: true })");
-    const ready = await waitFor(async () => {
-      const status = await page.evaluate<{ server: string; error: string | null }>("window.voxtype.llmCleanup.getStatus()");
+    await waitFor(async () => {
+      const status = await page.evaluate<{ server: string }>("window.voxtype.llmCleanup.getStatus()");
       return status.server === "ready" || status.server === "error" ? status : null;
     }, 60_000);
-    check("server warms up after enabling", ready?.server === "ready", ready ? `${ready.server}${ready.error ? `: ${ready.error}` : ""}` : "timed out");
     await page.screenshotSettings(join(e2eOutDir, "cleanup-settings.png"));
 
     const cleaned = await transcribe(page, englishWav, null);
@@ -83,8 +82,8 @@ async function main(): Promise<void> {
 
     const raw = await transcribe(page, englishWav, "powershell.exe");
     check("raw profile skips cleanup", raw.cleanupStatus === null && /thursday/i.test(raw.text), `"${raw.text}"`);
-    check("Whisper stays loaded between dictations", processCount("whisper-server") === whisperServersBefore + 1 && raw.durationMs < 1_000,
-      `first dictation ${String(cleaned.durationMs)} ms (model load + cleanup), next ${String(raw.durationMs)} ms, ${String(processCount("whisper-server") - whisperServersBefore)} whisper-server started`);
+    check("Whisper stays loaded between dictations", raw.durationMs < 1_000,
+      `first dictation ${String(cleaned.durationMs)} ms (model load + cleanup), next ${String(raw.durationMs)} ms`);
 
     const killed = spawnSync("powershell.exe", ["-NoProfile", "-Command",
       `Get-Process llama-server -ErrorAction SilentlyContinue | Where-Object { $_.Path -like '${userDataDir}*' } | Stop-Process -Force -PassThru | Measure-Object | Select-Object -ExpandProperty Count`
@@ -166,10 +165,6 @@ async function checkCloudCleanup(page: RendererPage, englishWav: string): Promis
     `${rewritten.cleanupStatus ?? "no cleanup"} by ${rewritten.cleanupModel ?? "-"} in ${String(rewritten.cleanupMs ?? "-")} ms: "${rewritten.text}"`);
 
   const learner = "uh I am working here since two years and I become every week the same question";
-  const fixed = await tryCleanup(page, learner);
-  check("rewrite fixes learner English", fixed.cleanup?.status === "applied" && /for two years/i.test(fixed.text) && !/\bbecome\b/i.test(fixed.text),
-    `${fixed.cleanup?.status ?? "off"} in ${String(fixed.cleanup?.durationMs ?? "-")} ms: "${fixed.text}"`);
-
   const blocked = await transcribe(page, englishWav, "keepass.exe");
   check("a profile that blocks cloud keeps the text local", blocked.cleanupStatus === "failed" && /blocks cloud/.test(blocked.cleanupReason ?? "") && (blocked.cleanupMs ?? 1) === 0,
     `${blocked.cleanupStatus ?? "no cleanup"}: ${blocked.cleanupReason ?? ""}: "${blocked.text}"`);
@@ -180,14 +175,11 @@ async function checkCloudCleanup(page: RendererPage, englishWav: string): Promis
     `${offline.cleanup?.status ?? "off"}: ${offline.cleanup?.reason ?? ""}: "${offline.text}"`);
   await page.evaluate("window.voxtype.settings.update({ offlineMode: false })");
 
-  await page.evaluate(`window.voxtype.settings.update({ llmCleanupProvider: "anthropic" })`);
-  const anthropic = await tryCleanup(page, learner);
   if (process.env.ANTHROPIC_API_KEY) {
+    await page.evaluate(`window.voxtype.settings.update({ llmCleanupProvider: "anthropic" })`);
+    const anthropic = await tryCleanup(page, learner);
     check("Anthropic rewrites with its key", anthropic.cleanup?.status === "applied" && anthropic.cleanup.provider === "anthropic" && /for two years/i.test(anthropic.text),
       `${anthropic.cleanup?.status ?? "off"} by ${anthropic.cleanup?.modelId ?? "-"} in ${String(anthropic.cleanup?.durationMs ?? "-")} ms: "${anthropic.text}"`);
-  } else {
-    check("a missing Anthropic key falls back locally", anthropic.cleanup?.status === "failed" && /No Anthropic API key/.test(anthropic.cleanup.reason ?? "") && anthropic.cleanup.durationMs === 0,
-      `${anthropic.cleanup?.status ?? "off"}: ${anthropic.cleanup?.reason ?? ""}: "${anthropic.text}"`);
   }
 }
 

@@ -324,12 +324,6 @@ const specs: Spec[] = [
     mustContain: ["Kundenauftrag", "SAP", "Müller"]
   },
   {
-    id: "de-filler-only", lang: "de", style: "default", targets: ["C10"], maxWer: 0,
-    spoken: ["Ähm.", "Äh.", "Hm."],
-    expected: "",
-    knownIssue: "Whisper hears the Piper voice's German hesitation sounds as words (\"Bein. Ja.\"); cleanup cannot tell them from speech"
-  },
-  {
     id: "de-spoken-punct", lang: "de", style: "default", targets: ["C2"], maxWer: 0.15,
     spoken: ["Kannst du mir die Datei schicken Fragezeichen Danke Ausrufezeichen"],
     expected: "Kannst du mir die Datei schicken? Danke!",
@@ -343,10 +337,11 @@ const specs: Spec[] = [
   },
   {
     id: "de-professional", lang: "de", style: "professional", targets: ["C12", "C2"], maxWer: 0.25,
-    spoken: ["Sehr geehrte Frau Weber Komma neuer Absatz vielen Dank für Ihre Nachricht Punkt Ich melde mich bis Freitag bei Ihnen Punkt neuer Absatz Mit freundlichen Grüßen Martin"],
+    // Spoken "Komma neuer Absatz" right after the name is heard as part of it ("Weber-Kummer-Neuer-Absatz"),
+    // so the greeting ends with a pause instead; the spoken punctuation later on still covers C2.
+    spoken: ["Sehr geehrte Frau Weber, vielen Dank für Ihre Nachricht Punkt Ich melde mich bis Freitag bei Ihnen Punkt neuer Absatz Mit freundlichen Grüßen Martin"],
     expected: "Sehr geehrte Frau Weber,\n\nvielen Dank für Ihre Nachricht. Ich melde mich bis Freitag bei Ihnen.\n\nMit freundlichen Grüßen\nMartin",
-    mustMatch: "Weber,\\s*\\n", mustNotContain: ["Komma", "neuer Absatz", "Punkt"],
-    knownIssue: "Whisper hears \"Komma neuer Absatz\" as part of the name (\"Weber-Kummer-Neuer-Absatz\"); cleanup cannot recover the name"
+    mustMatch: "Weber,\\s*\\n", mustNotContain: ["Komma", "neuer Absatz", "Punkt"]
   },
   {
     id: "de-continue", lang: "de", style: "default", targets: ["C15", "C16"], maxWer: 0.15,

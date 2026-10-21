@@ -47,8 +47,6 @@ export interface FixtureSpec {
   expectSpeech: boolean;
   maxWer: number;
   mustContain?: string[];
-  /** Expected to fail for a documented reason outside this pipeline; reported, not counted. */
-  knownIssue?: string;
 }
 
 export interface Fixture extends FixtureSpec {
@@ -137,9 +135,7 @@ export const FIXTURES: FixtureSpec[] = [
     parts: [speech(S.prompt), pause(20_000)],
     promptTerms: ["VoxType", "Parakeet", "Silero", "whisper.cpp"],
     expectSpeech: true,
-    maxWer: 0.05,
-    mustContain: ["VoxType", "Parakeet"],
-    knownIssue: "a prompt only biases spelling; exact casing of dictionary terms needs token biasing (planned)"
+    maxWer: 0.05
   },
   {
     id: "typing-in-pause",

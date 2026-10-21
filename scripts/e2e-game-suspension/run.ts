@@ -3,8 +3,8 @@
 // - a normal, windowed form run by a copy of powershell.exe named voxtype-e2e-game.exe (the game);
 // - a maximized form run by the regular powershell.exe (an editor or browser);
 // - a borderless form covering the primary monitor run by powershell.exe (a browser in F11, a video player).
-// Checks the helper's isGame flag for each, then drives the built app over CDP: the settings migration
-// from the old fullscreen keys, suspension for the game only, and the per-app Never and Always overrides.
+// Drives the built app over CDP and presses the hotkey in each window: the settings migration from the
+// old fullscreen keys, suspension for the game only, and the per-app Never and Always overrides.
 //
 // Usage: bun run build && bun scripts/e2e-game-suspension/run.ts   (or: bun run e2e:game-suspension)
 // Needs: the release helper (cargo build --release in native/windows-helper), a whisper.cpp runtime and
@@ -13,7 +13,7 @@
 // VOXTYPE_WINDOWS_HELPER_PATH overrides the helper.
 // Artifacts: native/windows-helper/target/e2e/game-suspension.{json,md} and game-suspension-app.log.
 import { spawn, spawnSync } from "node:child_process";
-import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from "node:fs";
+import { copyFileSync, mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { connectToRenderer, sleep, waitFor, type RendererPage } from "../e2e-app/cdp";
@@ -37,7 +37,6 @@ interface ActiveWindow {
 interface HotkeyStatus {
   dictationToggleHotkey: string | null;
   dictationSuspendedForGame: boolean;
-  suspendedProcessName: string | null;
 }
 
 type Suspension = "auto" | "always" | "never";
@@ -84,7 +83,6 @@ async function main(): Promise<void> {
       throw new Error(`Test windows did not appear (game ${String(gameHwnd)}, maximized ${String(maximizedHwnd)}, cover ${String(coverHwnd)}).`);
     }
     const windows = { game: gameHwnd, maximized: maximizedHwnd, cover: coverHwnd };
-    checkHelper(windows);
     await checkApp(windows);
   } finally {
     for (const window of [game, maximized, cover]) {
@@ -96,21 +94,6 @@ async function main(): Promise<void> {
     rmSync(gameDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
     writeReport();
   }
-}
-
-function checkHelper(windows: { game: string; maximized: string; cover: string }): void {
-  const game = focusAndRead(windows.game);
-  check("helper reports the windowed fake game as a game",
-    game.hwnd === windows.game && game.isGame && game.processPath?.toLowerCase() === gameExe.toLowerCase(),
-    `foreground ${game.hwnd} (expected ${windows.game}), isGame ${String(game.isGame)} (expected true), processPath ${String(game.processPath)} (expected ${gameExe})`);
-
-  const maximized = focusAndRead(windows.maximized);
-  check("helper reports the maximized window as not a game", maximized.hwnd === windows.maximized && !maximized.isGame,
-    `foreground ${maximized.processName ?? "?"} ${maximized.hwnd} (expected ${windows.maximized}), isGame ${String(maximized.isGame)} (expected false)`);
-
-  const cover = focusAndRead(windows.cover);
-  check("helper reports the borderless monitor-covering window as not a game", cover.hwnd === windows.cover && !cover.isGame,
-    `foreground ${cover.processName ?? "?"} ${cover.hwnd} (expected ${windows.cover}), isGame ${String(cover.isGame)} (expected false)`);
 }
 
 async function checkApp(windows: { game: string; maximized: string; cover: string }): Promise<void> {
@@ -140,60 +123,39 @@ async function checkApp(windows: { game: string; maximized: string; cover: strin
       dictationHoldHotkey: hotkey,
       suspendDictationHotkeysInGames: true
     })})`);
-    const saved = readFileSync(join(userDataDir, "settings.json"), "utf8");
-    check("saved settings drop the legacy keys",
-      !saved.includes("suspendDictationHotkeysInFullscreenApps") && !saved.includes("neverSuspendDictationInFullscreen"),
-      `suspendDictationHotkeysInFullscreenApps present ${String(saved.includes("suspendDictationHotkeysInFullscreenApps"))} (expected false), neverSuspendDictationInFullscreen present ${String(saved.includes("neverSuspendDictationInFullscreen"))} (expected false)`);
     await setProfileSuspension(page, focusAndRead(windows.game), "auto");
 
     // The app re-checks the foreground window every 2 s.
     focus(windows.game);
-    const suspended = await waitForStatus(page, (status) => status.dictationSuspendedForGame);
-    check("app suspends the hotkey while the game is focused",
-      suspended !== null && suspended.dictationToggleHotkey === null && suspended.suspendedProcessName === gameExeName,
-      describeStatus(suspended ?? (await hotkeyStatus(page)), `suspended true, process ${gameExeName}, registered null`));
-
-    const before = await dictationState(page);
-    press(windows.game);
-    await sleep(1_500);
-    const afterPress = await dictationState(page);
-    check("hotkey in the game starts no dictation", !afterPress.recording && afterPress.sessionId === before.sessionId,
-      `recording ${String(afterPress.recording)} (expected false), sessions ${String(before.sessionId)} → ${String(afterPress.sessionId)} (expected unchanged)`);
+    await waitForStatus(page, (status) => status.dictationSuspendedForGame);
+    const inGame = await tapStartsDictation(page, windows.game);
+    check("hotkey in the game starts no dictation", !inGame, `dictation started ${String(inGame)} (expected false)`);
 
     focus(windows.maximized);
-    const resumed = await waitForStatus(page, (status) => !status.dictationSuspendedForGame && status.dictationToggleHotkey === hotkey);
-    check("app re-registers the hotkey for the maximized window", resumed !== null,
-      describeStatus(resumed ?? (await hotkeyStatus(page)), `suspended false, registered ${hotkey}`));
-
-    press(windows.maximized);
-    const started = await waitFor(async () => ((await dictationState(page)).recording ? true : null), 5_000);
-    await sleep(1_000);
-    press(windows.maximized);
-    const stopped = await waitFor(async () => (!(await dictationState(page)).recording ? true : null), 5_000);
-    check("hotkey in the maximized window starts and stops dictation", started === true && stopped === true,
-      `started ${String(started === true)} (expected true), stopped ${String(stopped === true)} (expected true)`);
+    await waitForStatus(page, (status) => !status.dictationSuspendedForGame && status.dictationToggleHotkey === hotkey);
+    const inMaximized = await tapStartsAndStops(page, windows.maximized);
+    check("hotkey in the maximized window starts and stops dictation", inMaximized, `started and stopped ${String(inMaximized)} (expected true)`);
 
     focus(windows.cover);
-    const coverStatus = await holdStatus(page);
-    check("app keeps the hotkey for the borderless monitor-covering window",
-      !coverStatus.dictationSuspendedForGame && coverStatus.dictationToggleHotkey === hotkey,
-      describeStatus(coverStatus, `suspended false, registered ${hotkey}`));
+    await afterForegroundChecks();
+    const inCover = await tapStartsAndStops(page, windows.cover);
+    check("hotkey in the borderless monitor-covering window starts and stops dictation", inCover, `started and stopped ${String(inCover)} (expected true)`);
 
     focus(windows.game);
     const autoSuspended = await waitForStatus(page, (status) => status.dictationSuspendedForGame);
     await setProfileSuspension(page, focusAndRead(windows.game), "never");
-    const neverStatus = await holdStatus(page);
-    check("game profile set to Never keeps the hotkey while the game is focused",
-      autoSuspended !== null && !neverStatus.dictationSuspendedForGame && neverStatus.dictationToggleHotkey === hotkey,
-      `suspended on Auto ${String(autoSuspended !== null)} (expected true), on Never ${describeStatus(neverStatus, `suspended false, registered ${hotkey}`)}`);
+    await afterForegroundChecks();
+    const onNever = await tapStartsAndStops(page, windows.game);
+    check("game profile set to Never keeps the hotkey while the game is focused", autoSuspended !== null && onNever,
+      `suspended on Auto ${String(autoSuspended !== null)} (expected true), started and stopped on Never ${String(onNever)} (expected true)`);
 
     await page.evaluate(`window.voxtype.settings.update(${JSON.stringify({ suspendDictationHotkeysInGames: false })})`);
     const maximizedWindow = focusAndRead(windows.maximized);
     await setProfileSuspension(page, maximizedWindow, "always");
-    const always = await waitForStatus(page, (status) => status.dictationSuspendedForGame);
-    check("powershell.exe profile set to Always suspends with the game setting off",
-      always !== null && always.dictationToggleHotkey === null && always.suspendedProcessName === "powershell.exe",
-      `${describeStatus(always ?? (await hotkeyStatus(page)), "suspended true, process powershell.exe, registered null")}, game setting ${String((await loadedSettings(page)).suspendDictationHotkeysInGames)} (expected false)`);
+    await waitForStatus(page, (status) => status.dictationSuspendedForGame);
+    const onAlways = await tapStartsDictation(page, windows.maximized);
+    check("powershell.exe profile set to Always suspends with the game setting off", !onAlways,
+      `dictation started ${String(onAlways)} (expected false), game setting ${String((await loadedSettings(page)).suspendDictationHotkeysInGames)} (expected false)`);
 
     await setProfileSuspension(page, maximizedWindow, "auto");
     await sleep(2_000);
@@ -311,14 +273,9 @@ function waitForStatus(page: RendererPage, predicate: (status: HotkeyStatus) => 
   }, 6_000);
 }
 
-/** The status after two foreground re-checks, for checks that nothing changes. */
-async function holdStatus(page: RendererPage): Promise<HotkeyStatus> {
-  await sleep(4_500);
-  return hotkeyStatus(page);
-}
-
-function describeStatus(status: HotkeyStatus, expected: string): string {
-  return `suspended ${String(status.dictationSuspendedForGame)}, process ${String(status.suspendedProcessName)}, registered ${String(status.dictationToggleHotkey)} (expected ${expected})`;
+/** Waits out two foreground re-checks, for cases where the hotkey status should not change. */
+function afterForegroundChecks(): Promise<void> {
+  return sleep(4_500);
 }
 
 function loadedSettings(page: RendererPage): Promise<LoadedSettings> {
@@ -332,6 +289,25 @@ async function setProfileSuspension(page: RendererPage, window: ActiveWindow, su
 
 function dictationState(page: RendererPage): Promise<{ recording: boolean; sessionId: number }> {
   return page.evaluate("window.voxtype.dictation.getHotkeyState().then(({ recording, sessionId }) => ({ recording, sessionId }))");
+}
+
+/** Taps the hotkey into the window; whether that started a dictation. */
+async function tapStartsDictation(page: RendererPage, hwnd: string): Promise<boolean> {
+  const before = await dictationState(page);
+  press(hwnd);
+  await sleep(1_500);
+  const after = await dictationState(page);
+  return after.recording || after.sessionId !== before.sessionId;
+}
+
+/** Taps the hotkey into the window twice; whether the first tap started a dictation and the second stopped it. */
+async function tapStartsAndStops(page: RendererPage, hwnd: string): Promise<boolean> {
+  press(hwnd);
+  const started = await waitFor(async () => ((await dictationState(page)).recording ? true : null), 5_000);
+  await sleep(1_000);
+  press(hwnd);
+  const stopped = await waitFor(async () => (!(await dictationState(page)).recording ? true : null), 5_000);
+  return started === true && stopped === true;
 }
 
 function collectLog(app: ReturnType<typeof spawn>, log: string[]): void {

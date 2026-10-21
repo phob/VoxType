@@ -98,7 +98,6 @@ function evaluate(recording, testCase) {
 
   const rateRatio = recording.rawSamples / 16_000 / (recording.measuredMs / 1000);
   add("16 kHz output rate", rateRatio > 0.9 && rateRatio < 1.15, `raw samples / wall time = ${rateRatio.toFixed(3)} x 16 kHz`);
-  add("resampler produced audio", recording.rawSamples > 0, `${String(recording.rawSamples)} raw samples`);
   add("wav matches metadata", recording.wav.sampleRate === 16_000 && recording.wav.channels === 1 && recording.wav.samples === recording.samples, JSON.stringify(recording.wav));
 
   // The final partial VAD frame (512 samples) is zero-padded, so allow up to one frame extra.

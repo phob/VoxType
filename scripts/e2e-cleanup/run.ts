@@ -66,7 +66,6 @@ interface ModelRun {
   wer: number;
   failures: string[];
   pass: boolean;
-  knownIssue?: string;
 }
 
 interface FixtureResult {
@@ -184,7 +183,7 @@ async function main(): Promise<void> {
         });
         const modelRun = toModelRun(fixture, engine.name, run);
         result.runs.push(modelRun);
-        console.log(`${modelRun.knownIssue ? "KNOWN" : modelRun.pass ? "PASS " : "FAIL "} ${fixture.id.padEnd(18)} ${run.record.status.padEnd(9)} ${String(run.record.durationMs).padStart(5)} ms  WER ${modelRun.wer.toFixed(2)}  ${modelRun.failures.join("; ")}`);
+        console.log(`${modelRun.pass ? "PASS " : "FAIL "} ${fixture.id.padEnd(18)} ${run.record.status.padEnd(9)} ${String(run.record.durationMs).padStart(5)} ms  WER ${modelRun.wer.toFixed(2)}  ${modelRun.failures.join("; ")}`);
       }
     } finally {
       engine.stop();
@@ -299,8 +298,7 @@ function toModelRun(fixture: ScoredFixture, model: string, run: CleanupRun): Mod
     cachedPromptTokens: run.completion?.cachedPromptTokens ?? null,
     wer: score.wer,
     failures,
-    pass: failures.length === 0 || Boolean(fixture.knownIssue),
-    knownIssue: failures.length > 0 ? fixture.knownIssue : undefined
+    pass: failures.length === 0
   };
 }
 
@@ -407,7 +405,7 @@ function renderMarkdown(report: {
 
   lines.push("", "## Per fixture", "", `| Fixture | Targets | ASR only | ${report.models.map((summary) => summary.model).join(" | ")} |`, `|---|---|---|${report.models.map(() => "---|").join("")}`);
   for (const result of report.results) {
-    const cells = result.runs.map((run) => `${run.knownIssue ? "known issue" : run.pass ? "pass" : "**fail**"} ${run.wer.toFixed(2)} (${run.cleanup?.status ?? "-"})`);
+    const cells = result.runs.map((run) => `${run.pass ? "pass" : "**fail**"} ${run.wer.toFixed(2)} (${run.cleanup?.status ?? "-"})`);
     lines.push(`| ${result.id} | ${result.targets.join(" ")} | ${result.asrFailures.length === 0 ? "pass" : "fail"} ${result.asrWer.toFixed(2)} | ${cells.join(" | ")} |`);
   }
 
@@ -418,7 +416,7 @@ function renderMarkdown(report: {
     for (const run of result.runs) {
       const rejected = run.cleanup?.status === "rejected" ? ` — rejected: ${run.cleanup.reason ?? ""}: ${inline(run.cleanup.rejectedText ?? "")}` : "";
       const failed = run.cleanup?.status === "failed" ? ` — failed: ${run.cleanup.reason ?? ""}` : "";
-      lines.push(`- ${run.model}: ${inline(run.text)}${rejected}${failed}${run.failures.length > 0 ? ` — **${run.failures.join("; ")}**` : ""}${run.knownIssue ? ` (known issue: ${run.knownIssue})` : ""}`);
+      lines.push(`- ${run.model}: ${inline(run.text)}${rejected}${failed}${run.failures.length > 0 ? ` — **${run.failures.join("; ")}**` : ""}`);
     }
     lines.push("");
   }

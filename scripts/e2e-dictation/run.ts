@@ -8,8 +8,8 @@
 // Needs a release build of the native helper and a downloaded whisper.cpp runtime and model (read
 // from the VoxType user data directory or VOXTYPE_WHISPER_CLI / VOXTYPE_WHISPER_MODEL).
 //
-// --corpus user-history replays your own saved dictations (local only) and scores them against the
-// transcript you accepted at the time; that text is not ground truth, so review differences.
+// --corpus user-history replays your own saved dictations (local only) and compares them with the
+// transcript you accepted at the time; that text is not ground truth, so review differences. It never fails.
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { defaultSpeechChunking } from "../../src/main/speech-audio";
@@ -66,7 +66,7 @@ async function main(): Promise<void> {
       const result = await currentPipeline({ ...fixture, segmentation, chunking }, context);
       const score = scoreFixture(fixture, result);
       results.push({ id: fixture.id, targets: fixture.targets, durationMs: fixture.durationMs, reference: fixture.reference, ...result, ...score });
-      console.log(`${score.knownIssue ? "KNOWN" : score.pass ? "PASS " : "FAIL "} ${fixture.id.padEnd(18)} WER ${score.wer.toFixed(3)}  ${score.failures.join("; ")}`);
+      console.log(`${score.pass ? "PASS " : "FAIL "} ${fixture.id.padEnd(18)} WER ${score.wer.toFixed(3)}  ${score.failures.join("; ")}`);
     }
   } finally {
     context.whisperServer?.server.stop();
@@ -93,7 +93,8 @@ async function main(): Promise<void> {
   const baselinePath = join(outDir, "dictation-baseline.json");
   const baseline = corpus === "synthetic" && engine === "whisper" && existsSync(baselinePath) ? (JSON.parse(readFileSync(baselinePath, "utf8")) as Report) : null;
   writeFileSync(`${reportBase}.md`, renderMarkdown(report, baseline));
-  process.exitCode = report.passed === report.total ? 0 : 1;
+  // History references are what was accepted at the time, not ground truth; that run is for review and never fails.
+  process.exitCode = corpus === "user-history" || report.passed === report.total ? 0 : 1;
   console.log(`\n${String(report.passed)}/${String(report.total)} passed, mean WER ${report.meanWer.toFixed(3)}, sentence ends ${String(report.punctuation?.found)}/${String(report.punctuation?.expected)}\nReport: ${reportBase}.md`);
 }
 
@@ -152,7 +153,7 @@ function scoreFixture(fixture: Fixture, result: PipelineResult) {
   const hallucinations = findHallucinations(fixture, result.text);
   failures.push(...hallucinations);
 
-  return { wer, punctuation, hallucinations, failures, pass: failures.length === 0 || Boolean(fixture.knownIssue), knownIssue: failures.length > 0 ? fixture.knownIssue : undefined };
+  return { wer, punctuation, hallucinations, failures, pass: failures.length === 0 };
 }
 
 function findHallucinations(fixture: Fixture, text: string): string[] {
@@ -227,7 +228,7 @@ function renderMarkdown(data: Report, baseline: Report | null): string {
   ];
   for (const result of data.results) {
     lines.push(
-      `| ${result.id} | ${result.targets.join(" ")} | ${result.knownIssue ? "known issue" : result.pass ? "yes" : "**no**"} | ${result.wer.toFixed(3)} | ${(result.durationMs / 1000).toFixed(1)} s | ${(result.audioSentMs / 1000).toFixed(1)} s | ${String(result.chunks)} | ${String(Math.round(result.whisperMs))} | ${result.failures.join("; ").replace(/\|/g, "\\|")} |`
+      `| ${result.id} | ${result.targets.join(" ")} | ${result.pass ? "yes" : "**no**"} | ${result.wer.toFixed(3)} | ${(result.durationMs / 1000).toFixed(1)} s | ${(result.audioSentMs / 1000).toFixed(1)} s | ${String(result.chunks)} | ${String(Math.round(result.whisperMs))} | ${result.failures.join("; ").replace(/\|/g, "\\|")} |`
     );
   }
   if (baseline) {
