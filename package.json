@@ -74,7 +74,7 @@
     "artifactName": "${productName}-Setup-${version}-${arch}.${ext}"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.132.0",
+    "@anthropic-ai/sdk": "^1.0.0",
     "lucide-react": "^1.11.0",
     "react": "latest",
     "react-dom": "latest"
